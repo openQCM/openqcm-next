@@ -7,7 +7,8 @@ Conventional Commits. Versions are marked by Git tags.
 
 ### Added
 - **Serial connection as a separate feature (Step 1)**: dedicated **Connect / Disconnect**
-  button (in the Start/Stop row), decoupled from the operation-mode selection.
+  and **Refresh** buttons (in the Start/Stop row), decoupled from the operation-mode selection.
+  - **Refresh** rescans connected devices (serial ports) on demand; disabled while connected.
   - Multi-instance protection via a per-port lock file (`fcntl` on Unix, skipped on
     Windows where COM ports are natively exclusive).
   - On connect the port is validated (open/close probe) and the **firmware version

@@ -1667,11 +1667,39 @@ class MainWindow(QtGui.QMainWindow):
             "QPushButton { background-color: rgb(0, 142, 192); color: white; border: none; padding: 5px; }"
             "QPushButton:hover { background-color: rgb(0, 128, 173); }"
             "QPushButton:disabled { background-color: rgb(200, 200, 200); color: rgb(120, 120, 120); }")
+        # Refresh button: rescan connected devices (serial ports)
+        self.ui.pButton_Refresh = QtGui.QPushButton(self.ui.centralwidget)
+        self.ui.pButton_Refresh.setObjectName("pButton_Refresh")
+        self.ui.pButton_Refresh.setText("Refresh")
+        self.ui.pButton_Refresh.setStyleSheet(
+            "QPushButton { background-color: rgb(0, 142, 192); color: white; border: none; padding: 5px; }"
+            "QPushButton:hover { background-color: rgb(0, 128, 173); }"
+            "QPushButton:disabled { background-color: rgb(200, 200, 200); color: rgb(120, 120, 120); }")
+        self.ui.pButton_Refresh.clicked.connect(self._refresh_ports)
+
+        # Placement is provisional (Refresh + Connect first in the Start/Stop row);
+        # the optimized GUI layout comes later.
         self.ui.horizontalLayout.insertWidget(0, self.ui.pButton_Connect)
+        self.ui.horizontalLayout.insertWidget(0, self.ui.pButton_Refresh)
         self.ui.pButton_Connect.clicked.connect(self._toggle_serial_connection)
 
         # Initial connection status
         self.ui.label_COM_status.setText("Disconnected")
+
+    def _refresh_ports(self):
+        # Rescan connected devices (serial ports) and repopulate the port combo.
+        # Disabled while connected (no rescan on a held port).
+        if self._serial_connected:
+            return
+        source = self._get_source()
+        ports = self.worker.get_source_ports(source)
+        self.ui.cBox_Port.clear()
+        if ports is not None:
+            self.ui.cBox_Port.addItems(ports)
+        n = len(ports) if ports is not None else 0
+        self.ui.label_COM_status.setText("Disconnected - {} port(s) found".format(n))
+        print(TAG, "Serial ports refreshed: {} found".format(n))
+        Log.i(TAG, "Serial ports refreshed: {} found".format(n))
 
     def _get_lock_file_path(self, port):
         # Build a filesystem-safe lock-file path for the given port
@@ -1740,6 +1768,7 @@ class MainWindow(QtGui.QMainWindow):
             self._connected_port = port
             self.ui.pButton_Connect.setText("Disconnect")
             self.ui.cBox_Port.setEnabled(False)
+            self.ui.pButton_Refresh.setEnabled(False)
             self.ui.pButton_Start.setEnabled(True)
             self.ui.label_COM_status.setText("Connected: {}".format(port))
             print(TAG, "Connected to serial port {}".format(port))
@@ -1753,6 +1782,7 @@ class MainWindow(QtGui.QMainWindow):
             self._connected_port = None
             self.ui.pButton_Connect.setText("Connect")
             self.ui.cBox_Port.setEnabled(True)
+            self.ui.pButton_Refresh.setEnabled(True)
             self.ui.pButton_Start.setEnabled(False)
             self.ui.label_COM_status.setText("Disconnected")
             print(TAG, "Disconnected from serial port")
