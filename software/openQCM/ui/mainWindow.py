@@ -29,6 +29,9 @@ from openQCM.common.architecture import Architecture,OSType
 import numpy as np
 import sys
 import serial
+import os
+import tempfile
+import re
 
 import time
 from numpy import loadtxt
@@ -1349,7 +1352,8 @@ class MainWindow(QtGui.QMainWindow):
     def _enable_ui(self, enabled):
 
         #:param enabled: The value to be set for the UI elements :type enabled: bool
-        self.ui.cBox_Port.setEnabled(enabled)
+        # VER 0.1.6b keep the port combo disabled while a connection is active
+        self.ui.cBox_Port.setEnabled(enabled and not self._serial_connected)
         
         # VER 0.1.6 not enable the combo box in calibration peak detection mode  
         if ( self._get_source() == SourceType.calibration):
@@ -1358,7 +1362,8 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.cBox_Speed.setEnabled(not enabled)
             
         # self.ui.cBox_Speed.setEnabled(enabled)
-        self.ui.pButton_Start.setEnabled(enabled)
+        # VER 0.1.6b Start requires an active serial connection
+        self.ui.pButton_Start.setEnabled(enabled and self._serial_connected)
 
         # TODO delete or implement export txt file
         # self.ui.chBox_export.setEnabled(enabled)
@@ -1643,9 +1648,123 @@ class MainWindow(QtGui.QMainWindow):
         #self._timer_plot.timeout.connect(self._update_plot) 
 
     ###########################################################################
+    # Serial connection managed as a separate feature (Connect/Disconnect)
+    # VER 0.1.6b - Step 1: explicit, port-locked connection decoupled from the
+    # operation mode. The persistent exclusive handle (_serial_lock) plus the
+    # migration of GUI queries and acquisition hand-off are a later step.
+    ###########################################################################
+    def _setup_serial_connection_ui(self):
+        # Serial connection state
+        self._serial_connected = False
+        self._connected_port = None
+        self._lock_file = None
+
+        # Dedicated Connect/Disconnect button, placed first in the Start/Stop row
+        self.ui.pButton_Connect = QtGui.QPushButton(self.ui.centralwidget)
+        self.ui.pButton_Connect.setObjectName("pButton_Connect")
+        self.ui.pButton_Connect.setText("Connect")
+        self.ui.pButton_Connect.setStyleSheet(
+            "QPushButton { background-color: rgb(0, 142, 192); color: white; border: none; padding: 5px; }"
+            "QPushButton:hover { background-color: rgb(0, 128, 173); }"
+            "QPushButton:disabled { background-color: rgb(200, 200, 200); color: rgb(120, 120, 120); }")
+        self.ui.horizontalLayout.insertWidget(0, self.ui.pButton_Connect)
+        self.ui.pButton_Connect.clicked.connect(self._toggle_serial_connection)
+
+        # Initial connection status
+        self.ui.label_COM_status.setText("Disconnected")
+
+    def _get_lock_file_path(self, port):
+        # Build a filesystem-safe lock-file path for the given port
+        safe_port_name = re.sub(r'[^A-Za-z0-9_.-]', '_', port)
+        lock_dir = os.path.join(tempfile.gettempdir(), 'openqcm_locks')
+        os.makedirs(lock_dir, exist_ok=True)
+        return os.path.join(lock_dir, safe_port_name + '.lock')
+
+    def _acquire_port_lock(self, port):
+        # Level-1 lock (multi-instance protection). Windows COM ports are
+        # natively exclusive, so the file lock is only needed on Unix.
+        if sys.platform == 'win32':
+            return True
+        import fcntl
+        lock_path = self._get_lock_file_path(port)
+        try:
+            self._lock_file = open(lock_path, 'w')
+            fcntl.flock(self._lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self._lock_file.write(str(os.getpid()))
+            self._lock_file.flush()
+            return True
+        except (IOError, OSError):
+            if self._lock_file:
+                self._lock_file.close()
+                self._lock_file = None
+            return False
+
+    def _release_port_lock(self):
+        if sys.platform == 'win32':
+            return
+        if self._lock_file:
+            try:
+                import fcntl
+                fcntl.flock(self._lock_file.fileno(), fcntl.LOCK_UN)
+                self._lock_file.close()
+            except Exception as e:
+                print(TAG, "Warning: error releasing port lock: {}".format(str(e)))
+            self._lock_file = None
+
+    def _toggle_serial_connection(self):
+        # Connect or disconnect the serial port as an explicit action,
+        # independent from the selected operation mode.
+        if not self._serial_connected:
+            # ---- CONNECT ----
+            port = self.ui.cBox_Port.currentText()
+            if not port:
+                PopUp.warning(self, Constants.app_title, "No serial port selected!")
+                return
+            # Level 1: multi-instance lock file
+            if not self._acquire_port_lock(port):
+                PopUp.warning(self, Constants.app_title,
+                              "Port [{}] is already in use by another openQCM instance!".format(port))
+                return
+            # Validate the port can actually be opened (probe, then release it)
+            try:
+                probe = serial.Serial(port, timeout=1)
+                probe.close()
+            except Exception as e:
+                self._release_port_lock()
+                PopUp.warning(self, Constants.app_title,
+                              "Unable to open port [{}]:\n{}".format(port, str(e)))
+                print(TAG, "Connection failed: {}".format(str(e)))
+                return
+            # Connected (Standby)
+            self._serial_connected = True
+            self._connected_port = port
+            self.ui.pButton_Connect.setText("Disconnect")
+            self.ui.cBox_Port.setEnabled(False)
+            self.ui.pButton_Start.setEnabled(True)
+            self.ui.label_COM_status.setText("Connected: {}".format(port))
+            print(TAG, "Connected to serial port {}".format(port))
+            Log.i(TAG, "Connected to serial port {}".format(port))
+            # Firmware version check on connection (moved here from app startup)
+            self.get_firmware_version(True)
+        else:
+            # ---- DISCONNECT ----
+            self._release_port_lock()
+            self._serial_connected = False
+            self._connected_port = None
+            self.ui.pButton_Connect.setText("Connect")
+            self.ui.cBox_Port.setEnabled(True)
+            self.ui.pButton_Start.setEnabled(False)
+            self.ui.label_COM_status.setText("Disconnected")
+            print(TAG, "Disconnected from serial port")
+            Log.i(TAG, "Disconnected from serial port")
+
+    ###########################################################################
     # Configures the connections between signals and UI elements
     ###########################################################################
     def _configure_signals(self):
+
+        # VER 0.1.6b set up the serial connection feature (button + state)
+        self._setup_serial_connection_ui()
 
         self.ui.pButton_Start.clicked.connect(self.start)
         self.ui.pButton_Stop.clicked.connect(self.stop)

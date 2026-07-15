@@ -3,6 +3,31 @@
 Reconstruction of the openQCM NEXT development history. Format inspired by
 Conventional Commits. Versions are marked by Git tags.
 
+## [Unreleased] — `main`
+
+### Added
+- **Serial connection as a separate feature (Step 1)**: dedicated **Connect / Disconnect**
+  button (in the Start/Stop row), decoupled from the operation-mode selection.
+  - Multi-instance protection via a per-port lock file (`fcntl` on Unix, skipped on
+    Windows where COM ports are natively exclusive).
+  - On connect the port is validated (open/close probe) and the **firmware version
+    check runs here** (moved from the blind call at application startup).
+  - **START is now gated on an active connection** (`_enable_ui`), and the port
+    combo box is disabled while connected. Connection status shown in `label_COM_status`.
+  - Note: the persistent exclusive handle (`_serial_lock`), migration of the ~8 GUI
+    serial queries, and the acquisition hand-off (release/re-acquire around START/STOP)
+    are deferred to Step 2.
+
+### Changed
+- **Entry point unified into `run.py`**: added a thin `software/run.py` launcher and
+  removed the duplicate root `software/app.py`; the `OPENQCM` class now lives only in
+  `openQCM/app.py`. Launch with `python run.py` (or `python -m openQCM`).
+- Firmware version check no longer runs automatically at startup; it runs on connect.
+
+### Docs
+- Rewrote `README.md` with a full structure (badges, TOC, features, architecture,
+  version history, relationship to openQCM Q-1, roadmap), inspired by openQCM Q-1.
+
 ## [v0.1.6G-test] — branch `impedance-analysis` (from v0.1.6-dev)
 - Alternative impedance analysis via **conductance spectrum G(f)** derived from
   the AD8302 MAG/PHASE signals (software post-processing, same firmware).

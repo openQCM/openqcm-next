@@ -84,12 +84,10 @@ class OPENQCM:
             # VER 0.1.2
             # execute the application in PyQt or PySide style 
             if 'PyQt5' in sys.modules:
-                # VER 0.1.4  get device firmware version 
-                win.get_firmware_version(True)
+                # VER 0.1.6b firmware check moved to the serial connection
+                # (see MainWindow._toggle_serial_connection)
                 self._app.exec()
-            else: 
-                # VER 0.1.4  get device firmware version 
-                win.get_firmware_version(True)
+            else:
                 self._app.exec_()
                 
             print(TAG, "Finishing Application...")
