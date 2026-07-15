@@ -52,7 +52,7 @@ A **Quartz Crystal Microbalance (QCM)** measures mass changes and material prope
 
    ```bash
    cd software
-   python app.py          # or: python -m openQCM
+   python run.py          # or: python -m openQCM
    ```
 
 4. In the GUI, select the serial port and connect to the device.
@@ -149,7 +149,7 @@ Log out and back in for the change to take effect.
 
 ```bash
 cd software
-python app.py          # or: python -m openQCM
+python run.py          # or: python -m openQCM
 ```
 
 ---
@@ -159,8 +159,8 @@ python app.py          # or: python -m openQCM
 ```text
 openqcm-next/
 ├── software/                 # Python application (openQCM package)
-│   ├── app.py                # Application entry point
-│   └── openQCM/
+│   ├── run.py                # Application entry point (thin wrapper)
+│   └── openQCM/              # main package (app.py holds the OPENQCM class)
 │       ├── core/             # constants, worker (multiprocessing), ringBuffer
 │       ├── processors/       # Serial, Multiscan, Calibration, Parser, ...
 │       ├── ui/               # mainWindow, generated UI, dialogs
