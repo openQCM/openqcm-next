@@ -6,6 +6,9 @@ Conventional Commits. Versions are marked by Git tags.
 ## [Unreleased] — `main`
 
 ### Added
+- **Pinned dependencies for reproducible setup**: `software/requirements.txt` (pip) and
+  `software/environment.yml` (conda). Tested on Python 3.9.12; PyQt5 pinned to 5.9.2
+  (the GUI relies on the classic QtGui widget namespace).
 - **Serial connection as a separate feature (Step 1)**: dedicated **Connect / Disconnect**
   and **Refresh** buttons (in the Start/Stop row), decoupled from the operation-mode selection.
   - **Refresh** rescans connected devices (serial ports) on demand; disabled while connected.

@@ -123,16 +123,29 @@ A legacy `FindPeak` routine remains available as a fallback.
 
 ### Requirements
 
-- Python 3 (CPython)
+- Python 3.9
 - An openQCM NEXT device connected via USB
 
-### Dependencies
+### Recommended: conda environment (reproducible)
 
 ```bash
-pip install PyQt5 pyserial pyqtgraph numpy scipy matplotlib pandas progressbar2
+cd software
+conda env create -f environment.yml
+conda activate openqcm-next
+python run.py
 ```
 
-> A pinned dependency file (`requirements.txt` / `environment.yml`) is not yet provided — see [Roadmap](#roadmap). For now, recent versions of the packages above are known to work.
+### Alternative: pip
+
+```bash
+cd software
+pip install -r requirements.txt
+```
+
+> **Note:** PyQt5 is pinned to **5.9.2** — the GUI uses the classic `QtGui` widget
+> namespace, and newer PyQt5 (≥5.11) moves widgets to `QtWidgets` and would break it.
+> On modern systems (including Apple Silicon) the conda environment is the more
+> reliable route; pip may not find PyQt5 5.9.2.
 
 ### Linux — serial port permissions
 
@@ -250,7 +263,6 @@ The `impedance-analysis` branch is experimental and not merged into `main`. Its 
 
 Selected planned work (non-exhaustive):
 
-- Provide pinned dependencies (`requirements.txt` / `environment.yml`) for reproducible setup.
 - Harden the **firmware version check** for older firmware (range-priming + reply validation).
 - Merge the `impedance-analysis` feature once stabilized (make the conductance method selectable rather than hardwired).
 - Implement the exact complex-impedance conductance formula (currently the approximate form is used).

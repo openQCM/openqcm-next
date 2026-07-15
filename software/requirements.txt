@@ -1,0 +1,16 @@
+# openQCM NEXT - Python dependencies (tested on Python 3.9.12)
+#
+# IMPORTANT: PyQt5 is pinned to 5.9.2 on purpose. The GUI code uses the classic
+# "QtGui" widget namespace (e.g. QtGui.QMainWindow); PyQt5 >= 5.11 moves widgets
+# to QtWidgets and would break the interface. On modern machines 5.9.2 can be
+# hard to install through pip -- the conda environment (environment.yml) is the
+# recommended, fully reproducible setup.
+
+PyQt5==5.9.2
+pyserial==3.5
+pyqtgraph==0.11.0
+numpy==1.21.5
+scipy==1.7.3
+matplotlib==3.5.1
+pandas==1.4.2
+progressbar==2.5
