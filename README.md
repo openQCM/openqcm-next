@@ -8,7 +8,7 @@
 
 An open-source Python application to display, process, and store data in real-time from the openQCM NEXT Quartz Crystal Microbalance with Dissipation monitoring. The software tracks resonance frequency and dissipation variations through real-time analysis of the resonance curve, driving a **Teensy 4.0** microcontroller and an **AD8302** gain/phase detector over USB.
 
-> This repository is a monorepo (software + firmware + docs) with a **reconstructed development history**: the chronology is expressed through commits and tags. The openQCM NEXT software shares its lineage with [openQCM Q-1](https://github.com/openQCM/openQCM_Q-1) — see [Relationship to openQCM Q-1](#relationship-to-openqcm-q-1).
+> This repository is a monorepo (software + firmware + docs) with a **reconstructed development history**: the chronology is expressed through commits and tags.
 
 ---
 
@@ -26,7 +26,6 @@ An open-source Python application to display, process, and store data in real-ti
 - [Repository Structure](#repository-structure)
 - [Architecture](#architecture)
 - [Branches and Version History](#branches-and-version-history)
-- [Relationship to openQCM Q-1](#relationship-to-openqcm-q-1)
 - [Roadmap](#roadmap)
 - [License](#license)
 - [Acknowledgements](#acknowledgements)
@@ -209,12 +208,6 @@ The `impedance-analysis` branch is experimental and not merged into `main`. Its 
 
 ---
 
-## Relationship to openQCM Q-1
-
-The openQCM NEXT software originates from the codebase of **[openQCM Q-1](https://github.com/openQCM/openQCM_Q-1)** and shares its overall architecture (multiprocessing acquisition, PyQtGraph plotting, two-phase peak detection). The two products have since evolved in parallel. Improvements matured on Q-1 — such as robust firmware version/serial queries, refined plot interaction, and cross-platform packaging — are candidate features to port into openQCM NEXT (tracked under [Roadmap](#roadmap)).
-
----
-
 ## Roadmap
 
 Selected planned work (non-exhaustive):
@@ -245,5 +238,4 @@ Developed by the [openQCM Team](https://openqcm.com/) at [Novaetech S.r.l.](http
 
 - **Website**: [openqcm.com](https://openqcm.com/)
 - **Repository**: [github.com/openQCM/openqcm-next](https://github.com/openQCM/openqcm-next)
-- **Related project**: [github.com/openQCM/openQCM_Q-1](https://github.com/openQCM/openQCM_Q-1)
 - **Contact**: [info@openqcm.com](mailto:info@openqcm.com)

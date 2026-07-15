@@ -27,7 +27,8 @@ Conventional Commits. Versions are marked by Git tags.
 
 ### Docs
 - Rewrote `README.md` with a full structure (badges, TOC, features, architecture,
-  version history, relationship to openQCM Q-1, roadmap), inspired by openQCM Q-1.
+  version history, roadmap).
+- Removed internal development references from the README.
 
 ## [v0.1.6G-test] — branch `impedance-analysis` (from v0.1.6-dev)
 - Alternative impedance analysis via **conductance spectrum G(f)** derived from
