@@ -1,0 +1,54 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# === OS / editor ===
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# === Instrument runtime output ===
+logged_data/
+*.log
+*_multi_.csv
+
+# === Raw sweep data: examples and test datasets ===
+# NB: the FUNCTIONAL calibration files (software/openQCM/Calibration_5MHz.txt,
+#     Calibration_10MHz.txt) remain versioned.
+software/openQCM/sweep_data/*.txt
+research/peak-detection/**/*.txt
+
+# === Backups / working copies / dead code ===
+backup/
+_backup/
+_dev/
+*.bak
+*.bkp
+*.orig
+*.BACKUP
+*.cp
+*.AI
+*_cp.py
+
+# === Firmware: build intermediates only (binary tools ARE included) ===
+build/
+*.elf
+*.eep
+*.lst
+*.sym
+
+# === Archives ===
+*.zip
+*.tar
+*.gz
+*.7z
