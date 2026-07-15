@@ -53,6 +53,11 @@ class Worker:
         self._queue3 = Queue()
         self._queue4 = Queue()
         self._queue5 = Queue()
+        
+        # VER 0.1.6 init TEC current queue
+        self._queueCurrentTec = Queue()
+       
+        
         self._queue6 = Queue()
         
         self._queue_F_multi = Queue()
@@ -83,6 +88,10 @@ class Worker:
         self._d1_buffer = None  # Frequency     type RingBuffer
         self._d2_buffer = None  # Dissipation   type RingBuffer
         self._d3_buffer = None  # Temperature   type RingBuffer
+        
+        # VER 0.1.6 init the variable for TEC current 
+        self._data_current_tec_buffer = None # TEC current  type RingBuffer
+        
         self._t1_buffer = None  # time (frequency) type RingBuffer
         self._t2_buffer = None  # time (dissipation) type RingBuffer
         self._t3_buffer = None  # time (temperature) type RingBuffer
@@ -187,8 +196,13 @@ class Worker:
         self.reset_buffers(self._samples)
         
         # Instantiates process
-        self._parser_process = ParserProcess(self._queue1, self._queue2, self._queue3, self._queue4, self._queue5, self._queue6, 
+# =============================================================================
+#         self._parser_process = ParserProcess(self._queue1, self._queue2, self._queue3, self._queue4, self._queue5, self._queue6, 
+#                                              self._queue_F_multi, self._queue_D_multi, self._queue_A_multi, self._queue_P_multi)
+# =============================================================================
+        self._parser_process = ParserProcess(self._queue1, self._queue2, self._queue3, self._queue4, self._queue5, self._queueCurrentTec, self._queue6, 
                                              self._queue_F_multi, self._queue_D_multi, self._queue_A_multi, self._queue_P_multi)
+        
         
         # GET and SET SOURCE TYPE 
         # ---------------------------------------------------------------------
@@ -217,6 +231,7 @@ class Worker:
                 SG_window_size, 
                 spline_points, 
                 spline_factor) = self._acquisition_process.get_frequencies(self._samples)
+               
 # =============================================================================
 #                
 #                #print(TAG, "Quartz Crystal Sensor installed: {}".format(self._QCS_on))
@@ -243,13 +258,24 @@ class Worker:
                
             # CALIBRATION
             elif self._source == SourceType.calibration:
-               print("")
-               print(TAG, "MAIN CALIBRATION INFORMATION")
-               print(TAG, "Calibration frequency start:  {}Hz".format(Constants.calibration_frequency_start))
-               print(TAG, "Calibration frequency stop:  {}Hz".format(Constants.calibration_frequency_stop))
-               print(TAG, "Frequency range: {}Hz".format(Constants.calibration_frequency_stop-Constants.calibration_frequency_start))
-               print(TAG, "Number of samples: {}".format(Constants.calibration_default_samples-1))
-               print(TAG, "Sample rate: {}Hz".format(Constants.calibration_fStep))
+# =============================================================================
+#                print("")
+#                print(TAG, "MAIN CALIBRATION INFORMATION")
+#                print(TAG, "Calibration frequency start:  {}Hz".format(Constants.calibration_frequency_start))
+#                print(TAG, "Calibration frequency stop:  {}Hz".format(Constants.calibration_frequency_stop))
+#                print(TAG, "Frequency range: {}Hz".format(Constants.calibration_frequency_stop-Constants.calibration_frequency_start))
+#                print(TAG, "Number of samples: {}".format(Constants.calibration_default_samples-1))
+#                print(TAG, "Sample rate: {}Hz".format(Constants.calibration_fStep))
+# =============================================================================
+
+                # VER 0.1.6 just change peak detection not calibration !
+                print("")
+                print(TAG, "Peak Detection Parameters")
+                print(TAG, "Peak Detection frequency start:  {}Hz".format(Constants.calibration_frequency_start))
+                print(TAG, "Peak Detection frequency stop:  {}Hz".format(Constants.calibration_frequency_stop))
+                print(TAG, "Frequency range: {}Hz".format(Constants.calibration_frequency_stop-Constants.calibration_frequency_start))
+                print(TAG, "Number of samples: {}".format(Constants.calibration_default_samples-1))
+                print(TAG, "Sample rate: {}Hz".format(Constants.calibration_fStep))
                
                
             # START MULTI SCAN FREQUENCY PROCESS 
@@ -318,8 +344,8 @@ class Worker:
             sleep(1)
 
         # TODO check if it is necessary to terminate parser
-        self._parser_process.stop()            
-
+        self._parser_process.stop()
+        
         print(TAG, 'Running processes stopped...')
         print(TAG, 'Processes finished')
         Log.i(TAG, "Running processes stopped...")
@@ -368,6 +394,12 @@ class Worker:
         # queue3 for elaborated data: Temperature
         while not self._queue5.empty():
             self._queue_data5(self._queue5.get(False)) 
+            
+    # VER 0.1.6 consume TEC current date queue        
+    def consume_queueCurrentTec(self): 
+        # queue3 for elaborated data: current TEC
+        while not self._queueCurrentTec.empty():
+            self._queue_data_CurrentTec(self._queueCurrentTec.get(False))        
     
     def consume_queue6(self):
         # queue3 for elaborated data: errors
@@ -553,6 +585,12 @@ class Worker:
         
         # Data Storage in csv and/or txt file 
         self.store_data()
+        
+    # VER 0.1.6 TEC CURRENT queue data define  
+    def _queue_data_CurrentTec(self, data):
+        # append new TEC current data to the ring buffer 
+        self._data_current_tec = data[1]
+        self._data_current_tec_buffer.append(data[1])
     
         #####
     def _queue_data6(self,data):
@@ -604,6 +642,10 @@ class Worker:
         #:return: float list.
         return self._d3_buffer.get_all()
     
+    # VER 0.1.6 TEC current get all value of ring buffer 
+    def get_data_current_tec_buffer(self):
+        return self._data_current_tec_buffer.get_all()
+    
     ##### Gets time buffers
     def get_t3_buffer(self):
         #:return: float list.
@@ -612,7 +654,7 @@ class Worker:
     ##### Gets serial error
     def get_ser_error(self):
         #:return: float list.
-        return self._ser_error1,self._ser_error2, self._control_k, self._ser_err_usb, self._overtone_number
+        return self._ser_error1, self._ser_error2, self._control_k, self._ser_err_usb, self._overtone_number
     
     # VER 0.1.3
     # get TEC status and pass the value to the main 
@@ -859,6 +901,10 @@ class Worker:
         self._d1_store = 0
         self._d2_store = 0
         self._d3_store = 0
+        
+        # VER 0.1.6 init current value 
+        self._data_current_tec = 0
+        
         self._t1_store = 0
         self._t2_store = 0
         self._t3_store = 0
@@ -870,6 +916,10 @@ class Worker:
         self._d1_buffer = RingBuffer(Constants.ring_buffer_samples)  # Resonance frequency 
         self._d2_buffer = RingBuffer(Constants.ring_buffer_samples)  # Dissipation
         self._d3_buffer = RingBuffer(Constants.ring_buffer_samples)  # temperature
+        
+        # VER 0.1.6 init TEC current ring buffer
+        self._data_current_tec_buffer = RingBuffer(Constants.ring_buffer_samples) # current TEC 
+        
         self._t1_buffer = RingBuffer(Constants.ring_buffer_samples)  # time (Resonance frequency)
         self._t2_buffer = RingBuffer(Constants.ring_buffer_samples)  # time (Dissipation)
         self._t3_buffer = RingBuffer(Constants.ring_buffer_samples)  # time (temperature)
@@ -941,7 +991,13 @@ class Worker:
         :return: frequency range :type readFREQ: float list.
         """
         if self._source == SourceType.serial:
-            return self._readFREQ
+# =============================================================================
+#             return self._readFREQ
+# =============================================================================
+            # VER 0.1.6 TODO return current frequency range and pass to main 
+            freq_range_RT = self._acquisition_process.get_freq_range_RT()
+            return freq_range_RT
+            
         
         elif self._source == SourceType.multiscan:
             return self._readFREQ

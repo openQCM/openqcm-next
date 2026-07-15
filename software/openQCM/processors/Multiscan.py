@@ -460,6 +460,9 @@ class MultiscanProcess(multiprocessing.Process):
         self._parser4.add4([self._my_time,0]) 
         self._parser5.add5([self._my_time, self._temperature_mean])
         
+        # VER 0.1.6 add TEC current value to the parser queue
+        self._parser_current_tec.addCurrentTec([self._my_time, self._current_tec])
+        
         # add multi overtone average date to parser queue
 # =============================================================================
 #         self._parser_F_multi.add_F_multi( [ self._my_time, self._freq_range_mean] )
@@ -513,6 +516,8 @@ class MultiscanProcess(multiprocessing.Process):
         # parser process for sweep info nd utility error
         self._parser6 = parser_process
         
+        # VER 0.1.6 Instantiate a ParserProcess class for TEC current
+        self._parser_current_tec = parser_process
         
         self._dummy = True
         
@@ -643,7 +648,8 @@ class MultiscanProcess(multiprocessing.Process):
         # just another dummy counter
         self._just_another_counter = 0
         
-        
+        # VER 0.1.6 TEC electrical current value 
+        self._current_tec = 0 
         
         
     # SERIAL PORT OPEN and general setting   
@@ -683,7 +689,7 @@ class MultiscanProcess(multiprocessing.Process):
         try:
            self._overtone = float(speed)
         except:   
-           print(TAG, "Warning: wrong frequency selection, set default to {} Hz Fundamental".format(peaks_mag[0]))
+           # print(TAG, "Warning: wrong frequency selection, set default to {} Hz Fundamental".format(peaks_mag[0]))
            self._overtone = peaks_mag[0]
     
         # get the index of the overtones 
@@ -698,7 +704,7 @@ class MultiscanProcess(multiprocessing.Process):
                
         # Checks for correct frequency selection
         if self._overtone_int == None:
-           print(TAG, "Warning: wrong frequency selection, set default to {} Hz Fundamental".format(peaks_mag[0])) 
+           # print(TAG, "Warning: wrong frequency selection, set default to {} Hz Fundamental".format(peaks_mag[0])) 
            self._overtone_int = 0
         # ---------------------------------------------------------------------
         
@@ -993,7 +999,8 @@ class MultiscanProcess(multiprocessing.Process):
                                             data_f[i] = startF[overtone_index] + i * stepF[overtone_index]
                                         
                                         # DEV RAWDATA check the OS     
-                                        if Architecture.get_os() is (OSType.linux or OSType.macosx):
+                                        # if Architecture.get_os() is (OSType.linux or OSType.macosx):
+                                        if Architecture.get_os() in{OSType.macosx, OSType.linux}:    
                                             # print ("MAC_OS_X")
                                             slash = "/"
 
@@ -1098,6 +1105,38 @@ class MultiscanProcess(multiprocessing.Process):
                                  buffer = ""
                                  
                                  self._flag_error_usb = 1
+                            
+                            # VER 0.1.6 Read the actual TEC current 
+                            # -----------------------------------------------------
+                            # Command: "A?" 
+                            # Response: Reads the actual TEC current, [x<LF>][mA], x < 0: Heating; x > 0: Cooling   
+                            
+                            try:
+                                sleep(0.1)
+                                self._serial.reset_input_buffer()
+                                self._serial.reset_output_buffer()
+                                # VER 0.1.5 send read TEC current command 
+                                in_message = 'A' + '\n'
+                                # sleep(0.2)
+                                self._serial.write(in_message.encode())
+                                sleep(0.1)
+                                byte_at_port = self._serial.inWaiting()
+                                out_message = ''
+                                out_message = self._serial.read(byte_at_port).decode(Constants.app_encoding)
+                                out_message = out_message.rstrip('\n')
+                                
+                                # VER 0.1.6 DEBUG
+# =============================================================================
+#                                 print ("TEC current = ", out_message) 
+# =============================================================================
+                                
+                                # VER 0.1.6 store the value of current only at fundamantal 
+                                if (overtone_index == 0):
+                                    self._current_tec = float(out_message)
+                                
+                            except:
+                                print ("Unable to read TEC current ")
+                                # VER 0.1.6 TODO set te current value of current to nan 
                             
                             # DEBUG_0.1.1a
                             try: 

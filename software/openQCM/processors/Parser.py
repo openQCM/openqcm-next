@@ -18,6 +18,7 @@ class ParserProcess(multiprocessing.Process):
                        data_queue3,
                        data_queue4,
                        data_queue5,
+                       data_queueCurrentTec, # VER 0.1.6 add current TEC queue 
                        data_queue6,
                        data_queue_F_multi,
                        data_queue_D_multi,
@@ -36,6 +37,10 @@ class ParserProcess(multiprocessing.Process):
         self._out_queue3 = data_queue3
         self._out_queue4 = data_queue4
         self._out_queue5 = data_queue5
+        
+        # VER 0.1.6 init queue out TEC current 
+        self._out_queueCurrentTec =  data_queueCurrentTec
+        
         self._out_queue6 = data_queue6
         
         # frequency out queue
@@ -92,6 +97,15 @@ class ParserProcess(multiprocessing.Process):
         :type data: float.
         """
         self._out_queue5.put(data)  
+        
+    # VER 0.1.6 add the TEC current data to the parser    
+    def addCurrentTec(self, data):
+        # add current TEC data acquired in queue
+# =============================================================================
+#         # VER 0.1.6 DEBUG parser print data 
+#         print ("VER 0.1.6 DEBUG parser print data ", data)
+# =============================================================================
+        self._out_queueCurrentTec.put(data)
     
     def add6(self, data):
         """

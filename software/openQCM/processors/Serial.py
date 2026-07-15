@@ -18,6 +18,9 @@ from time import sleep
 
 from numpy import loadtxt
 
+# VER 0.1.6 raw data view in single mode 
+from openQCM.common.architecture import Architecture, OSType
+
 TAG = ""#"[Serial]"
 
 ###############################################################################
@@ -476,6 +479,11 @@ class SerialProcess(multiprocessing.Process):
         self._parser4.add4([w,diss_mean]) #time()-timestamp - time in seconds
         #self._parser5.add5([time()-timestamp,temperature])
         self._parser5.add5([w,temperature_mean]) #time()-timestamp - time in seconds
+        
+        # VER 0.1.6 TODO
+        # VER 0.1.6 add TEC current value to the parser queue
+        self._parser_current_tec.addCurrentTec([w, self._current_tec])
+       
         '''
         ##############################
         # DATA STORING in CSV/TXT FILE
@@ -531,6 +539,10 @@ class SerialProcess(multiprocessing.Process):
         self._parser4 = parser_process
         self._parser5 = parser_process
         self._parser6 = parser_process
+        
+        # VER 0.1.6 Instantiate a ParserProcess class for TEC current
+        self._parser_current_tec = parser_process
+        
         self._serial = serial.Serial()
         
         self._dummy = True
@@ -566,6 +578,9 @@ class SerialProcess(multiprocessing.Process):
         self.freq_res_current = None
         # just another dummy counter
         self._just_another_counter = 0
+        
+        # VER 0.1.6 init TEC electrical current value  
+        self._current_tec = 0 
         
     ###########################################################################
     # Opens a specified serial port
@@ -753,6 +768,10 @@ class SerialProcess(multiprocessing.Process):
                     data_ph  = np.linspace(0,0,samples)
                     # self._boolean_buffer_length = 0
                     
+                    # VER 0.1.6 raw data view 
+                    # init frequency sweep raw array 
+                    data_f = np.linspace(0,0,samples)
+                    
                     try:
                         # amplitude/phase convert bit to dB/Deg parameters
                         vmax = 3.3
@@ -879,7 +898,33 @@ class SerialProcess(multiprocessing.Process):
                                         data_mag[i] = (data_mag[i]-VCP) / 0.03
                                         data_ph[i] = float(strs[i][1]) * ADCtoVolt / 1.5
                                         data_ph[i] = (data_ph[i]-VCP) / 0.01
+                                        
+                                        
+                                    # TODO VER 0.1.5a_DEV Raw data view for sweep in single mode 
                                     
+                                    # get overtone number selected 
+                                    # print ("DEV raw data view in single mode: print the current overtone number = ", self._overtone_int)
+                                    # get frequency array 
+                                    for i in range (length - 1):
+                                        data_f[i] =  self._startFreq + i * fStep
+                                        
+                                    # check the os directory separator 
+                                    if Architecture.get_os() in{OSType.macosx, OSType.linux}:    
+                                        # mac OS 
+                                        slash = "/"
+                                    elif Architecture.get_os() is OSType.windows:
+                                        # windows 
+                                        slash = "\\"
+                                    else:
+                                        # print ("OTHER_OS")
+                                        slash = "/"
+                                     
+                                    # save data to file depending on the overtone number 
+                                    FileStorage.TXT_sweeps_save( (int(self._overtone_int) * 2) + 1 , 
+                                                                str("openQCM") + slash  +  Constants.sweep_export_path, 
+                                                                data_f,  data_mag, data_ph)
+                                    
+                             
                                     # ACQUIRES the temperature value from the buffer 
                                     data_temp = float((strs[length -1][0]))
                                     
@@ -925,6 +970,38 @@ class SerialProcess(multiprocessing.Process):
                                 buffer = ""
                                 
                                 self._flag_error_usb = 1
+                        
+                        # VER 0.1.6 Read the actual TEC current 
+                        # -----------------------------------------------------
+                        # Command: "A?" 
+                        # Response: Reads the actual TEC current, [x<LF>][mA], x < 0: Heating; x > 0: Cooling   
+                        
+                        try:
+                            sleep(0.1)
+                            self._serial.reset_input_buffer()
+                            self._serial.reset_output_buffer()
+                            # VER 0.1.5 send read TEC current command 
+                            in_message = 'A' + '\n'
+                            # sleep(0.2)
+                            self._serial.write(in_message.encode())
+                            sleep(0.1)
+                            byte_at_port = self._serial.inWaiting()
+                            out_message = ''
+                            # read 
+                            out_message = self._serial.read(byte_at_port).decode(Constants.app_encoding)
+                            out_message = out_message.rstrip('\n')
+                            
+                            # VER 0.1.6 TODO delete the outptu TEC current mesage 
+# =============================================================================
+#                             print ("TEC current = ", out_message) 
+# =============================================================================
+                            
+                            # VER 0.1.6 store the value of TEC urrent 
+                            self._current_tec = float(out_message)
+                            
+                        except:
+                            print ("Warning: Unable to read TEC current ")
+                            # VER 0.1.6 TODO set te current value of current to nan 
                         
                         # DEBUG_0.1.1a
                         try: 
@@ -1303,7 +1380,59 @@ class SerialProcess(multiprocessing.Process):
         # Sets the frequency range for the corresponding overtone
         readFREQ = np.arange(samples) * (fStep) + self._startFreq 
         return overtone_name, overtone_value, fStep, readFREQ, SG_window_size, spline_points, spline_factor
+    
+
+    # VER 0.1.6 get current frequecy range     
+    # get the current values of resonance frequencies
+    def get_freq_range_RT(self):
+    
+        # Loads frequencies from file
+        # VER 0.1.4 get alternative frequency file
+        peaks_mag_current = self.load_frequencies_file_RT()
+        samples = Constants.argument_default_samples 
+        
+# =============================================================================
+#         print ("DEBUG GET FREQUENCIES RT ")
+#         print ("Frequency peaks = ", peaks_mag_current)
+# =============================================================================
+        
+        # Checks QCM 5Mhz or 10MHz
+        # Set current start and stop sweep frequencies
+        
+        # 5 MHz
+        if (peaks_mag_current[0] >4e+06 and peaks_mag_current[0]<6e+06):
+            switch = Overtone_Switcher_5MHz(peak_frequencies = peaks_mag_current)
+            # 0=fundamental, 1=3th overtone and so on
+            (overtone_name, 
+             overtone_value, 
+             self._startFreq, 
+             self._stopFreq, 
+             SG_window_size,spline_factor) = switch.overtone5MHz_to_freq_range(self._overtone_int)
+        
+        # 10 MHz    
+        elif (peaks_mag_current[0] >9e+06 and peaks_mag_current[0]<11e+06):
+            switch = Overtone_Switcher_10MHz(peak_frequencies = peaks_mag_current)
+            (overtone_name, 
+             overtone_value, 
+             self._startFreq, 
+             self._stopFreq, 
+             SG_window_size,
+             spline_factor) = switch.overtone10MHz_to_freq_range(self._overtone_int)
             
+            
+        # Sets the frequency step 
+        fStep = (self._stopFreq-self._startFreq)/(samples-1)
+        
+        # Sets spline points for fitting
+        spline_points = int((self._stopFreq-self._startFreq))+1
+        
+        # Sets the frequency range for the corresponding overtone
+        freq_range_RT = np.arange(samples) * (fStep) + self._startFreq 
+        
+        # just return the current frequency sweep range solve the bug x-axis aplitude sweep data
+        return freq_range_RT
+
+        
     # DEV SWEEP1HZ CALIB TODO
     # set the current values of resonance frequencies
     def set_frequencies_RT(self, overtone_RT, frequency_RT):

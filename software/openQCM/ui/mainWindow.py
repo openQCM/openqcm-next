@@ -46,6 +46,59 @@ from openQCM.data_view import main
 
 TAG = ""#"[MainWindow]"
 
+# VER 0.1.6 init the SecondWindow class
+# for TEC current real time monitoring 
+class SecondWindow(QtGui.QWidget):
+    def __init__(self):
+        super(SecondWindow, self).__init__()
+        
+        # init the x-axis as a time axis format hh:mm:ss
+        date_axis = DateAxis(orientation='bottom')
+        
+        # create the second plot
+        self.graphWidget = pg.PlotWidget(self, axisItems={'bottom': date_axis})
+        
+        # VER 0.1.6 set x axis as h:m:s and disable SI prefix 
+        date_axis.enableAutoSIPrefix(False)
+        
+        # Change the plot background color
+        self.graphWidget.setBackground(Constants.plot_background_color)
+        
+        self.layout = QtGui.QVBoxLayout(self)
+        self.layout.addWidget(self.graphWidget)
+        
+        self.plotData = self.graphWidget.plot()
+        
+        # Set labels and title
+        self.graphWidget.setLabel('left', 'TEC current', units='mA')
+        # self.graphWidget.setLabel('bottom', 'Time', units='hh:mm:ss')
+        self.graphWidget.setLabel('bottom', 'Time (H:M:S)')
+        self.graphWidget.setTitle('TEC current Real-Time Plot', size = '16pt')
+        
+        
+        
+        # Adjusting window size:
+        self.resize(800, 600)  # You can adjust the size according to your needs.
+        
+        # Adding a QLabel to display the last value of y_s
+        self.lastValueLabel = QtGui.QLabel(self)
+        self.layout.addWidget(self.lastValueLabel)
+
+        
+    def update_plot(self, x_s, y_s):
+
+        self.x = x_s    
+        self.y = y_s
+        self.plotData.setData(self.x, self.y)
+        
+        # Updating the QLabel text with the last value of y_s
+        last_value = y_s[0]  # getting the last value
+        if np.isnan(last_value):
+            self.lastValueLabel.setText("TEC current: NaN mA")
+        else:
+            self.lastValueLabel.setText(f"TEC current: {int(last_value)} mA")
+        
+
 ##########################################################################################
 # Package that handles the UIs elements and connects to worker service to execute processes
 ##########################################################################################
@@ -63,6 +116,9 @@ class MainWindow(QtGui.QMainWindow):
 
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
+        
+        # VER 0.1.6 start time 
+        self.start_time = None
 
         # Shared variables, initial values
         self._plt0 = None
@@ -72,8 +128,21 @@ class MainWindow(QtGui.QMainWindow):
         # TODO delete
         # self._plt3 = None
         self._plt4 = None
-
         self._pltD = None
+        
+        # VER 0.1.6 init references to the line object of PyQtGraph plot 
+        self._plt0_line = None 
+        self._plt1_line = None
+        self._plt2_line = None
+        self._plt4_line = None
+        self._pltD_line = None
+        
+        # VER 0.1.6 init a referencve to the line object in PyQtGraph plot 
+        self._plt2_multiline = [None, None, None, None, None]
+        self._pltD_multiline = [None, None, None, None, None]
+        
+        # VER 0.1.6 init a reference to the line object amplitude sweep in multiscan mode 
+        self._plt0_multiline = [None, None, None, None, None]
 
         self._timer_plot = None
         self._readFREQ = None
@@ -113,6 +182,9 @@ class MainWindow(QtGui.QMainWindow):
         # add datalog sampling time combobox
         self.ui.cBox_sampling_time.addItems(Constants.SAMPLING_TIME_LIST)
         self.ui.cBox_sampling_time.setCurrentIndex(Constants.SAMPLING_TIME_LIST_DEFAULT_INDEX)
+        
+        # VER 0.1.6 moved multiscan array selector here before self._configure_plot()
+        self.scan_selector = [0, 0, 0, 0, 0]
 
         # Configures specific elements of the PyQtGraph plots
         self._configure_plot()
@@ -144,6 +216,22 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.D7.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
         self.ui.F9.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
         self.ui.D9.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
+        
+        # VER 0.1.6 frequency and dissipation label color
+        # init the array of frequency label color 
+        label_F = [self.ui.label_F0_col, self.ui.label_F3_col, self.ui.label_F5_col, self.ui.label_F7_col, self.ui.label_F9_col]
+        label_D = [self.ui.label_D0_col, self.ui.label_D3_col, self.ui.label_D5_col, self.ui.label_D7_col, self.ui.label_D9_col]
+        
+        # init the array of dissipation label color 
+        for color, label in zip(Constants.plot_color_multi, label_F):
+            rgb_color = "rgb(%d, %d, %d)" % (color[0], color[1], color[2])
+            label.setStyleSheet("background-color: %s;" % rgb_color)
+            
+        for color, label in zip(Constants.plot_color_multi, label_D):
+            rgb_color = "rgb(%d, %d, %d)" % (color[0], color[1], color[2])
+            label.setStyleSheet("background-color: %s;" % rgb_color)
+
+        
 
         # enable ui
         self._enable_ui(True)
@@ -171,12 +259,12 @@ class MainWindow(QtGui.QMainWindow):
 
         self.ui.label_Temperature_state.setStyleSheet("background-color: yellow; border: 1px solid gray; border-radius:2px; padding: 2 px;")
 
-        # multiscan array selector
-        self.scan_selector = [0, 0, 0, 0, 0]
+        
 
         # set T and PID to defaul values at init
         self._set_PID_T_default()
 
+        # VER 0.1.6 TODO multiscan y-range limit lists
         # VER 0.1.2
         # multiscan y-range limit lists
         self._y_freq_max = [0, 0, 0, 0, 0]
@@ -219,6 +307,13 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
         self.ui.actionSoftware.triggered.connect(lambda: self.get_web_info(False))
         self.ui.actionHelp.triggered.connect(self.dummy)
+        
+        # VER 0.1.6 init the null numpy array 
+        self._numpy_nan_signal = np.empty(Constants.ring_buffer_samples, dtype=float)
+        self._numpy_nan_signal.fill(np.nan)
+        self._numpy_nan_sweep = np.empty(Constants.SAMPLES, dtype=float)
+        self._numpy_nan_sweep.fill(np.nan)
+
 
     # https://stackoverflow.com/questions/63182608/colcount-not-working-for-legenditem-in-pyqtgraph-with-pyqt5-library
     # TODO legend horizontal layout
@@ -257,9 +352,13 @@ class MainWindow(QtGui.QMainWindow):
     # Starts the acquisition of the selected serial port
     ###########################################################################
     def start(self):
-
-        import os
-        os.system('cls' if os.name == 'nt' else 'clear')
+        
+        
+        # VER 0.1.6 do not clear the console 
+# =============================================================================
+#         import os
+#         os.system('cls' if os.name == 'nt' else 'clear')
+# =============================================================================
 
         # This function is connected to the clicked signal of the Start button.
         #print("")
@@ -302,12 +401,12 @@ class MainWindow(QtGui.QMainWindow):
             self._labelref1 = "not set"
             self._labelref2 = "not set"
             # progressbar variables
-            self._completed=0
+            self._completed = 0
             self._ser_control = 0
             # error variables
             self._ser_error1 = 0
             self._ser_error2 = 0
-            self._ser_err_usb= 0
+            self._ser_err_usb = 0
             ##### other useful location #########
             #self.get_web_info()
             #####
@@ -317,7 +416,7 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.cBox_sampling_time.setEnabled(False)
 
 
-            # SINGLE
+            #### SINGLE
             # -----------------------------------------------------------------
             if self._get_source() == SourceType.serial:
                 # TODO DELETE
@@ -328,70 +427,162 @@ class MainWindow(QtGui.QMainWindow):
 
                 self._vector_reference_frequency = list(self._readFREQ)
                 self._overtones_number_all = len(self.worker.get_source_speeds(SourceType.serial))
+                
+                # VER 0.1.6 delete the quartz label in the drop down menu  
+                # not necessary to manually select the fundamental frequency of quartz
+                # it is automatically identified by the new peak detection procedure
 
-                # TODO set the quartz sensor
-
-                if ( float(self.worker.get_source_speeds(SourceType.serial)[self._overtones_number_all-1])>4e+06 and float(self.worker.get_source_speeds(SourceType.serial)[self._overtones_number_all-1])<6e+06):
-                   label_quartz = "@5MHz_QCM"
-                elif (float(self.worker.get_source_speeds(SourceType.serial)[self._overtones_number_all-1])>9e+06 and float(self.worker.get_source_speeds(SourceType.serial)[self._overtones_number_all-1])<11e+06):
-                   label_quartz = "@10MHz_QCM"
-
-                #  TODO set the legend in single mode
+# =============================================================================
+#                 if ( float(self.worker.get_source_speeds(SourceType.serial)[self._overtones_number_all-1])>4e+06 and float(self.worker.get_source_speeds(SourceType.serial)[self._overtones_number_all-1])<6e+06):
+#                    label_quartz = "@5MHz_QCM"
+#                 elif (float(self.worker.get_source_speeds(SourceType.serial)[self._overtones_number_all-1])>9e+06 and float(self.worker.get_source_speeds(SourceType.serial)[self._overtones_number_all-1])<11e+06):
+#                    label_quartz = "@10MHz_QCM"
+# 
+# =============================================================================
+# =============================================================================
+#                 #  TODO set the legend in single mode
+#                 overtone_selected = self._overtones_number_all - self.ui.cBox_Speed.currentIndex() - 1
+# =============================================================================
+# =============================================================================
+#                 # TODO PRINT THE LEGEND
+#                 # frequency
+#                 self._plt2.plot(pen = pg.mkPen(color = Constants.plot_color_multi[overtone_selected], width = Constants.plot_line_width), name = Constants.name_legend[overtone_selected])
+#                 # dissipation
+#                 self._pltD.plot(pen = pg.mkPen(color = Constants.plot_color_multi[overtone_selected], width = Constants.plot_line_width), name = Constants.name_legend[overtone_selected])
+# =============================================================================
+                
+                # VER 0.1.6 clear the plot now 
+                self.clear()    
+                # clear the amplitude once again 
+                self._plt0.clear()
+                
                 overtone_selected = self._overtones_number_all - self.ui.cBox_Speed.currentIndex() - 1
-                # TODO PRINT THE LEGEND
-                # frequency
-                self._plt2.plot(pen = pg.mkPen(color = Constants.plot_color_multi[overtone_selected], width = Constants.plot_line_width), name = Constants.name_legend[overtone_selected])
-                # dissipation
-                self._pltD.plot(pen = pg.mkPen(color = Constants.plot_color_multi[overtone_selected], width = Constants.plot_line_width), name = Constants.name_legend[overtone_selected])
+
+                # VER 0.1.6 reference to the line object frequency   
+                self._plt2_line = self._plt2.plot(pen = pg.mkPen(color = Constants.plot_color_multi[overtone_selected], 
+                                                                 width = Constants.plot_line_width))
+                                        
+                # reference to the line object dissipation 
+                self._pltD_line = self._pltD.plot(pen = pg.mkPen(color = Constants.plot_color_multi[overtone_selected], 
+                                                                 width = Constants.plot_line_width))
+                                                
+                
+                # VER 0.1.6 after clear the plt create the reference to the ampli lines again 
+                self._plt0_line = self._plt0.plot(pen=Constants.plot_colors[0])
+                
+# =============================================================================
+#                 # reference to the line object temperature 
+#                 self._plt4_line = self._plt4.plot(pen=Constants.plot_colors[4])
+# =============================================================================
+                # reference to the line object temperature 
+                self._plt4_line = self._plt4.plot(pen=Constants.plot_color_temperature)
+                
+                # VER 0.1.6 add legend in single mode 
+                self._legend_f.addItem(item = self._plt2_line, name = Constants.name_legend[overtone_selected])
+                self._legend_D.addItem(item = self._pltD_line, name = Constants.name_legend[overtone_selected])
+                
+                # VER 0.1.6 do not autorange  
+# =============================================================================
+#                 # enable autoragne here 
+#                 self._plt4.enableAutoRange(axis= 'y', enable = True)
+# =============================================================================
+
 
 # =============================================================================
 #                 # VER 0.1.2
 #                 # add phase plot additional axis
 #                 self._plt0.scene().addItem(self._plt1)
 # =============================================================================
+                
+                # VER 0.1.6 BUG the ampli signal is not clear move the clear up
                 # clear plot
-                self.clear()
-                self._plt1.clear()
+                # self.clear()
+                # VER 0.1.6 remove reference to phase signal
+                
+# =============================================================================
+#                 self._plt1.clear()
+# =============================================================================
 
-            # CALIBRATION
+            #### CALIBRATION
             # -----------------------------------------------------------------
             elif self._get_source() == SourceType.calibration:
-
-                label_quartz = self.ui.cBox_Speed.currentText()
+                
+                # VER 0.1.6 delete the call to label_quartz in calibration peak detection mode 
+# =============================================================================
+#                 label_quartz = self.ui.cBox_Speed.currentText()
+# =============================================================================
 
                 # VER 0.1.2
                 # add phase plot additional axis
-                self._plt0.scene().addItem(self._plt1)
+                # VER 0.1.6 remove reference to phase signal
+# =============================================================================
+#                 self._plt0.scene().addItem(self._plt1)
+# =============================================================================
                 # clear plot
                 self.clear()
-                self._plt1.clear()
+                # VER 0.1.6 remove reference to phase signal
+# =============================================================================
+#                 self._plt1.clear()
+# =============================================================================
 
 
 
-            # MULTISCAN
+            #### MULTISCAN
             # -----------------------------------------------------------------
             elif self._get_source() == SourceType.multiscan:
 
                 # TODO get number of overtones and do nothing apparently
                 self._overtones_number_all = len(self.worker.get_source_speeds(SourceType.serial))
-
+                
+                # VER 0.1.6 TODO Initialize time_axis_new with NaNs
+                self._time_axis_new = np.full(self._overtones_number_all, np.nan)
+                
+                # VER 0.1.6 delete the label quartz 
                 # TODO get the quartz crystal fundamental frequency
-                if ( float(self.worker.get_source_speeds(SourceType.multiscan)[self._overtones_number_all-1])>4e+06 and float(self.worker.get_source_speeds(SourceType.multiscan)[self._overtones_number_all-1])<6e+06):
-                   label_quartz = "@5MHz_QCM"
-                elif (float(self.worker.get_source_speeds(SourceType.multiscan)[self._overtones_number_all-1])>9e+06 and float(self.worker.get_source_speeds(SourceType.multiscan)[self._overtones_number_all-1])<11e+06):
-                   label_quartz = "@10MHz_QCM"
+# =============================================================================
+#                 if ( float(self.worker.get_source_speeds(SourceType.multiscan)[self._overtones_number_all-1])>4e+06 and 
+#                     float(self.worker.get_source_speeds(SourceType.multiscan)[self._overtones_number_all-1])<6e+06):
+#                    label_quartz = "@5MHz_QCM"
+#                 elif (float(self.worker.get_source_speeds(SourceType.multiscan)[self._overtones_number_all-1])>9e+06 and 
+#                       float(self.worker.get_source_speeds(SourceType.multiscan)[self._overtones_number_all-1])<11e+06):
+#                    label_quartz = "@10MHz_QCM"
+# =============================================================================
 
                 # TODO redefine the array here
-                self._arr = np.zeros((self._overtones_number_all,Constants.ring_buffer_samples))
+                self._arr = np.zeros((self._overtones_number_all, Constants.ring_buffer_samples))
 
+# =============================================================================
+#                 # legend
+#                 for idx in range(self._overtones_number_all):
+#                     # TODO PRINT THE LEGEND
+#                     # frequency
+#                     self._plt2.plot(pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width), name = Constants.name_legend[idx])
+#                     # dissipation
+#                     self._pltD.plot(pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width), name = Constants.name_legend[idx])
+# =============================================================================
+                
+                # VER 0.1.6 create the reference to the multi lines for real time plot
                 # legend
                 for idx in range(self._overtones_number_all):
-                    # TODO PRINT THE LEGEND
-                    # frequency
-                    self._plt2.plot(pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width), name = Constants.name_legend[idx])
-                    # dissipation
-                    self._pltD.plot(pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width), name = Constants.name_legend[idx])
-
+                    
+                    # frequency multilines 
+                    self._plt2_multiline[idx] = self._plt2.plot(pen = pg.mkPen(color = Constants.plot_color_multi[idx], 
+                                                                               width = Constants.plot_line_width))
+                    # dissipation multilines 
+                    self._pltD_multiline[idx] = self._pltD.plot(pen = pg.mkPen(color = Constants.plot_color_multi[idx], 
+                                                                               width = Constants.plot_line_width))
+                
+                
+                # VER 0.1.6 create the reference to the sweep aplitude multi lines for real time plot
+                for idx in range(self._overtones_number_all):
+                    self._plt0_multiline[idx] = self._plt0.plot(pen = Constants.plot_color_multi[idx])
+            
+# =============================================================================
+#                 # VER 0.1.6 reference to the line object temperature 
+#                 self._plt4_line = self._plt4.plot(pen=Constants.plot_colors[4])    
+# =============================================================================
+                # VER 0.1.6 create the reference to theto the temperature line for real time plot
+                self._plt4_line = self._plt4.plot(pen=Constants.plot_color_temperature)
 
                 # init radio button
                 self.ui.radioBtn_F0.setChecked(True)
@@ -416,15 +607,29 @@ class MainWindow(QtGui.QMainWindow):
             # -----------------------------------------------------------------
             self._timer_plot.start(Constants.plot_update_ms)
 
-            # CALL UPDATE PLOT
+            # CONNECT UPDATE PLOT
             # -----------------------------------------------------------------
-            self._timer_plot.timeout.connect(self._update_plot) # moved from _configure_timers mothod
+            # VER 0.1.6 BUG multiple executions of the connected slot (self._update_plot) for a single timer timeout.
+            # self._timer_plot.timeout.connect(self._update_plot) # moved from _configure_timers mothod
+            
+            # VER 0.1.6 disconnect the slot before reconnecting it to avoid multiple executions of self._update_plot
+            try:
+                self._timer_plot.timeout.disconnect(self._update_plot)
+            except TypeError:
+                # handles the case where the slot was not connected
+                pass 
+            self._timer_plot.timeout.connect(self._update_plot)
+            
             self._enable_ui(False)
-
+            
+            # VER 0.1.6 do not autorange here 
             # VER 0.1.2
             # auto scale frequency and dissipation plt
-            self._plt2.enableAutoRange(axis= 'y', enable = True)
-            self._pltD.enableAutoRange(axis= 'y', enable = True)
+            
+# =============================================================================
+#             self._plt2.enableAutoRange(axis= 'y', enable = True)
+#             self._pltD.enableAutoRange(axis= 'y', enable = True)
+# =============================================================================
 
             if self._get_source() == SourceType.calibration:
                self.ui.pButton_Clear.setEnabled(False) #insert
@@ -481,8 +686,16 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.label_Temperature_state.setStyleSheet("background-color: white; color: black; border: 1px solid gray; border-radius:2px; padding: 2 px;")
         self.ui.label_Temperature_state.setText("Temperature Control")
         
-        # VER 0.1.4
+# =============================================================================
+#         # VER 0.1.4
+#         self.clear()
+# =============================================================================
+        
+        # VER 0.1.6 clear all plot and remove all the legend items 
+        # self.clear_all_plot()
         self.clear()
+        self._remove_legend()
+        
         
         # VER 0.1.4
         # enable - disble the sampling time 
@@ -496,7 +709,27 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.cBox_sampling_time.setEnabled(False)
         if (self._get_source() == SourceType.multiscan):
             self.ui.cBox_sampling_time.setEnabled(True)
+            
+        # VER 0.1.6 enable again freqquency drop down menu only if in single mode 
+        if (self._get_source() == SourceType.serial):
+            self.ui.cBox_Speed.setEnabled(True)
+         
+        # VER 0.1.6 TODO reset x time to zero     
+# =============================================================================
+#         self.start_time = 0
+#         # VER 0.1.6 TODO set the start time after the clear 
+#         self._xaxis.start_time = self.start_time
+#         self._xaxisD.start_time = self.start_time
+#         self._xaxisT.start_time = self.start_time 
+#         
+#         self._plt2_line.setData(self._numpy_nan_signal, self._numpy_nan_signal)
+#         self._pltD_line.setData(self._numpy_nan_signal, self._numpy_nan_signal)
+# =============================================================================
         
+        # VER 0.1.6 DEBUG just print something at the end of the stop 
+        print ("Stop processes...debug...")
+        
+       
 
     ###########################################################################
     # SET TEMPERATURE
@@ -1082,7 +1315,14 @@ class MainWindow(QtGui.QMainWindow):
 
         #:param enabled: The value to be set for the UI elements :type enabled: bool
         self.ui.cBox_Port.setEnabled(enabled)
-        self.ui.cBox_Speed.setEnabled(enabled)
+        
+        # VER 0.1.6 not enable the combo box in calibration peak detection mode  
+        if ( self._get_source() == SourceType.calibration):
+            self.ui.cBox_Speed.setEnabled(not enabled)
+        else: 
+            self.ui.cBox_Speed.setEnabled(not enabled)
+            
+        # self.ui.cBox_Speed.setEnabled(enabled)
         self.ui.pButton_Start.setEnabled(enabled)
 
         # TODO delete or implement export txt file
@@ -1154,7 +1394,9 @@ class MainWindow(QtGui.QMainWindow):
         self._plt0 = self.ui.plt.addPlot(row=0, col=0, title= title1, **{'font-size':'10pt'}, axisItems={"bottom":self._xaxis_sweep})
         # self._plt0.showGrid(x=True, y=True)
         self._plt0.setLabel('bottom', 'Frequency', units='Hz')
-        self._plt0.setLabel('left', 'Amplitude', units='dB', color=Constants.plot_title_color, **{'font-size':'10pt'})
+        # VER 0.1.6 simplify the plot label 
+        # self._plt0.setLabel('left', 'Amplitude', units='dB', color=Constants.plot_title_color, **{'font-size':'10pt'})
+        self._plt0.setLabel('left', 'Amplitude', units='dB')
 
 
         '''
@@ -1166,24 +1408,35 @@ class MainWindow(QtGui.QMainWindow):
         '''
         #--------------------------------------------------------------------------------------------------------------
         # Configures elements of the PyQtGraph plots: Multiple Plot amplitude and phase
-        self._plt1 = pg.ViewBox()
-        self._plt0.showAxis('right')
-        self._plt0.scene().addItem(self._plt1)
-        self._plt0.getAxis('right').linkToView(self._plt1)
-        self._plt1.setXLink(self._plt0)
-        self._plt0.enableAutoRange(axis= 'y', enable = True)
-        self._plt1.enableAutoRange(axis= 'y', enable = True)
-        self._plt0.setLabel('right', 'Phase', units='deg', color = Constants.plot_title_color, **{'font-size':'10pt'})
+        
+        # VER 0.1.6 remove reference to phase signal
+# =============================================================================
+#         self._plt1 = pg.ViewBox()
+#         self._plt0.showAxis('right')
+#         self._plt0.scene().addItem(self._plt1)
+#         self._plt0.getAxis('right').linkToView(self._plt1)
+#         self._plt1.setXLink(self._plt0)
+#         self._plt0.enableAutoRange(axis= 'y', enable = True)
+#         self._plt1.enableAutoRange(axis= 'y', enable = True)
+#         self._plt0.setLabel('right', 'Phase', units='deg', color = Constants.plot_title_color, **{'font-size':'10pt'})
+# =============================================================================
 
         # VER 0.1.2
         # editing pyqtgraph context menu
         # https://groups.google.com/g/pyqtgraph/c/h-dyr0l6yZU/m/NpMQxh-jf5cJ
         # get rid of 'Plot Options'
         self._plt0.ctrlMenu = None
-        self._plt1.ctrlMenu = None
+        
+        # VER 0.1.6 remove reference to phase signal
+# =============================================================================
+#         self._plt1.ctrlMenu = None
+# =============================================================================
         # get rid of 'Export'
         self._plt0.scene().contextMenu = None
-        self._plt1.scene().contextMenu = None
+        # VER 0.1.6 remove reference to phase signal
+# =============================================================================
+#         self._plt1.scene().contextMenu = None
+# =============================================================================
 
         '''
         -----------------------------------------------------------------------
@@ -1195,16 +1448,20 @@ class MainWindow(QtGui.QMainWindow):
         self._yaxis = NonScientificAxis(orientation='left')
         self._yaxis.enableAutoSIPrefix(False)
         #self._yaxis.setTickSpacing(levels=[(280, 0),(25, 0), (10, 0)]) #(20,1, None)
-        self._xaxis = DateAxis(orientation='bottom')
+        # VER 0.1.6 TODO
+        self._xaxis = DateAxis(orientation='bottom', time_format='seconds')
 
         '''
-        TODO 2m
+        TODO 2m 
         '''
         # Configures elements of the PyQtGraph plots: dissipatin
         self._yaxisD = NonScientificAxis(orientation='left')
         self._yaxisD.enableAutoSIPrefix(False)
         #self._yaxis.setTickSpacing(levels=[(280, 0),(25, 0), (10, 0)]) #(20,1, None)
-        self._xaxisD = DateAxis(orientation='bottom')
+        # VER 0.1.6 TODO
+        # self._xaxisD = DateAxis(orientation='bottom')
+        self._xaxisD = DateAxis(orientation='bottom', time_format='seconds')
+        
 
 
         '''
@@ -1217,12 +1474,22 @@ class MainWindow(QtGui.QMainWindow):
         self._plt2 = self.ui.pltB.addPlot(row=0, col=2, title= title2, **{'font-size':'12pt'}, axisItems={"bottom":self._xaxis, 'left':self._yaxis})
 
         # self._plt2.showGrid(x=True, y=True)
-        self._plt2.setLabel('bottom', 'Time',units='s')
-        self._plt2.setLabel('left', 'Resonance Frequency', units='Hz', color = Constants.plot_title_color, **{'font-size':'10pt'})
-
-        # https://pyqtgraph.readthedocs.io/en/latest/graphicsItems/plotitem.html#pyqtgraph.PlotItem.addLegend
+# =============================================================================
+#         self._plt2.setLabel('bottom', 'Time',units='s')
+# =============================================================================
+        
+        # VER 0.1.6 set x axis as sec and disable SI prefix 
+        self._xaxis.enableAutoSIPrefix(False)
+        self._plt2.setLabel('bottom', 'Time (Sec)')
+       
+        # VER 0.1.6 optimize the frequency real time plot 
+        # self._plt2.setLabel('left', 'Resonance Frequency', units='Hz', color = Constants.plot_title_color, **{'font-size':'10pt'})
+        self._plt2.setLabel('left', 'Resonance Frequency', units='Hz')
+        
+        # VER 0.1.6 reference to the plot legend item frequency 
+        # https://pyqtgraph.readthedocs.io/en/pyqtgraph-0.11.0/graphicsItems/legenditem.html
         self._legend_f = self._plt2.addLegend()
-
+        
         # change the orientation of all items of the legend
         # self._legend_f.setColumnCount(5)
         # TODO LEGEND
@@ -1242,11 +1509,21 @@ class MainWindow(QtGui.QMainWindow):
         '''
         # self._pltD = self.ui.pltD.addPlot(row=0, col=1, title= "Real-Time Plot: Dissipation", **{'font-size':'12pt'}, axisItems={"bottom":self._xaxisD, 'left':self._yaxisD})
         self._pltD = self.ui.pltD.addPlot(row=0, col=1, title= "Real-Time Plot: Dissipation", **{'font-size':'12pt'}, axisItems={"bottom":self._xaxisD})
-        self._pltD.setLabel('bottom', 'Time',units='s')
-        self._pltD.setLabel('left', 'Dissipation', units='', color = Constants.plot_title_color, **{'font-size':'10pt'})
-
-        # https://pyqtgraph.readthedocs.io/en/latest/graphicsItems/plotitem.html#pyqtgraph.PlotItem.addLegend
+# =============================================================================
+#         self._pltD.setLabel('bottom', 'Time',units='s')
+# =============================================================================
+        # VER 0.1.6 set x axis as h:m:s
+        self._xaxisD.enableAutoSIPrefix(False)
+        self._pltD.setLabel('bottom', 'Time (Sec)')
+        
+        # VER 0.1.6 optimize the dissipation real time plot 
+        # self._pltD.setLabel('left', 'Dissipation', units='', color = Constants.plot_title_color, **{'font-size':'10pt'})
+        self._pltD.setLabel('left', 'Dissipation', units='')
+        
+        # VER 0.1.6 reference to the plot legend item dissipation 
+        # https://pyqtgraph.readthedocs.io/en/pyqtgraph-0.11.0/graphicsItems/legenditem.html
         self._legend_D = self._pltD.addLegend()
+        
         # change the orientation of all items of the legend
         # self._legend_D.setColumnCount(5)
         # TODO LEGEND
@@ -1273,19 +1550,33 @@ class MainWindow(QtGui.QMainWindow):
         # Configures elements of the PyQtGraph plots: Multiple Plot resonance frequency and dissipation
 
         # Configures elements of the PyQtGraph plots: temperature
-        self._plt4 = self.ui.plt.addPlot(row=0, col=1, title= title3, axisItems={'bottom': DateAxis(orientation='bottom')})
+        
+        self._xaxisT = DateAxis(orientation='bottom', time_format='seconds')
+        self._xaxisT.enableAutoSIPrefix(False)
+        self._plt4 = self.ui.plt.addPlot(row=0, col=1, title= title3, axisItems={'bottom': self._xaxisT})
         # self._plt4.showGrid(x=True, y=True)
 
         # do not autoscale y axis
-        self._plt4.enableAutoRange(axis= 'y', enable = True)
+        # VER 0.1.6 enable autorange at the end of the configure plot 
+# =============================================================================
+#         self._plt4.enableAutoRange(axis= 'y', enable = True)
+# =============================================================================
 
         # VER 0.1.2
         # change the Temperature Y-range to 5 - 45 Â°C
         # self._plt4.setYRange(5, 45, padding = 0)
 
-        self._plt4.setLabel('bottom', 'Time',units='s')
-        self._plt4.setLabel('left', 'Temperature', units='°C', color = Constants.plot_title_color, **{'font-size':'10pt'})
-
+# =============================================================================
+#         self._plt4.setLabel('bottom', 'Time',units='s')
+# =============================================================================
+        # VER 0.1.6 set x axis as h:m:s
+        self._plt4.getAxis('bottom').enableAutoSIPrefix(False)
+        self._plt4.setLabel('bottom', 'Time (Sec)')
+        
+        # VER 0.1.6 optimize the temperature real time plot 
+        # self._plt4.setLabel('left', 'Temperature', units='°C', color = Constants.plot_title_color, **{'font-size':'10pt'})
+        self._plt4.setLabel('left', 'Temperature', units='°C')
+        
         # VER 0.1.2
         # editing pyqtgraph context menu
         # https://groups.google.com/g/pyqtgraph/c/h-dyr0l6yZU/m/NpMQxh-jf5cJ
@@ -1293,16 +1584,30 @@ class MainWindow(QtGui.QMainWindow):
         self._plt4.ctrlMenu = None
         # get rid of 'Export'
         self._plt4.scene().contextMenu = None
-
-
+        
+        # VER 0.1.6 enable auto range for all plot
+        # amplitude sweep 
+        self._plt0.enableAutoRange(enable=True)
+        # frequency 
+        self._plt2.enableAutoRange(enable=True)
+        # dissipation 
+        self._pltD.enableAutoRange(enable=True)
+        # temperature 
+        self._plt4.enableAutoRange(enable=True)
+        
+        # VER 0.1.6 update legend in configure plot 
+        self._update_legend()
+        
     ###########################################################################
     # Configures specific elements of the QTimers
     ###########################################################################
     def _configure_timers(self):
 
         self._timer_plot = QtCore.QTimer(self)
-        #self._timer_plot.timeout.connect(self._update_plot) #moved to start method
-
+        #self._timer_plot.timeout.connect(self._update_plot) # moved to start method
+        
+        # VER 0.1.6 DEBUG 
+        # self._timer_plot.timeout.connect(self._update_plot) 
 
     ###########################################################################
     # Configures the connections between signals and UI elements
@@ -1360,18 +1665,39 @@ class MainWindow(QtGui.QMainWindow):
         # DEV LOG DATA 
         self.ui.logData_btn.clicked.connect(self._log_data_plot)
         
+        # VER 0.1.6 push button for TEC current data plot secondary window 
+        self.ui.pButtonSecondWindow.clicked.connect(self.open_second_window)
+        
     
     # VER 0.1.4
     # add-on view sweep raw data plot
     def _raw_data_plot(self):
-        print ("THIS IS A RAW DATA")
+        # VER 0.1.6 Try-except code block to prevent the software from freezing when calling the raw data plot
+        
+        ####TEST 
         self.window_pro.hide()
-        plot_sweep_spline.script()
-    
+        
+        # multiscan mode 
+        if  (self._get_source() == SourceType.multiscan):
+            try:
+                plot_sweep_spline.script()
+            except Exception as e:
+                print ("Warning: unable to plot raw data in multiscn mode.")
+                print(f"error occurred: {e}")
+        
+        # else if single mode 
+        elif (self._get_source() == SourceType.serial):
+            try:
+                overtone_nn = self._overtones_number_all - self.ui.cBox_Speed.currentIndex() - 1
+                plot_sweep_spline.script_single(overtone_nn)
+            except Exception as e:
+                print ("Warning: unable to plot raw data in single mode ")
+                print(f"error occurred: {e}")
+            
     # VER 0.1.4
     # add-on view data log and make some processing 
     def _log_data_plot(self):
-        print ("THIS IS LOG DATA")
+        # print ("THIS IS LOG DATA")
         
         self.window_pro.show()
 # =============================================================================
@@ -1404,6 +1730,10 @@ class MainWindow(QtGui.QMainWindow):
         self.worker.consume_queue4()
         # TODO note that data is logged here, when self.worker.consume_queue5() is called
         self.worker.consume_queue5()
+         
+        # VER 0.1.6 consume TEC current queue 
+        self.worker.consume_queueCurrentTec()
+        
         # general error queue
         self.worker.consume_queue6()
 
@@ -1421,12 +1751,13 @@ class MainWindow(QtGui.QMainWindow):
         time_value = float("{0:.1f}".format(self.worker.get_time_elapsed()))        
         self.ui.time_indicator.setText(str(time_value))
 
-        # SINGLE
+        #### SINGLE Start 
         # --------------------------------------------------------------------
         if  self._get_source() == SourceType.serial:
             vector1 = self.worker.get_d1_buffer()
             vector2 = self.worker.get_d2_buffer()
-            vectortemp = self.worker.get_d3_buffer()
+            # VER 0.1.6 update temperature data plot using setData, round to 2 decimals
+            vectortemp = self.worker.get_d3_buffer().round(decimals = 1)
 
             # TODO changed the get error number of elemts
             # self._ser_error1,self._ser_error2, self._ser_control,self._ser_err_usb = self.worker.get_ser_error()
@@ -1444,18 +1775,29 @@ class MainWindow(QtGui.QMainWindow):
                # progressbar
                if self._ser_control<=Constants.environment:
                    self._completed = self._ser_control * 100 / Constants.environment
+                   # VER 0.1.6 save the start time 
+                   # self.start_time = time.time()  
+                   if self._ser_control == Constants.environment:
+                       time_arr = self.worker.get_t1_buffer()
+# =============================================================================
+#                        import datetime
+#                        epoch= datetime.datetime(1970, 1, 1, 0, 0)
+#                        self.start_time = (datetime.datetime.now() - epoch).total_seconds()
+#                        print (self.start_time, time_arr[0]/1e6)
+# =============================================================================
+                       # set the start time 
+                       # self._xaxis.start_time = self.start_time with a litle help of my friends -1e6
+                       self.start_time = time_arr[0]/1e6
+                       self._xaxis.start_time = time_arr[0]/1e6
+                       self._xaxisD.start_time = time_arr[0]/1e6
+                       self._xaxisT.start_time = time_arr[0]/1e6
+                   
 
                if str(vector1[0])=='nan' and not self._ser_error1 and not self._ser_error2:
                   label1 = 'processing...'
                   label2 = 'processing...'
                   label3 = 'processing...'
                   labelstatus = 'Processing'
-                  '''
-                  self.ControlsWin.ui1.infostatus.setStyleSheet('background: #ffff00; padding: 1px; border: 1px solid #cccccc') #ff8000
-                  '''
-                  '''
-                  TODO 2m
-                  '''
                   self.ui.infostatus.setStyleSheet('background: #ffff00; padding: 1px; border: 1px solid #cccccc') #ff8000
 
                   color_err = '#000000'
@@ -1469,12 +1811,6 @@ class MainWindow(QtGui.QMainWindow):
                         labelstatus = 'Warning'
                         color_err = '#ff0000'
                         labelbar = 'Warning: unable to apply half-power bandwidth method, lower and upper cut-off frequency not found'
-                        '''
-                        self.ControlsWin.ui1.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
-                        '''
-                        '''
-                        TODO 2m
-                        '''
                         self.ui.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
 
                       elif self._ser_error1:
@@ -1484,12 +1820,6 @@ class MainWindow(QtGui.QMainWindow):
                         labelstatus = 'Warning'
                         color_err = '#ff0000'
                         labelbar = 'Warning: unable to apply half-power bandwidth method, lower cut-off frequency (left side) not found'
-                        '''
-                        self.ControlsWin.ui1.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
-                        '''
-                        '''
-                        TODO 2m
-                        '''
                         # self.ControlsWin.ui1.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
                       elif self._ser_error2:
                         label1= ""
@@ -1498,12 +1828,6 @@ class MainWindow(QtGui.QMainWindow):
                         labelstatus = 'Warning'
                         color_err = '#ff0000'
                         labelbar = 'Warning: unable to apply half-power bandwidth method, upper cut-off frequency (right side) not found'
-                        '''
-                        self.ControlsWin.ui1.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
-                        '''
-                        '''
-                        TODO 2m
-                        '''
                         self.ui.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
                else:
                   if not self._ser_error1 and not self._ser_error2:
@@ -1523,12 +1847,6 @@ class MainWindow(QtGui.QMainWindow):
                       labelstatus = 'Monitoring'
                       color_err = '#000000'
                       labelbar = 'Monitoring!'
-                      '''
-                      self.ControlsWin.ui1.infostatus.setStyleSheet('background: #00ff72; padding: 1px; border: 1px solid #cccccc')
-                      '''
-                      '''
-                      TODO 2m
-                      '''
                       self.ui.infostatus.setStyleSheet('background: #00ff72; padding: 1px; border: 1px solid #cccccc')
 
                   else:
@@ -1539,12 +1857,6 @@ class MainWindow(QtGui.QMainWindow):
                         labelstatus = 'Warning'
                         color_err = '#ff0000'
                         labelbar = 'Warning: unable to apply half-power bandwidth method, lower and upper cut-off frequency not found'
-                        '''
-                        self.ControlsWin.ui1.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
-                        '''
-                        '''
-                        TODO 2m
-                        '''
                         self.ui.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
 
                       elif self._ser_error1:
@@ -1554,12 +1866,6 @@ class MainWindow(QtGui.QMainWindow):
                         labelstatus = 'Warning'
                         color_err = '#ff0000'
                         labelbar = 'Warning: unable to apply half-power bandwidth method, lower cut-off frequency (left side) not found'
-                        '''
-                        self.ControlsWin.ui1.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
-                        '''
-                        '''
-                        TODO 2m
-                        '''
                         self.ui.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
 
                       elif self._ser_error2:
@@ -1569,31 +1875,8 @@ class MainWindow(QtGui.QMainWindow):
                         labelstatus = 'Warning'
                         color_err = '#ff0000'
                         labelbar = 'Warning: unable to apply half-power bandwidth method, upper cut-off frequency (right side) not found'
-                        '''
-                        self.ControlsWin.ui1.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
-                        '''
-                        '''
-                        TODO 2m
-                        '''
                         self.ui.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
-               '''
-               self.InfoWin.ui3.l6a.setText("<font color=#0000ff > Temperature </font>" + label3)
-               self.InfoWin.ui3.l6.setText("<font color=#0000ff > Dissipation </font>" + label2)
-               self.InfoWin.ui3.l7.setText("<font color=#0000ff > Resonance Frequency </font>" + label1)
-               '''
-               '''
-               TODO 2m set info
-               '''
-
-               '''
-               self.ControlsWin.ui1.infostatus.setText("<font color=#000000 > Program Status </font>" + labelstatus)
-               self.ControlsWin.ui1.infobar.setText("<font color=#0000ff> Infobar </font><font color={}>{}</font>".format(color_err,labelbar))
-               # progressbar
-               self.ControlsWin.ui1.progressBar.setValue(self._completed+2)
-               '''
-               '''
-               TODO 2m
-               '''
+               
                self.ui.infostatus.setText("<font color=#000000 > Program Status </font>" + labelstatus)
                self.ui.infobar.setText("<font color=#0000ff> Infobar </font><font color={}>{}</font>".format(color_err,labelbar))
                # progressbar
@@ -1602,168 +1885,177 @@ class MainWindow(QtGui.QMainWindow):
             #elif self._ser_err_usb >1:
                 # PopUp.warning(self, Constants.app_title, "Warning: USB cable device disconnected!")
                 # self.stop()
+            
+            # VER 0.1.6 BUG coreection sweep range x-axis get the current frequency range 
+            # use a try-except code block. If an error is encountered when opening the file, use the global value and continue.
+            try: 
+                self._readFREQ = self.worker.get_frequency_range()
+            except Exception as e:
+                # print(f"An error occurred: {e}")
+                pass
 
-        # CALIBRATION: dynamic info in infobar at run-time
+        #### CALIBRATION Start
         # ---------------------------------------------------------------------
+    
         elif self._get_source() == SourceType.calibration:
             # flag for terminating calibration
             stop_flag = 0
-            '''
-            self.ControlsWin.ui1.pButton_Stop.setEnabled(False)
-            '''
-            '''
-            TODO 2m
-            '''
+            # VER 0.1.6 DEBUG check the stop flag variable 
+            pre_stop_flag = stop_flag
+            
+            # disable stop button             
             self.ui.pButton_Stop.setEnabled(False)
 
+            # get additional error flag 
             vector1 = self.worker.get_value1_buffer()
             # vector2[0] and vector3[0] flag error
             vector2 = self.worker.get_t3_buffer()
-            vector3 = self.worker.get_d3_buffer()
+            # VER 0.1.6 update temperature data plot using setData, rounding to one decimal place
+            vector3 = self.worker.get_d3_buffer().round(decimals = 1)
+            
             #print(vector1[0],vector2[0],vector3[0])
             label1 = 'not available'
             label2 = 'not available'
             label3 = 'not available'
-            labelstatus = 'Calibration Processing'
+            labelstatus = 'Peak Detection Processing'
             color_err = '#000000'
             labelbar = 'The operation might take just over a minute to complete... please wait...'
 
-            '''
-            self.ControlsWin.ui1.infostatus.setStyleSheet('background: #ffff00; padding: 1px; border: 1px solid #cccccc')
-            '''
-            '''
-            TODO 2m
-            '''
             self.ui.infostatus.setStyleSheet('background: #ffff00; padding: 1px; border: 1px solid #cccccc')
 
-
-             # progressbar
+            # request the error data from Worker.py
             error1, error2, error3, self._ser_control, self._overtone_number = self.worker.get_ser_error()
-            
+                    
             # VER 0.1.4
             # get TEC status current value
             self._TEC_status = self.worker.get_TEC_status()
             # update TEC status
             self._update_TEC_status(self._TEC_status)
             
+            # progressbar update 
+            if self._ser_control < (Constants.calib_sections):
+                      self._completed = (self._ser_control/(Constants.calib_sections))*100 
             
-            if self._ser_control< (Constants.calib_sections):
-                      self._completed = (self._ser_control/(Constants.calib_sections))*100
-            # calibration buffer empty
+            # CHECK THE STATUS ERROR
+            # -----------------------------------------------------------------
+            # EXCEPTION: Calibration buffer empty
             #if vector1[0]== 0 and vector3[0]==1:
-            if error1== 1 and vector3[0]==1:
+            if error1 == 1 and vector3[0] == 1:
               label1 = 'not available'
               label2 = 'not available'
               label3 = 'not available'
               color_err = '#ff0000'
               labelstatus = 'Calibration Warning'
-              '''
-              self.ControlsWin.ui1.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
-              '''
-              '''
-              TODO 2m
-              '''
               self.ui.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
-
               labelbar = 'Calibration Warning: empty buffer! Please, repeat the Calibration after disconnecting/reconnecting Device!'
-              stop_flag=1
-            # calibration buffer empty and ValueError from the serial port
-            #elif vector1[0]== 0 and vector2[0]==1:
-            elif error1== 1 and vector2[0]==1:
+              # set stop flag True
+              stop_flag = 1
+              
+            # EXCEPTION: Calibration buffer empty and ValueError from the serial port
+            elif error1 == 1 and vector2[0] == 1:
               label1 = 'not available'
               label2 = 'not available'
               label3 = 'not available'
               color_err = '#ff0000'
               labelstatus = 'Calibration Warning'
-              '''
-              self.ControlsWin.ui1.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
-              '''
-              '''
-              TODO 2m
-              '''
               self.ui.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
-
               labelbar = 'Calibration Warning: empty buffer/ValueError! Please, repeat the Calibration after disconnecting/reconnecting Device!'
+              # set stop flag True
               stop_flag=1
-            # calibration buffer not empty
-            #elif vector1[0]!= 0:
-            elif error1==0:
+            
+            # NOT EXCEPTION: Calibration buffer not empty
+            elif error1 == 0:
+              
               label1 = 'not available'
               label2 = 'not available'
               label3 = 'not available'
-              labelstatus = 'Calibration Processing'
+              labelstatus = 'Peak Detection Processing'
               color_err = '#000000'
               labelbar = 'The operation might take just over a minute to complete... please wait...'
-              if vector2[0]== 0 and vector3[0]== 0:
+              
+              # CALIBRATION SUCCESS 
+              # ---------------------------------------------------------------
+              if vector2[0] == 0 and vector3[0] == 0:
                  labelstatus = 'Calibration Success'
-                 '''
-                 self.ControlsWin.ui1.infostatus.setStyleSheet('background: #00ff72; padding: 1px; border: 1px solid #cccccc')
-                 '''
-                 '''
-                 TODO 2m
-                 '''
                  self.ui.infostatus.setStyleSheet('background: #00ff72; padding: 1px; border: 1px solid #cccccc')
-
                  color_err = '#000000'
                  labelbar = 'Calibration Success for baseline correction!'
-                 stop_flag=1
-                 #print(self._k) #progressbar value 143
-              elif vector2[0]== 1 or vector3[0]== 1:
+                 
+                 # Set the boolean stop flag True to stop the loop                   
+                 stop_flag = 1
+                 
+                 # VER 0.1.6 DEBUG Check how many times you pass through here.
+                 # print ("VER 0.1.6 DEBUG: passing through calibration success ")
+                 
+              elif vector2[0] == 1 or vector3[0] == 1:
                  color_err = '#ff0000'
                  labelstatus = 'Calibration Warning'
-                 '''
-                 self.ControlsWin.ui1.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
-                 '''
-                 '''
-                 TODO 2m
-                 '''
                  self.ui.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
 
                  if vector2[0]== 1:
                    labelbar = 'Calibration Warning: ValueError or generic error during signal acquisition. Please, repeat the Calibration'
                    stop_flag=1 ##
                  elif vector3[0]== 1:
+                     
+                   PopUp.warning_not_blocking(self, "Peak Detection", "WARNING: unable to identify fundamental peak. Please, repeat the calibration")
+                   
                    labelbar = 'Calibration Warning: unable to identify fundamental peak or apply peak detection algorithm. Please, repeat the Calibration!'
                    stop_flag=1 ##
-            '''
-            self.InfoWin.ui3.l6a.setText("<font color=#0000ff>  Dissipation </font>" + label3)
-            self.InfoWin.ui3.l6.setText("<font color=#0000ff>  Dissipation </font>" + label2)
-            self.InfoWin.ui3.l7.setText("<font color=#0000ff>  Resonance Frequency </font>" + label1)
-            '''
-            '''
-            TODO 2m set info label in main ui
-            '''
-
-            '''
-            self.ControlsWin.ui1.infostatus.setText("<font color=#000000> Program Status </font>" + labelstatus)
-            self.ControlsWin.ui1.infobar.setText("<font color=#0000ff> Infobar </font><font color={}>{}</font>".format(color_err,labelbar))
-            # progressbar -------------
-            self.ControlsWin.ui1.progressBar.setValue(self._completed+10)
-            '''
-            '''
-            TODO 2m
-            '''
+            
             self.ui.infostatus.setText("<font color=#000000> Program Status </font>" + labelstatus)
             self.ui.infobar.setText("<font color=#0000ff> Infobar </font><font color={}>{}</font>".format(color_err,labelbar))
+            
             # progressbar -------------
             self.ui.progressBar.setValue(self._completed + 10)
-
+            
+            # VER 0.1.6 DEBUG print stop_flag boolean 
+            # if pre_stop_flag != stop_flag:
+            #     print ("VER 0.1.6 DEBUG: stop_flag = ", stop_flag)
+            # pre_stop_flag = stop_flag
+            # print ("VER 0.1.6 DEBUG: stop_flag = ", stop_flag)
+            
             # terminate the  calibration (simulate clicked stop)
             if stop_flag == 1:
+               
+               # VER 0.1.6 make a pop-up window at the end of calibration
+               sleep(1.0)
+               # make a pop up window at the end of the calibration 
+               if vector2[0]== 0 and vector3[0]== 0:
+                   # get peak 
+                   data  = loadtxt(Constants.cvs_peakfrequencies_path)
+                   peaks_mag = data[:,0]
+                   # slect the quart sensor at 5 MHz 
+                   if ((peaks_mag[0]>4e+06 and peaks_mag[0]<6e+06)):
+                       label = "5 MHz"
+                   # slect the quartz sensor at 10 MHz     
+                   elif ((peaks_mag[0]>9e+06 and peaks_mag[0]<11e+06)):
+                       label = "10 MHz"   
+                   # VER 0.1.6 TODO generalize to other quartz sensors 
+                   
+                   
+                   # pop-up info on peak detection
+                   PopUp.info_exec_rtf(self, "Peak Detection", "Fundamental Frequency = " +  label + "<br>" + 
+                                               "Number of overtones detected = " + str(len(peaks_mag)) + "<br>" + 
+                                               "Frequency detected = " + str(peaks_mag))
+               
+               if vector3[0] == 1:
+                 # pop-up warning on peak detection
+                 PopUp.warning_blocking(self, "Peak Detection", "WARNING: unable to identify fundamental peak. Please, repeat the calibration")    
+                
+               # VER 0.1.6 stop the timer and the worker
+# =============================================================================
+#                sleep(1.0)  
+# =============================================================================
                self._timer_plot.stop()
                self._enable_ui(True)
                self.worker.stop()
-            '''
-            # Amplitude plot
-            self._plt0.clear()
-            #self._plt0.plot(list(self._xdict.keys()),self.worker.get_value1_buffer(),pen=Constants.plot_colors[0])
-            self._plt0.plot(self.worker.get_value1_buffer(),pen=Constants.plot_colors[0])
-
-            # Phase plot
-            self._plt1.clear()
-            self._plt1.plot(self.worker.get_value2_buffer(),pen=Constants.plot_colors[1])
-            '''
-        # MULTISCAN:
+               
+               time.sleep(1)
+               
+               # reset stop flag 
+               stop_flag = 0
+               
+        #### MULTISCAN Start
         # ---------------------------------------------------------------------
         elif self._get_source() == SourceType.multiscan:
             vector1 = self.worker.get_d1_buffer()
@@ -1789,6 +2081,7 @@ class MainWindow(QtGui.QMainWindow):
 
             if vector1.any:
                # progressbar
+               # VER 0.1.6 minus 
                if self._ser_control <= Constants.environment:
                   # VER 0.1.2 just a little thing  
                   self._completed = self._ser_control * 100 / Constants.environment
@@ -1803,25 +2096,73 @@ class MainWindow(QtGui.QMainWindow):
 
                # progressbar
                self.ui.progressBar.setValue(self._completed)
-
+               
             if self._ser_control == Constants.environment:
-                # clear plt reset buffer at the end of processing early data
+                # VER 0.1.6 TODO set te strat time using the time axis buffer 
+                
+                # 1 option 
+# =============================================================================
+#                 # VER 0.1.6 save the start time 
+#                 # self.start_time = time.time()  
+#                 import datetime
+#                 epoch= datetime.datetime(1970, 1, 1, 0, 0)
+#                 self.start_time = (datetime.datetime.now() - epoch).total_seconds()
+#                 self._xaxis.start_time = self.start_time
+#                 # print (self.start_time)
+#                 # set the start time on the x-axis
+# =============================================================================
+                
+                # VER 0.1.6 TODO
+                
+                # 2 option 
+                
+                # Iterate over each overtone and update time_axis_new
+                for idx in range(self._overtones_number_all):
+                    buffer = self.worker.get_time_values_buffer(idx)
+                    # Check if the buffer is not empty and the first element is not NaN
+                    if buffer.size > 0 and not np.isnan(buffer[0]): 
+                        # Assuming the buffer is a list-like structure and you want the first element
+                        self._time_axis_new[idx] = buffer[0]
+                        
+# =============================================================================
+#                 # DEBUG 
+#                 print ("DEBUG: time axis new a list of first times = ", self._time_axis_new)
+# =============================================================================
+                
+                # Set start_time to the smallest value in time_axis_new
+                self.start_time = np.nanmin(self._time_axis_new)
+                
+# =============================================================================
+#                 print ("DEBUG: start time = ", self.start_time)
+# =============================================================================
+                
+                
+                
+                # VER 0.1.6 clear plt reset buffer at the end of processing early data
+                # TODO not necessary to clear here ?
                 self.clear()
+                
+                # VER 0.1.6 TODO wait ?
+                
+                # VER 0.1.6 TODO set the start time after the clear 
+                self._xaxis.start_time = self.start_time/1e6
+                self._xaxisD.start_time = self.start_time/1e6
+                self._xaxisT.start_time = self.start_time/1e6
 
                 # VER 0.1.2
                 # Optimize and update infobar and infostatus in multiscan mode
                 labelstatus = 'Monitoring'
                 color_err = '#000000'
-                labelbar = 'Monitoring multiscan frequency and disspation '
+                labelbar = 'Monitoring multiscan frequency and dissipation '
                 self.ui.infostatus.setText("<font color=#000000> Program Status </font>" + labelstatus)
                 self.ui.infobar.setText("<font color=#0000ff> Infobar </font><font color={}>{}</font>".format(color_err,labelbar))
 
 
-        # REFERENCE SET
+        #### REFERENCE SET
         # ---------------------------------------------------------------------
         if self._reference_flag:
 
-            # SINGLE
+            #### SINGLE Reference set
             # -----------------------------------------------------------------
             if self._get_source() == SourceType.serial:
 
@@ -1839,28 +2180,64 @@ class MainWindow(QtGui.QMainWindow):
 
                 # AMPLITUDE and PHASE
                 # -------------------------------------------------------------
-                def updateViews1():
-                    self._plt0.clear()
-                    # VER 0.1.2
-                    # software freeze when interacting with software when resizing GUI window
-                    if self._get_source() != SourceType.multiscan:
-                        self._plt1.clear()
-                    self._plt1.setGeometry(self._plt0.vb.sceneBoundingRect())
-                    self._plt1.linkedViewChanged(self._plt0.vb, self._plt1.XAxis)
+                
+                
+                
+# =============================================================================
+#                 self._plt0.clear()
+#                 self._plt0.plot(x=self._readFREQ, y=self.worker.get_value1_buffer(), pen=Constants.plot_colors[0])
+# =============================================================================
+                
+                x_sweep_reduced = self._readFREQ[1:Constants.SAMPLES:Constants.FREQ_STEP_PLOT]
+                y_sweep = self.worker.get_value1_buffer()
+                y_sweep_reduced = y_sweep[1:Constants.SAMPLES:Constants.FREQ_STEP_PLOT]
+# =============================================================================
+#                 self._plt0_line.setData(x = self._readFREQ, y = self.worker.get_value1_buffer(), pen=Constants.plot_colors[0])
+# =============================================================================
+                self._plt0_line.setData(x = x_sweep_reduced, y = y_sweep_reduced, pen=Constants.plot_colors[0])
+        
+                
+                
+                # VER 0.1.6 remove reference to phase signal
+# =============================================================================
+#                 def updateViews1():
+#                     self._plt0.clear()
+#                     
+# =============================================================================
+                    # VER 0.1.6 remove reference to phase signal
+                    
+# =============================================================================
+#                     # VER 0.1.2
+#                     # software freeze when interacting with software when resizing GUI window
+#                     if self._get_source() != SourceType.multiscan:
+#                         self._plt1.clear()
+#                     self._plt1.setGeometry(self._plt0.vb.sceneBoundingRect())
+#                     self._plt1.linkedViewChanged(self._plt0.vb, self._plt1.XAxis)
+# =============================================================================
 
-                # updates for multiple plot y-axes
-                updateViews1()
-                self._plt0.vb.sigResized.connect(updateViews1)
-                self._plt0.plot(x=self._readFREQ, y=self.worker.get_value1_buffer(), pen=Constants.plot_colors[0])
-                self._plt1.addItem(pg.PlotCurveItem(x=self._readFREQ, y=self.worker.get_value2_buffer(), pen=Constants.plot_colors[1]))
-
-                # frequency and dissipation update view
-                def updateViews2():
-                    self._plt2.clear()
-                    self._pltD.clear()
-
-                updateViews2()
-                self._plt2.vb.sigResized.connect(updateViews2)
+                
+                # VER 0.1.6 remove reference to phase signal
+# =============================================================================
+#                 # updates for multiple plot y-axes
+#                 updateViews1()
+#                 self._plt0.vb.sigResized.connect(updateViews1)
+#                 self._plt0.plot(x=self._readFREQ, y=self.worker.get_value1_buffer(), pen=Constants.plot_colors[0])
+#                 self._plt1.addItem(pg.PlotCurveItem(x=self._readFREQ, y=self.worker.get_value2_buffer(), pen=Constants.plot_colors[1]))
+# =============================================================================
+                
+                
+                # VER 0.1.6 Do not clear the frequency and dissipation plot each time the plot is updated.
+                # This causes the GUI to slow down when many data points are plotted. 
+                # It's necessary to reference the 'line' object and update it with real-time data for more efficient plot handling
+# =============================================================================
+#                 # frequency and dissipation update view
+#                 def updateViews2():
+#                     self._plt2.clear()
+#                     self._pltD.clear()
+# 
+#                 updateViews2()
+#                 self._plt2.vb.sigResized.connect(updateViews2)
+# =============================================================================
 
                 #  TODO set the legend in single mode
                 overtone_selected = self._overtones_number_all - self.ui.cBox_Speed.currentIndex() - 1
@@ -1869,24 +2246,67 @@ class MainWindow(QtGui.QMainWindow):
                 # -------------------------------------------------------------
                 self._vector_1 = np.array(self.worker.get_d1_buffer()) - self._reference_value_frequency
                 self._vector_2 = np.array(self.worker.get_d2_buffer()) - self._reference_value_dissipation
+                
+                # VER 0.1.6 Do not set the y-range axis 
+                # TODO try to set the minimum and maximum y-range axis 
 
-                # VER 0.1.2
-                # get y_freq and y_dissipation max value
+# =============================================================================
+#                 # VER 0.1.2
+#                 # get y_freq and y_dissipation max value
+#                 y_freq_single_max = np.nanmax(self._vector_1)
+#                 y_freq_single_min = np.nanmin(self._vector_1)
+#                 y_diss_single_max = np.nanmax(self._vector_2)
+#                 y_diss_single_min = np.nanmin(self._vector_2)
+# 
+#                 # VER 0.1.2 
+#                 # set the y-range of dissipation and frequency axis 
+#                 try: 
+#                     self._plt2.setYRange(y_freq_single_min - 100, y_freq_single_max + 100, padding = 0)
+#                     self._pltD.setYRange(y_diss_single_min - 0.000001, y_diss_single_max + 0.000001, padding = 0)
+#                 except: 
+#                     pass
+# =============================================================================
+                
+                
+                # VER 0.1.6 DO NOT replot again over and over 
+                # this causes the GUI to slow down when many data points are plotted.
+# =============================================================================
+#                 self._plt2.plot( x = self.worker.get_t1_buffer(), y = self._vector_1, pen = pg.mkPen(color = Constants.plot_color_multi[overtone_selected], width = Constants.plot_line_width))
+#                 self._pltD.plot(x = self.worker.get_t1_buffer(), y = self._vector_2, pen = pg.mkPen(color = Constants.plot_color_multi[overtone_selected], width = Constants.plot_line_width))
+# =============================================================================
+
+                # VER 0.1.6 update plot using setData 
+                # SOLVED resources available here 
+                # https://www.pythonguis.com/tutorials/plotting-pyqtgraph/
+                time_x = self.worker.get_t1_buffer()
+                self._plt2_line.setData(x = time_x, y = self._vector_1)
+                self._pltD_line.setData(x = time_x, y = self._vector_2)  
+                
+# =============================================================================
+#              # VER 0.1.6 TODO set y range 
+# =============================================================================
+                # get freq and dissipation min and max
                 y_freq_single_max = np.nanmax(self._vector_1)
                 y_freq_single_min = np.nanmin(self._vector_1)
                 y_diss_single_max = np.nanmax(self._vector_2)
                 y_diss_single_min = np.nanmin(self._vector_2)
-
-                # VER 0.1.2 
-                # set the y-range of dissipation and frequency axis 
-                try: 
-                    self._plt2.setYRange(y_freq_single_min - 100, y_freq_single_max + 100, padding = 0)
-                    self._pltD.setYRange(y_diss_single_min - 0.000001, y_diss_single_max + 0.000001, padding = 0)
-                except: 
-                    pass
-
-                self._plt2.plot( x = self.worker.get_t1_buffer(), y = self._vector_1, pen = pg.mkPen(color = Constants.plot_color_multi[overtone_selected], width = Constants.plot_line_width))
-                self._pltD.plot(x = self.worker.get_t1_buffer(), y = self._vector_2, pen = pg.mkPen(color = Constants.plot_color_multi[overtone_selected], width = Constants.plot_line_width))
+                
+                # check if nan 
+                if all(not np.isnan(val) for val in [y_freq_single_max, y_freq_single_min, y_diss_single_max, y_diss_single_min]):
+                    # TODO make it a constants 
+                    y_f_range = 50
+                    y_d_range = y_f_range * 10e-6
+                    y_f_max = y_freq_single_max + y_f_range
+                    y_f_min = y_freq_single_min - y_f_range
+                    y_d_max = y_diss_single_max + y_d_range
+                    y_d_min = y_diss_single_min - y_d_range
+                  
+                    # set y range axis 
+                    self._plt2.setYRange(y_f_min, y_f_max)
+                    self._pltD.setYRange(y_d_min, y_d_max)
+# =============================================================================
+#                
+# =============================================================================
 
                 # update frequency and dissipation indicator
                 self._update_indicator_F_single (overtone_selected, self._vector_1)
@@ -1910,30 +2330,86 @@ class MainWindow(QtGui.QMainWindow):
 
                 # TEMPERATURE
                 # -------------------------------------------------------------
-                self._plt4.clear()
-                # do not autoscale y
-                self._plt4.enableAutoRange(axis= 'y', enable = True)
-
-                # set temperature y range
-                # VER 0.1.2
+                # VER 0.1.6 update temperature data plot using setData, round to 1 decimal
+                y_temperature = self.worker.get_d3_buffer().round(decimals = 1)
                 
-                # self._plt4.setYRange(5, 45, padding = 0)
-
-                # get temperature buffer
-                y_temperature = self.worker.get_d3_buffer()
-                self._plt4.plot(x = self.worker.get_t3_buffer(), y = y_temperature, pen=Constants.plot_colors[4])
-
-                # set temperature current value
-                label_indicator_temperature = float("{0:.2f}".format(y_temperature[0]))
+                # VER 0.1.6 do not set the y-axis range 
+                
+# =============================================================================
+#                 # VER 0.1.6 get min and max 
+#                 y_temperature_max = np.nanmax(y_temperature)
+#                 y_temperature_min = np.nanmin(y_temperature)
+#                 # VER 0.1.6 TODO set temperature y-axis 
+#                 try:
+#                     self._plt4.setYRange(y_temperature_min - 0.1, y_temperature_max + 0.1, padding = 0)
+#                 except:
+#                     pass
+# =============================================================================
+                
+                # VER 0.1.6 update temperature data plot using setData 
+                self._plt4_line.setData(x = time_x, y = y_temperature)
+                
+# =============================================================================
+#              # VER 0.1.6 TODO set y range 
+# =============================================================================
+                # get temperature min and max                 
+                y_temperature_max = np.nanmax(y_temperature)               
+                y_temperature_min = np.nanmin(y_temperature)
+                if all(not np.isnan(val) for val in [y_temperature_min, y_temperature_max]):
+                    # TODO make it a constants 
+                    y_t_range = 1
+                    y_t_min = y_temperature_min - y_t_range
+                    y_t_max = y_temperature_max + y_t_range
+                    self._plt4.setYRange(y_t_min, y_t_max)
+# =============================================================================
+# 
+# =============================================================================
+                
+                # VER 0.1.6 round to 1 decimal
+                label_indicator_temperature = float("{0:.1f}".format(y_temperature[0]))
                 self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+                
+# =============================================================================
+#                 self._plt4.clear()
+#                 # do not autoscale y
+#                 self._plt4.enableAutoRange(axis= 'y', enable = True)
+# 
+#                 # set temperature y range
+#                 # VER 0.1.2
+#                 
+#                 # self._plt4.setYRange(5, 45, padding = 0)
+# 
+#                 # get temperature buffer
+#                 y_temperature = self.worker.get_d3_buffer()
+#                 self._plt4.plot(x = self.worker.get_t3_buffer(), y = y_temperature, pen=Constants.plot_colors[4])
+# 
+#                 # set temperature current value
+#                 label_indicator_temperature = float("{0:.2f}".format(y_temperature[0]))
+#                 self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+# =============================================================================
 
-            # MULTISCAN
+                # VER 0.1.6 TEC CURRENT update plot
+                # -------------------------------------------------------------
+                try:
+                    #self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
+                    self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+                except AttributeError:
+                    pass
+ 
+
+            #### MULTISCAN Reference set
             # -----------------------------------------------------------------
             elif self._get_source() == SourceType.multiscan:
-
-                def updateViews_multi():
-                    self._plt1.setGeometry(self._plt0.vb.sceneBoundingRect())
-                    self._plt1.linkedViewChanged(self._plt0.vb, self._plt1.XAxis)
+                # VER 0.1.6 remove the call to updateViews_multi() 
+# =============================================================================
+#                 def updateViews_multi():
+#                     # VER 0.1.6 remove reference to phase signal
+#                     print (" # VER 0.1.6 remove reference to phase signal")
+# =============================================================================
+# =============================================================================
+#                     self._plt1.setGeometry(self._plt0.vb.sceneBoundingRect())
+#                     self._plt1.linkedViewChanged(self._plt0.vb, self._plt1.XAxis)
+# =============================================================================
 
                 ''' -----------------------------------------------------------
                 # AMPLITUDE
@@ -1989,32 +2465,64 @@ class MainWindow(QtGui.QMainWindow):
 #                     # self._plt0.setYRange(-5, 30, padding = 0)
 # =============================================================================
 
-                # updates for multiple plot y-axes
-                updateViews_multi()
-                self._plt0.vb.sigResized.connect(updateViews_multi)
-
-                self._plt0.clear()
-
-                # loop on the lines
-                # TODO introduce this control because I've some trouble in reset buffer ???
+# =============================================================================
+#                 # updates for multiple plot y-axes
+#                 updateViews_multi()
+#                 self._plt0.vb.sigResized.connect(updateViews_multi)
+# 
+#                 self._plt0.clear()
+# 
+#                 # loop on the lines
+#                 # TODO introduce this control because I've some trouble in reset buffer ???
+#                 if self._ser_control > Constants.environment:
+#                     for idx in range(self._overtones_number_all):
+#                         # get and scale frequency axis
+#                         x_sweep_axis = self.worker.get_F_Sweep_values_buffer(idx) - peaks_mag[idx]
+#                         # get amplitude axis
+#                         y_sweep_axis = self.worker.get_A_values_buffer(idx)
+# 
+#                         # plot sweep
+#                         # TODO there is something stange in worker.reset_buffers()
+#                         if self.scan_selector[idx] == True and isinstance(x_sweep_axis, np.ndarray):
+#                            self._plt0.plot ( x = x_sweep_axis, y = y_sweep_axis, pen = Constants.plot_color_multi[idx] )
+# =============================================================================
+                
+                # AMPLITUDE
+                # -------------------------------------------------------------
+                # VER 0.1.6 update amplitude plot using setData without destroy the plot 
                 if self._ser_control > Constants.environment:
                     for idx in range(self._overtones_number_all):
                         # get and scale frequency axis
                         x_sweep_axis = self.worker.get_F_Sweep_values_buffer(idx) - peaks_mag[idx]
                         # get amplitude axis
                         y_sweep_axis = self.worker.get_A_values_buffer(idx)
-
-                        # plot sweep
-                        # TODO there is something stange in worker.reset_buffers()
+                        
+                        # VER 0.1.6 reduce the array to plot
+                        if isinstance(x_sweep_axis, np.ndarray):
+                            x_sweep_axis_reduced = x_sweep_axis[1:Constants.SAMPLES:Constants.FREQ_STEP_PLOT]
+                            y_sweep_axis_reduced = y_sweep_axis[1:Constants.SAMPLES:Constants.FREQ_STEP_PLOT] 
+                        
+                        # check the scan selector
                         if self.scan_selector[idx] == True and isinstance(x_sweep_axis, np.ndarray):
-                           self._plt0.plot ( x = x_sweep_axis, y = y_sweep_axis, pen = Constants.plot_color_multi[idx] )
+                            self._plt0_multiline[idx].setData(x = x_sweep_axis_reduced, 
+                                                              y = y_sweep_axis_reduced, 
+                                                              pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width))
+                                                    
+                        else: 
+                            # VER 0.1.6 set the current data to nan 
+                            self._plt0_multiline[idx].setData(x = self._numpy_nan_sweep, y = self._numpy_nan_sweep)
+                
+                
 
                 # FREQUENCY and DISSIPATION
                 # ------------------------------------------------------------
-
-                self._plt2.clear()
-
-                self._pltD.clear()
+                
+                # VER 0.1.6 do not clear plt
+# =============================================================================
+#                 self._plt2.clear()
+# 
+#                 self._pltD.clear()
+# =============================================================================
 
                 for idx in range(self._overtones_number_all):
                     if self.scan_selector[idx] == True:
@@ -2024,43 +2532,92 @@ class MainWindow(QtGui.QMainWindow):
                         # get y frequency and dissipation axis
                         y_freq = np.array( self.worker.get_F_values_buffer(idx) ) - self._reference_value_frequency_array[idx]
                         y_diss = np.array( self.worker.get_D_values_buffer(idx) ) - self._reference_value_dissipation_array[idx]
+                        
+                        # VER 0.1.6 do not set the y-range axis 
 
-                        # VER 0.1.2
-                        # get y_freq and y_dissipation max and min values array
+# =============================================================================
+#                         # VER 0.1.2
+#                         # get y_freq and y_dissipation max and min values array
+#                         self._y_freq_max[idx] = np.nanmax(y_freq)
+#                         self._y_freq_min[idx] = np.nanmin(y_freq)
+#                         self._y_diss_max[idx] = np.nanmax(y_diss)
+#                         self._y_diss_min[idx] = np.nanmin(y_diss)
+# 
+#                         # get the frequency and dissipation max and min on overtones
+#                         y_freq_max = max(self._y_freq_max)
+#                         y_freq_min = min(self._y_freq_min)
+#                         y_diss_max = max(self._y_diss_max)
+#                         y_diss_min = min(self._y_diss_min)
+# 
+#                         # print ("GET MAXIMUM VALUES FREQ AND DISSIP = ")
+#                         # print (y_freq_max), print (y_diss_max)
+# 
+#                         try:
+#                             # VER 0.1.2
+#                             # set the y-range of dissipation and frequency axis
+#                             self._plt2.setYRange(y_freq_min - 100, y_freq_max + 100, padding = 0)
+#                             self._pltD.setYRange(y_diss_min - 0.000005, y_diss_max + 0.000005, padding = 0)
+#                         except:
+#                             pass
+# =============================================================================
+                        
+                        # VER 0.1.6 do not call the entire plt
+# =============================================================================
+#                         # plot frequency and dissipation data
+#                         self._plt2.plot(x = time_axis_new, y = y_freq, pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width))
+#                         self._pltD.plot(x = time_axis_new, y = y_diss, pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width))
+# =============================================================================
+                        
+                        # VER 0.1.6 update lines using setData
+                        self._plt2_multiline[idx].setData(x = time_axis_new, y = y_freq, 
+                                                          pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width))
+                        self._pltD_multiline[idx].setData(x = time_axis_new, y = y_diss, 
+                                                          pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width))
+
+                        self._update_indicator_F (idx, y_freq)
+                        self._update_indicator_D (idx, y_diss)
+                        
+                        # VER 0.1.6 TODO set y range 
+# =============================================================================
+                        # get y_freq and y_dissipation max and min values array for each overtones
                         self._y_freq_max[idx] = np.nanmax(y_freq)
                         self._y_freq_min[idx] = np.nanmin(y_freq)
                         self._y_diss_max[idx] = np.nanmax(y_diss)
                         self._y_diss_min[idx] = np.nanmin(y_diss)
-
-                        # get the frequency and dissipation max and min on overtones
+                        # get the frequency and dissipation max and min on all overtones
                         y_freq_max = max(self._y_freq_max)
                         y_freq_min = min(self._y_freq_min)
                         y_diss_max = max(self._y_diss_max)
                         y_diss_min = min(self._y_diss_min)
-
-                        # print ("GET MAXIMUM VALUES FREQ AND DISSIP = ")
-                        # print (y_freq_max), print (y_diss_max)
-
-                        try:
-                            # VER 0.1.2
-                            # set the y-range of dissipation and frequency axis
-                            self._plt2.setYRange(y_freq_min - 100, y_freq_max + 100, padding = 0)
-                            self._pltD.setYRange(y_diss_min - 0.000005, y_diss_max + 0.000005, padding = 0)
-                        except:
-                            pass
-
-                        # plot frequency and dissipation data
-                        self._plt2.plot(x = time_axis_new, y = y_freq, pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width))
-                        self._pltD.plot(x = time_axis_new, y = y_diss, pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width))
-
-                        self._update_indicator_F (idx, y_freq)
-                        self._update_indicator_D (idx, y_diss)
+                        
+                        # check if nan 
+                        if all(not np.isnan(val) for val in [y_freq_max, y_freq_min, y_diss_max, y_diss_min]):
+                            # TODO make it a constants 
+                            y_f_range = 50
+                            y_d_range = y_f_range * 10e-6
+                            y_f_max = y_freq_max + y_f_range
+                            y_f_min = y_freq_min - y_f_range
+                            y_d_max = y_diss_max + y_d_range
+                            y_d_min = y_diss_min - y_d_range
+                            
+                            # set y range axis 
+                            self._plt2.setYRange(y_f_min, y_f_max)
+                            self._pltD.setYRange(y_d_min, y_d_max)
 
                     else:
                         dummy = [0]
                         self._update_indicator_F (idx, dummy)
                         self._update_indicator_D (idx, dummy)
-
+                        
+                        self._legend_f.removeItem(Constants.name_legend[idx])
+                        
+                        # VER 0.1.6 set the current data to nan 
+                        self._plt2_multiline[idx].setData(x = self._numpy_nan_signal, y = self._numpy_nan_signal) 
+                                                          
+                        self._pltD_multiline[idx].setData(x = self._numpy_nan_signal, y = self._numpy_nan_signal)
+                                                         
+                        # VER 0.1.6 TODO set to nan 
+                        
                         # VER 0.1.2
                         # reset limits to get the correct y-ranges
                         self._y_freq_max[idx] = 0
@@ -2070,101 +2627,247 @@ class MainWindow(QtGui.QMainWindow):
 
                 # TEMPERATURE
                 # ------------------------------------------------------------
-                self._plt4.clear()
-                # do not autoscale y
-                self._plt4.enableAutoRange(axis= 'y', enable = True)
-
-                # set temperature y range
-                # VER 0.1.2
-                # self._plt4.setYRange(5, 45, padding = 0)
-
-                # get temperature buffer
-                y_temperature = self.worker.get_d3_buffer()
-
-                self._plt4.plot( x = self.worker.get_t3_buffer(), y = y_temperature, pen=Constants.plot_colors[4])
-
-                # set temperature current value
-                label_indicator_temperature = float("{0:.2f}".format(y_temperature[0]))
+                # VER 0.1.6 update temperature data plot using setData, round to 1 decimal
+                y_temperature = self.worker.get_d3_buffer().round(decimals = 1)
+                
+                # VER 0.1.6 get min and max 
+                y_temperature_max = np.nanmax(y_temperature)
+                y_temperature_min = np.nanmin(y_temperature)
+                
+                # VER 0.1.6 do not set temperature y-axis
+                
+# =============================================================================
+#                 # VER 0.1.6 TODO set temperature y-axis 
+#                 try:
+#                     self._plt4.setYRange(y_temperature_min - 0.1, y_temperature_max + 0.1, padding = 0)
+#                 except:
+#                     pass
+# =============================================================================
+                
+                # VER 0.1.6 update temperature data plot using setData 
+                self._plt4_line.setData(x = self.worker.get_t3_buffer(), y = y_temperature)
+                
+                # VER 0.1.6 round to 1 decimal
+                label_indicator_temperature = float("{0:.1f}".format(y_temperature[0]))
                 self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+                
+                
+                # VER 0.1.6 TODO set y range temperature 
+# =============================================================================               
+                # get temperature min and max                 
+                y_temperature_max = np.nanmax(y_temperature)               
+                y_temperature_min = np.nanmin(y_temperature)
+                if all(not np.isnan(val) for val in [y_temperature_min, y_temperature_max]):
+                    # TODO make it a constants 
+                    y_t_range = 1
+                    y_t_min = y_temperature_min - y_t_range
+                    y_t_max = y_temperature_max + y_t_range
+                    self._plt4.setYRange(y_t_min, y_t_max)
+                    
+                    
+# =============================================================================
+#                 self._plt4.clear()
+#                 # do not autoscale y
+#                 self._plt4.enableAutoRange(axis= 'y', enable = True)
+# 
+#                 # set temperature y range
+#                 # VER 0.1.2
+#                 # self._plt4.setYRange(5, 45, padding = 0)
+# 
+#                 # get temperature buffer
+#                 y_temperature = self.worker.get_d3_buffer()
+# 
+#                 self._plt4.plot( x = self.worker.get_t3_buffer(), y = y_temperature, pen=Constants.plot_colors[4])
+# 
+#                 # set temperature current value
+#                 label_indicator_temperature = float("{0:.2f}".format(y_temperature[0]))
+#                 self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+# =============================================================================
 
-        # REFERENCE NOT SET
+                # VER 0.1.6 TEC CURRENT update plot
+                # -------------------------------------------------------------
+                try:
+                    #self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
+                    self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+                except AttributeError:
+                    pass
+
+        #### REFERENCE NOT SET
         # ---------------------------------------------------------------------
         else:
+            
+            
+            # self._plt2.setLabel('left', 'Resonance Frequency', units='Hz', color=Constants.plot_title_color, **{'font-size':'10pt'})
+            # VER 0.1.6 optimize plt
+            self._plt2.setLabel('left', 'Resonance Frequency', units='Hz')
+            
+            # VER 0.1.6 remove update views function 
+# =============================================================================
+#             # define update views for amplitude plt
+#             def updateViews1():
+#                 self._plt0.clear()
+# =============================================================================
+                
+                # VER 0.1.6 remove reference to phase signal
+                
+# =============================================================================
+#                 # VER 0.1.2
+#                 # software freeze when interacting with software when resizing GUI window
+#                 if self._get_source() != SourceType.multiscan:
+#                         self._plt1.clear()
+#                 self._plt1.setGeometry(self._plt0.vb.sceneBoundingRect())
+#                 self._plt1.linkedViewChanged(self._plt0.vb, self._plt1.XAxis)
+# =============================================================================
+                
+              # VER 0.1.6 remove update views function   
+# =============================================================================
+#             # VER 0.1.6 remove reference to phase signal
+#             def updateViews_multi():
+#                 print ( "VER 0.1.5a_DEV remove reference to phase signal")
+# =============================================================================
+# =============================================================================
+#                 self._plt1.setGeometry(self._plt0.vb.sceneBoundingRect())
+#                 self._plt1.linkedViewChanged(self._plt0.vb, self._plt1.XAxis)
+# =============================================================================
 
-            self._plt2.setLabel('left', 'Resonance Frequency', units='Hz', color=Constants.plot_title_color, **{'font-size':'10pt'})
 
-            # define update views for amplitude plt
-            def updateViews1():
-                self._plt0.clear()
-                # VER 0.1.2
-                # software freeze when interacting with software when resizing GUI window
-                if self._get_source() != SourceType.multiscan:
-                        self._plt1.clear()
-                self._plt1.setGeometry(self._plt0.vb.sceneBoundingRect())
-                self._plt1.linkedViewChanged(self._plt0.vb, self._plt1.XAxis)
-
-            def updateViews_multi():
-                self._plt1.setGeometry(self._plt0.vb.sceneBoundingRect())
-                self._plt1.linkedViewChanged(self._plt0.vb, self._plt1.XAxis)
-
-
-            # CALIBRATION
+            #### CALIBRATION
             # -----------------------------------------------------------------
             if self._get_source() == SourceType.calibration:
-
-               # updates for multiple plot y-axes
-               updateViews1()
-               self._plt0.vb.sigResized.connect(updateViews1)
-
+                
+               # VER 0.1.6 do not update, what the hell is that !
+# =============================================================================
+#                # updates for multiple plot y-axes
+#                updateViews1()
+#                self._plt0.vb.sigResized.connect(updateViews1)
+# =============================================================================
+               
+               # VER 0.1.6 clear plot and plot again  
+               self._plt0.clear()
+               
+               # VER 0.1.6 the calibration curve white color
                calibration_readFREQ  = np.arange(len(self.worker.get_value1_buffer())) * (Constants.calib_fStep) + Constants.calibration_frequency_start
-               self._plt0.plot(x=calibration_readFREQ,y=self.worker.get_value1_buffer(),pen=Constants.plot_colors[0])
-               self._plt1.addItem(pg.PlotCurveItem(x=calibration_readFREQ,y=self.worker.get_value2_buffer(),pen=Constants.plot_colors[1]))
+               self._plt0.plot(x=calibration_readFREQ, y=self.worker.get_value1_buffer(), pen=Constants.plot_colors[0])
+               
+               # VER 0.1.6 remove reference to phase signal
+# =============================================================================
+#                self._plt1.addItem(pg.PlotCurveItem(x=calibration_readFREQ,y=self.worker.get_value2_buffer(),pen=Constants.plot_colors[1]))
+# =============================================================================
 
-            # SINGLE
+            #### SINGLE Reference NOT set
             # -----------------------------------------------------------------
             elif self._get_source() == SourceType.serial:
 
                # AMPLITUDE and PHASE
                # -------------------------------------------------------------
-
+               
+               # VER 0.1.6 do not update 
                # updates for multiple plot y-axes
-               updateViews1()
-               self._plt0.vb.sigResized.connect(updateViews1)
+# =============================================================================
+#                updateViews1()
+#                self._plt0.vb.sigResized.connect(updateViews1)
+# =============================================================================
+               
 
-               self._plt0.plot(x = self._readFREQ, y = self.worker.get_value1_buffer(), pen = Constants.plot_colors[0])
-               self._plt1.addItem(pg.PlotCurveItem(x = self._readFREQ,y=self.worker.get_value2_buffer(),pen=Constants.plot_colors[1]))
+
+               # VER 0.1.6 reduce sweep data points
+               x_sweep_reduced = self._readFREQ[1:Constants.SAMPLES:Constants.FREQ_STEP_PLOT]
+               y_sweep = self.worker.get_value1_buffer()
+               y_sweep_reduced = y_sweep[1:Constants.SAMPLES:Constants.FREQ_STEP_PLOT]
+# =============================================================================
+#                 self._plt0_line.setData(x = self._readFREQ, y = self.worker.get_value1_buffer(), pen=Constants.plot_colors[0])
+# =============================================================================
+               self._plt0_line.setData(x = x_sweep_reduced, y = y_sweep_reduced, pen=Constants.plot_colors[0])
+
+# =============================================================================
+#                self._plt0.clear()
+#                self._plt0.plot(x = self._readFREQ, y = self.worker.get_value1_buffer(), pen = Constants.plot_colors[0])
+# =============================================================================
+               
+               # VER 0.1.6 remove reference to phase signal
+# =============================================================================
+#                self._plt1.addItem(pg.PlotCurveItem(x = self._readFREQ,y=self.worker.get_value2_buffer(),pen=Constants.plot_colors[1]))
+# =============================================================================
 
                #  TODO set the legend in single mode
                overtone_selected = self._overtones_number_all - self.ui.cBox_Speed.currentIndex() - 1
 
                y_freq = self.worker.get_d1_buffer()
                y_diss = self.worker.get_d2_buffer()
+               
+               # VER 0.1.6 do not get max and min 
+# =============================================================================
+#                # VER 0.1.2
+#                # get y_freq and y_dissipation max value
+#                y_freq_single_max = np.nanmax(y_freq)
+#                y_freq_single_min = np.nanmin(y_freq)
+#                y_diss_single_max = np.nanmax(y_diss)
+#                y_diss_single_min = np.nanmin(y_diss)
+# =============================================================================
 
-               # VER 0.1.2
-               # get y_freq and y_dissipation max value
+               # FREQUENCY and DISSIPATION
+               # --------------------------------------------------------------
+               
+               # VER 0.1.6 do not clear plt
+# =============================================================================
+#                self._plt2.clear()
+# =============================================================================
+               # VER 0.1.6 do not clear plt
+# =============================================================================
+#                self._pltD.clear()
+# =============================================================================
+               
+               time_x = self.worker.get_t1_buffer()
+               time_x_D = self.worker.get_t3_buffer()
+               
+               # VER 0.1.6 do not set y-axis 
+# =============================================================================
+#                # VER 0.1.2
+#                # check if t y-axis limit is not a nan
+#                if not ( np.isnan(y_freq_single_max ) ):
+#                    try:
+#                        self._plt2.setYRange(y_freq_min - 100, y_freq_max + 100, padding = 0)
+#                        self._pltD.setYRange(y_diss_min - 0.000001, y_diss_max + 0.000001, padding = 0)
+#                    except:
+#                        pass
+# =============================================================================
+                
+               # VER 0.1.6 DO NOT CLEAR PLOT DO NOT CREATE AGAIN THE PLOT      
+# =============================================================================
+#                self._plt2.plot(x= time_x, y = y_freq, pen = pg.mkPen(color = Constants.plot_color_multi[overtone_selected], width = Constants.plot_line_width))
+#                self._pltD.plot(x = time_x_D, y = y_diss, pen = pg.mkPen(color = Constants.plot_color_multi[overtone_selected], width = Constants.plot_line_width))
+# =============================================================================
+                
+               # VER 0.1.6 update plot using setData 
+               # SOLVED resources available here 
+               # https://www.pythonguis.com/tutorials/plotting-pyqtgraph/
+               self._plt2_line.setData(x = time_x, y = y_freq)
+               self._pltD_line.setData(x = time_x_D, y = y_diss)   
+               
+# =============================================================================
+#              # VER 0.1.6 TODO set y range 
+# =============================================================================
+               # get freq and dissipation min and max
                y_freq_single_max = np.nanmax(y_freq)
                y_freq_single_min = np.nanmin(y_freq)
                y_diss_single_max = np.nanmax(y_diss)
                y_diss_single_min = np.nanmin(y_diss)
-
-               # FREQUENCY and DISSIPATION
-               # --------------------------------------------------------------
-               self._plt2.clear()
-               time_x = self.worker.get_t1_buffer()
-               self._pltD.clear()
-               time_x_D = self.worker.get_t3_buffer()
-
-               # VER 0.1.2
-               # check if t y-axis limit is not a nan
-               if not ( np.isnan(y_freq_single_max ) ):
-                   try:
-                       self._plt2.setYRange(y_freq_min - 100, y_freq_max + 100, padding = 0)
-                       self._pltD.setYRange(y_diss_min - 0.000001, y_diss_max + 0.000001, padding = 0)
-                   except:
-                       pass
-
-               self._plt2.plot(x= time_x, y = y_freq, pen = pg.mkPen(color = Constants.plot_color_multi[overtone_selected], width = Constants.plot_line_width))
-               self._pltD.plot(x = time_x_D, y = y_diss, pen = pg.mkPen(color = Constants.plot_color_multi[overtone_selected], width = Constants.plot_line_width))
+               
+               # check if nan 
+               if all(not np.isnan(val) for val in [y_freq_single_max, y_freq_single_min, y_diss_single_max, y_diss_single_min]):
+                   y_f_range = 50
+                   y_d_range = y_f_range * 10e-6
+                   y_f_max = y_freq_single_max + y_f_range
+                   y_f_min = y_freq_single_min - y_f_range
+                   y_d_max = y_diss_single_max + y_d_range
+                   y_d_min = y_diss_single_min - y_d_range
+                 
+                   # set y range axis 
+                   self._plt2.setYRange(y_f_min, y_f_max)
+                   self._pltD.setYRange(y_d_min, y_d_max)
+# =============================================================================
+#                
+# =============================================================================
 
                # update frequency and dissipatuon indicator
                self._update_indicator_F_single (overtone_selected, y_freq)
@@ -2172,24 +2875,75 @@ class MainWindow(QtGui.QMainWindow):
 
                # TEMPERATURE
                # -----------------------------------------------------------------
-
-               self._plt4.clear()
-               # do not autoscale y
-               self._plt4.enableAutoRange(axis= 'y', enable = True)
-               # set temperature y range
-               # VER 0.1.2
-               # change the Temperature Y-range to 5 - 45 °C
-               # self._plt4.setYRange(5, 45, padding = 0)
-
-               # get temperature buffer
-               y_temperature = self.worker.get_d3_buffer()
-               self._plt4.plot(x = time_x_D, y = y_temperature, pen=Constants.plot_colors[4])
-
-               # set temperature current value
-               label_indicator_temperature = float("{0:.2f}".format(y_temperature[0]))
+               # VER 0.1.6 update temperature data plot using setData, round to 1 decimal
+               y_temperature = self.worker.get_d3_buffer().round(decimals = 1)
+               
+               # VER 0.1.6 get min and max 
+# =============================================================================
+#                y_temperature_max = np.nanmax(y_temperature)
+#                y_temperature_min = np.nanmin(y_temperature)
+# =============================================================================
+               
+               # VER 0.1.6 do not set temperature yaxis 
+               
+# =============================================================================
+#                # VER 0.1.6 TODO set temperature y-axis 
+#                try:
+#                    self._plt4.setYRange(y_temperature_min - 0.1, y_temperature_max + 0.1, padding = 0)
+#                except:
+#                    pass
+# =============================================================================
+               
+               self._plt4_line.setData(x = time_x, y = y_temperature)
+               
+# =============================================================================
+#              # VER 0.1.6 TODO set y range 
+# =============================================================================
+               # get temperature min and max                 
+               y_temperature_max = np.nanmax(y_temperature)               
+               y_temperature_min = np.nanmin(y_temperature)
+               if all(not np.isnan(val) for val in [y_temperature_min, y_temperature_max]):
+                   # TODO make it a constants 
+                   y_t_range = 1
+                   y_t_min = y_temperature_min - y_t_range
+                   y_t_max = y_temperature_max + y_t_range
+                   self._plt4.setYRange(y_t_min, y_t_max)
+# =============================================================================
+# 
+# =============================================================================               
+               
+               # VER 0.1.6 temprature round to 1 decimal
+               label_indicator_temperature = float("{0:.1f}".format(y_temperature[0]))
                self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+               
+# =============================================================================
+# 
+#                self._plt4.clear()
+#                # do not autoscale y
+#                self._plt4.enableAutoRange(axis= 'y', enable = True)
+#                # set temperature y range
+#                # VER 0.1.2
+#                # change the Temperature Y-range to 5 - 45 °C
+#                # self._plt4.setYRange(5, 45, padding = 0)
+# 
+#                # get temperature buffer
+#                y_temperature = self.worker.get_d3_buffer()
+#                self._plt4.plot(x = time_x_D, y = y_temperature, pen=Constants.plot_colors[4])
+# 
+#                # set temperature current value
+#                label_indicator_temperature = float("{0:.2f}".format(y_temperature[0]))
+#                self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+# =============================================================================
 
-            # MULTI
+               # VER 0.1.6 TEC CURRENT update plot
+               # -------------------------------------------------------------
+               try:
+                   #self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
+                   self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+               except AttributeError:
+                   pass
+
+            #### MULTISCAN Reference NOT set
             # -----------------------------------------------------------------
             elif self._get_source() == SourceType.multiscan:
                '''
@@ -2245,29 +2999,75 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
 
 
-               # updates for multiple plot y-axes
-               updateViews_multi()
-               self._plt0.vb.sigResized.connect(updateViews_multi)
+# =============================================================================
+#                # updates for multiple plot y-axes
+#                updateViews_multi()
+#                self._plt0.vb.sigResized.connect(updateViews_multi)
+# 
+#                self._plt0.clear()
+# 
+#                # loop on the lines
+#                # TODO introduce this control because I've some trouble in reset buffer ???
+#                if self._ser_control > Constants.environment:
+#                    for idx in range(self._overtones_number_all):
+#                        # get and scale frequency axis
+#                        x_sweep_axis = self.worker.get_F_Sweep_values_buffer(idx) - peaks_mag[idx]
+#                        # get amplitude axis
+#                        y_sweep_axis = self.worker.get_A_values_buffer(idx)
+#                        # plot sweep
+#                        if self.scan_selector[idx] == True and isinstance(x_sweep_axis, np.ndarray):
+#                            self._plt0.plot ( x = x_sweep_axis, y = y_sweep_axis, pen = Constants.plot_color_multi[idx] )
+# =============================================================================
 
-               self._plt0.clear()
-
-               # loop on the lines
-               # TODO introduce this control because I've some trouble in reset buffer ???
+               # AMPLITUDE
+               # -------------------------------------------------------------
+               # VER 0.1.6 update amplitude plot using setData without destroy the plot 
                if self._ser_control > Constants.environment:
-                   for idx in range(self._overtones_number_all):
-                       # get and scale frequency axis
-                       x_sweep_axis = self.worker.get_F_Sweep_values_buffer(idx) - peaks_mag[idx]
-                       # get amplitude axis
-                       y_sweep_axis = self.worker.get_A_values_buffer(idx)
-                       # plot sweep
-                       if self.scan_selector[idx] == True and isinstance(x_sweep_axis, np.ndarray):
-                           self._plt0.plot ( x = x_sweep_axis, y = y_sweep_axis, pen = Constants.plot_color_multi[idx] )
+                    for idx in range(self._overtones_number_all):
+                        # get and scale frequency axis
+                        x_sweep_axis = self.worker.get_F_Sweep_values_buffer(idx) - peaks_mag[idx]
+                        # get amplitude axis
+                        y_sweep_axis = self.worker.get_A_values_buffer(idx)
+                        
+                        # VER 0.1.6 reduce the array to plot
+                        if isinstance(x_sweep_axis, np.ndarray):
+                            x_sweep_axis_reduced = x_sweep_axis[1:Constants.SAMPLES:Constants.FREQ_STEP_PLOT]
+                            y_sweep_axis_reduced = y_sweep_axis[1:Constants.SAMPLES:Constants.FREQ_STEP_PLOT] 
+                        
+                        
+                        
+                        
+                        # VER 0.1.6 reduce the array to plot
+# =============================================================================
+#                         if isinstance(y_sweep_axis, np.ndarray):
+#                             y_sweep_axis_reduced = y_sweep_axis[1:Constants.SAMPLES:Constants.FREQ_STEP_PLOT]
+# =============================================================================
+                        
+                       
+                        
+                        if self.scan_selector[idx] == True and isinstance(x_sweep_axis, np.ndarray):
+                            self._plt0_multiline[idx].setData(x = x_sweep_axis_reduced, 
+                                                              y = y_sweep_axis_reduced, 
+                                                              pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width))
+# =============================================================================
+#                            self._plt0_multiline[idx].setData(x = x_sweep_axis, y = y_sweep_axis, pen = pg.mkPen(color = Constants.plot_color_multi[idx]))
+# =============================================================================
+
+                        else: 
+# =============================================================================
+#                            print ("DEBUG: Warning sweep data set to NAN  ")
+# =============================================================================
+                           # VER 0.1.6 set data to nan 
+                           self._plt0_multiline[idx].setData(x = self._numpy_nan_sweep, y = self._numpy_nan_sweep)
+                
 
                # FREQUENCY and DISSIPATION
                # --------------------------------------------------------------
                # clear plot
-               self._plt2.clear()
-               self._pltD.clear()
+# =============================================================================
+#                self._plt2.clear()
+#                self._pltD.clear()
+# =============================================================================
 
                # loop on the lines
                for idx in range(self._overtones_number_all):
@@ -2278,10 +3078,22 @@ class MainWindow(QtGui.QMainWindow):
                        # get y frequency and dissipation axis
                        y_freq = self.worker.get_F_values_buffer(idx)
                        y_diss = self.worker.get_D_values_buffer(idx)
-                       # frequency
-                       self._plt2.plot(x = time_axis_new, y = y_freq, pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width))
-                       # dissipation
-                       self._pltD.plot(x =  time_axis_new, y = y_diss, pen = Constants.plot_color_multi[idx], width = Constants.plot_line_width)
+                       
+# =============================================================================
+#                        # frequency
+#                        self._plt2.plot(x = time_axis_new, y = y_freq, pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width))
+#                        # dissipation
+#                        self._pltD.plot(x =  time_axis_new, y = y_diss, pen = Constants.plot_color_multi[idx], width = Constants.plot_line_width)
+# =============================================================================
+
+                        
+                       # VER 0.1.6 update lines using setData 
+                       self._plt2_multiline[idx].setData(x = time_axis_new, y = y_freq, 
+                                                         pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width))
+                       self._pltD_multiline[idx].setData(x = time_axis_new, y = y_diss, 
+                                                         pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width))
+            
+                       
 
                        self._update_indicator_F (idx, y_freq)
                        self._update_indicator_D (idx, y_diss)
@@ -2290,25 +3102,77 @@ class MainWindow(QtGui.QMainWindow):
                        dummy = [0]
                        self._update_indicator_F (idx, dummy)
                        self._update_indicator_D (idx, dummy)
+                       
+                       
+                       self._legend_f.removeItem(Constants.name_legend[idx])
+                       
+                       # VER 0.1.6 update lines and set data to nan
+                       self._plt2_multiline[idx].setData(x = self._numpy_nan_signal, y = self._numpy_nan_signal) 
+                                                         
+                       self._pltD_multiline[idx].setData(x = self._numpy_nan_signal, y = self._numpy_nan_signal)
+                                                         
 
 
                # TEMPERATURE
                # --------------------------------------------------------------
-               self._plt4.clear()
-               # do not autoscale y
-               self._plt4.enableAutoRange(axis= 'y', enable = True)
-               # VER 0.1.2
-               # change the Temperature Y-range to 5 - 45 °C
-               # self._plt4.setYRange(5, 45, padding = 0)
-
-               # get temperarre buffer
-               y_temperature = self.worker.get_d3_buffer()
-
-               self._plt4.plot( x = self.worker.get_t3_buffer(), y = y_temperature, pen=Constants.plot_colors[4])
-
-               # set temperature current value
-               label_indicator_temperature = float("{0:.2f}".format(y_temperature[0]))
+               # VER 0.1.6 update temperature data plot using setData. round to 1 decimal  
+               y_temperature = self.worker.get_d3_buffer().round(decimals = 1)
+               
+               # VER 0.1.6 do not set YAXIS 
+# =============================================================================
+#                # VER 0.1.6 get min and max 
+#                y_temperature_max = np.nanmax(y_temperature)
+#                y_temperature_min = np.nanmin(y_temperature)
+#                # VER 0.1.6 TODO set temperature y-axis 
+#                try:
+#                    self._plt4.setYRange(y_temperature_min - 0.1, y_temperature_max + 0.1, padding = 0)
+#                except:
+#                    pass
+# =============================================================================
+               
+               # VER 0.1.6 update temperature data plot using setData 
+               self._plt4_line.setData(x = self.worker.get_t3_buffer(), y = y_temperature)
+               
+               # VER 0.1.6 TODO set y range temperature 
+# =============================================================================               
+               # get temperature min and max                 
+               y_temperature_max = np.nanmax(y_temperature)               
+               y_temperature_min = np.nanmin(y_temperature)
+               if all(not np.isnan(val) for val in [y_temperature_min, y_temperature_max]):
+                   # TODO make it a constants 
+                   y_t_range = 1
+                   y_t_min = y_temperature_min - y_t_range
+                   y_t_max = y_temperature_max + y_t_range
+                   self._plt4.setYRange(y_t_min, y_t_max)
+               
+               # VER 0.1.6  round to 1 decimal  
+               label_indicator_temperature = float("{0:.1f}".format(y_temperature[0]))
                self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+# =============================================================================
+#                self._plt4.clear()
+#                # do not autoscale y
+#                self._plt4.enableAutoRange(axis= 'y', enable = True)
+#                # VER 0.1.2
+#                # change the Temperature Y-range to 5 - 45 °C
+#                # self._plt4.setYRange(5, 45, padding = 0)
+# 
+#                # get temperarre buffer
+#                y_temperature = self.worker.get_d3_buffer()
+# 
+#                self._plt4.plot( x = self.worker.get_t3_buffer(), y = y_temperature, pen=Constants.plot_colors[4])
+# 
+#                # set temperature current value
+#                label_indicator_temperature = float("{0:.2f}".format(y_temperature[0]))
+#                self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+# =============================================================================
+
+               # VER 0.1.5b TEC CURRENT update plot
+               # -------------------------------------------------------------
+               try:
+                   #self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
+                   self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+               except AttributeError:
+                   pass
                
     # VER 0.1.4
     # update TEC status label 
@@ -2430,7 +3294,9 @@ class MainWindow(QtGui.QMainWindow):
 
     def _update_indicator_D (self, index, value):
         value_multiplied = value[0] * 1e6
-        label = float("{0:.3f}".format(value_multiplied))
+        # label = float("{0:.3f}".format(value_multiplied))
+        # VER 0.1.6 dissipation round to 1 decimal  
+        label = float("{0:.1f}".format(value_multiplied))
 
         if (index == 0):
             if (self.scan_selector[index] == True):
@@ -2460,7 +3326,10 @@ class MainWindow(QtGui.QMainWindow):
 
     def _update_indicator_D_single (self, index, value):
         value_multiplied = value[0] * 1e6
-        label = float("{0:.3f}".format(value_multiplied))
+        
+        #label = float("{0:.3f}".format(value_multiplied))
+        # VER 0.1.6 dissipation round to 1 decimal  
+        label = float("{0:.1f}".format(value_multiplied))
 
         if (index == 0):
             self.ui.D0.setText(str(label))
@@ -2493,9 +3362,84 @@ class MainWindow(QtGui.QMainWindow):
         self.scan_selector[2] = self.ui.radioBtn_F5.isChecked()
         self.scan_selector[3] = self.ui.radioBtn_F7.isChecked()
         self.scan_selector[4] = self.ui.radioBtn_F9.isChecked()
+        # VER 0.1.6 update legend when the radio button is selected 
+        self._update_legend()
+    
+    # VER 0.1.6 TODO update legend 
+    def _update_legend(self):
+        
+        # VER 0.1.6 check the len of the peak file 
+        pks = self.load_frequencies_file()
+      
+        # for idx in range (5):
+        # chekc the number of frequency overtones detected    
+        for idx in range (len(pks)):
+            if  self.scan_selector[idx] == True:
+                try: 
+                    self._legend_f.removeItem(Constants.name_legend[idx])
+                except:
+                    print ("DEBUG: unable to remove legend item")
+                    pass
+                try:
+                    self._legend_D.removeItem(Constants.name_legend[idx])
+                except:
+                    print ("DEBUG: unable to remove legend item")
+                    pass
+                try:
+                    self._legend_f.addItem(item = self._plt2_multiline[idx], name = Constants.name_legend[idx])
+                    self._legend_D.addItem(item = self._pltD_multiline[idx], name = Constants.name_legend[idx])
+                except:
+                    print ("DEBUG: unable to add itme to legend")
+                    pass
+            else: 
+                try:
+                    self._legend_f.removeItem(Constants.name_legend[idx])
+                    self._legend_D.removeItem(Constants.name_legend[idx])
+                except:
+                    print ("DEBUG: unable to remove legend item")
+                    pass
+    
+    def _update_legend_single(self):
+        overtone_selected = self._overtones_number_all - self.ui.cBox_Speed.currentIndex() - 1
+        self._legend_f.addItem(item = self._plt2_line, name = Constants.name_legend[overtone_selected])
+        self._legend_D.addItem(item = self._pltD_line, name = Constants.name_legend[overtone_selected])
+    
+    # VER 0.1.6 remove legend from all plot
+    # TODO will work on single and multi mode ?           
+    def _remove_legend(self):
+        for idx in range (5):
+            self._legend_f.removeItem(Constants.name_legend[idx])
+            self._legend_D.removeItem(Constants.name_legend[idx])
+                
+    
+# =============================================================================
+#     def _getLabel(self, plotItem):
+#         """Return the labelItem inside the legend for a given plotItem
+# 
+#         The label-text can be changed via labenItem.setText
+#         """
+#         out = [(it, lab) for it, lab in items if it.item == plotItem]
+#         try:
+#             return out[0][1]
+#         except IndexError:
+#             return None            
+# =============================================================================
+
+    # VER 0.1.6 autoscale all plot 
+    def _autoscale_plot_all (self, boolean):
+       
+       # amplitude sweep 
+       self._plt0.enableAutoRange(enable=boolean)
+       # frequency 
+       self._plt2.enableAutoRange(enable=boolean)
+       # dissipation 
+       self._pltD.enableAutoRange(enable=boolean)
+       # temperature 
+       self._plt4.enableAutoRange(enable=boolean)
+        
 
 
-    ###########################################################################
+###########################################################################
     # Updates the source and depending boxes on change
     ###########################################################################
     def _source_changed(self):
@@ -2504,31 +3448,37 @@ class MainWindow(QtGui.QMainWindow):
 
         # single frequency measurement
         if self._get_source() == SourceType.serial:
-           print(TAG, "Scanning the source: {}".format(Constants.app_sources[1]))  # self._get_source().name
-           Log.i(TAG, "Scanning the source: {}".format(Constants.app_sources[1]))
+           print(TAG, "Operation mode: {}".format(Constants.app_sources[1]))  # self._get_source().name
+           Log.i(TAG, "Operation mode: {}".format(Constants.app_sources[1]))
 
            # show - hide overtone radio button selector
            self._Overtone_radioBtn_isEnabled(False)
            
            # VER 0.1.4 disable datalog sampling time 
            self.ui.cBox_sampling_time.setEnabled(False)
+           
+           # VER 0.1.6 enable frequency selector inly in single mode 
+           self.ui.cBox_Speed.setEnabled(True)
 
         # calibration
         elif self._get_source() == SourceType.calibration:
-           print(TAG, "Scanning the source: {}".format(Constants.app_sources[0]))  # self._get_source().name
-           Log.i(TAG, "Scanning the source: {}".format(Constants.app_sources[0]))
+           print(TAG, "Operation mode:  {}".format(Constants.app_sources[0]))  # self._get_source().name
+           Log.i(TAG, "Operation mode:  {}".format(Constants.app_sources[0]))
 
            # show - hide overtone radio button selector
            self._Overtone_radioBtn_isEnabled(False)
            
            # VER 0.1.4 disable datalog sampling time 
            self.ui.cBox_sampling_time.setEnabled(False)
+           
+           # VER 0.1.6 NOT enable frequency selector in peak detection  
+           self.ui.cBox_Speed.setEnabled(False)
 
 
         # multi frequency measurement
         elif self._get_source() == SourceType.multiscan:
-            print(TAG, "Scanning the source: {}".format(Constants.app_sources[2]))  # self._get_source().name
-            Log.i(TAG, "Scanning the source: {}".format(Constants.app_sources[2]))
+            print(TAG, "Operation mode:  {}".format(Constants.app_sources[2]))  # self._get_source().name
+            Log.i(TAG, "Operation mode:  {}".format(Constants.app_sources[2]))
 
             # show - hide overtone radio button selector
             self._Overtone_radioBtn_isEnabled(True)
@@ -2543,8 +3493,15 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.radioBtn_F5.setChecked(True)
             self.ui.radioBtn_F7.setChecked(True)
             self.ui.radioBtn_F9.setChecked(True)
-
-            self._update_scan_selector()
+            
+            
+            # VER 0.1.6_TEST NOT enable frequency selector in multi
+            self.ui.cBox_Speed.setEnabled(False)
+            
+            # VER 0.1.6 do not update scan selector here 
+# =============================================================================
+#             self._update_scan_selector()
+# =============================================================================
 
         '''
         # Clears boxes before adding new
@@ -2563,7 +3520,7 @@ class MainWindow(QtGui.QMainWindow):
         source = self._get_source()
         ports = self.worker.get_source_ports(source)
         speeds = self.worker.get_source_speeds(source)
-
+        
         '''
         if ports is not None:
             self.ControlsWin.ui1.cBox_Port.addItems(ports)
@@ -2578,11 +3535,16 @@ class MainWindow(QtGui.QMainWindow):
         # set COM port
         if ports is not None:
             self.ui.cBox_Port.addItems(ports)
-        if speeds is not None:
-            self.ui.cBox_Speed.addItems(speeds)
+            
+        # VER 0.1.6_TEST do not populate the freq drop-down in peak detection and multi
+# =============================================================================
+#         if speeds is not None:
+#             self.ui.cBox_Speed.addItems(speeds)
+# =============================================================================
 
         # populates the drop-down menu with detected freqeuencies
         if self._get_source() == SourceType.serial:
+            self.ui.cBox_Speed.addItems(speeds)
             self.ui.cBox_Speed.setCurrentIndex(len(speeds) - 1)
 
 
@@ -2608,7 +3570,17 @@ class MainWindow(QtGui.QMainWindow):
         #peaks_phase = data[:,1] #unused at the moment
         return peaks_mag
 
-    ###########################################################################
+    # VER 0.1.6 method just clear plot without making a call to the line 
+    def clear_all_plot(self):   
+        support = self.worker.get_d1_buffer()
+        if support.any:
+            if str(support[0])!='nan':
+                self._plt2.clear()
+                self._pltD.clear()
+                self._plt4.clear()
+                self._plt0.clear()
+
+###########################################################################
     # Cleans history plot
     ###########################################################################
     def clear(self):
@@ -2620,10 +3592,68 @@ class MainWindow(QtGui.QMainWindow):
                 self._plt2.clear()
                 self._pltD.clear()
                 self._plt4.clear()
+                # VER 0.1.6
+                self._plt0.clear()
+                
+                if self._get_source() == SourceType.serial:
+                    # VER 0.1.6 after clear the plt create the reference to the lines again 
+                    overtone_selected = self._overtones_number_all - self.ui.cBox_Speed.currentIndex() - 1
+                    # reference to the line object frequency   
+                    self._plt2_line = self._plt2.plot(pen = pg.mkPen(color = Constants.plot_color_multi[overtone_selected], 
+                                                                     width = Constants.plot_line_width))
+                    # reference to the line object dissipation 
+                    self._pltD_line = self._pltD.plot(pen = pg.mkPen(color = Constants.plot_color_multi[overtone_selected], 
+                                                                     width = Constants.plot_line_width))
+                
+                    # VER 0.1.6 after clear the plt create the reference to the ampli lines again 
+                    self._plt0_line = self._plt0.plot(pen=Constants.plot_colors[0], width = Constants.plot_line_width)
+                
+                # VER 0.1.6 after clear the plt create the reference to the lines again 
+                elif self._get_source() == SourceType.multiscan:
+                    # VER 0.1.6 create the multilines
+                    # legend
+                    for idx in range(self._overtones_number_all):
+                        
+                        # frequency multilines 
+                        self._plt2_multiline[idx] = self._plt2.plot(pen = pg.mkPen(color = Constants.plot_color_multi[idx], 
+                                                                                   width = Constants.plot_line_width))
+                        # dissipation multilines 
+                        self._pltD_multiline[idx] = self._pltD.plot(pen = pg.mkPen(color = Constants.plot_color_multi[idx], 
+                                                                                   width = Constants.plot_line_width))
+                        
+                        # amplitude plot replot multiline
+                        self._plt0_multiline[idx] = self._plt0.plot(pen = Constants.plot_color_multi[idx])
+                        
+# =============================================================================
+#                 # reference to the line object temperature 
+#                 self._plt4_line = self._plt4.plot(pen=Constants.plot_colors[4])
+# =============================================================================
+                # VER 0.1.6 reference to the line object temperature                 
+                # 
+                self._plt4_line = self._plt4.plot(pen=Constants.plot_color_temperature)
+                
+                # VER 0.1.6 do not autoscale here 
+                # enable autoragne here 
+# =============================================================================
+#                 self._plt4.enableAutoRange(axis= 'y', enable = True)
+# =============================================================================
+                # VER 0.1.6 autoscale all plot here 
+                self._autoscale_plot_all(boolean = True)
+                
+                if (self._get_source() == SourceType.multiscan):
+                    # VER 0.1.6 update legend
+                    self._update_legend()
+                
+                elif (self._get_source() == SourceType.serial):
+                    # VER 0.1.5.a add legend in single mode 
+                    self._update_legend_single()
 
                 # VER 0.1.2
                 # clear amplitude and phase sweep plot
-                self._plt0.clear()
+                # VER 0.1.6 do not clear here 
+# =============================================================================
+#                 self._plt0.clear()
+# =============================================================================
 
 
     ###########################################################################
@@ -2752,11 +3782,15 @@ class MainWindow(QtGui.QMainWindow):
     def reference_not (self):
         print(TAG, "Reference reset!   ", end='\r')
         self._reference_flag = False
+        
         # clear all
         self.clear()
 
-        self._plt2.enableAutoRange(axis= 'y', enable = True)
-        self._pltD.enableAutoRange(axis= 'y', enable = True)
+        # VER 0.1.6 do not set autorange here 
+# =============================================================================
+#         self._plt2.enableAutoRange(axis= 'y', enable = True)
+#         self._pltD.enableAutoRange(axis= 'y', enable = True)
+# =============================================================================
 
     ###########################################################################
     # Checking internet connection
@@ -2904,3 +3938,8 @@ class MainWindow(QtGui.QMainWindow):
     def dummy(self): 
         print ("THIS IS DUMMY")
 
+    # VER 0.1.6 open a second window    
+    def open_second_window(self):
+        # This function will be called when the button is clicked
+        self.second_window = SecondWindow()
+        self.second_window.show()

@@ -91,7 +91,26 @@ class PopUp:
         msg.show()    
     
     
-
+    # VER 0.1.6 a  blocking pop up window 
+    # 
+    ###########################################################################
+    # Shows a Pop up warning dialog with a Ok buttons
+    ###########################################################################
+    @staticmethod
+    def warning_blocking(parent, title, message):
+        """
+        :param parent: Parent window for the dialog.
+        :param title: Title of the dialog :type title: str.
+        :param message: Message to be shown in the dialog :type message: str.
+        """
+        msg = QtGui.QMessageBox(parent)
+        msg.setIcon(QtGui.QMessageBox.Warning)
+        msg.setWindowTitle(title)
+        msg.setText(message)
+        msg.setStandardButtons(QtGui.QMessageBox.Ok)
+        # solution on github here PyQt:Why a popup dialog prevents execution of other code?
+        # https://stackoverflow.com/a/8463769/4030282
+        msg.exec_()  
 
     ###########################################################################
     # Shows a pop-up question dialog with yes and no buttons

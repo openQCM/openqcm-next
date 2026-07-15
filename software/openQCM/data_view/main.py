@@ -21,6 +21,7 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QTextEdit
 
 from openQCM.data_view.qt_designer_ui import Ui_MainWindow
+from openQCM.core.constants import Constants
 
 # =============================================================================
 # from openQCM.data_view.mplwidget import MplWidget
@@ -39,8 +40,11 @@ class MatplotlibWidget(QMainWindow):
         self.ui.setupUi(self)
 
         # self.setWindowTitle("PyQt5 & Matplotlib Example GUI")
-
-        self.ui.pushButton.clicked.connect(self.update_graph)
+        
+        # VER 0.1.6 delete push button in main gui 
+# =============================================================================
+#         self.ui.pushButton.clicked.connect(self.update_graph)
+# =============================================================================
         self.ui.getFile_btn.clicked.connect(self.openFileNameDialog)
         self.ui.process_btn.clicked.connect(self.process_data)
 
@@ -49,6 +53,54 @@ class MatplotlibWidget(QMainWindow):
         
         self.filename_csv = ""
         self.ui.textEdit.setPlainText("")
+        
+        # VER 0.1.6 init the plot Frequcncy
+        # FREQUENCY 
+        # clear frequency chart 
+        self.ui.MplWidget.canvas.axes.clear()
+        
+        # VER 0.1.6 change the plot color 
+        # Set the axes background color to RGB(25, 25, 25)
+        self.ui.MplWidget.canvas.axes.set_facecolor((25/255, 25/255, 25/255))
+        # VER 0.1.6 change the plot color 
+        # Set the figure background color to RGB(25, 25, 25)
+        self.ui.MplWidget.canvas.figure.set_facecolor((25/255, 25/255, 25/255))
+        # Set labels, titles, and legend, ensuring they're colored white for visibility
+        self.ui.MplWidget.canvas.axes.set_xlabel("Relative Time (sec)", color='white')
+        self.ui.MplWidget.canvas.axes.set_ylabel("Frequency shift (Hz)", color='white')
+        self.ui.MplWidget.canvas.axes.set_title("Frequency Data", color='white')
+                                               
+        # Set the axis spine color to white
+        for spine in self.ui.MplWidget.canvas.axes.spines.values():
+            spine.set_edgecolor('white')
+
+        # Set tick and tick label colors to white
+        self.ui.MplWidget.canvas.axes.tick_params(axis='both', colors='white', which='both')
+        
+        # DISSIPATION  
+        # clear dissipation chart 
+        self.ui.MplWidget_D.canvas.axes.clear()
+        
+        # VER 0.1.6 change the plot color 
+        # Set the axes background color to RGB(25, 25, 25)
+        self.ui.MplWidget_D.canvas.axes.set_facecolor((25/255, 25/255, 25/255))
+        # VER 0.1.6 change the plot color 
+        # Set the figure background color to RGB(25, 25, 25)
+        self.ui.MplWidget_D.canvas.figure.set_facecolor((25/255, 25/255, 25/255))
+        self.ui.MplWidget_D.canvas.axes.set_xlabel("Relative Time (sec)", color='white')
+        self.ui.MplWidget_D.canvas.axes.set_ylabel("Dissipation shift", color='white')
+        self.ui.MplWidget_D.canvas.axes.set_title("Dissipation Data", color='white')
+        
+        # Set the axis spine color to white
+        for spine in self.ui.MplWidget_D.canvas.axes.spines.values():
+            spine.set_edgecolor('white')
+
+        # Set tick and tick label colors to white
+        self.ui.MplWidget_D.canvas.axes.tick_params(axis='both', colors='white', which='both')
+        
+        # VER 0.1.6 init a vertical line in processing 
+        self.vertical_lines = []
+        self.vertical_lines_D = []
         
 
     def openFileNameDialog(self):
@@ -73,21 +125,42 @@ class MatplotlibWidget(QMainWindow):
         self.time_relative = np.asarray( data[['Relative_time']] )
         self.temperature = np.asarray( data[['Temperature']] )
 
-        self.f_0 = np.asarray( data[ ['Frequency_0'] ] )
-        self.d_0 = np.asarray( data[ ["Dissipation_0"] ] )
-             
-        self.f_1 = np.asarray( data[ ["Frequency_1"] ] )
-        self.d_1 = np.asarray( data[ ["Dissipation_1"] ] )
+        # VER 0.1.6 patch for single measurement TODO
+        # If the header is in the simpler format
+        if "Resonance_Frequency" in data.columns and "Dissipation" in data.columns:
+            self.f_0 = np.asarray(data["Resonance_Frequency"])
+            self.d_0 = np.asarray(data["Dissipation"])
+            length = len(self.f_0)
+
+            # create an empty NumPy array with shape (0, 1)
+            self.f_1 = np.full(length, np.nan)
+            self.d_1 = np.full(length, np.nan)
+                
+            self.f_2 = np.full(length, np.nan)
+            self.d_2 = np.full(length, np.nan)
+    
+            self.f_3 = np.full(length, np.nan)
+            self.d_3 = np.full(length, np.nan)
+    
+            self.f_4 = np.full(length, np.nan)
+            self.d_4 = np.full(length, np.nan)
+
+        else: 
+            self.f_0 = np.asarray( data[ ['Frequency_0'] ] )
+            self.d_0 = np.asarray( data[ ["Dissipation_0"] ] )
+                 
+            self.f_1 = np.asarray( data[ ["Frequency_1"] ] )
+            self.d_1 = np.asarray( data[ ["Dissipation_1"] ] )
+                
+            self.f_2 = np.asarray( data[ ["Frequency_2"] ] )
+            self.d_2 = np.asarray( data[ ["Dissipation_2"] ] )
+    
+            self.f_3 = np.asarray( data[ ["Frequency_3"] ] )
+            self.d_3 = np.asarray( data[ ["Dissipation_3"] ] )
+    
+            self.f_4 = np.asarray( data[ ["Frequency_4"] ] )
+            self.d_4 = np.asarray( data[ ["Dissipation_4"] ] )
             
-        self.f_2 = np.asarray( data[ ["Frequency_2"] ] )
-        self.d_2 = np.asarray( data[ ["Dissipation_2"] ] )
-
-        self.f_3 = np.asarray( data[ ["Frequency_3"] ] )
-        self.d_3 = np.asarray( data[ ["Dissipation_3"] ] )
-
-        self.f_4 = np.asarray( data[ ["Frequency_4"] ] )
-        self.d_4 = np.asarray( data[ ["Dissipation_4"] ] )
-        
         # frequency set zero 
         self.f_0 = self.f_0 - self.f_0[0]
         self.f_1 = self.f_1 - self.f_1[0]
@@ -106,8 +179,14 @@ class MatplotlibWidget(QMainWindow):
 
     def update_graph(self):
         
+        # VER 0.1.6 change the plot color 
+        # plot_colors = ['#DF0101','#3C3C3C','#01DF01', '#01A9DB', '#7401DF'] 
+        plot_colors = []
+        const = 255
+        for color in Constants.plot_color_multi:
+            normalized_color = tuple(x/const for x in color)
+            plot_colors.append(normalized_color)
         
-        plot_colors = ['#DF0101','#3C3C3C','#01DF01', '#01A9DB', '#7401DF'] 
         label_plot_F = ["F_0", "F_3", "F_5", "F_7", "F_9"]
         label_plot_D = ["D_0", "D_3", "D_5", "D_7", "D_9"]
 
@@ -116,6 +195,14 @@ class MatplotlibWidget(QMainWindow):
         # PLOT FREQUENCY 
         # clear frequency chart 
         self.ui.MplWidget.canvas.axes.clear()
+        
+        # VER 0.1.6 change the plot color 
+        # Set the axes background color to RGB(25, 25, 25)
+        self.ui.MplWidget.canvas.axes.set_facecolor((25/255, 25/255, 25/255))
+        # VER 0.1.6 change the plot color 
+        # Set the figure background color to RGB(25, 25, 25)
+        self.ui.MplWidget.canvas.figure.set_facecolor((25/255, 25/255, 25/255))
+        
         self.ui.MplWidget.canvas.axes.plot(self.time_relative, self.f_0, color = plot_colors[0], label = label_plot_F[0], linewidth = 0.8)
         self.ui.MplWidget.canvas.axes.plot(self.time_relative, self.f_1, color = plot_colors[1], label = label_plot_F[1], linewidth = 0.8)
         self.ui.MplWidget.canvas.axes.plot(self.time_relative, self.f_2, color = plot_colors[2], label = label_plot_F[2], linewidth = 0.8)
@@ -125,17 +212,41 @@ class MatplotlibWidget(QMainWindow):
         # self.ui.MplWidget.canvas.axes.plot(t, sinus_signal)
         # self.ui.MplWidget.canvas.axes.legend(('cosinus', 'sinus'),loc='upper right')
         # self.ui.MplWidget.canvas.axes.set_title('Cosinus - Sinus Signal')
-        self.ui.MplWidget.canvas.axes.set_xlabel("Relative Time (sec)")
-        self.ui.MplWidget.canvas.axes.set_ylabel("Frequency shift (Hz)")
-        self.ui.MplWidget.canvas.axes.set_title("Frequency Data")
+        # VER 0.1.6 optimize the plot in dark mode 
+        # Set labels, titles, and legend, ensuring they're colored white for visibility
+        self.ui.MplWidget.canvas.axes.set_xlabel("Relative Time (sec)", color='white')
+        self.ui.MplWidget.canvas.axes.set_ylabel("Frequency shift (Hz)", color='white')
+        self.ui.MplWidget.canvas.axes.set_title("Frequency Data", color='white')
+                                               
+        # Set the axis spine color to white
+        for spine in self.ui.MplWidget.canvas.axes.spines.values():
+            spine.set_edgecolor('white')
+
+        # Set tick and tick label colors to white
+        self.ui.MplWidget.canvas.axes.tick_params(axis='both', colors='white', which='both')
+    
+
         # legend text comes from the plot's label parameter.
-        self.ui.MplWidget.canvas.axes.legend(loc = 'best')
+        # Create the legend with white text
+        if np.all(~np.isnan(self.f_1)): # make the legend if there are overtones
+            legend = self.ui.MplWidget.canvas.axes.legend(loc='best', frameon=False)
+            for text in legend.get_texts():
+                text.set_color("white")
+
         self.ui.MplWidget.canvas.draw()
         
         
         # DISSIPATION  
         # clear dissipation chart 
         self.ui.MplWidget_D.canvas.axes.clear()
+        
+        # VER 0.1.6 change the plot color 
+        # Set the axes background color to RGB(25, 25, 25)
+        self.ui.MplWidget_D.canvas.axes.set_facecolor((25/255, 25/255, 25/255))
+        # VER 0.1.6 change the plot color 
+        # Set the figure background color to RGB(25, 25, 25)
+        self.ui.MplWidget_D.canvas.figure.set_facecolor((25/255, 25/255, 25/255))
+        
         self.ui.MplWidget_D.canvas.axes.plot(self.time_relative, self.d_0, color = plot_colors[0], label = label_plot_D[0], linewidth = 0.8)
         self.ui.MplWidget_D.canvas.axes.plot(self.time_relative, self.d_1, color = plot_colors[1], label = label_plot_D[1], linewidth = 0.8)
         self.ui.MplWidget_D.canvas.axes.plot(self.time_relative, self.d_2, color = plot_colors[2], label = label_plot_D[2], linewidth = 0.8)
@@ -145,11 +256,24 @@ class MatplotlibWidget(QMainWindow):
         # self.ui.MplWidget_D.canvas.axes.plot(t, sinus_signal)
         # self.ui.MplWidget_D.canvas.axes.legend(('cosinus', 'sinus'),loc='upper right')
         # self.ui.MplWidget_D.canvas.axes.set_title('Cosinus - Sinus Signal')
-        self.ui.MplWidget_D.canvas.axes.set_xlabel("Relative Time (sec)")
-        self.ui.MplWidget_D.canvas.axes.set_ylabel("Dissipation shift")
-        self.ui.MplWidget_D.canvas.axes.set_title("Dissipation Data")
-        # legend text comes from the plot's label parameter.
-        self.ui.MplWidget_D.canvas.axes.legend(loc = 'best')
+        self.ui.MplWidget_D.canvas.axes.set_xlabel("Relative Time (sec)", color='white')
+        self.ui.MplWidget_D.canvas.axes.set_ylabel("Dissipation shift", color='white')
+        self.ui.MplWidget_D.canvas.axes.set_title("Dissipation Data", color='white')
+        
+        # Set the axis spine color to white
+        for spine in self.ui.MplWidget_D.canvas.axes.spines.values():
+            spine.set_edgecolor('white')
+
+        # Set tick and tick label colors to white
+        self.ui.MplWidget_D.canvas.axes.tick_params(axis='both', colors='white', which='both')
+        
+        # make the legend if there are overtones 
+        if np.all(~np.isnan(self.d_1)):
+            # legend text comes from the plot's label parameter.
+            legend_D = self.ui.MplWidget_D.canvas.axes.legend(loc = 'best', frameon=False)
+            for text in legend_D.get_texts():
+                text.set_color("white")
+                
         self.ui.MplWidget_D.canvas.draw()
         
         
@@ -204,6 +328,52 @@ class MatplotlibWidget(QMainWindow):
             if self.time_relative[l] > final_stop_stop:
                 break
         print (l)
+        
+        
+# =============================================================================
+#         # Draw a vertical red dotted line at the specified time in Frequency 
+#         self.vertical_line_istart_f = self.ui.MplWidget.canvas.axes.axvline(x=initial_start, color='red', linestyle='--')
+#         self.vertical_line_istop_f = self.ui.MplWidget.canvas.axes.axvline(x=initial_stop, color='red', linestyle='--')
+#         self.vertical_line_fstart_f = self.ui.MplWidget.canvas.axes.axvline(x=final_stop, color='red', linestyle='--')
+#         self.vertical_line_fstop_f = self.ui.MplWidget.canvas.axes.axvline(x=final_stop_stop, color='red', linestyle='--')
+#         self.ui.MplWidget.canvas.draw()
+#         
+#         # Draw a vertical red dotted line at the specified time in Dissipation 
+#         self.vertical_line_istart_d = self.ui.MplWidget_D.canvas.axes.axvline(x=initial_start, color='red', linestyle='--')
+#         self.vertical_line_istop_d = self.ui.MplWidget_D.canvas.axes.axvline(x=initial_stop, color='red', linestyle='--')
+#         self.vertical_line_fstart_d = self.ui.MplWidget_D.canvas.axes.axvline(x=final_stop, color='red', linestyle='--')
+#         self.vertical_line_fstop_d = self.ui.MplWidget_D.canvas.axes.axvline(x=final_stop_stop, color='red', linestyle='--')
+#         self.ui.MplWidget_D.canvas.draw()
+# =============================================================================
+
+        for line in self.vertical_lines:
+            line.remove()
+
+        # Clear the list of references and redraw the canvas.
+        self.vertical_lines.clear()
+        self.ui.MplWidget.canvas.draw()
+
+        # Assuming times is a list of the x-positions for your vertical lines.
+        times = [initial_start, initial_stop, final_stop, final_stop_stop]
+        
+        for t in times:
+            line = self.ui.MplWidget.canvas.axes.axvline(x=t, color='red', linestyle='--')
+            self.vertical_lines.append(line)
+
+        self.ui.MplWidget.canvas.draw()
+        
+        for line_D in self.vertical_lines_D:
+            line_D.remove()
+
+        # Clear the list of references and redraw the canvas.
+        self.vertical_lines_D.clear()
+        self.ui.MplWidget_D.canvas.draw() 
+        for t in times:
+            line_D = self.ui.MplWidget_D.canvas.axes.axvline(x=t, color='red', linestyle='--')
+            self.vertical_lines_D.append(line_D)
+
+        self.ui.MplWidget_D.canvas.draw()
+        
 
         # averaging frequency initial        
         f_0_average = np.average(self.f_0[i:j])
@@ -378,24 +548,9 @@ class MatplotlibWidget(QMainWindow):
         print ("7th Overtone = ", "%.2f" % (d_3_average_l - d_3_average))
         print ("9th Overtone = ", "%.2f" % (d_4_average_l - d_4_average))
         
+        # clear the output 
         self.ui.textEdit.setPlainText("")
-
-
-        self.ui.textEdit.append("Frequency Hadamard variance initial state  ")
-        self.ui.textEdit.append("Fundamental  = " + "{:.2f}".format(f_0_hadamard))
-        self.ui.textEdit.append("3rd Overtone = " + "{:.2f}".format(f_1_hadamard/3.0))
-        self.ui.textEdit.append("5th Overtone = " + "{:.2f}".format(f_2_hadamard/5.0))
-        self.ui.textEdit.append("7th Overtone = " + "{:.2f}".format(f_3_hadamard/7.0))
-        self.ui.textEdit.append("9th Overtone = " + "{:.2f}".format(f_3_hadamard/9.0))
-
-        self.ui.textEdit.append("Frequency Hadamard variance final state  ")
-        self.ui.textEdit.append("Fundamental  = " + "{:.2f}".format(f_0_hadamard_l))
-        self.ui.textEdit.append("3rd Overtone = " + "{:.2f}".format(f_1_hadamard_l/3.0))
-        self.ui.textEdit.append("5th Overtone = " + "{:.2f}".format(f_2_hadamard_l/5.0))
-        self.ui.textEdit.append("7th Overtone = " + "{:.2f}".format(f_3_hadamard_l/7.0))
-        self.ui.textEdit.append("9th Overtone = " + "{:.2f}".format(f_3_hadamard_l/9.0))
-
-
+        
         self.ui.textEdit.append("Frequency variation (Hz):")
         self.ui.textEdit.append("Fundamental  = " + "{:.2f}".format(f_0_average_l - f_0_average))
         self.ui.textEdit.append("3rd Overtone = " + "{:.2f}".format(f_1_average_l - f_1_average))
@@ -403,15 +558,32 @@ class MatplotlibWidget(QMainWindow):
         self.ui.textEdit.append("7th Overtone = " + "{:.2f}".format(f_3_average_l - f_3_average))
         self.ui.textEdit.append("9th Overtone = " + "{:.2f}".format(f_4_average_l - f_4_average))
         self.ui.textEdit.append("")
+        
         self.ui.textEdit.append("Dissipation variation (ppm):")
         self.ui.textEdit.append("Fundamental  = " + "{:.2f}".format(d_0_average_l - d_0_average))
         self.ui.textEdit.append("3rd Overtone = " + "{:.2f}".format(d_1_average_l - d_1_average))
         self.ui.textEdit.append("5th Overtone = " + "{:.2f}".format(d_2_average_l - d_2_average))
         self.ui.textEdit.append("7th Overtone = " + "{:.2f}".format(d_3_average_l - d_3_average))
         self.ui.textEdit.append("9th Overtone = " + "{:.2f}".format(d_4_average_l - d_4_average))
+        self.ui.textEdit.append("")
         
-        
-        
+        self.ui.textEdit.append("Frequency Hadamard variance initial state (Hz): ")
+        self.ui.textEdit.append("Fundamental  = " + "{:.2f}".format(f_0_hadamard))
+        self.ui.textEdit.append("3rd Overtone = " + "{:.2f}".format(f_1_hadamard/3.0))
+        self.ui.textEdit.append("5th Overtone = " + "{:.2f}".format(f_2_hadamard/5.0))
+        self.ui.textEdit.append("7th Overtone = " + "{:.2f}".format(f_3_hadamard/7.0))
+        self.ui.textEdit.append("9th Overtone = " + "{:.2f}".format(f_3_hadamard/9.0))
+        self.ui.textEdit.append("")
+
+        self.ui.textEdit.append("Frequency Hadamard variance final state (Hz): ")
+        self.ui.textEdit.append("Fundamental  = " + "{:.2f}".format(f_0_hadamard_l))
+        self.ui.textEdit.append("3rd Overtone = " + "{:.2f}".format(f_1_hadamard_l/3.0))
+        self.ui.textEdit.append("5th Overtone = " + "{:.2f}".format(f_2_hadamard_l/5.0))
+        self.ui.textEdit.append("7th Overtone = " + "{:.2f}".format(f_3_hadamard_l/7.0))
+        self.ui.textEdit.append("9th Overtone = " + "{:.2f}".format(f_3_hadamard_l/9.0))
+        self.ui.textEdit.append("")
+
+    
 # =============================================================================
 #         self.output_text.appendPlainText(str("Fundamental  =  \n"))
 # =============================================================================

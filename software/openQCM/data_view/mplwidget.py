@@ -14,7 +14,12 @@ class MplWidget(QWidget):
 
         QWidget.__init__(self, parent)
         
-        self.canvas = FigureCanvas(Figure())
+        # self.canvas = FigureCanvas(Figure())
+        # VER 0.1.6 use tight_layout
+        # using tight_layout adjust padding between and around subplots        
+        # tight_layout() for FigureCanvasTkAgg
+        # https://stackoverflow.com/a/62640384/4030282
+        self.canvas = FigureCanvas(Figure(tight_layout=True))
         
         vertical_layout = QVBoxLayout()
         vertical_layout.addWidget(self.canvas)

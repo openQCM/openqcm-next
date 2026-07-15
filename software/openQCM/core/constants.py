@@ -38,7 +38,7 @@ class Constants:
     # VER 0.1.5
     # app version is the string checked for software update 
     app_version = '0.1.5'
-    app_sources = ["Calibration", "Single Measurement", "Multiscan Measurement"]#, "Socket Client"]
+    app_sources = ["Peak Detection", "Single Measurement", "Multiscan Measurement"]#, "Socket Client"]
     app_encoding = "utf-8"
     
     # VER 0.1.5 Firmware version compatible with the current application
@@ -57,39 +57,82 @@ class Constants:
     
     # VER 0.1.4
     # change plot update time to 250 ms general improvement of overall software timing
-    plot_update_ms = 250
+# =============================================================================
+#     plot_update_ms = 250
+# =============================================================================
+    
+    # VER 0.1.6 # define the frequency step size fo the sweep plot 
+    FREQ_STEP_PLOT = 10
+    
+    # VER 0.1.6_TEST TODO check the update clock to 50 msec
+    # decrease update plot to 50 msec 
+    plot_update_ms = 50 # 50
+    
+    # VER 0.1.6 set the color to white (unused)
+    # plot_colors = ['#ff0000', '#0072bd', '#00ffff', '#edb120', '#000000', '#77ac30', '#4dbeee', '#a2142f'] 
+    plot_colors = [(255, 255, 255)]
     
     
-    plot_colors = ['#ff0000', '#0072bd', '#00ffff', '#edb120', '#000000', '#77ac30', '#4dbeee', '#a2142f'] 
     plot_max_lines = len(plot_colors)
     
-    plot_line_width = 1.2
+# =============================================================================
+#     plot_line_width = 1.2
+# =============================================================================
+    # VER 0.1.6_TEST change the line width, you can set width > 1 px withot slowing down the GUI
+    # 
+    plot_line_width = 2
     
     # #ffffff
-    plot_title_color = 'default'
+    # plot_title_color = 'default'
+    # VER 0.1.6 set the color of the axis labels to white whne using a dark background
+    # In pyqtgraph, the default text color for the axis labels might be set based on the overall theme or style of the plots. 
+    # using a dark background, like (25, 25, 25), the default axis label color might be blending with the background, 
+    # making it appear as if it's not visible or appearing dark.
+    # explicitly set the color of the axis labels
+    plot_title_color = 'w'
+    
+    # VER 0.1.6 change the temperature color plot to white 
+    plot_color_temperature = 'w'
     
     # plot_color_multi = ['r', 'g', 'b']
     # TODO 5M 
     #plot_color_multi = ['r', 'g', 'b', 'y', 'k'] 
     # ['#dc9c00','#d16f2c','#c94923', '#c32b18', '#830913']
     # ['#DF0101','#FFBF00','#01DF01', '#01A9DB', '#7401DF'] 
-    plot_color_multi = ['#DF0101','#3C3C3C','#01DF01', '#01A9DB', '#7401DF'] 
-                        
+    
+    # VER 0.1.6 change the multiplot colour a "kind of blue" in RGB 
+    
+    # plot_color_multi = ['#DF0101','#3C3C3C','#01DF01', '#01A9DB', '#7401DF']
+    
+    
+    # plot_color_multi = [(0, 0, 255), (70, 130, 255), (135, 206, 250), (173, 216, 230), (240, 248, 255)]
+    
+    plot_color_multi = [(0, 0, 255), (70, 99, 255), (122, 160, 255), (173, 182, 255), (255, 228, 255)]
+                         
     name_legend = ["0th", "3rd", "5th", "7th", "9th"]                        
     
     overtone_dummy = [0, 1, 2, 3, 4]
     
-    plot_background_color = "w"
+    # VER 0.1.6 change the background plot color
+    # white 
+    # plot_background_color = "w"
+    # black
+    # plot_background_color = "k"
+    
+    # VER 0.1.6_TEST chage the background color to dark 
+    plot_background_color = (25, 25, 25)
     
     # samples of data ring buffer 
     # VER 0.1.4 reduce ring buffer size to 10 samples
 # =============================================================================
 #     environment = 50
 # =============================================================================
-    environment = 10
     
-    # real-time chart history length 
-    ring_buffer_samples = 16384 #8192
+    # VER 0.1.6 temporary 4 samples for saving time in dev mode  
+    environment = 10 # 4 samples in developemtn mode just for saving time chenage
+    
+    # VER 0.1.6 reduce the real-time chart history length to 8192 samples 
+    ring_buffer_samples = 8192 # 16384
     
     PID_default_settings = ["Default #0 (Factory)", "Default #1"]
     
@@ -493,7 +536,10 @@ class Constants:
     # VER 0.1.2 
     # set directory slash, solving bug for macOS Big Sur
     # sets the slash depending on the OS types
-    if Architecture.get_os() is (OSType.linux or OSType.macosx):
+    # if Architecture.get_os() is (OSType.linux or OSType.macosx):
+    
+    # VER 0.1.6 linux bug fixing for path separator
+    if Architecture.get_os() in {OSType.macosx, OSType.linux}:    
         # print ("MAC_OS_X")
         slash = "/"
 
@@ -693,21 +739,46 @@ class DateAxis(AxisItem):
 '''
 ###############################################################################
 #  Provides a date-time aware axis
-###############################################################################  
+###############################################################################
+
+# VER 0.1.6 modify the DateAxis class to display time in seconds on plot time axis
 class DateAxis(AxisItem): 
     def __init__(self, *args, **kwargs):
-        super(DateAxis, self).__init__(*args, **kwargs)            
+        super(DateAxis, self).__init__(*args, **kwargs)
+        # VER 0.1.6 Add an attribute for the time format. By default, set it to None.
+        self.time_format = kwargs.get('time_format', None)
+        # add the attribute start time. By default, set it to None.
+        self.start_time = kwargs.get('start_time', None)
+        
+        # self.setLabel('Time (H:M:S)')
+        
+        # VER 0.1.6 TODO use caching tick strings to improve performances 
+        # especially for frequently updated charts or those with many data points. 
           
     def tickStrings(self, values, scale, spacing):    
         TS_MULT_us = 1e6
-        try:
-            z= [(datetime.datetime.utcfromtimestamp(float(value)/TS_MULT_us)).strftime("%H:%M:%S") for value in values]
-        except: 
-            z= ''
-        return z
-        #return [(datetime.datetime.utcfromtimestamp(float(value)/TS_MULT_us)).strftime("%b-%d %H:%M:%S") for value in values]
+
+        if self.time_format == 'seconds':
+            # Calculate the elapsed time relative to the start time
+            if self.start_time is not None:
+                return [f"{int(float(value)/TS_MULT_us - self.start_time)}" for value in values]
+            else:
+                return [f"{int(float(value)/TS_MULT_us)}" for value in values]
+        elif self.time_format == 'hms':
+            # Format time as hours, minutes, and seconds
+            if self.start_time is not None:
+                return [str(datetime.timedelta(seconds=int(float(value)/TS_MULT_us - self.start_time))) for value in values]
+            else:
+                return [str(datetime.timedelta(seconds=int(float(value)/TS_MULT_us))) for value in values]
+        else:
+            # Default format (or handle other formats here)
+            try:
+                return [(datetime.datetime.utcfromtimestamp(float(value)/TS_MULT_us)).strftime("%H:%M:%S") for value in values]
+            except:
+                return ['']
 
 
+        
 ###############################################################################
 #  Provides a non scientific axis notation
 ###############################################################################  

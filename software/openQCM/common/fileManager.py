@@ -33,7 +33,9 @@ class FileManager:
         :return: Full path for the specified file :rtype: str.
         """
         # sets the slash depending on the OS types
-        if Architecture.get_os() is (OSType.macosx or OSType.linux):
+        # if Architecture.get_os() is (OSType.macosx or OSType.linux):
+        # VER 0.1.6 linux bug fixing path separator
+        if Architecture.get_os() in{OSType.macosx, OSType.linux}:
             slash="/"
         else:
             slash="\\"

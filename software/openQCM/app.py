@@ -74,6 +74,8 @@ class OPENQCM:
             # VER 0.1.2
             # set style 
             # remove set style 
+            
+            # VER 0.1.6: Set style in Fusion mode for compatibility with operating system
             self._app.setStyle('Fusion')
             
             # the show must go on
