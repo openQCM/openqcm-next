@@ -13,10 +13,7 @@ from scipy.interpolate import UnivariateSpline
 from openQCM.util.ReadLine import ReadLine as rl
 from time import time as tm
 from progressbar import Bar, Percentage, ProgressBar, RotatingMarker,Timer
-from numpy import loadtxt
 from time import sleep
-
-from numpy import loadtxt
 
 # VER 0.1.6 raw data view in single mode 
 from openQCM.common.architecture import Architecture, OSType
@@ -581,6 +578,9 @@ class SerialProcess(multiprocessing.Process):
         
         # VER 0.1.6 init TEC electrical current value  
         self._current_tec = 0 
+
+        # VER 0.1.6 last valid set of real - time frequency  
+        self._last_valid_rt_frequencies = None  
         
     ###########################################################################
     # Opens a specified serial port
@@ -1456,14 +1456,51 @@ class SerialProcess(multiprocessing.Process):
         #peaks_phase = data[:,1] #unused at the moment
         return peaks_mag
     
-    # DEV SWEEP1HZ CALIB load the file containing thr current values of res frequencies 
-    @staticmethod
-    def load_frequencies_file_RT():
-        # DEV SWEEP1HZ CALIB
-        data  = loadtxt(Constants.cvs_peakfrequencies_RT_path)
-        peaks_mag_RT = data[:,0]
-        #peaks_phase = data[:,1] #unused at the moment
-        return peaks_mag_RT
+    # VER 0.1.6 loads the real time value of resonance frequency file 
+    def load_frequencies_file_RT(self):
+        """
+        Loads the current values of resonance frequencies from RT file.
+        Falls back to last valid frequencies if file is empty or corrupted.
+        
+        Returns:
+            numpy.ndarray: Array of peak frequencies
+        """
+        try:
+            # Try to load the RT frequencies file
+            data = loadtxt(Constants.cvs_peakfrequencies_RT_path)
+            if data.size > 0:  # Check if file contains data
+                peaks_mag_RT = data[:,0]
+                # Store the valid frequencies for future fallback
+                self._last_valid_rt_frequencies = peaks_mag_RT.copy()
+                return peaks_mag_RT
+            else:
+                # print(TAG, "Warning: RT frequencies file is empty, using last valid frequencies")
+                if self._last_valid_rt_frequencies is not None:
+                    return self._last_valid_rt_frequencies
+
+                # fall back to initial frequncy value if necessary 
+                else:
+                    print(TAG, "Warning: No last valid frequencies available, initializing from base frequencies")
+                    base_freqs = self.load_frequencies_file()
+                    self._last_valid_rt_frequencies = base_freqs.copy()
+                    path_RT = Constants.cvs_peakfrequencies_RT_path
+                    np.savetxt(path_RT, np.column_stack([base_freqs, base_freqs]))
+                    return base_freqs
+                    
+        except (IOError, ValueError) as e:
+            # print(TAG, f"Warning: Could not load RT frequencies file ({str(e)}), using last valid frequencies")
+            if self._last_valid_rt_frequencies is not None:
+                return self._last_valid_rt_frequencies
+
+            # fall back to initial frequncy value if necessary     
+            else:
+                print(TAG, "Warning: No last valid frequencies available, initializing from base frequencies")
+                base_freqs = self.load_frequencies_file()
+                self._last_valid_rt_frequencies = base_freqs.copy()
+                path_RT = Constants.cvs_peakfrequencies_RT_path
+                np.savetxt(path_RT, np.column_stack([base_freqs, base_freqs]))
+                return base_freqs
+
     
     ###########################################################################
     # Loads Calibration (baseline correction) from file

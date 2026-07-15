@@ -137,19 +137,10 @@ class CalibrationProcess(multiprocessing.Process):
         f_mag_max = freq_arr_sub[idx_mag_max_arr][idx_mag_max]
         # frequency of maximum phase 
         f_phase_max = freq_arr_sub[idx_phase_max_arr][idx_phase_max]
-               
-# =============================================================================
-#         print ("PEAK QCM frequency fundamental (magnitude) = ", f_mag_max)
-# =============================================================================
-        
+                       
         # Calculate the absolute difference between the frequencies
         freq_difference = np.abs(f_mag_max - f_phase_max)
         
-        # VER 0.1.6 DELETE
-# =============================================================================
-#         print ("absolute difference between the frequencies = ", freq_difference)
-# =============================================================================
-       
         # return the QCM fundamental frequency 
         return f_mag_max
         
@@ -234,11 +225,6 @@ class CalibrationProcess(multiprocessing.Process):
                 f_phase_max = freq_arr_sub[idx_phase_max_arr][idx_phase_max]
                 # index of maximum phase in global array idx_phase_max_arr
                 idx_phase_max_global = idx_phase_max_arr[idx_phase_max]
-                
-                # VER 0.1.6 DELETE
-# =============================================================================
-#                 print ("Misura della fase al picco = ", round( phase_arr_sub[idx_phase_max_global], 1 ))
-# =============================================================================
                 # store the value of phase maximim value for i-index
                 phase_max_arr[i] = phase_arr_sub[idx_phase_max_global]
 
@@ -255,27 +241,14 @@ class CalibrationProcess(multiprocessing.Process):
             else:
                 freq_diff_arr[i] = None  # or np.nan to indicate unavailable comparison
         
-        # VER 0.1.6 DELETE
-# =============================================================================
-#         # Print the differences 
-#         print ("absolute difference between the overtones = ", freq_diff_arr)
-# =============================================================================
-        
         # Frequency difference threshold
         diff_threshold = (Constants.calib_fStep * points_overtone)/4    
-        print (diff_threshold)
         
         # Define the phase threshold in degrees TODO make it global 
         phase_threshold = 10
         
         # Array to track indices of frequencies to discard
         indices_to_discard = []
-        
-        # VER 0.1.6 DELETE        
-# =============================================================================
-#         # Print the phase maximum values 
-#         print("Phase Maximum values = ", phase_max_arr)         
-# =============================================================================
         
         # Loop through frequency differences to check against the diff_threshold
         for i, diff in enumerate(freq_diff_arr):
@@ -294,13 +267,7 @@ class CalibrationProcess(multiprocessing.Process):
         # discard the corresponding frequencies from your measurements:
         frequency_overtones_filtered = np.delete(frequency_overtones, indices_to_discard)
         freq_diff_arr_filtered = np.delete(freq_diff_arr, indices_to_discard)  
-        
-        # VER 0.1.6 DELETE
-# =============================================================================
-#         print ("frequency_overtones_filtered", frequency_overtones_filtered)
-#         print ("freq_diff_arr_filtered", freq_diff_arr_filtered)
-# =============================================================================
-        
+         
         # return the QCM overtones 
         # return (frequency_overtones)
         # return the QCM overtones filtered

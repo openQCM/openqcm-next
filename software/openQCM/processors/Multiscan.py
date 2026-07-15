@@ -1125,11 +1125,6 @@ class MultiscanProcess(multiprocessing.Process):
                                 out_message = self._serial.read(byte_at_port).decode(Constants.app_encoding)
                                 out_message = out_message.rstrip('\n')
                                 
-                                # VER 0.1.6 DEBUG
-# =============================================================================
-#                                 print ("TEC current = ", out_message) 
-# =============================================================================
-                                
                                 # VER 0.1.6 store the value of current only at fundamantal 
                                 if (overtone_index == 0):
                                     self._current_tec = float(out_message)

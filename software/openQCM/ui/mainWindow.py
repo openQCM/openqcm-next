@@ -51,15 +51,13 @@ TAG = ""#"[MainWindow]"
 class SecondWindow(QtGui.QWidget):
     def __init__(self):
         super(SecondWindow, self).__init__()
-        
-        # init the x-axis as a time axis format hh:mm:ss
-        date_axis = DateAxis(orientation='bottom')
+    
+        # VER 0.1.6 set x axis as seconds and disable SI prefix, same format as main window
+        date_axis = DateAxis(orientation='bottom',  time_format='seconds')
+        date_axis.enableAutoSIPrefix(False)
         
         # create the second plot
         self.graphWidget = pg.PlotWidget(self, axisItems={'bottom': date_axis})
-        
-        # VER 0.1.6 set x axis as h:m:s and disable SI prefix 
-        date_axis.enableAutoSIPrefix(False)
         
         # Change the plot background color
         self.graphWidget.setBackground(Constants.plot_background_color)
@@ -72,10 +70,8 @@ class SecondWindow(QtGui.QWidget):
         # Set labels and title
         self.graphWidget.setLabel('left', 'TEC current', units='mA')
         # self.graphWidget.setLabel('bottom', 'Time', units='hh:mm:ss')
-        self.graphWidget.setLabel('bottom', 'Time (H:M:S)')
+        self.graphWidget.setLabel('bottom', 'Time (Sec)')
         self.graphWidget.setTitle('TEC current Real-Time Plot', size = '16pt')
-        
-        
         
         # Adjusting window size:
         self.resize(800, 600)  # You can adjust the size according to your needs.
@@ -85,19 +81,39 @@ class SecondWindow(QtGui.QWidget):
         self.layout.addWidget(self.lastValueLabel)
 
         
-    def update_plot(self, x_s, y_s):
+    def update_plot(self, x_s, y_s, start_time = None):
+        """
+        Update the plot with new data and optionally update time axis
+        
+        Args:
+            x_s: x-axis data (time values)
+            y_s: y-axis data (TEC current values)
+            start_time: optional start time for synchronizing x-axis
+        """
 
         self.x = x_s    
         self.y = y_s
-        self.plotData.setData(self.x, self.y)
         
+        # Update x-axis start time if provided
+        if start_time is not None:
+            self.graphWidget.getAxis('bottom').start_time = start_time
+            
+        self.plotData.setData(self.x, self.y)
+         
         # Updating the QLabel text with the last value of y_s
         last_value = y_s[0]  # getting the last value
         if np.isnan(last_value):
             self.lastValueLabel.setText("TEC current: NaN mA")
         else:
             self.lastValueLabel.setText(f"TEC current: {int(last_value)} mA")
-        
+
+    # VER 0.1.6 add a close event to handle window closing         
+    def closeEvent(self, event):
+        """
+        Override close event to handle window closing
+        """
+        # Just accept the close event, no questions asked as this is a secondary window
+        event.accept()
 
 ##########################################################################################
 # Package that handles the UIs elements and connects to worker service to execute processes
@@ -113,6 +129,9 @@ class MainWindow(QtGui.QMainWindow):
         #:param samples: Default samples shown in the plot :type samples: int.
         # to be always placed at the beginning, initializes some important methods
         QtGui.QMainWindow.__init__(self)
+
+        # VER 0.1.6 Flag to track closing state in closeEvent method 
+        self._closing = False 
 
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
@@ -220,7 +239,7 @@ class MainWindow(QtGui.QMainWindow):
         # VER 0.1.6 frequency and dissipation label color
         # init the array of frequency label color 
         label_F = [self.ui.label_F0_col, self.ui.label_F3_col, self.ui.label_F5_col, self.ui.label_F7_col, self.ui.label_F9_col]
-        label_D = [self.ui.label_D0_col, self.ui.label_D3_col, self.ui.label_D5_col, self.ui.label_D7_col, self.ui.label_D9_col]
+        label_D = [self.ui.label_F0_col, self.ui.label_F3_col, self.ui.label_F5_col, self.ui.label_F7_col, self.ui.label_F9_col] #[self.ui.label_D0_col, self.ui.label_D3_col, self.ui.label_D5_col, self.ui.label_D7_col, self.ui.label_D9_col]
         
         # init the array of dissipation label color 
         for color, label in zip(Constants.plot_color_multi, label_F):
@@ -307,6 +326,11 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
         self.ui.actionSoftware.triggered.connect(lambda: self.get_web_info(False))
         self.ui.actionHelp.triggered.connect(self.dummy)
+
+        # VER 0.1.6 toolbar menu add on application
+        self.ui.actionTEC_current.triggered.connect(self.open_second_window)
+        self.ui.actionLog_Data.triggered.connect(self._log_data_plot)
+        self.ui.actionRaw_Data.triggered.connect(self._raw_data_plot)
         
         # VER 0.1.6 init the null numpy array 
         self._numpy_nan_signal = np.empty(Constants.ring_buffer_samples, dtype=float)
@@ -649,7 +673,7 @@ class MainWindow(QtGui.QMainWindow):
         # This function is connected to the clicked signal of the Stop button.
         self.ui.infostatus.setStyleSheet('background: white; padding: 1px; border: 1px solid #cccccc')
         self.ui.infostatus.setText("<font color=#000000 > Program Status Stanby</font>")
-        self.ui.infobar.setText("<font color=#0000ff > Infobar </font>")
+        self.ui.infobar.setText("Infobar")
 
         # TODO Enable temperature control button
         self.ui.pButton_Tswitch_OFF.setEnabled(True)
@@ -710,9 +734,17 @@ class MainWindow(QtGui.QMainWindow):
         if (self._get_source() == SourceType.multiscan):
             self.ui.cBox_sampling_time.setEnabled(True)
             
-        # VER 0.1.6 enable again freqquency drop down menu only if in single mode 
+        # VER 0.1.6 enable again frequency drop down menu only if in single mode 
         if (self._get_source() == SourceType.serial):
             self.ui.cBox_Speed.setEnabled(True)
+
+        # VER 0.1.6 close second window if exist 
+        try:
+            if hasattr(self, 'second_window') and self.second_window is not None:
+                self.second_window.close()
+                self.second_window = None
+        except:
+            pass    
          
         # VER 0.1.6 TODO reset x time to zero     
 # =============================================================================
@@ -726,10 +758,6 @@ class MainWindow(QtGui.QMainWindow):
 #         self._pltD_line.setData(self._numpy_nan_signal, self._numpy_nan_signal)
 # =============================================================================
         
-        # VER 0.1.6 DEBUG just print something at the end of the stop 
-        print ("Stop processes...debug...")
-        
-       
 
     ###########################################################################
     # SET TEMPERATURE
@@ -1283,29 +1311,36 @@ class MainWindow(QtGui.QMainWindow):
     ###########################################################################
     # Overrides the QTCloseEvent,is connected to the close button of the window
     ###########################################################################
+    # VER 0.1.6 added a confirmation dialog when closing the application
     def closeEvent(self, evnt):
-
-        #:param evnt: QT evnt.
-        if self.worker.is_running():
-          print(TAG, 'Window closed without stopping the capture, application will stop...')
-          Log.i(TAG, "Window closed without stopping the capture, application will stop...")
-          self.stop()
-          #self.ControlsWin.close()
-          #self.PlotsWin.close()
-          #self.InfoWin.close()
-          #evnt.accept()
-
-        # QtGui.QApplication.quit()
-
-# =============================================================================
-#         res = PopUp.question(self, Constants.app_title, "Are you sure you want to quit openQCM application now?")
-#         if res:
-#            # self.close()
-#            # evnt.accept()
-#            QtGui.QApplication.quit()
-#         else:
-#            evnt.ignore()
-# =============================================================================
+        """
+        Overrides the QTCloseEvent, is connected to the close button of the window
+        :param evnt: QT evnt.
+        """
+        # Check if we're already handling a close event
+        if self._closing:
+            evnt.accept()
+            return
+            
+        # Set the closing flag
+        self._closing = True
+        
+        # Show confirmation popup before closing
+        res = PopUp.question(self, "Exit Application", "Are you sure you want to quit the application?")
+        
+        if res:
+            # If user confirms, handle closing process as before
+            if self.worker.is_running():
+                print(TAG, 'Window closed without stopping the capture, application will stop...')
+                Log.i(TAG, "Window closed without stopping the capture, application will stop...")
+                self.stop()
+            
+            # Accept the close event
+            evnt.accept()
+        else:
+            # If user cancels, reset the closing flag and ignore the event
+            self._closing = False
+            evnt.ignore()
 
 
     ###########################################################################
@@ -1604,10 +1639,8 @@ class MainWindow(QtGui.QMainWindow):
     def _configure_timers(self):
 
         self._timer_plot = QtCore.QTimer(self)
-        #self._timer_plot.timeout.connect(self._update_plot) # moved to start method
-        
-        # VER 0.1.6 DEBUG 
-        # self._timer_plot.timeout.connect(self._update_plot) 
+        # moved to start method
+        #self._timer_plot.timeout.connect(self._update_plot) 
 
     ###########################################################################
     # Configures the connections between signals and UI elements
@@ -1659,6 +1692,9 @@ class MainWindow(QtGui.QMainWindow):
         
         '''
         
+        '''
+        # Buttons removed. Action moved in the menu bar
+
         # DEV RAWDATA
         self.ui.rawData_btn.clicked.connect(self._raw_data_plot)
         
@@ -1667,7 +1703,7 @@ class MainWindow(QtGui.QMainWindow):
         
         # VER 0.1.6 push button for TEC current data plot secondary window 
         self.ui.pButtonSecondWindow.clicked.connect(self.open_second_window)
-        
+        '''
     
     # VER 0.1.4
     # add-on view sweep raw data plot
@@ -1751,7 +1787,7 @@ class MainWindow(QtGui.QMainWindow):
         time_value = float("{0:.1f}".format(self.worker.get_time_elapsed()))        
         self.ui.time_indicator.setText(str(time_value))
 
-        #### SINGLE Start 
+        #### SINGLE check 
         # --------------------------------------------------------------------
         if  self._get_source() == SourceType.serial:
             vector1 = self.worker.get_d1_buffer()
@@ -1787,12 +1823,12 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
                        # set the start time 
                        # self._xaxis.start_time = self.start_time with a litle help of my friends -1e6
+                       
                        self.start_time = time_arr[0]/1e6
                        self._xaxis.start_time = time_arr[0]/1e6
                        self._xaxisD.start_time = time_arr[0]/1e6
                        self._xaxisT.start_time = time_arr[0]/1e6
-                   
-
+                       
                if str(vector1[0])=='nan' and not self._ser_error1 and not self._ser_error2:
                   label1 = 'processing...'
                   label2 = 'processing...'
@@ -1878,7 +1914,7 @@ class MainWindow(QtGui.QMainWindow):
                         self.ui.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
                
                self.ui.infostatus.setText("<font color=#000000 > Program Status </font>" + labelstatus)
-               self.ui.infobar.setText("<font color=#0000ff> Infobar </font><font color={}>{}</font>".format(color_err,labelbar))
+               self.ui.infobar.setText("Infobar <font color={}>{}</font>".format(color_err, labelbar))
                # progressbar
                self.ui.progressBar.setValue(self._completed)
 
@@ -1894,7 +1930,7 @@ class MainWindow(QtGui.QMainWindow):
                 # print(f"An error occurred: {e}")
                 pass
 
-        #### CALIBRATION Start
+        #### CALIBRATION check
         # ---------------------------------------------------------------------
     
         elif self._get_source() == SourceType.calibration:
@@ -1984,9 +2020,6 @@ class MainWindow(QtGui.QMainWindow):
                  # Set the boolean stop flag True to stop the loop                   
                  stop_flag = 1
                  
-                 # VER 0.1.6 DEBUG Check how many times you pass through here.
-                 # print ("VER 0.1.6 DEBUG: passing through calibration success ")
-                 
               elif vector2[0] == 1 or vector3[0] == 1:
                  color_err = '#ff0000'
                  labelstatus = 'Calibration Warning'
@@ -2003,16 +2036,10 @@ class MainWindow(QtGui.QMainWindow):
                    stop_flag=1 ##
             
             self.ui.infostatus.setText("<font color=#000000> Program Status </font>" + labelstatus)
-            self.ui.infobar.setText("<font color=#0000ff> Infobar </font><font color={}>{}</font>".format(color_err,labelbar))
+            self.ui.infobar.setText("Infobar <font color={}>{}</font>".format(color_err, labelbar))
             
             # progressbar -------------
             self.ui.progressBar.setValue(self._completed + 10)
-            
-            # VER 0.1.6 DEBUG print stop_flag boolean 
-            # if pre_stop_flag != stop_flag:
-            #     print ("VER 0.1.6 DEBUG: stop_flag = ", stop_flag)
-            # pre_stop_flag = stop_flag
-            # print ("VER 0.1.6 DEBUG: stop_flag = ", stop_flag)
             
             # terminate the  calibration (simulate clicked stop)
             if stop_flag == 1:
@@ -2055,7 +2082,7 @@ class MainWindow(QtGui.QMainWindow):
                # reset stop flag 
                stop_flag = 0
                
-        #### MULTISCAN Start
+        #### MULTISCAN check
         # ---------------------------------------------------------------------
         elif self._get_source() == SourceType.multiscan:
             vector1 = self.worker.get_d1_buffer()
@@ -2092,13 +2119,14 @@ class MainWindow(QtGui.QMainWindow):
                   color_err = '#000000'
                   labelbar = 'Please wait, processing early data...'
                   self.ui.infostatus.setText("<font color=#000000> Program Status </font>" + labelstatus)
-                  self.ui.infobar.setText("<font color=#0000ff> Infobar </font><font color={}>{}</font>".format(color_err,labelbar))
+                  self.ui.infobar.setText("Infobar <font color={}>{}</font>".format(color_err, labelbar))
 
                # progressbar
                self.ui.progressBar.setValue(self._completed)
                
             if self._ser_control == Constants.environment:
-                # VER 0.1.6 TODO set te strat time using the time axis buffer 
+                
+                # VER 0.1.6 TODO set the start time using the time axis buffer 
                 
                 # 1 option 
 # =============================================================================
@@ -2123,20 +2151,9 @@ class MainWindow(QtGui.QMainWindow):
                     if buffer.size > 0 and not np.isnan(buffer[0]): 
                         # Assuming the buffer is a list-like structure and you want the first element
                         self._time_axis_new[idx] = buffer[0]
-                        
-# =============================================================================
-#                 # DEBUG 
-#                 print ("DEBUG: time axis new a list of first times = ", self._time_axis_new)
-# =============================================================================
-                
+                    
                 # Set start_time to the smallest value in time_axis_new
                 self.start_time = np.nanmin(self._time_axis_new)
-                
-# =============================================================================
-#                 print ("DEBUG: start time = ", self.start_time)
-# =============================================================================
-                
-                
                 
                 # VER 0.1.6 clear plt reset buffer at the end of processing early data
                 # TODO not necessary to clear here ?
@@ -2148,15 +2165,35 @@ class MainWindow(QtGui.QMainWindow):
                 self._xaxis.start_time = self.start_time/1e6
                 self._xaxisD.start_time = self.start_time/1e6
                 self._xaxisT.start_time = self.start_time/1e6
-
+                
                 # VER 0.1.2
                 # Optimize and update infobar and infostatus in multiscan mode
                 labelstatus = 'Monitoring'
                 color_err = '#000000'
                 labelbar = 'Monitoring multiscan frequency and dissipation '
                 self.ui.infostatus.setText("<font color=#000000> Program Status </font>" + labelstatus)
-                self.ui.infobar.setText("<font color=#0000ff> Infobar </font><font color={}>{}</font>".format(color_err,labelbar))
-
+                self.ui.infobar.setText("Infobar <font color={}>{}</font>".format(color_err, labelbar))
+            
+            # VER 0.1.6 check bandwidth error 
+            if self._ser_control > Constants.environment:
+               
+                if (self._ser_error1 or self._ser_error2):
+                  labelstatus = 'Warning'
+                  color_err = '#ff0000'
+                  # labelbar = f'Warning: Unable to process raw data to get bandwidth measurement on {self._overtone_number}'
+                  labelbar = f'Warning: Unable to process raw data to get bandwidth measurement on {2*self._overtone_number + 1} overtone'
+                  self.ui.infostatus.setText("<font color=#000000> Program Status </font>" + labelstatus)
+                  self.ui.infobar.setText("Infobar <font color={}>{}</font>".format(color_err, labelbar))
+                
+                else: 
+                    # VER 0.1.2
+                    # Optimize and update infobar and infostatus in multiscan mode
+                    labelstatus = 'Monitoring'
+                    color_err = '#000000'
+                    labelbar = 'Monitoring multiscan frequency and dissipation '
+                    self.ui.infostatus.setText("<font color=#000000> Program Status </font>" + labelstatus)
+                    self.ui.infobar.setText("Infobar <font color={}>{}</font>".format(color_err, labelbar))
+                    
 
         #### REFERENCE SET
         # ---------------------------------------------------------------------
@@ -2391,8 +2428,13 @@ class MainWindow(QtGui.QMainWindow):
                 # VER 0.1.6 TEC CURRENT update plot
                 # -------------------------------------------------------------
                 try:
-                    #self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
-                    self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+                    # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
+                    # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+                    self.second_window.update_plot(
+                        self.worker.get_t3_buffer(),
+                        self.worker.get_data_current_tec_buffer(),
+                        start_time = self.start_time
+                    )
                 except AttributeError:
                     pass
  
@@ -2685,10 +2727,16 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
 
                 # VER 0.1.6 TEC CURRENT update plot
+                # VER 0.1.6 TODO start time set to zero in multi mode
                 # -------------------------------------------------------------
                 try:
-                    #self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
-                    self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+                    # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
+                    # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+                    self.second_window.update_plot(
+                        self.worker.get_t3_buffer(),
+                        self.worker.get_data_current_tec_buffer(),
+                        start_time = self.start_time/1e6
+                    )
                 except AttributeError:
                     pass
 
@@ -2938,8 +2986,13 @@ class MainWindow(QtGui.QMainWindow):
                # VER 0.1.6 TEC CURRENT update plot
                # -------------------------------------------------------------
                try:
-                   #self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
-                   self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+                   # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
+                   # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+                   self.second_window.update_plot(
+                       self.worker.get_t3_buffer(),
+                       self.worker.get_data_current_tec_buffer(),
+                       start_time = self.start_time
+                   )
                except AttributeError:
                    pass
 
@@ -3166,13 +3219,18 @@ class MainWindow(QtGui.QMainWindow):
 #                self.ui.indicator_temperature.setText(str(label_indicator_temperature))
 # =============================================================================
 
-               # VER 0.1.5b TEC CURRENT update plot
+               # VER 0.1.6 TEC CURRENT update plot
                # -------------------------------------------------------------
                try:
-                   #self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
-                   self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+                  # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
+                  # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+                  self.second_window.update_plot(
+                      self.worker.get_t3_buffer(),
+                      self.worker.get_data_current_tec_buffer(),
+                      start_time = self.start_time/1e6
+                  )
                except AttributeError:
-                   pass
+                  pass
                
     # VER 0.1.4
     # update TEC status label 
@@ -3180,7 +3238,7 @@ class MainWindow(QtGui.QMainWindow):
         # temperature control active, temperature is out of range, electric current is null ERROR
         if value == Constants.STATUS_CONTROL_ACTIVE_LOW_CURRENT_NULL: 
             self.ui.label_Temperature_state.setStyleSheet("background-color: red; color: white; border: 1px solid gray; border-radius: 2px;  padding: 2 px;")
-            self.ui.label_Temperature_state.setText("Temperature Control: Error, please reset the TEC controller ")
+            self.ui.label_Temperature_state.setText("Error, please reset the TEC controller ")
             self.ui.pButton_TEC_Reset.setEnabled(True)
             
             if value != self._old_value:
@@ -3938,8 +3996,11 @@ class MainWindow(QtGui.QMainWindow):
     def dummy(self): 
         print ("THIS IS DUMMY")
 
-    # VER 0.1.6 open a second window    
+    # VER 0.1.6 open a second window for TEC current monitoring   
     def open_second_window(self):
+        """
+        Create and show the second window for TEC current monitoring
+        """
         # This function will be called when the button is clicked
         self.second_window = SecondWindow()
         self.second_window.show()

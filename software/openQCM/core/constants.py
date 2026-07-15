@@ -43,7 +43,7 @@ class Constants:
     
     # VER 0.1.5 Firmware version compatible with the current application
     # check for more information the arduino source code attached
-    FW_VERSION = '0.1.5'
+    FW_VERSION = '0.1.5a'
     
     ###################
     # PLOT parameters #
@@ -107,7 +107,15 @@ class Constants:
     
     # plot_color_multi = [(0, 0, 255), (70, 130, 255), (135, 206, 250), (173, 216, 230), (240, 248, 255)]
     
-    plot_color_multi = [(0, 0, 255), (70, 99, 255), (122, 160, 255), (173, 182, 255), (255, 228, 255)]
+    # plot_color_multi = [(0, 0, 255), (70, 99, 255), (122, 160, 255), (173, 182, 255), (255, 228, 255)]
+    
+    plot_color_multi = [
+    (0, 0, 255),      # Blu puro
+    (0, 127, 255),    # Blu medio-azzurro
+    (0, 191, 255),    # Azzurro brillante
+    (127, 223, 255),  # Azzurro chiaro
+    (191, 255, 255)   # Azzurro molto chiaro/ciano chiaro
+    ]
                          
     name_legend = ["0th", "3rd", "5th", "7th", "9th"]                        
     
