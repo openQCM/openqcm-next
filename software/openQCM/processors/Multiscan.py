@@ -34,7 +34,7 @@ class MultiscanProcess(multiprocessing.Process):
         coeffs = np.polyfit(x,y,poly_order)
         # Evaluate a polynomial at specific values
         poly_fitted = np.polyval(coeffs,x) 
-        return poly_fitted,coeffs    
+        return poly_fitted, coeffs    
 
     # BASELINE COEFFICIENTS   
     def baseline_coeffs(self):
@@ -46,16 +46,24 @@ class MultiscanProcess(multiprocessing.Process):
         self.coeffs_all_phase = None
         
         # loads Calibration (baseline correction) from file
-        (self.freq_all,self.mag_all,self.phase_all) = self.load_calibration_file()
+        (self.freq_all, self.mag_all, self.phase_all) = self.load_calibration_file()
         
         # Baseline correction: input signal Amplitude (sweep all frequencies)
-        (self.polyfitted_all,self.coeffs_all)=self.baseline_correction(self.freq_all,self.mag_all,8)
-        self.mag_beseline_corrected_all= self.mag_all-self.polyfitted_all
+        (self.polyfitted_all, self.coeffs_all) = self.baseline_correction(self.freq_all, self.mag_all,8)
+        self.mag_beseline_corrected_all = self.mag_all-self.polyfitted_all
         
         # Baseline correction: input signal Phase (sweep all frequencies)
         (self.polyfitted_all_phase,self.coeffs_all_phase)=self.baseline_correction(self.freq_all,self.phase_all,8)
         self.phase_beseline_corrected_all= self.phase_all-self.polyfitted_all_phase 
         return self.coeffs_all
+    
+    def baseline_coeffs_Vmag(self):
+        
+        # convert mag to Vmag_c
+        Vmag_c = (self.mag_all * 0.03) + 0.3
+        (poly_Vmag, coeff_Vmag) = self.baseline_correction(self.freq_all, Vmag_c, 8)
+        
+        return poly_Vmag, coeff_Vmag
 
     # SAVITZKY - GOLAY FOLTER 
     def savitzky_golay(self,y, window_size, order, deriv=0, rate=1):
@@ -316,9 +324,305 @@ class MultiscanProcess(multiprocessing.Process):
         return i_max, f_max, bandwidth, index_m, index_M, Qfac, freq_resonance
 
     
+    # VER 0.1.6G find the frequency and half-bandwidth by analyzing impedance  
+    def parameters_finder_impedance(self, freq, V_mag, V_phase, overtone_number):
+        # calculation of complex impedance based on the AD8302 output magnitude and phase 
+        # the complex impedance is used for calculation of: 
+        # Bandwidth Γ: half bandwidth at half height of conductance G 
+        
+        phase = self._phase_raw_V_phase(V_phase)
+        Z_abs = self._Zabs_Vmag(V_mag)
+       
+        G_conductance = self._G_calc(Z_abs, phase)
+        
+        B_susceptance = self._B_calc(Z_abs, phase)
+
+        idx_max, fr = self._Freq_G(G_conductance, freq)  
+        bw = self._half_bandwidth_G(G_conductance, freq)
+       
+        return idx_max, fr, bw
+    
+    # VER 0.1.6G calculate phase from AD8302 voltage Vph phase output
+    def _phase_raw_V_phase(self, Vph_var): 
+        phase = (1.8 - Vph_var) / 0.01
+        return phase
+    
+    # VER 0.1.6G calculate impedance from AD8302 voltage Vmag magnitude output
+    def _Zabs_Vmag(self, V_mag): 
+        # fixed resistor in series to qcm 
+        R_add = 52.3    
+        # voltage divider 
+        Zabs = R_add * ( 10**( (0.9 - V_mag)/0.6 ) ) + R_add
+        return Zabs
+    
+    # VER 0.1.6G calculate conductance
+    def _G_calc(self, Zabs, phase): 
+        phase_rad = np.deg2rad(phase)
+        G = np.cos(phase_rad)/Zabs
+        return G
+    
+    # VER 0.1.6G calculate susceptance
+    def _B_calc(self, Zabs, phase):
+        phase_rad = np.deg2rad(phase)
+        B = np.sin(phase_rad)/Zabs
+        return B
+    
+    # VER 0.1.6G calculate resonance frequency 
+    def _Freq_G (self, G_conductance, F_sweep): 
+        idx_max = np.nanargmax(G_conductance)
+        f_resonance = F_sweep[idx_max]
+        return idx_max, f_resonance
+    
+    # VER 0.1.6G Bandwidth Γ half bandwidth at half height of conductance G 
+    def _half_bandwidth_G(self, G_conductance,  F_sweep):       
+        # TODO
+        min_G = np.average(G_conductance[:100])
+        # shift down
+        G_conductance = G_conductance - min_G
+        # find max value 
+        max_G = np.nanmax(G_conductance)
+        max_half_G = max_G/2 
+     
+        for nn in range (len (G_conductance)):
+            if (G_conductance[nn] > max_half_G):
+                idx_l = nn
+                break 
+        # find max index
+        idx_max = np.nanargmax(G_conductance)
+        
+        bw = F_sweep[idx_max] - F_sweep[idx_l]   
+        return bw
+    
+    # VER 0.1.5a_G_DEV
+    def _mag_bit_mag(self, bit_mag):
+        # init 
+        vmax = 3.3
+        bitmax = 4096 
+        ADCtoVolt = vmax / bitmax
+        VCP = 0.9
+        # volage calculation divide by factor 2 because of the opamp
+        mag = (bit_mag * ADCtoVolt) / 2
+        # invert transfer function
+        mag = (mag - VCP) / 0.03
+        
+        return mag
+    
+    # VER 0.1.5a_G_DEV
+    def _phase_bit_phase(self, bit_phase):
+        # init 
+        vmax = 3.3
+        bitmax = 4096 
+        ADCtoVolt = vmax / bitmax
+        VCP = 0.9
+        # volage calculation divide by factor 1.5 because of the opamp
+        phase = bit_phase * ADCtoVolt / 1.5
+        # invert transfer function modified
+        phase = (2*VCP - phase) / 0.01
+        
+        return phase
+    
+    # VER 0.1.5a_G_DEV
+    def _Vmag_bit_mag(self, bit_mag):
+        vmax = 3.3
+        bitmax = 4096 
+        ADCtoVolt = vmax / bitmax
+        # volage calculation divide by factor 2 because of the opamp  
+        Vmag = bit_mag * ADCtoVolt / 2
+        # because of the voltage divider Zehra
+        Vmag = Vmag - 0.6 
+        
+        return Vmag
+    
+    # VER 0.1.5a_G_DEV 
+    def _Vphase_bit_phase(self, bit_phase):    
+        # TODO 
+        vmax = 3.3
+        bitmax = 4096 
+        ADCtoVolt = vmax / bitmax
+        # volage calculation divide by factor 1.5 because of the opamp
+        Vphase = bit_phase * ADCtoVolt / 1.5
+        
+        return Vphase
+
     # ELABORATE SIGNAL 
     # -------------------------------------------------------------------------
-    # TODO elaborate multi signal     
+# =============================================================================
+#     def elaborate_multi(self, k, overtone_number, coeffs_all, readFREQ, samples, 
+#                   Xm, Xp, temperature, SG_window_size, Spline_points, Spline_factor, timestamp):
+#         
+#         # Number of spline points
+#         points = Spline_points
+#         # sweep counter
+#         self._k= k
+#         # current overtones number 
+#         self._overtone_number = overtone_number
+#         # evaluated polynomial coefficients
+#         self._coeffs_all = coeffs_all
+#         # frequency range, samples number
+#         self._readFREQ = readFREQ
+#         self._samples = samples
+#         # support vectors
+#         self._Xm = Xm
+#         self._Xp = Xp
+#         self._filtered_mag = np.zeros(samples)
+#         # save current data 
+#         mag   = self._Xm
+#         phase = self._Xp 
+# 
+#         # Initializations of support vectors for later storage
+#         self._Xm = np.linspace(0,0,self._samples)
+#         self._Xp = np.linspace(0,0,self._samples)
+#         
+#         # Evaluate a polynomial at specific values based on the coefficients and frequency range
+#         self._polyfitted = np.polyval(self._coeffs_all, self._readFREQ)
+#         
+#         # BASELINE CORRECTION ROI (raw data)
+#         mag_beseline_corrected = mag-self._polyfitted
+#         
+#         # FILTERING - Savitzky-Golay
+#         filtered_mag = self.savitzky_golay(mag_beseline_corrected, window_size = SG_window_size, order = Constants.SG_order)
+#         
+#         # peak, index e frequency of max detection baseline corrected (filtering optional)
+#         #self._vector_max_baseline_corrected.append(max(mag_beseline_corrected))   #Z axis (max)
+#         #self._index_max_baseline_corrected.append(np.argmax(mag_beseline_corrected, axis=0)) # X axis (max position)
+#         #h=self._index_max_baseline_corrected.append(np.argmax(mag_beseline_corrected, axis=0))
+#         #self._freq_max_baseline_corrected.append(readFREQ[int(h)])
+#         
+#         # FITTING/INTERPOLATING - SPLINE
+#         xrange = range(len(filtered_mag))
+#         freq_range = np.linspace(self._readFREQ[0], self._readFREQ[-1], points)
+#         s = UnivariateSpline(xrange, filtered_mag, s= Spline_factor)
+#         xs = np.linspace(0, len(filtered_mag)-1, points)
+#         mag_result_fit = s(xs)
+#         
+#         # VER 0.1.5a_G_DEV filtering and interpolation of phase signal
+#         # filtering Savitzky Golay
+#         filtered_phase = self.savitzky_golay(phase, window_size = SG_window_size, order = Constants.SG_order)
+#         # interpolation
+#         s_phase = UnivariateSpline(xrange, filtered_phase, s = Spline_factor)
+#         xs_phase = np.linspace(0, len(filtered_phase) - 1, points)
+#         phase_result_fit = s_phase(xs_phase)
+#         
+#         # PARAMETERS FINDER
+# # =============================================================================
+# #         (index_peak_fit, max_peak_fit, bandwidth_fit, index_f1_fit, index_f2_fit, Qfac_fit) = self.parameters_finder(freq_range, mag_result_fit, percent = 0.707)
+# # =============================================================================
+#         # VER 0.1.3
+#         # change the parameter finder algorithm
+# # =============================================================================
+# #         (index_peak_fit, max_peak_fit, bandwidth_fit, 
+# #          index_f1_fit,index_f2_fit, Qfac_fit, frequency_resonance) = self.parameters_finder(freq_range, mag_result_fit, overtone_number, percent = 0.7)
+# # =============================================================================
+#         
+#         # VER 0.1.4 chenge the bandwith threshold value to the constant value THRESHOLD_DB = 0.3
+# # =============================================================================
+# #         (index_peak_fit, max_peak_fit, bandwidth_fit, 
+# #          index_f1_fit,index_f2_fit, Qfac_fit, frequency_resonance) = self.parameters_finder(freq_range, mag_result_fit, overtone_number, Constants.THRESHOLD_DB)
+# # =============================================================================
+#         
+#         # VER 0.1.5a_G_DEV parameter finder impedance 
+#         (index_peak_fit_G, frequency_resonance_G, half_bandwidth) = self.parameters_finder_impedance(freq_range, mag_result_fit, phase_result_fit, overtone_number)
+#        
+#         # self._my_list_f[overtone_number].append( freq_range[int(index_peak_fit)] )
+#         # VER 0.1.4
+#         # change the dissipation calculation as the inverse of the bandwidth defined above in parameter finder 
+#         # VER 0.1.5a_G_DEV
+#         self._my_list_f[overtone_number].append( frequency_resonance_G )
+#         
+#         # self._my_list_d[overtone_number].append( (Qfac_fit/1000000) )
+#         # VER 0.1.5a_G_DEV
+#         self._my_list_d[overtone_number].append( (half_bandwidth/1000000) )
+#         
+#         #self._temperature_buffer.append(temperature)
+#         self._temperature_buffer_0.append(temperature)
+#        
+#         if self._k >= self._environment:
+#            # FREQUENCY 
+#            self._vec_app1 [overtone_number] = self.savitzky_golay(self._my_list_f[overtone_number].get_all(), 
+#                           window_size = Constants.SG_window_environment, 
+#                           order = Constants.SG_order_environment)
+#            
+#            self._freq_range_mean [overtone_number] = np.average( self._vec_app1 [overtone_number] )
+#            
+#            
+#            #DISSIPATION  
+#            self._vec_app1d [overtone_number] = self.savitzky_golay(self._my_list_d[overtone_number].get_all(), 
+#                            window_size = Constants.SG_window_environment, 
+#                            order = Constants.SG_order_environment)
+#            # TODO insert a median 
+#            self._diss_mean [overtone_number] = np.average( self._vec_app1d [overtone_number] )
+#            
+#            # TEMPERATURE
+#            if overtone_number == 0:
+#                self._vec_app1t = self.savitzky_golay(self._temperature_buffer_0.get_all(), 
+#                                                      window_size = Constants.SG_window_environment, 
+#                                                      order = Constants.SG_order_environment)
+#                self._temperature_mean = np.average(self._vec_app1t)
+#                
+#         
+#         #  VER 0.2 BETA 
+#         # set the current value of resonance frequecy at specific overtone 
+#         if self._k <= self._environment:
+#             # current value is raw
+#             # VER 0.1.5a_G_DEV
+#             self.freq_res_current_array [overtone_number] = freq_range[int(index_peak_fit_G)]
+#         else:
+#             # current value as average 
+#             self.freq_res_current_array [overtone_number] = int( self._freq_range_mean [overtone_number])
+#         
+# # =============================================================================
+# #         else:
+# #              # TODO necessary to avoid exception when calling elaborate_multi() when k < Constants.environment
+# #              self._freq_range_mean [overtone_number] = 0
+# #              self._diss_mean [overtone_number] = 0
+# #              self._temperature_mean = 0
+# # =============================================================================
+#              
+#         # TIME EPOCH TODO 
+#         # ---------------------------------------------------------------------
+#         import datetime
+#         epoch = datetime.datetime(1970, 1, 1, 0, 0) #offset-naive datetime
+#         ts_mult = 1e6
+#         
+#         # TODO the Time is now and it is hard 
+#         if overtone_number == 0:
+#             self._my_time = (int((datetime.datetime.now() - epoch).total_seconds()*ts_mult)) #datetime.datetime.utcnow()
+#         # ---------------------------------------------------------------------
+#         
+#         # time array for each harmonic
+#         self._my_time_array[overtone_number] = (int((datetime.datetime.now() - epoch).total_seconds()*ts_mult))
+#         
+#         # TODO ADD BUFFER MEASUREMENT DATA TO THE PARSER QUEUE
+#         # ------------------------------------------------------
+#         # AMPLITUDE 
+#         self._parser1.add1(filtered_mag) 
+#         # PHASE 
+#         self._parser2.add2(phase)        
+#         
+#        
+#         # TODO just dummy 
+#         # Adds "fake" frequency, dissipation and temperature meaan to parser queues
+#         self._parser3.add3([self._my_time,0]) 
+#         self._parser4.add4([self._my_time,0]) 
+#         self._parser5.add5([self._my_time, self._temperature_mean])
+#         
+#         # VER 0.1.6 add TEC current value to the parser queue
+#         self._parser_current_tec.addCurrentTec([self._my_time, self._current_tec])
+#         
+#         # add multi overtone average date to parser queue
+# # =============================================================================
+# #         self._parser_F_multi.add_F_multi( [ self._my_time, self._freq_range_mean] )
+# #         self._parser_D_multi.add_D_multi( [ self._my_time, self._diss_mean] )
+# # =============================================================================
+#         
+#         # add multi overtone frequency - dissipation and correpsonding time array to the parser queues
+#         self._parser_F_multi.add_F_multi( [ self._my_time_array, self._freq_range_mean] )
+#         self._parser_D_multi.add_D_multi( [ self._my_time_array, self._diss_mean] )
+# =============================================================================
+    
+    # VER 0.1.6G major changes: 
+    #   - elaborate raw bit data of magnitide and phase
+     
     def elaborate_multi(self, k, overtone_number, coeffs_all, readFREQ, samples, 
                   Xm, Xp, temperature, SG_window_size, Spline_points, Spline_factor, timestamp):
         
@@ -333,24 +637,35 @@ class MultiscanProcess(multiprocessing.Process):
         # frequency range, samples number
         self._readFREQ = readFREQ
         self._samples = samples
-        # support vectors
-        self._Xm = Xm
-        self._Xp = Xp
-        self._filtered_mag = np.zeros(samples)
-        # save current data 
-        mag   = self._Xm
-        phase = self._Xp 
-
-        # Initializations of support vectors for later storage
-        self._Xm = np.linspace(0,0,self._samples)
-        self._Xp = np.linspace(0,0,self._samples)
         
+        # support vectors
+# =============================================================================
+#         self._Xm = Xm
+#         self._Xp = Xp
+# =============================================================================
+        
+        self._filtered_mag = np.zeros(samples)
+        filtered_Vmag = np.zeros(samples)
+        
+        # calc magnitude, defined as the differenc P_INA - P_INB equation 8b AD8302 datasheet  
+        mag  = self._mag_bit_mag(Xm)
+        # calc phase 
+        phase = self._phase_bit_phase(Xp)
+        # calc voltage amplitude AD0302 output  
+        Vmag = self._Vmag_bit_mag(Xm)
+        # calculate voltage phase AD0302 output  
+        Vphase = self._Vphase_bit_phase(Xp)
+        
+        # Initializations of support vectors for later storage
+# =============================================================================
+#         self._Xm = np.linspace(0,0,self._samples)
+#         self._Xp = np.linspace(0,0,self._samples)
+# =============================================================================
+    
         # Evaluate a polynomial at specific values based on the coefficients and frequency range
         self._polyfitted = np.polyval(self._coeffs_all, self._readFREQ)
-        
         # BASELINE CORRECTION ROI (raw data)
-        mag_beseline_corrected = mag-self._polyfitted
-        
+        mag_beseline_corrected = mag - self._polyfitted
         # FILTERING - Savitzky-Golay
         filtered_mag = self.savitzky_golay(mag_beseline_corrected, window_size = SG_window_size, order = Constants.SG_order)
         
@@ -367,6 +682,39 @@ class MultiscanProcess(multiprocessing.Process):
         xs = np.linspace(0, len(filtered_mag)-1, points)
         mag_result_fit = s(xs)
         
+        # VER 0.1.5a_G_DEV filtering and interpolation of phase signal
+        # filtering Savitzky Golay
+        filtered_phase = self.savitzky_golay(phase, window_size = SG_window_size, order = Constants.SG_order)
+        # interpolation
+        s_phase = UnivariateSpline(xrange, filtered_phase, s = Spline_factor)
+        xs_phase = np.linspace(0, len(filtered_phase) - 1, points)
+        phase_result_fit = s_phase(xs_phase)
+        
+        # VER 0.1.5a_G_DEV Filtering and interpolation of Vmag anf Vphase 
+        # reduce spline factor
+        
+        # baseline correction Vmag
+        # evaluate polynomial 
+        (poly_Vmag_all, coeff_Vmag_all) = self.baseline_coeffs_Vmag()
+        # polynomial 
+        poly_Vmag = np.polyval(coeff_Vmag_all, self._readFREQ)
+        # baseline correction
+        Vmag_corr = Vmag - poly_Vmag
+        # filtering Savitzky Golay
+        Vmag_filt = self.savitzky_golay(Vmag_corr, window_size = SG_window_size, order = Constants.SG_order)
+        # interpolation
+        s_Vmag = UnivariateSpline(xrange, Vmag_filt, s = Constants.SPLINE_FACTOR_G)
+        xs_Vmag = np.linspace(0, len(Vmag_filt) - 1, points)
+        Vmag_result_fit = s_Vmag(xs_Vmag)
+        
+        # filtering and interpolation of phase signal
+        V_phase_filt = self.savitzky_golay(Vphase, window_size = SG_window_size, order = Constants.SG_order)
+        # interpolation
+        s_Vphase = UnivariateSpline(xrange, V_phase_filt, s = Constants.SPLINE_FACTOR_G)
+        xs_Vphase = np.linspace(0, len(V_phase_filt) - 1, points)
+        Vphase_result_fit = s_Vphase(xs_Vphase)
+        
+        
         # PARAMETERS FINDER
 # =============================================================================
 #         (index_peak_fit, max_peak_fit, bandwidth_fit, index_f1_fit, index_f2_fit, Qfac_fit) = self.parameters_finder(freq_range, mag_result_fit, percent = 0.707)
@@ -380,13 +728,21 @@ class MultiscanProcess(multiprocessing.Process):
         
         # VER 0.1.4 chenge the bandwith threshold value to the constant value THRESHOLD_DB = 0.3
         (index_peak_fit, max_peak_fit, bandwidth_fit, 
-         index_f1_fit,index_f2_fit, Qfac_fit, frequency_resonance) = self.parameters_finder(freq_range, mag_result_fit, overtone_number, Constants.THRESHOLD_DB)
+         index_f1_fit, index_f2_fit, Qfac_fit, frequency_resonance) = self.parameters_finder(freq_range, mag_result_fit, overtone_number, Constants.THRESHOLD_DB)
+        
+        # VER 0.1.5a_G_DEV parameter finder impedance 
+        (index_peak_fit_G, frequency_resonance_G, half_bandwidth) = self.parameters_finder_impedance(freq_range, Vmag_result_fit, Vphase_result_fit, overtone_number)
        
         # self._my_list_f[overtone_number].append( freq_range[int(index_peak_fit)] )
         # VER 0.1.4
         # change the dissipation calculation as the inverse of the bandwidth defined above in parameter finder 
-        self._my_list_f[overtone_number].append( frequency_resonance )
-        self._my_list_d[overtone_number].append( (Qfac_fit/1000000) )
+        # VER 0.1.5a_G_DEV
+        # self._my_list_f[overtone_number].append( frequency_resonance )
+        self._my_list_f[overtone_number].append( frequency_resonance_G )
+        
+        # self._my_list_d[overtone_number].append( (Qfac_fit/1000000) )
+        # VER 0.1.5a_G_DEV
+        self._my_list_d[overtone_number].append( (half_bandwidth/1000000) )
         
         #self._temperature_buffer.append(temperature)
         self._temperature_buffer_0.append(temperature)
@@ -419,7 +775,8 @@ class MultiscanProcess(multiprocessing.Process):
         # set the current value of resonance frequecy at specific overtone 
         if self._k <= self._environment:
             # current value is raw
-            self.freq_res_current_array [overtone_number] = freq_range[int(index_peak_fit)]
+            # VER 0.1.5a_G_DEV
+            self.freq_res_current_array [overtone_number] = freq_range[int(index_peak_fit_G)]
         else:
             # current value as average 
             self.freq_res_current_array [overtone_number] = int( self._freq_range_mean [overtone_number])
@@ -496,6 +853,24 @@ class MultiscanProcess(multiprocessing.Process):
         # add to new parser 
         self._parser_A_multi.add_A_multi([ self._my_list_freq, self._my_list_amp ])
         self._parser_P_multi.add_P_multi([ self._my_list_freq, self._my_list_phase ] )
+    
+    # VER 0.1.6G elaborate cunductance UNUSED     
+    def elaborate_conductance_multi(self, overtone_index, freq, V_mag, V_phase):
+        V_mag_mir = self._Vmag_mirror(V_mag)
+        V_phase_mir = self._Vph_mirror(V_phase)
+         
+        Z_abs = self._Zabs_Vmag(V_mag_mir)
+         
+        phase = self._phase_V_phase(V_phase_mir)
+        
+        G_conductance = self._G_calc(Z_abs, phase)
+        G_conductance = G_conductance - np.nanmin(G_conductance)
+         
+        import matplotlib.pyplot as plt
+        plt.title("conductance")
+        plt.plot(freq, G_conductance)
+        plt.show()
+        
 
     # INIT PROCESS 
     # -------------------------------------------------------------------------
@@ -801,15 +1176,27 @@ class MultiscanProcess(multiprocessing.Process):
                         # Get array sweep paramaters from frequency peaks file 
                         (startF, stopF, stepF, readF, 
                          sg_window_size, spline_factor, spline_points) = self.get_frequencies(samples)
+                        
+                        print("DEBUG: sweep parameters ", startF, stopF, stepF) 
                     
                     else:
                         # Get array sweep paramaters from the real time frequency peaks file 
                         (startF, stopF, stepF, readF, 
-                         sg_window_size, spline_factor, spline_points) = self.get_frequencies_RT(samples)
-                    
+                         sg_window_size, spline_factor, spline_points) =  self.get_frequencies_RT(samples)
+                        
                     # data reset for new sweep 
                     data_mag = np.linspace(0,0,samples)   
                     data_ph  = np.linspace(0,0,samples)
+                    
+                    # VER 0.1.6G define V mag and V phase of AD8302
+                    V_mag = np.linspace(0,0,samples)  
+                    V_ph =  np.linspace(0,0,samples)
+                    
+                    # VER 0.1.6G init AD8203 bit variable raw
+                    # ad83092 magnitude bit raw
+                    bit_mag = np.linspace(0,0,samples)
+                    # ad83092 phase bit raw
+                    bit_phase = np.linspace(0,0,samples)
                     
                     # DEV RAWDATA SAVE RAW SWEEP DATA 
                     # init frequency sweep raw array 
@@ -962,6 +1349,17 @@ class MultiscanProcess(multiprocessing.Process):
                                         self._flag_error_usb = 1
                                         data_mag = np.linspace(0,0,samples)   
                                         data_ph  = np.linspace(0,0,samples)
+                                        
+                                        # VER 0.1.6G define V mag and V phase of AD8302
+                                        V_mag = np.linspace(0,0,samples)  
+                                        V_ph =  np.linspace(0,0,samples)
+                                        
+                                        # VER 0.1.6G init AD8203 bit variable raw
+                                        # ad83092 magnitude bit raw
+                                        bit_mag = np.linspace(0,0,samples)
+                                        # ad83092 phase bit raw
+                                        bit_phase = np.linspace(0,0,samples)
+                                        
                                         # reset data raw
                                         data_raw = ""
                                         # reset buffer
@@ -983,6 +1381,7 @@ class MultiscanProcess(multiprocessing.Process):
                                             
                                         # TODO check the number of lines to read
                                         
+                                        #### DATA ACQUISITION
                                         # converts data values to gain and phase 
                                         for i in range (length - 1):
                                             data_mag[i] = float(strs[i][0]) * ADCtoVolt / 2
@@ -990,7 +1389,19 @@ class MultiscanProcess(multiprocessing.Process):
                                             data_ph[i] = float(strs[i][1]) * ADCtoVolt / 1.5
                                             data_ph[i] = (data_ph[i]-VCP) / 0.01
                                             
-                                        
+                                            # VER 0.1.5a_G_DEV define V mag and V phase of AD8302
+                                            # V mag conversion from adc bit to Volt and ratio /2 by opamp
+                                            V_mag[i] = float(strs[i][0]) * ADCtoVolt / 2
+                                            # because of the voltage divider Zehra
+                                            V_mag[i] = V_mag[i] - 0.6
+                                            # V phase conversion from adc bit to Volt and ratio /1.5 by opamp
+                                            V_ph[i] = float(strs[i][1]) * ADCtoVolt / 1.5
+                                            
+                                            # VER 0.1.6G init AD8203 bit variable raw
+                                            # ad83092 magnitude bit raw
+                                            bit_mag[i] = float(strs[i][0])
+                                            # ad83092 phase bit raw
+                                            bit_phase[i] = float(strs[i][1])
                                         # --------------------------------------------------------------------------
                                         # DEV RAWDATA  SAVE RAW SWEEP DATA 
                                         # --------------------------------------------------------------------------
@@ -1014,6 +1425,11 @@ class MultiscanProcess(multiprocessing.Process):
                                         FileStorage.TXT_sweeps_save( (overtone_index * 2) + 1 , 
                                                                     str("openQCM") + slash  +  Constants.sweep_export_path, 
                                                                     data_f,  data_mag, data_ph)
+                                        
+                                        # VER 0.1.6G
+                                        FileStorage.TXT_sweeps_save( "g" + str((overtone_index * 2) + 1) , 
+                                                                   str("openQCM") + slash  +  Constants.sweep_export_path, 
+                                                                   data_f,  V_mag, V_ph)
                                 
 # =============================================================================
 #                             if (overtone_index == 0):
@@ -1098,6 +1514,16 @@ class MultiscanProcess(multiprocessing.Process):
                                  # reset buffer 
                                  data_mag = np.linspace(0,0,samples)   
                                  data_ph  = np.linspace(0,0,samples)
+                                 
+                                 # VER 0.1.5a_G_DEV define V mag and V phase of AD8302
+                                 V_mag = np.linspace(0,0,samples)  
+                                 V_ph =  np.linspace(0,0,samples)
+                                 
+                                 # VER 0.1.6G init AD8203 bit variable raw
+                                 # ad83092 magnitude bit raw
+                                 bit_mag = np.linspace(0,0,samples)
+                                 # ad83092 phase bit raw
+                                 bit_phase = np.linspace(0,0,samples)
                                  
                                  # reset data raw
                                  data_raw = ""
@@ -1212,9 +1638,22 @@ class MultiscanProcess(multiprocessing.Process):
                             self.set_frequencies_RT( overtone_index, self.freq_res_current_array[overtone_index])
                             
                             try:
-                                self.elaborate_multi(k, overtone_index,coeffs_all, readF[overtone_index], 
-                                               samples, data_mag, data_ph, data_temp, sg_window_size[overtone_index], spline_points[overtone_index], 
-                                               spline_factor[overtone_index], timestamp) 
+# =============================================================================
+#                                 self.elaborate_multi(k, overtone_index,coeffs_all, readF[overtone_index], 
+#                                                samples, data_mag, data_ph, data_temp, sg_window_size[overtone_index], spline_points[overtone_index], 
+#                                                spline_factor[overtone_index], timestamp)
+# =============================================================================
+                                
+                                # VER 0.1.6G elaborate raw bit mag and bit phase 
+                                # ----------------------------------------------
+# =============================================================================
+#                                 self.elaborate_multi(k, overtone_index,coeffs_all, readF[overtone_index], 
+#                                                      samples, V_mag, V_ph, data_temp, sg_window_size[overtone_index], spline_points[overtone_index], 
+#                                                      spline_factor[overtone_index], timestamp) 
+# =============================================================================
+                                self.elaborate_multi(k, overtone_index, coeffs_all, readF[overtone_index], samples, 
+                                                     bit_mag, bit_phase, data_temp, sg_window_size[overtone_index], spline_points[overtone_index],
+                                                     spline_factor[overtone_index], timestamp) 
                                 
                                 self.elaborate_ampli_phase_multi(overtone_index, coeffs_all, readF[overtone_index], data_mag, data_ph)
                             

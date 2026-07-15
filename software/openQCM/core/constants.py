@@ -72,8 +72,10 @@ class Constants:
     # plot_colors = ['#ff0000', '#0072bd', '#00ffff', '#edb120', '#000000', '#77ac30', '#4dbeee', '#a2142f'] 
     plot_colors = [(255, 255, 255)]
     
-    
     plot_max_lines = len(plot_colors)
+    
+    # VER 0.1.6G DEBUG
+    plot_autoscale_yaxis = True
     
 # =============================================================================
 #     plot_line_width = 1.2
@@ -108,6 +110,9 @@ class Constants:
     # plot_color_multi = [(0, 0, 255), (70, 130, 255), (135, 206, 250), (173, 216, 230), (240, 248, 255)]
     
     plot_color_multi = [(0, 0, 255), (70, 99, 255), (122, 160, 255), (173, 182, 255), (255, 228, 255)]
+    
+    plot_color_multi_g =  ['#0000FF', '#4663FF', '#7AA0FF', '#ADB6FF', '#FFE4FF']
+    
                          
     name_legend = ["0th", "3rd", "5th", "7th", "9th"]                        
     
@@ -129,7 +134,8 @@ class Constants:
 # =============================================================================
     
     # VER 0.1.6 temporary 4 samples for saving time in dev mode  
-    environment = 10 # 4 samples in developemtn mode just for saving time chenage
+    # VER 0.1.6G DEBUG
+    environment = 4 # 10 # 4 samples in developemtn mode just for saving time chenage
     
     # VER 0.1.6 reduce the real-time chart history length to 8192 samples 
     ring_buffer_samples = 8192 # 16384
@@ -213,6 +219,9 @@ class Constants:
     # VER 0.1.4 increase spline factor for smoothing with 1 Hz sampling frequency   
     SPLINE_FACTOR = 1
     # VER 0.1.4 find the best spline factor 
+    
+    # VER 0.1.6G reduce spline factor for smoothing voltage output
+    SPLINE_FACTOR_G = 0.001
         
 # =============================================================================
 #     argument_default_samples = 501#1001
@@ -262,6 +271,9 @@ class Constants:
     # VER 0.1.4 TODO
     # Savitzky-Golay window size definition 
     SG_WINDOW_SIZE = 51
+    
+    # VER 0.1.6G reduce the  Savitzky-Golay window sizefor voltage output 
+    SG_WINDOW_SIZE_G = 51 
     
 # =============================================================================
 #     #--------------

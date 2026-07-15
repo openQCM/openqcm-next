@@ -43,6 +43,8 @@ from openQCM.util.embedding_in_qt_sgskip import ApplicationWindow
 from openQCM.sweep_data import plot_sweep_spline
 from openQCM.data_view import main
 
+from openQCM.sweep_data import plot_conductance
+
 
 TAG = ""#"[MainWindow]"
 
@@ -1668,6 +1670,9 @@ class MainWindow(QtGui.QMainWindow):
         # VER 0.1.6 push button for TEC current data plot secondary window 
         self.ui.pButtonSecondWindow.clicked.connect(self.open_second_window)
         
+        # DEV G CONDUCTANCE RAW DATA VIEW 
+        self.ui.conductanceData_btn.clicked.connect(self._conductance_data_plot)
+        
     
     # VER 0.1.4
     # add-on view sweep raw data plot
@@ -1693,6 +1698,27 @@ class MainWindow(QtGui.QMainWindow):
             except Exception as e:
                 print ("Warning: unable to plot raw data in single mode ")
                 print(f"error occurred: {e}")
+                
+    def _conductance_data_plot(self):
+           ####TEST 
+           self.window_pro.hide()
+           
+           # multiscan mode 
+           if  (self._get_source() == SourceType.multiscan):
+               try:
+                   plot_conductance.script()
+               except Exception as e:
+                   print ("Warning: unable to plot raw data in multiscn mode.")
+                   print(f"error occurred: {e}")
+           
+           # else if single mode 
+           elif (self._get_source() == SourceType.serial):
+               try:
+                   overtone_nn = self._overtones_number_all - self.ui.cBox_Speed.currentIndex() - 1
+                   plot_sweep_spline.script_single(overtone_nn)
+               except Exception as e:
+                   print ("Warning: unable to plot raw data in single mode ")
+                   print(f"error occurred: {e}")
             
     # VER 0.1.4
     # add-on view data log and make some processing 
@@ -2601,8 +2627,10 @@ class MainWindow(QtGui.QMainWindow):
                             y_d_min = y_diss_min - y_d_range
                             
                             # set y range axis 
-                            self._plt2.setYRange(y_f_min, y_f_max)
-                            self._pltD.setYRange(y_d_min, y_d_max)
+                            # VER 0.1.6G DEBUG
+                            if not Constants.plot_autoscale_yaxis:
+                                self._plt2.setYRange(y_f_min, y_f_max)
+                                self._pltD.setYRange(y_d_min, y_d_max)
 
                     else:
                         dummy = [0]
@@ -2662,7 +2690,9 @@ class MainWindow(QtGui.QMainWindow):
                     y_t_range = 1
                     y_t_min = y_temperature_min - y_t_range
                     y_t_max = y_temperature_max + y_t_range
-                    self._plt4.setYRange(y_t_min, y_t_max)
+                    # VER 0.1.6G DEBUG
+                    if not Constants.plot_autoscale_yaxis:
+                        self._plt4.setYRange(y_t_min, y_t_max)
                     
                     
 # =============================================================================
@@ -2863,8 +2893,10 @@ class MainWindow(QtGui.QMainWindow):
                    y_d_min = y_diss_single_min - y_d_range
                  
                    # set y range axis 
-                   self._plt2.setYRange(y_f_min, y_f_max)
-                   self._pltD.setYRange(y_d_min, y_d_max)
+                   # VER 0.1.6G DEBUG
+                   if not Constants.plot_autoscale_yaxis:
+                       self._plt2.setYRange(y_f_min, y_f_max)
+                       self._pltD.setYRange(y_d_min, y_d_max)
 # =============================================================================
 #                
 # =============================================================================
@@ -2907,7 +2939,9 @@ class MainWindow(QtGui.QMainWindow):
                    y_t_range = 1
                    y_t_min = y_temperature_min - y_t_range
                    y_t_max = y_temperature_max + y_t_range
-                   self._plt4.setYRange(y_t_min, y_t_max)
+                   # VER 0.1.6G DEBUG
+                   if not Constants.plot_autoscale_yaxis:
+                       self._plt4.setYRange(y_t_min, y_t_max)
 # =============================================================================
 # 
 # =============================================================================               
@@ -3143,7 +3177,9 @@ class MainWindow(QtGui.QMainWindow):
                    y_t_range = 1
                    y_t_min = y_temperature_min - y_t_range
                    y_t_max = y_temperature_max + y_t_range
-                   self._plt4.setYRange(y_t_min, y_t_max)
+                   # VER 0.1.6G DEBUG
+                   if not Constants.plot_autoscale_yaxis:
+                       self._plt4.setYRange(y_t_min, y_t_max)
                
                # VER 0.1.6  round to 1 decimal  
                label_indicator_temperature = float("{0:.1f}".format(y_temperature[0]))
