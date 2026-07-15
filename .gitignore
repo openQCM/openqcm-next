@@ -22,10 +22,10 @@ logged_data/
 *.log
 *_multi_.csv
 
-# === Raw sweep data: examples and test datasets ===
-# NB: the FUNCTIONAL calibration files (software/openQCM/Calibration_5MHz.txt,
-#     Calibration_10MHz.txt) remain versioned.
-software/openQCM/sweep_data/*.txt
+# === Raw sweep test datasets (peak-detection prototypes only) ===
+# NB: functional data stays versioned — the calibration lookup tables
+#     (software/openQCM/Calibration_5MHz.txt / Calibration_10MHz.txt) and the
+#     sweep_data/*.txt files read by the Raw Data view.
 research/peak-detection/**/*.txt
 
 # === Backups / working copies / dead code ===
