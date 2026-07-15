@@ -52,3 +52,6 @@ build/
 *.tar
 *.gz
 *.7z
+
+# === Local working docs (developer scratch pad, not versioned) ===
+HANDOFF.md
