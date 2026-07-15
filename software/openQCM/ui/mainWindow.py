@@ -405,8 +405,14 @@ class MainWindow(QtGui.QMainWindow):
                              speed = self.ui.cBox_Speed.currentText(),
                              samples = Constants.argument_default_samples,
                              source = self._get_source(),
-                             export_enabled = False, 
+                             export_enabled = False,
                              sampling_time = self._get_sampling_time())
+
+        # Hand the serial port over to the acquisition process: release the
+        # persistent GUI handle so the child can open it exclusively.
+        # (The level-1 lock file stays held by the GUI.)
+        if self._serial_lock is not None and self._serial_lock.isOpen():
+            self._serial_lock.close()
 
         # SINGLE
         # ---------------------------------------------------------------------
@@ -697,6 +703,10 @@ class MainWindow(QtGui.QMainWindow):
         # add a delay to prevent the error caused by the serial com port open
         time.sleep(1)
 
+        # Re-acquire the serial port for the GUI (Standby) now that the child
+        # acquisition process has released it, so the queries below can run.
+        self._reacquire_serial_lock()
+
         # turn off the peltier
         self.Temperature_Control_OFF()
 
@@ -799,22 +809,8 @@ class MainWindow(QtGui.QMainWindow):
 
         print ("Set Temperature =  ", var/1000)
 
-        # serial port parameter
-        self._my_serial.port = self.ui.cBox_Port.currentText()
-        self._my_serial.baudrate = Constants.serial_default_speed #115200
-        self._my_serial.stopbits = serial.STOPBITS_ONE
-        self._my_serial.bytesize = serial.EIGHTBITS
-        self._my_serial.timeout = Constants.serial_timeout_ms
-        self._my_serial.writetimeout = Constants.serial_writetimeout_ms
-
-        # check if a process is NOT running
-        if ( self.worker.is_running() == False ):
-            # open the serial port
-            self._my_serial.open()
-            # write set temperature command
-            self._my_serial.write(cmd.encode())
-            # close serial
-            self._my_serial.close()
+        # send the set-temperature command over the persistent connection
+        self._serial_write(cmd.encode())
 
     def _get_temperature(self):
         _var = self.ui.doubleSpinBox_Temperature.value() * 1000
@@ -847,25 +843,10 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.label_Temperature_state.setStyleSheet("background-color: rgba(0, 142, 192, 0.4); border: 1px solid gray; border-radius: 2px;  padding: 2 px;")
 
         print ("Temperature Control ON")
-        # set the temperature control ONLY in NOT measuring mode
-        self._my_serial.port = self.ui.cBox_Port.currentText()
-        self._my_serial.baudrate = Constants.serial_default_speed #115200
-        self._my_serial.stopbits = serial.STOPBITS_ONE
-        self._my_serial.bytesize = serial.EIGHTBITS
-        self._my_serial.timeout = Constants.serial_timeout_ms
-        self._my_serial.writetimeout = Constants.serial_writetimeout_ms
-
-        # Gets the state of the serial port
-        # if not self._my_serial.isOpen():
-        # VER 0.1.2
-        # check if a process is NOT running to verify the serial is available
-        if ( self.worker.is_running() == False ):
-            # OPENS the serial port
-            self._my_serial.open()
-            var = 1
-            cmd = 'X' + str(int(var)) + '\n'
-            self._my_serial.write(cmd.encode())
-            self._my_serial.close()
+        # enable TEC over the persistent connection
+        var = 1
+        cmd = 'X' + str(int(var)) + '\n'
+        self._serial_write(cmd.encode())
 
 # =============================================================================
 #         # VER 0.1.2 TODO
@@ -893,26 +874,10 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.doubleSpinBox_Temperature.setValue( Constants.Temperature_Set_Value )
 
         print ("Temperature Control OFF ")
-        # set the temperature control ONLY in NOT measuring mode
-        self._my_serial.port = self.ui.cBox_Port.currentText()
-        self._my_serial.baudrate = Constants.serial_default_speed #115200
-        self._my_serial.stopbits = serial.STOPBITS_ONE
-        self._my_serial.bytesize = serial.EIGHTBITS
-        self._my_serial.timeout = Constants.serial_timeout_ms
-        self._my_serial.writetimeout = Constants.serial_writetimeout_ms
-
-        # Gets the state of the serial port
-        # if not self._my_serial.isOpen():
-
-        #DEV
-        # check if a process is NOT running to verify the serial is available
-        if ( self.worker.is_running() == False ):
-            # open the serial port
-            self._my_serial.open()
-            var = 0
-            cmd = 'X' + str(int(var)) + '\n'
-            self._my_serial.write(cmd.encode())
-            self._my_serial.close()
+        # disable TEC over the persistent connection
+        var = 0
+        cmd = 'X' + str(int(var)) + '\n'
+        self._serial_write(cmd.encode())
 
 # =============================================================================
 #         elif  ( self.worker.is_running() == True ):
@@ -961,50 +926,19 @@ class MainWindow(QtGui.QMainWindow):
         print ("Setting PID Parameter")
         self._get_PID()
 
-        # serial port parameter
-        self._my_serial.port = self.ui.cBox_Port.currentText()
-        self._my_serial.baudrate = Constants.serial_default_speed #115200
-        self._my_serial.stopbits = serial.STOPBITS_ONE
-        self._my_serial.bytesize = serial.EIGHTBITS
-        self._my_serial.timeout = Constants.serial_timeout_ms
-        self._my_serial.writetimeout = Constants.serial_writetimeout_ms
+        # get PID parameters from UI
+        _var_cycling_time = self.ui.spinBox_Cycling_Time.value()
+        _var_P_share = self.ui.spinBox_P_Share.value()
+        _var_I_Share = self.ui.spinBox_I_Share.value()
+        _var_D_Share = self.ui.spinBox_D_Share.value()
 
-        # check if a process is NOT running to verify the serial is available
-        if ( self.worker.is_running() == False ):
-
-            # open the serial port
-            self._my_serial.open()
-
-            # get PID paramter from UI
-            _var_cycling_time = self.ui.spinBox_Cycling_Time.value()
-            _var_P_share = self.ui.spinBox_P_Share.value()
-            _var_I_Share = self.ui.spinBox_I_Share.value()
-            _var_D_Share = self.ui.spinBox_D_Share.value()
-
-            # set PID parameters
-            cycling_time_msg = 'C' + str(int(_var_cycling_time)) + '\n'
-            # VER 0.1.2 add a short sleep for communication
+        # send PID parameters over the persistent connection (short gap between commands)
+        for msg in ('C' + str(int(_var_cycling_time)),
+                    'P' + str(int(_var_P_share)),
+                    'I' + str(int(_var_I_Share)),
+                    'D' + str(int(_var_D_Share))):
             sleep(0.1)
-            self._my_serial.write(cycling_time_msg.encode())
-            sleep(0.1)
-
-            P_Share_msg = 'P' + str(int(_var_P_share)) + '\n'
-            self._my_serial.write(P_Share_msg.encode())
-            sleep(0.1)
-
-            I_Share_msg = 'I' + str(int(_var_I_Share)) + '\n'
-            self._my_serial.write(I_Share_msg.encode())
-            sleep(0.1)
-
-            D_Share_msg = 'D' + str(int(_var_D_Share)) + '\n'
-            self._my_serial.write(D_Share_msg.encode())
-            sleep(0.1)
-            # close the serial port
-            self._my_serial.close()
-
-        # VER 0.1.2 TODO
-        else:
-            print ("the worker is still running ")
+            self._serial_write((msg + '\n').encode())
 
     def _get_PID(self):
         # TODO get pid parameters from main gui
@@ -1071,15 +1005,9 @@ class MainWindow(QtGui.QMainWindow):
     
     # VER 0.1.4 get frimware version 
     def get_firmware_version(self, autoMode):
-        # set the serial port 
-        self._my_serial.port = self.ui.cBox_Port.currentText()
-        self._my_serial.baudrate = Constants.serial_default_speed #115200
-        self._my_serial.stopbits = serial.STOPBITS_ONE
-        self._my_serial.bytesize = serial.EIGHTBITS
-        self._my_serial.timeout = Constants.serial_timeout_ms
-        self._my_serial.writetimeout = Constants.serial_writetimeout_ms
-        
-        # init the byte at port and read serlai string 
+        # query the device over the persistent connection (opened on Connect)
+
+        # init the byte at port and read serlai string
         byte_at_port = 0
         read_serial = ""
         firmware_version_current = ""
@@ -1087,53 +1015,33 @@ class MainWindow(QtGui.QMainWindow):
         # chek if worker is running, to prevent conflict
         if ( (self.worker.is_running() == False) and (autoMode == True)):
             try:
-                # open serial port
-                self._my_serial.open()
-                # send firmware version  
-                cmd = 'F' + '\n'
-                self._my_serial.write(cmd.encode())
-                # VER 0.1.5 wait for longer time
-                sleep(0.4)  
-                # serial read answer from the device 
-                byte_at_port = self._my_serial.inWaiting()
-                read_serial += self._my_serial.read(byte_at_port).decode(Constants.app_encoding)
-                # VER 0.1.5 wait for longer time
-                sleep(0.4)
-                
-                # VER 0.1.5 if byte_at_port is null send a warning message 
-                if (byte_at_port == 0):
-                    # send a warning message 
-                    # VER 0.1.5 popup a warning  
-                    upgrade_firmware_startup = PopUp.warning_exec(self, "FIRMWARE UPDATE", "Unable to check the firmware version. Please press info in menu bar to get firmware information")
-                    print ("Warning: Unable to check the firmware version. Please press info in menu bar to get firmware information")
-                
-                # close the serial 
-                self._my_serial.close()
-            
-                # firmare version from serial read strip new line char 
+                # query firmware version over the persistent connection
+                read_serial += self._serial_query(b'F\n')
+
+                # firmare version from serial read strip new line char
                 firmware_version_current = read_serial.rstrip('\r\n')
-                
-                # no firmware information 
-                if (firmware_version_current == ""): 
+
+                # no firmware information
+                if (firmware_version_current == ""):
                     # print ("No firmware information. Please upgrade firmware to the version ", Constants.FW_VERSION)
-                    # VER 0.1.4 popup a warning 
-                    upgrade_firmware = PopUp.warning_exec(self, "FIRMWARE UPDATE", "Please update firmware version " + str(Constants.FW_VERSION) + 
+                    # VER 0.1.4 popup a warning
+                    upgrade_firmware = PopUp.warning_exec(self, "FIRMWARE UPDATE", "Please update firmware version " + str(Constants.FW_VERSION) +
                                                           ". Press Yes button to continue the firmware update procedure")
-                   
-                    if (upgrade_firmware == True): 
+
+                    if (upgrade_firmware == True):
                         # run the firmware the updater application
                         self._run_firmware_updater()
-                    
-                    elif (upgrade_firmware == False): 
-                        # pop a critical 
-                        upgrade_firmware_critical = PopUp.critical_exec(self, "FIRMWARE UPDATE", 
-                                                                        "Failure to update the firmware may result in a software crash or malfunction." + "\n\r" + 
-                                                                        "Please update firmware version " + str(Constants.FW_VERSION) + 
+
+                    elif (upgrade_firmware == False):
+                        # pop a critical
+                        upgrade_firmware_critical = PopUp.critical_exec(self, "FIRMWARE UPDATE",
+                                                                        "Failure to update the firmware may result in a software crash or malfunction." + "\n\r" +
+                                                                        "Please update firmware version " + str(Constants.FW_VERSION) +
                                                                         ". Press Yes button to continue the firmware update procedure")
-                        if (upgrade_firmware_critical == True): 
+                        if (upgrade_firmware_critical == True):
                             # run the firmware the updater application
                             self._run_firmware_updater()
-                
+
                 # previous old firmware installed
                 elif (firmware_version_current != Constants.FW_VERSION):
                     # VER 0.1.4 popup a warning  
@@ -1161,22 +1069,10 @@ class MainWindow(QtGui.QMainWindow):
         # VER 0.1.5 if the worker is not running get firmware info and eventually launch the firmware updater application                             
         elif ((self.worker.is_running() == False) and (autoMode == False)):
             try:
-                # open serial port
-                self._my_serial.open()
-                # send firmware version  
-                cmd = 'F' + '\n'
-                self._my_serial.write(cmd.encode())
-                # VER 0.1.5 wait for longer time
-                sleep(0.4)  
-                # serial read answer from the device 
-                byte_at_port = self._my_serial.inWaiting()
-                read_serial += self._my_serial.read(byte_at_port).decode(Constants.app_encoding)
-                # VER 0.1.5 wait for longer time
-                sleep(0.4)  
-                # close the serial 
-                self._my_serial.close()
-            
-                # firmare version from serial read strip new line char 
+                # query firmware version over the persistent connection
+                read_serial += self._serial_query(b'F\n')
+
+                # firmare version from serial read strip new line char
                 firmware_version_current = read_serial.rstrip('\r\n')
                 
                 # no firmware information 
@@ -1753,12 +1649,12 @@ class MainWindow(QtGui.QMainWindow):
                 PopUp.warning(self, Constants.app_title,
                               "Port [{}] is already in use by another openQCM instance!".format(port))
                 return
-            # Validate the port can actually be opened (probe, then release it)
+            # Open the persistent, exclusive serial handle (held in Standby)
             try:
-                probe = serial.Serial(port, timeout=1)
-                probe.close()
+                self._open_serial_lock(port)
             except Exception as e:
                 self._release_port_lock()
+                self._serial_lock = None
                 PopUp.warning(self, Constants.app_title,
                               "Unable to open port [{}]:\n{}".format(port, str(e)))
                 print(TAG, "Connection failed: {}".format(str(e)))
@@ -1777,6 +1673,12 @@ class MainWindow(QtGui.QMainWindow):
             self.get_firmware_version(True)
         else:
             # ---- DISCONNECT ----
+            if self._serial_lock is not None:
+                try:
+                    self._serial_lock.close()
+                except Exception:
+                    pass
+                self._serial_lock = None
             self._release_port_lock()
             self._serial_connected = False
             self._connected_port = None
@@ -1787,6 +1689,70 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.label_COM_status.setText("Disconnected")
             print(TAG, "Disconnected from serial port")
             Log.i(TAG, "Disconnected from serial port")
+
+    def _open_serial_lock(self, port):
+        # Open the persistent, exclusive serial handle held by the GUI while
+        # connected and idle (Standby). Configuration matches the former
+        # per-query setup.
+        self._serial_lock = serial.Serial()
+        self._serial_lock.port = port
+        self._serial_lock.baudrate = Constants.serial_default_speed
+        self._serial_lock.stopbits = serial.STOPBITS_ONE
+        self._serial_lock.bytesize = serial.EIGHTBITS
+        self._serial_lock.timeout = Constants.serial_timeout_ms
+        self._serial_lock.writetimeout = Constants.serial_writetimeout_ms
+        try:
+            self._serial_lock.exclusive = True
+        except Exception:
+            pass
+        self._serial_lock.open()
+
+    def _reacquire_serial_lock(self):
+        # Re-open the persistent handle after the acquisition process released
+        # the port (called on stop). No-op if not connected or already open.
+        if not self._serial_connected:
+            return
+        if self._serial_lock is not None and self._serial_lock.isOpen():
+            return
+        try:
+            self._open_serial_lock(self._connected_port)
+        except Exception as e:
+            print(TAG, "Warning: could not re-acquire serial port: {}".format(str(e)))
+            Log.w(TAG, "Could not re-acquire serial port: {}".format(str(e)))
+
+    def _serial_write(self, payload):
+        # Write a command on the persistent connection. Requires an active
+        # connection and no running acquisition (the child owns the port then).
+        if not self._serial_connected or self._serial_lock is None:
+            print(TAG, "Serial write skipped: not connected")
+            return False
+        if self.worker.is_running():
+            print(TAG, "Serial write skipped: acquisition running")
+            return False
+        try:
+            self._serial_lock.write(payload)
+            return True
+        except Exception as e:
+            print(TAG, "Serial write error: {}".format(str(e)))
+            Log.e(TAG, "Serial write error: {}".format(str(e)))
+            return False
+
+    def _serial_query(self, payload, wait=0.4):
+        # Write a command on the persistent connection and read the reply.
+        if not self._serial_connected or self._serial_lock is None:
+            return ""
+        try:
+            self._serial_lock.reset_input_buffer()
+            self._serial_lock.write(payload)
+            sleep(wait)
+            n = self._serial_lock.inWaiting()
+            data = self._serial_lock.read(n).decode(Constants.app_encoding)
+            sleep(wait)
+            return data
+        except Exception as e:
+            print(TAG, "Serial query error: {}".format(str(e)))
+            Log.e(TAG, "Serial query error: {}".format(str(e)))
+            return ""
 
     ###########################################################################
     # Configures the connections between signals and UI elements

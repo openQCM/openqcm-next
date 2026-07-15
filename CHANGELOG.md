@@ -15,9 +15,11 @@ Conventional Commits. Versions are marked by Git tags.
     check runs here** (moved from the blind call at application startup).
   - **START is now gated on an active connection** (`_enable_ui`), and the port
     combo box is disabled while connected. Connection status shown in `label_COM_status`.
-  - Note: the persistent exclusive handle (`_serial_lock`), migration of the ~8 GUI
-    serial queries, and the acquisition hand-off (release/re-acquire around START/STOP)
-    are deferred to Step 2.
+- **Serial connection — Step 2**: the connection now holds a **persistent, exclusive**
+  serial handle (`_serial_lock`) while idle (Standby). The GUI serial queries (set
+  temperature, TEC on/off, PID, firmware version) go through it via `_serial_write` /
+  `_serial_query` instead of opening the port ad-hoc; the port is **handed over** to the
+  acquisition process on START (handle closed) and **re-acquired** on STOP.
 
 ### Changed
 - **Entry point unified into `run.py`**: added a thin `software/run.py` launcher and
