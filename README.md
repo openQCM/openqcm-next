@@ -54,9 +54,9 @@ A **Quartz Crystal Microbalance (QCM)** measures mass changes and material prope
    python run.py          # or: python -m openQCM
    ```
 
-4. In the GUI, select the serial port and connect to the device.
+4. In the GUI, click **Refresh** to scan for connected devices, select the serial port, and click **Connect**.
 5. Run **Peak Detection** — the QCM type (5/10 MHz) is auto-detected.
-6. Select the desired overtone (F0, F3, F5, F7, or F9) and start the acquisition.
+6. Select the desired overtone (F0, F3, F5, F7, or F9) and click **Start** (enabled once connected).
 
 ---
 
@@ -110,6 +110,9 @@ A legacy `FindPeak` routine remains available as a fallback.
 
 ### User Interface
 
+- Explicit **Connect / Disconnect** and **Refresh** controls: the serial connection is
+  managed as a separate step (with a per-port lock against multiple instances), and
+  **Start** is enabled only once connected
 - Single-window layout with sidebar controls and central plots
 - Dark theme optimized for lab environments
 - Real-time filename indicator during acquisition
@@ -157,19 +160,54 @@ python run.py          # or: python -m openQCM
 
 ```text
 openqcm-next/
-├── software/                 # Python application (openQCM package)
-│   ├── run.py                # Application entry point (thin wrapper)
-│   └── openQCM/              # main package (app.py holds the OPENQCM class)
-│       ├── core/             # constants, worker (multiprocessing), ringBuffer
-│       ├── processors/       # Serial, Multiscan, Calibration, Parser, ...
-│       ├── ui/               # mainWindow, generated UI, dialogs
-│       ├── data_view/        # standalone CSV data viewer
-│       ├── common/           # logging, file I/O, OS detection
-│       ├── Calibration_5MHz.txt / Calibration_10MHz.txt   # calibration tables
-│       └── firmware_update/  # platform-specific firmware update tools
-├── firmware/                 # Teensy 4.0 firmware source (.ino + libraries)
-├── research/                 # development materials (peak-detection prototypes, notes)
-└── docs/                     # documentation (impedance analysis on the dedicated branch)
+├── software/                                # Python application
+│   ├── run.py                               # application entry point (thin launcher)
+│   ├── openQCM/                             # main package
+│   │   ├── __main__.py                      # `python -m openQCM` entry
+│   │   ├── app.py                           # OPENQCM application class (bootstrap)
+│   │   ├── core/
+│   │   │   ├── constants.py                 # configuration parameters & tunables
+│   │   │   ├── worker.py                    # multiprocessing manager (queues → ring buffers)
+│   │   │   └── ringBuffer.py                # circular buffer for time series
+│   │   ├── common/
+│   │   │   ├── architecture.py              # OS / platform detection
+│   │   │   ├── arguments.py                 # CLI arguments & logging setup
+│   │   │   ├── fileManager.py               # file / path helpers
+│   │   │   ├── fileStorage.py               # CSV data logging
+│   │   │   ├── logger.py                    # application logger
+│   │   │   └── switcher.py                  # source switcher
+│   │   ├── processors/
+│   │   │   ├── Serial.py                    # serial acquisition process (SerialProcess)
+│   │   │   ├── Multiscan.py                 # multi-overtone acquisition & processing
+│   │   │   ├── Calibration.py               # peak-detection / calibration process
+│   │   │   ├── Parser.py                    # data-queue distribution
+│   │   │   ├── Sigma_Clip.py                # sigma-clipping filter
+│   │   │   ├── Simulator.py                 # simulated data source
+│   │   │   └── SocketClient.py              # socket data source
+│   │   ├── ui/
+│   │   │   ├── mainWindow.py                # main window controller
+│   │   │   ├── mainWindow_new_ui.py         # generated Qt UI layout
+│   │   │   └── popUp.py                     # notification dialogs
+│   │   ├── data_view/
+│   │   │   ├── main.py                      # standalone CSV data viewer
+│   │   │   ├── mplwidget.py                 # matplotlib widget
+│   │   │   └── qt_designer_ui.py            # generated Qt UI
+│   │   ├── util/
+│   │   │   ├── ReadLine.py                  # serial line reader helper
+│   │   │   └── embedding_in_qt_sgskip.py    # matplotlib-in-Qt embedding helper
+│   │   ├── sweep_data/
+│   │   │   ├── 1.txt / 3.txt / 5.txt / 7.txt / 9.txt   # sweep data read by the Raw Data view
+│   │   │   └── plot_sweep_spline.py         # Raw Data view plotting
+│   │   ├── Calibration_5MHz.txt / Calibration_10MHz.txt  # calibration lookup tables
+│   │   ├── PeakFrequencies.txt / PeakFrequenciesRT.txt   # detected peak frequencies
+│   │   ├── config.txt                       # sweep / sampling parameters
+│   │   ├── res/ , icon/                     # Qt resources (.ui files, icons)
+│   │   └── firmware_update/                 # bundled Teensy flashing tools (Teensy.app, TyUploader.exe, .hex)
+│   ├── docs/                                # license (GPL)
+│   └── *.ino.hex                            # firmware release images
+├── firmware/                                # Teensy 4.0 firmware source (.ino + libraries)
+├── research/                                # development materials (peak-detection prototypes, notes)
+└── docs/                                    # documentation (impedance analysis on the dedicated branch)
 ```
 
 ---
@@ -213,7 +251,7 @@ The `impedance-analysis` branch is experimental and not merged into `main`. Its 
 Selected planned work (non-exhaustive):
 
 - Provide pinned dependencies (`requirements.txt` / `environment.yml`) for reproducible setup.
-- Add a runtime **firmware version check** (serial `F` command) to prevent software/firmware mismatches.
+- Harden the **firmware version check** for older firmware (range-priming + reply validation).
 - Merge the `impedance-analysis` feature once stabilized (make the conductance method selectable rather than hardwired).
 - Implement the exact complex-impedance conductance formula (currently the approximate form is used).
 - Clean up dead code and duplicated assets; consolidate the generated UI files.

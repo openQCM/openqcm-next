@@ -29,6 +29,8 @@ Conventional Commits. Versions are marked by Git tags.
 - Rewrote `README.md` with a full structure (badges, TOC, features, architecture,
   version history, roadmap).
 - Removed internal development references from the README.
+- Expanded the Repository Structure (full software package tree) and aligned Quick Start /
+  Features / Roadmap with the serial-connection flow (Connect/Disconnect/Refresh).
 
 ## [v0.1.6G-test] — branch `impedance-analysis` (from v0.1.6-dev)
 - Alternative impedance analysis via **conductance spectrum G(f)** derived from
