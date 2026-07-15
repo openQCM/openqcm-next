@@ -36,6 +36,8 @@ Conventional Commits. Versions are marked by Git tags.
 - Removed internal development references from the README.
 - Expanded the Repository Structure (full software package tree) and aligned Quick Start /
   Features / Roadmap with the serial-connection flow (Connect/Disconnect/Refresh).
+- Added a developer `HANDOFF.md` (architecture, branches incl. impedance-analysis, planned
+  tasks, conventions/gotchas) so the project can be resumed from any clone.
 
 ## [v0.1.6G-test] — branch `impedance-analysis` (from v0.1.6-dev)
 - Alternative impedance analysis via **conductance spectrum G(f)** derived from
