@@ -114,6 +114,10 @@ class Ui_MainWindow(object):
     def _build_menubar(self, MainWindow):
         self.menuBar = QtWidgets.QMenuBar(MainWindow)
         self.menuBar.setObjectName("menuBar")
+        # R2: keep the menu inside the window (mockup layout) — on macOS the
+        # native system menu bar would otherwise swallow it, hiding the
+        # corner theme toggle too.
+        self.menuBar.setNativeMenuBar(False)
         MainWindow.setMenuBar(self.menuBar)
 
         # File
@@ -322,7 +326,7 @@ class Ui_MainWindow(object):
 
         # --- Temperature & PID card wrapping the tabs (R2) --------------- #
         self._build_temperature_tabs()
-        self.groupTempPID = QtWidgets.QGroupBox("Temperature & PID",
+        self.groupTempPID = QtWidgets.QGroupBox("Temperature && PID",
                                                 self.sidebarContainer)
         self.groupTempPID.setObjectName("groupTempPID")
         _tpid = QtWidgets.QVBoxLayout(self.groupTempPID)

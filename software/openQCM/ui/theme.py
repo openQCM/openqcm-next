@@ -67,6 +67,29 @@ def qss(p):
     QWidget {{ color: {text}; }}
     QLabel {{ background: transparent; color: {text}; }}
 
+    /* Generic buttons (theme-aware base; accented buttons override below) */
+    QPushButton {{ background: {field_bg}; color: {text};
+        border: 1px solid {border}; border-radius: 4px; padding: 4px 10px; }}
+    QPushButton:hover {{ background: {panel}; }}
+    QPushButton:pressed {{ background: {disabled_bg}; }}
+    QPushButton:disabled {{ background: {disabled_bg}; color: {disabled_text}; }}
+
+    /* Scroll bars (native ones stay light on the dark theme otherwise) */
+    QScrollBar:vertical {{ background: transparent; width: 12px; margin: 0; }}
+    QScrollBar::handle:vertical {{ background: {border}; border-radius: 5px;
+        min-height: 30px; }}
+    QScrollBar::handle:vertical:hover {{ background: {muted}; }}
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
+    QScrollBar:horizontal {{ background: transparent; height: 12px; margin: 0; }}
+    QScrollBar::handle:horizontal {{ background: {border}; border-radius: 5px;
+        min-width: 30px; }}
+    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0; }}
+
+    /* Horizontal separator lines follow the theme */
+    QFrame[frameShape="4"] {{ background: {border}; border: none; max-height: 1px; }}
+
+    QSplitter::handle {{ background: {border}; }}
+
     QGroupBox {{ background: {panel}; border: 1px solid {border};
                  border-radius: 8px; margin-top: 8px; }}
     QGroupBox::title {{ subcontrol-origin: margin; left: 8px;

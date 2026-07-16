@@ -159,6 +159,12 @@ Conventional Commits. Versions are marked by Git tags.
     it switches to), wired alongside the View → Theme menu.
   - **Plot canvas order** per the mockup: amplitude/phase sweep + temperature on top, then the
     resonance-frequency and dissipation time series.
+- **GUI: dark-theme completeness fixes** (after the second on-device check): generic
+  `QPushButton` base style (the untargeted buttons — TEC ON/OFF/RESET, PID Set, Reference/Clear —
+  fell back to the native light style on dark), themed scroll bars, themed horizontal separator
+  lines, themed splitter handle. **Menu bar forced in-window** (`setNativeMenuBar(False)`): on
+  macOS the native system bar swallowed the File/View/Tools/Help row and the corner theme toggle
+  (mockup layout restored). Fixed "Temperature _PID" card title — the `&` needed escaping (`&&`).
 - **Entry point unified into `run.py`**: added a thin `software/run.py` launcher and
   removed the duplicate root `software/app.py`; the `OPENQCM` class now lives only in
   `openQCM/app.py`. Launch with `python run.py` (or `python -m openQCM`).
