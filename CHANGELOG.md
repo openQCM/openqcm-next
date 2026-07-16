@@ -132,6 +132,14 @@ Conventional Commits. Versions are marked by Git tags.
   - Min-Y-scale enforcement deferred by decision.
 
 ### Changed
+- **GUI fine-tuning: hide datalog sampling time and the PID section** — the datalog
+  sampling-time selector is hidden from the sidebar (kept created/functional — acquisition uses
+  the default sampling time; "Time elapsed" stays). The Temperature card is simplified to
+  Temperature Control only: the PID Control tab is removed and the now single-tab bar hidden, card
+  renamed "Temperature". Everything is **hidden-only** — the PID widgets (`cBox_PID`,
+  `spinBox_Cycling_Time/P/I/D_Share`, `pButton_PID_Set` on the still-alive `tab_2`) and
+  `cBox_sampling_time` stay created and referenced by the controller, so no logic changed. Advanced
+  temperature/PID control is planned as a **dedicated window** (see HANDOFF §5).
 - **GUI: programmatic UI builder (redesign R1, structural parity)** — the Qt-Designer generated
   `ui/mainWindow_new_ui.py` is replaced by a hand-written `ui/mainWindow_ui.py` (same
   `Ui_MainWindow` class name, one-line import switch in `ui/mainWindow.py`), in the style of

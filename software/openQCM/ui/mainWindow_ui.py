@@ -318,6 +318,11 @@ class Ui_MainWindow(object):
         self.gridLayout_5.addWidget(self.cBox_sampling_time, 1, 0, 1, 1)
         self.gridLayout_5.addWidget(self.time_lbl, 2, 0, 1, 1)
         self.gridLayout_5.addWidget(self.time_indicator, 3, 0, 1, 1)
+        # Fine-tuning: hide the datalog sampling-time selector from the GUI for
+        # now (kept created and functional — the controller still reads/enables
+        # it; acquisition uses the default sampling time). "Time elapsed" stays.
+        self.sampling_time_lbl.hide()
+        self.cBox_sampling_time.hide()
         # R2: datalog sampling settings live in the Measurement Setup card
         self.gridSetup.addLayout(self.gridLayout_5, 5, 0, 1, 2)
 
@@ -327,7 +332,7 @@ class Ui_MainWindow(object):
 
         # --- Temperature & PID card wrapping the tabs (R2) --------------- #
         self._build_temperature_tabs()
-        self.groupTempPID = QtWidgets.QGroupBox("Temperature && PID",
+        self.groupTempPID = QtWidgets.QGroupBox("Temperature",
                                                 self.sidebarContainer)
         self.groupTempPID.setObjectName("groupTempPID")
         _tpid = QtWidgets.QVBoxLayout(self.groupTempPID)
@@ -474,6 +479,13 @@ class Ui_MainWindow(object):
         self.gridLayout_3.addWidget(self.label_D_Share, 4, 0, 1, 1)
         self.gridLayout_3.addWidget(self.spinBox_D_Share, 4, 1, 1, 1)
         self.tabWidget.addTab(self.tab_2, "PID Control")
+        # Fine-tuning: hide the whole PID section from the GUI for now. Advanced
+        # temperature/PID control will move to a dedicated window (see HANDOFF).
+        # The PID page (self.tab_2) and its widgets stay created — the controller
+        # still references them — only the tab is removed and the now single-tab
+        # bar hidden so the card shows just the Temperature Control panel.
+        self.tabWidget.removeTab(self.tabWidget.indexOf(self.tab_2))
+        self.tabWidget.tabBar().hide()
 
     # ------------------------------------------------------------------ #
     # center: tabs [ Plots | System Log ]                                #

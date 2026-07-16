@@ -210,6 +210,15 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
   the ViewBox with ignoreBounds so they survive clear() and don't drive autorange).
   **Deferred by decision**: min-Y-scale enforcement (to be integrated with `plot_force_yrange`).
   Next: Fase 5 (menu wiring: Tools/Help actions already exist) and the user's GUI fine-tuning pass.
+- **GUI fine-tuning (in progress)**:
+  - **DONE**: datalog sampling-time selector and the whole PID section **hidden** from the GUI
+    (hidden-only — widgets stay created, controller logic intact; `ui/mainWindow_ui.py` via
+    `removeTab` + `tabBar().hide()` + `.hide()`). Temperature card simplified to Temperature
+    Control only.
+  - **TODO — dedicated "Advanced Temperature Control" window**: re-expose PID (`cBox_PID`,
+    `spinBox_Cycling_Time/P/I/D_Share`, `pButton_PID_Set`, page `tab_2`) and optionally the
+    datalog sampling time, replacing the old in-sidebar PID tab. See memory
+    `advanced-temperature-pid-window`.
   4. Plot polish: grid off by default + toggle, right-click menu, **Δ cursors**, min-scale
      (integrate with the `plot_force_yrange` flag); curve colors already aligned.
   5. Scientific menu **File / View / Tools / Help**.
