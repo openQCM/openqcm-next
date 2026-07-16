@@ -341,11 +341,16 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.actionLog_Data.triggered.connect(self._log_data_plot)
         self.ui.actionRaw_Data.triggered.connect(self._raw_data_plot)
         
-        # VER 0.1.6 init the null numpy array 
+        # VER 0.1.6 init the null numpy array
         self._numpy_nan_signal = np.empty(Constants.ring_buffer_samples, dtype=float)
         self._numpy_nan_signal.fill(np.nan)
         self._numpy_nan_sweep = np.empty(Constants.SAMPLES, dtype=float)
         self._numpy_nan_sweep.fill(np.nan)
+
+        # VER 0.1.6 GUI redesign Phase 1: restructure the fixed two-column grid
+        # into a QSplitter [ scrollable sidebar | plots ]. Done last, after every
+        # widget (incl. the runtime Connect/Refresh buttons) exists.
+        self._build_shell()
 
 
     # https://stackoverflow.com/questions/63182608/colcount-not-working-for-legenditem-in-pyqtgraph-with-pyqt5-library
@@ -1399,6 +1404,93 @@ class MainWindow(QtGui.QMainWindow):
                     plot.setTitle(title_item.text, color=pt["title"])
             except Exception:
                 pass
+
+    ###########################################################################
+    # VER 0.1.6 GUI redesign Phase 1 — single-window splitter shell
+    ###########################################################################
+    def _build_shell(self):
+        """
+        Re-parent the fixed two-column grid (gridLayout_2) into a horizontal
+        QSplitter: a scrollable, collapsible sidebar of control groups on the
+        left and the plots on the right. No widget is recreated — the existing
+        items (and their signal wiring) are moved as-is, so this is reversible
+        by removing the _build_shell() call in __init__.
+        """
+        ui = self.ui
+        grid = ui.gridLayout_2
+
+        def move(target, dest):
+            # Detach `target` (a widget or a bare sub-layout) from gridLayout_2
+            # and re-parent it into `dest`. Widgets go in with addWidget (which
+            # re-parents); bare sub-layouts are wrapped in a container QWidget
+            # via setLayout so their child widgets follow. addItem() is NOT used
+            # because it does not re-parent — that would leave the moved controls
+            # owned by the old central widget and mis-rendered.
+            for i in range(grid.count()):
+                it = grid.itemAt(i)
+                if it is None:
+                    continue
+                if it.widget() is target or it.layout() is target:
+                    item = grid.takeAt(i)
+                    w = item.widget()
+                    if w is not None:
+                        dest.addWidget(w)
+                    else:
+                        container = QtGui.QWidget()
+                        container.setLayout(item.layout())
+                        dest.addWidget(container)
+                    return True
+            print(TAG, "WARNING: _build_shell could not find an item to move")
+            return False
+
+        # --- sidebar: control groups (top), then acquisition + status (bottom)
+        sidebar = QtGui.QWidget()
+        sidebar.setObjectName("sidebarContainer")
+        sb = QtGui.QVBoxLayout(sidebar)
+        sb.setContentsMargins(6, 6, 6, 6)
+        sb.setSpacing(6)
+        for target in (ui.groupBox_2, ui.gridLayout, ui.groupBox_data,
+                       ui.gridLayout_D, ui.gridLayout_5, ui.line_3, ui.tabWidget):
+            move(target, sb)
+        sb.addStretch(1)
+        # acquisition row (Start/Stop/Connect/Refresh/Reference/Clear/progress)
+        # and the status labels are pinned to the bottom of the sidebar
+        for target in (ui.horizontalLayout, ui.verticalLayout, ui.infobar):
+            move(target, sb)
+
+        scroll = QtGui.QScrollArea()
+        scroll.setObjectName("sidebarScroll")
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(sidebar)
+        scroll.setMinimumWidth(220)
+        scroll.setMaximumWidth(360)
+        scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        scroll.setFrameShape(QtGui.QFrame.NoFrame)
+
+        # --- center: the plots ---
+        center = QtGui.QWidget()
+        cv = QtGui.QVBoxLayout(center)
+        cv.setContentsMargins(0, 0, 0, 0)
+        move(ui.verticalLayout_plt, cv)
+
+        # --- splitter ---
+        splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
+        splitter.setObjectName("mainSplitter")
+        splitter.addWidget(scroll)
+        splitter.addWidget(center)
+        splitter.setCollapsible(0, True)
+        splitter.setCollapsible(1, False)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([240, 900])
+        self._main_splitter = splitter
+
+        # --- swap the central layout: move the old (now near-empty) grid onto a
+        # throwaway widget so centralwidget can host a new top-level layout. ---
+        QtGui.QWidget().setLayout(grid)
+        outer = QtGui.QVBoxLayout(ui.centralwidget)
+        outer.setContentsMargins(4, 4, 4, 4)
+        outer.addWidget(splitter)
 
     ###########################################################################
     # Configures specific elements of the PyQtGraph plots.

@@ -127,8 +127,30 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
   persistence (default light). Readout fields migrated from inline white to QSS objectName rules.
   - Known Phase-0 limitation: `infostatus` standby stays a light pill on the dark theme (uses HTML
     `<font color=#000000>` text on a white inline background) — harmonise the neutral state in Phase 4.
-- **Fasi 1–5 — PLANNED** (approved direction, not yet coded; each phase = own plan + smoke test + commit):
-  1. Single-window **QSplitter** shell (collapsible scrollable sidebar of group "cards" + center area).
+- **Fase 1 — Single-window QSplitter shell — IMPLEMENTED, ⚠️ VISUAL TUNING PENDING** (committed on
+  `main`; the user reported the visual layout is *not correct yet* and will iterate off-session):
+  `ui/mainWindow.py::_build_shell()` (called at the very end of `__init__`, after the runtime
+  Connect/Refresh buttons exist) re-parents the old two-column `gridLayout_2` into a horizontal
+  `QSplitter` **[ scrollable collapsible sidebar | plots ]**. Sidebar order (top→bottom): brand
+  (`groupBox_2`), connection (`gridLayout`), F/D readouts (`groupBox_data`), overtone radios
+  (`gridLayout_D`), sampling/time (`gridLayout_5`), `line_3`, Temperature/PID tab (`tabWidget`),
+  `addStretch`, then **bottom**: action row (`horizontalLayout`) + status (`verticalLayout`, `infobar`).
+  Plots (`verticalLayout_plt`) go in the center pane. No widget recreated → objectNames + signal
+  wiring preserved (theme Phase 0 and all logic still work).
+  - **Re-parenting recipe (KEEP THIS — a subtle Qt gotcha)**: widget → `dest.addWidget(w)` (re-parents);
+    bare sub-layout → wrap in a fresh `QWidget` via `container.setLayout(subLayout)` then
+    `dest.addWidget(container)`. Do **NOT** use `layout.addItem(takenItem)` for widgets — it does not
+    re-parent, leaving controls owned by the old `centralwidget` → mis-rendered. The central layout is
+    swapped with the `QtGui.QWidget().setLayout(oldGrid)` throwaway trick.
+  - **Revert instantly**: comment out the `self._build_shell()` call in `__init__` → old grid returns.
+  - **What to fix on-device** (not verifiable headless): the action row packs 6 buttons + progress bar
+    horizontally into a ~360px sidebar → likely overflows/wraps and looks cramped. Candidate fixes: lay
+    the acquisition controls vertically (or a 2-col grid), give the sidebar groups real "card"
+    styling/spacing, revisit sidebar min/max width (currently 220–360) and splitter initial sizes
+    (`[240, 900]`). Note much of the action row is superseded by **Phase 3** (single StartStop toggle +
+    status dock) — decide whether to polish now or fold into Phase 3. `QtGui.*` widget classes are
+    available in `mainWindow.py` via the matplotlib `qt_compat` shim (so keep using `QtGui.QWidget` etc.).
+- **Fasi 2–5 — PLANNED** (approved direction; each phase = own plan + smoke test + commit):
   2. **Tab system**: `Plots` + `System Log` (redirect stdout/stderr with timestamps).
   3. Consolidated controls: **single StartStop toggle** (confirmed), overtone quick-select *adapted*
      to NEXT (single = 1 active; multiscan = multi-select), **status dock** with live F/D/T/S readings

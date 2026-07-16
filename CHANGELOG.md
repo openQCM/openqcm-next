@@ -32,6 +32,14 @@ Conventional Commits. Versions are marked by Git tags.
   The choice persists in `QSettings('openQCM','NEXT')` (default light on first run). The per-overtone
   readout fields (`F0`..`D9`, temperature indicator) were migrated from hardcoded white inline styles
   to QSS objectName rules so they theme correctly.
+- **GUI single-window shell (QSplitter)** — Phase 1 of the GUI redesign. `_build_shell()` in
+  `ui/mainWindow.py` (called at the end of `__init__`) re-parents the fixed two-column grid into a
+  horizontal `QSplitter`: a scrollable, collapsible left sidebar of control groups (brand, connection,
+  F/D readouts, overtone selector, sampling, Temperature/PID tab, with the action row + status pinned
+  to the bottom) and the plots on the right. Widgets are moved as-is (objectNames + signal wiring
+  preserved), so it composes with the theme and all existing behaviour; commenting out the
+  `_build_shell()` call reverts to the old layout. **⚠️ Visual layout tuning is still pending** (see
+  HANDOFF §5): the action-button row is cramped in the narrow sidebar and needs rearranging.
 - **Responsive, clean cancellation of Peak Detection (calibration)** — ported and adapted
   from the more mature openQCM Q-1 v3.0. The peak-detection sweep can now be stopped mid-run
   without a hard process kill or a corrupt serial state, replacing the previous behaviour where
