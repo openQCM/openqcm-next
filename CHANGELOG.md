@@ -137,6 +137,12 @@ Conventional Commits. Versions are marked by Git tags.
   and **brown when running (Stop)** instead of red. Added `brown` / `brown_hover` palette keys
   (`ui/theme.py`, `#DD8E6B` on both themes). The remaining state colors (status pill yellow/red/
   green) are left for a follow-up pass.
+- **GUI Temperature card simplified — removed the inner tab container** — the Temperature card
+  wrapped its controls in a single-tab `QTabWidget` whose bordered `::pane` drew a redundant box
+  inside the card. The `QTabWidget` is gone; the Temperature Control widgets now sit directly in
+  the `groupTempPID` card (borderless `tab` container + `gridLayout_4`, top separator `line_4`
+  hidden). The PID widgets stay created on a hidden standalone `tab_2` (kept for the controller /
+  future advanced-temperature window). The center Plots/System Log tab widget is unaffected.
 - **GUI sidebar horizontal compaction (fine-tuning)** — several changes to narrow the sidebar:
   F0–F9 overtone chips shrunk to the minimum (tight padding, `min-width: 0`, 3px row spacing);
   the TEC **ON / OFF / RESET** buttons moved onto a single compact equal-width row (tight padding);

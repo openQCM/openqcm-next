@@ -345,7 +345,7 @@ class Ui_MainWindow(object):
         self.groupTempPID.setObjectName("groupTempPID")
         _tpid = QtWidgets.QVBoxLayout(self.groupTempPID)
         _tpid.setContentsMargins(4, 4, 4, 4)
-        _tpid.addWidget(self.tabWidget)
+        _tpid.addWidget(self.tab)   # controls directly in the card (no tab box)
         sb.addWidget(self.groupTempPID)
 
         sb.addStretch(1)
@@ -404,18 +404,22 @@ class Ui_MainWindow(object):
         self.sidebarScroll.setFrameShape(QtWidgets.QFrame.NoFrame)
 
     # ------------------------------------------------------------------ #
-    # Temperature / PID tab card                                         #
+    # Temperature control card                                           #
     # ------------------------------------------------------------------ #
     def _build_temperature_tabs(self):
-        self.tabWidget = QtWidgets.QTabWidget(self.sidebarContainer)
-        self.tabWidget.setObjectName("tabWidget")
-
-        # Temperature Control tab
-        self.tab = QtWidgets.QWidget()
+        # Temperature Control widgets go directly into the groupTempPID card
+        # (no inner QTabWidget wrapper / extra bordered box). `self.tab` is a
+        # plain, borderless container holding gridLayout_4; it is added straight
+        # to the card in _build_sidebar. The PID widgets live on a hidden,
+        # standalone `tab_2` (kept alive for the controller — the advanced
+        # temperature/PID window will reuse them).
+        self.tab = QtWidgets.QWidget(self.sidebarContainer)
         self.tab.setObjectName("tab")
         self.gridLayout_6 = QtWidgets.QGridLayout(self.tab)
         self.gridLayout_6.setObjectName("gridLayout_6")
+        self.gridLayout_6.setContentsMargins(0, 0, 0, 0)
         self.line_4 = self._hline(self.tab, "line_4")
+        self.line_4.hide()   # card border/title already separates the section
         self.gridLayout_4 = QtWidgets.QGridLayout()
         self.gridLayout_4.setObjectName("gridLayout_4")
         self._label(self.tab, "label_Temperature_state", "Temperature Control")
@@ -452,13 +456,12 @@ class Ui_MainWindow(object):
         self.gridLayout_4.addWidget(self.doubleSpinBox_Temperature, 2, 2, 1, 2)
         self.gridLayout_4.addWidget(self.label_Temperature, 3, 0, 1, 2)
         self.gridLayout_4.addWidget(self.indicator_temperature, 3, 2, 1, 2)
-        self.gridLayout_6.addWidget(self.line_4, 2, 0, 1, 1)
-        self.gridLayout_6.addLayout(self.gridLayout_4, 3, 0, 1, 1)
-        self.tabWidget.addTab(self.tab, "Temperature Control")
+        self.gridLayout_6.addLayout(self.gridLayout_4, 0, 0, 1, 1)
 
-        # PID Control tab
-        self.tab_2 = QtWidgets.QWidget()
+        # PID Control — hidden, standalone (kept alive for the controller)
+        self.tab_2 = QtWidgets.QWidget(self.sidebarContainer)
         self.tab_2.setObjectName("tab_2")
+        self.tab_2.hide()
         self.gridLayout_3 = QtWidgets.QGridLayout(self.tab_2)
         self.gridLayout_3.setObjectName("gridLayout_3")
         self.pButton_PID_Set = QtWidgets.QPushButton("PID Set", self.tab_2)
@@ -497,14 +500,8 @@ class Ui_MainWindow(object):
         self.gridLayout_3.addWidget(self.spinBox_I_Share, 3, 1, 1, 1)
         self.gridLayout_3.addWidget(self.label_D_Share, 4, 0, 1, 1)
         self.gridLayout_3.addWidget(self.spinBox_D_Share, 4, 1, 1, 1)
-        self.tabWidget.addTab(self.tab_2, "PID Control")
-        # Fine-tuning: hide the whole PID section from the GUI for now. Advanced
-        # temperature/PID control will move to a dedicated window (see HANDOFF).
-        # The PID page (self.tab_2) and its widgets stay created — the controller
-        # still references them — only the tab is removed and the now single-tab
-        # bar hidden so the card shows just the Temperature Control panel.
-        self.tabWidget.removeTab(self.tabWidget.indexOf(self.tab_2))
-        self.tabWidget.tabBar().hide()
+        # PID section stays hidden (tab_2.hide() above). Advanced temperature/PID
+        # control will move to a dedicated window (see HANDOFF).
 
     # ------------------------------------------------------------------ #
     # center: tabs [ Plots | System Log ]                                #
