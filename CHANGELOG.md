@@ -130,6 +130,22 @@ Conventional Commits. Versions are marked by Git tags.
   (spinbox ranges/defaults, combo policies, texts, brand header, tab titles) replicated from the
   generated file, which stays in the repo as reference. Visual-style pass (mockup cards, bottom
   status bar) is the follow-up R2 step.
+- **GUI: mockup style pass (redesign R2)** — on top of the R1 programmatic builder:
+  - **Full-width bottom status bar** (`statusBarFrame`): the program-status pill (`infostatus`) and
+    message (`infobar`) move out of the sidebar to the bar's left; compact live readings
+    **F / D / T / S** (`statusFreqValue`/`statusDissValue`/`statusTempValue`/`statusSampValue`) and
+    the **progress bar** (fixed 160 px) sit on the right. Readings are mirrored from the existing
+    update paths: fundamental in multiscan / measured overtone in single mode
+    (`_update_indicator_F/_D[_single]`), temperature via a new `_set_indicator_temperature`
+    helper, elapsed time next to `time_indicator`; reset to `--` on Stop
+    (`_reset_status_readings`).
+  - **Card-style sidebar**: "Serial Connection" (COM row + Refresh/Connect) and "Measurement
+    Setup" (mode, single-mode frequency, F0–F9 quick-select, datalog sampling + elapsed time)
+    become titled group boxes; the readouts card and the Temperature/PID tabs follow; the datalog
+    filename sits right above a prominent Start toggle at the sidebar bottom. Brand header
+    restyled (left-aligned title + muted subtitle, no hardcoded black).
+  - **Dark-theme fix**: the sidebar container and scroll-area viewport now follow the theme
+    palette (they defaulted to the platform light palette, leaving gray-on-gray labels on dark).
 - **Entry point unified into `run.py`**: added a thin `software/run.py` launcher and
   removed the duplicate root `software/app.py`; the `OPENQCM` class now lives only in
   `openQCM/app.py`. Launch with `python run.py` (or `python -m openQCM`).

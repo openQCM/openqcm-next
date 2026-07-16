@@ -138,4 +138,16 @@ def qss(p):
 
     QRadioButton, QCheckBox {{ background: transparent; color: {text}; }}
     QScrollArea {{ border: none; background: {window}; }}
+
+    /* R2: the sidebar container and the scroll-area viewport must follow the
+       theme too (they defaulted to the platform palette on the dark theme) */
+    QWidget#sidebarContainer {{ background: {window}; }}
+    QScrollArea#sidebarScroll, QScrollArea#sidebarScroll > QWidget > QWidget {{
+        background: {window}; }}
+
+    /* Bottom status bar (R2) */
+    QFrame#statusBarFrame {{ background: {panel}; border-top: 1px solid {border}; }}
+    QLabel#statusFreqValue, QLabel#statusDissValue,
+    QLabel#statusTempValue, QLabel#statusSampValue {{
+        color: {muted}; font-weight: bold; padding: 0 4px; }}
     """.format(**p)

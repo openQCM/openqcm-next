@@ -60,6 +60,7 @@ class Ui_MainWindow(object):
         self._build_menubar(MainWindow)
         self._build_sidebar()
         self._build_center()
+        self._build_statusbar()
 
         # --- main splitter: [ sidebar | center tabs ] ------------------- #
         self.mainSplitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal,
@@ -76,6 +77,35 @@ class Ui_MainWindow(object):
         outer = QtWidgets.QVBoxLayout(self.centralwidget)
         outer.setContentsMargins(4, 4, 4, 4)
         outer.addWidget(self.mainSplitter)
+        outer.addWidget(self.statusBarFrame)
+
+    # ------------------------------------------------------------------ #
+    # bottom status bar (R2)                                             #
+    # ------------------------------------------------------------------ #
+    def _build_statusbar(self):
+        """Full-width bottom status bar: state pill + message on the left,
+        compact live readings (F/D/T/S) and the progress bar on the right."""
+        self.statusBarFrame = QtWidgets.QFrame(self.centralwidget)
+        self.statusBarFrame.setObjectName("statusBarFrame")
+        bar = QtWidgets.QHBoxLayout(self.statusBarFrame)
+        bar.setContentsMargins(8, 3, 8, 3)
+        bar.setSpacing(8)
+        self._label(self.statusBarFrame, "infostatus", "Program status ")
+        bar.addWidget(self.infostatus)
+        self._label(self.statusBarFrame, "infobar", "Infobar")
+        bar.addWidget(self.infobar, 1)
+        for name, text in (("statusFreqValue", "F: --"),
+                           ("statusDissValue", "D: --"),
+                           ("statusTempValue", "T: --"),
+                           ("statusSampValue", "S: --")):
+            bar.addWidget(self._label(self.statusBarFrame, name, text))
+        self.progressBar = QtWidgets.QProgressBar(self.statusBarFrame)
+        self.progressBar.setObjectName("progressBar")
+        self.progressBar.setMaximum(100)
+        self.progressBar.setValue(0)
+        self.progressBar.setAlignment(QtCore.Qt.AlignCenter)
+        self.progressBar.setFixedWidth(160)
+        bar.addWidget(self.progressBar)
 
     # ------------------------------------------------------------------ #
     # menu bar: File / View / Tools / Help skeleton                      #
@@ -150,49 +180,59 @@ class Ui_MainWindow(object):
         self.label_2 = QtWidgets.QLabel(self.groupBox_2)
         self.label_2.setObjectName("label_2")
         self.label_2.setText(
-            '<html><head/><body><p align="right">'
-            '<span style=" font-size:18pt; font-weight:600;">openQCM N</span>'
-            '<span style=" font-size:18pt; font-weight:600;">EXT</span><br/>'
-            'Quartz Crystal Microbalance </p></body></html>')
+            '<html><head/><body><p>'
+            '<span style=" font-size:16pt; font-weight:600;">openQCM NEXT</span><br/>'
+            '<span style=" color:#8a8a8a;">Quartz Crystal Microbalance</span>'
+            '</p></body></html>')
         self.gridLayout_8.addWidget(self.label, 0, 0, 1, 1)
         self.gridLayout_8.addWidget(self.label_2, 0, 1, 1, 1)
         sb.addWidget(self.groupBox_2)
 
-        # --- connection / mode card (gridLayout) ----------------------- #
-        self.gridLayout = QtWidgets.QGridLayout()
+        # --- Serial Connection card (R2) -------------------------------- #
+        self.groupConnection = QtWidgets.QGroupBox("Serial Connection",
+                                                   self.sidebarContainer)
+        self.groupConnection.setObjectName("groupConnection")
+        self.gridLayout = QtWidgets.QGridLayout(self.groupConnection)
         self.gridLayout.setObjectName("gridLayout")
-        self._label(self.sidebarContainer, "l1", "Serial COM Port")
-        self._label(self.sidebarContainer, "label_COM_status", "Disconnected")
-        self.cBox_Port = QtWidgets.QComboBox(self.sidebarContainer)
+        self._label(self.groupConnection, "l1", "Serial COM Port")
+        self._label(self.groupConnection, "label_COM_status", "Disconnected")
+        self.cBox_Port = QtWidgets.QComboBox(self.groupConnection)
         self.cBox_Port.setObjectName("cBox_Port")
         self.cBox_Port.setSizeAdjustPolicy(
             QtWidgets.QComboBox.AdjustToMinimumContentsLength)
-        self._label(self.sidebarContainer, "info11", "Operation mode")
-        self.cBox_Source = QtWidgets.QComboBox(self.sidebarContainer)
-        self.cBox_Source.setObjectName("cBox_Source")
-        self._label(self.sidebarContainer, "l2", "Frequency (single mode)")
-        self.cBox_Speed = QtWidgets.QComboBox(self.sidebarContainer)
-        self.cBox_Speed.setObjectName("cBox_Speed")
-        self.line = self._hline(self.sidebarContainer, "line")
-        # Connect / Refresh (formerly created at runtime by the controller)
-        self.pButton_Refresh = QtWidgets.QPushButton("Refresh", self.sidebarContainer)
+        self.pButton_Refresh = QtWidgets.QPushButton("Refresh", self.groupConnection)
         self.pButton_Refresh.setObjectName("pButton_Refresh")
-        self.pButton_Connect = QtWidgets.QPushButton("Connect", self.sidebarContainer)
+        self.pButton_Connect = QtWidgets.QPushButton("Connect", self.groupConnection)
         self.pButton_Connect.setObjectName("pButton_Connect")
         conn_row = QtWidgets.QHBoxLayout()
         conn_row.addWidget(self.pButton_Refresh)
         conn_row.addWidget(self.pButton_Connect)
-
         self.gridLayout.addWidget(self.l1, 0, 0, 1, 1)
         self.gridLayout.addWidget(self.label_COM_status, 0, 1, 1, 1)
         self.gridLayout.addWidget(self.cBox_Port, 1, 0, 1, 2)
-        self.gridLayout.addWidget(self.info11, 2, 0, 1, 2)
-        self.gridLayout.addWidget(self.cBox_Source, 3, 0, 1, 2)
-        self.gridLayout.addWidget(self.l2, 4, 0, 1, 2)
-        self.gridLayout.addWidget(self.cBox_Speed, 5, 0, 1, 2)
-        self.gridLayout.addWidget(self.line, 6, 0, 1, 2)
-        self.gridLayout.addLayout(conn_row, 7, 0, 1, 2)
-        sb.addLayout(self.gridLayout)
+        self.gridLayout.addLayout(conn_row, 2, 0, 1, 2)
+        sb.addWidget(self.groupConnection)
+
+        # --- Measurement Setup card (R2) -------------------------------- #
+        self.groupSetup = QtWidgets.QGroupBox("Measurement Setup",
+                                              self.sidebarContainer)
+        self.groupSetup.setObjectName("groupSetup")
+        self.gridSetup = QtWidgets.QGridLayout(self.groupSetup)
+        self.gridSetup.setObjectName("gridSetup")
+        self._label(self.groupSetup, "info11", "Operation mode")
+        self.cBox_Source = QtWidgets.QComboBox(self.groupSetup)
+        self.cBox_Source.setObjectName("cBox_Source")
+        self._label(self.groupSetup, "l2", "Frequency (single mode)")
+        self.cBox_Speed = QtWidgets.QComboBox(self.groupSetup)
+        self.cBox_Speed.setObjectName("cBox_Speed")
+        # kept for structural compatibility (hidden separator of the old grid)
+        self.line = self._hline(self.groupSetup, "line")
+        self.line.hide()
+        self.gridSetup.addWidget(self.info11, 0, 0, 1, 2)
+        self.gridSetup.addWidget(self.cBox_Source, 1, 0, 1, 2)
+        self.gridSetup.addWidget(self.l2, 2, 0, 1, 2)
+        self.gridSetup.addWidget(self.cBox_Speed, 3, 0, 1, 2)
+        sb.addWidget(self.groupSetup)
 
         # --- frequency / dissipation readouts (groupBox_data) ---------- #
         self.groupBox_data = QtWidgets.QGroupBox(
@@ -246,7 +286,9 @@ class Ui_MainWindow(object):
             self.overtone_buttons.append(btn)
         self.gridLayout_D.addWidget(self.line_2, 3, 0, 1, 2)
         self.gridLayout_D.addLayout(self.horizontalLayout_2, 4, 0, 1, 2)
-        sb.addLayout(self.gridLayout_D)
+        # R2: the overtone quick-select row belongs to the Measurement Setup card
+        self.line_2.hide()
+        self.gridSetup.addLayout(self.gridLayout_D, 4, 0, 1, 2)
 
         # --- datalog sampling / elapsed time (gridLayout_5) ------------- #
         self.gridLayout_5 = QtWidgets.QGridLayout()
@@ -261,10 +303,12 @@ class Ui_MainWindow(object):
         self.gridLayout_5.addWidget(self.cBox_sampling_time, 1, 0, 1, 1)
         self.gridLayout_5.addWidget(self.time_lbl, 2, 0, 1, 1)
         self.gridLayout_5.addWidget(self.time_indicator, 3, 0, 1, 1)
-        sb.addLayout(self.gridLayout_5)
+        # R2: datalog sampling settings live in the Measurement Setup card
+        self.gridSetup.addLayout(self.gridLayout_5, 5, 0, 1, 2)
 
+        # kept for structural compatibility, cards replace the separators
         self.line_3 = self._hline(self.sidebarContainer, "line_3")
-        sb.addWidget(self.line_3)
+        self.line_3.hide()
 
         # --- Temperature / PID tabs (tabWidget) ------------------------- #
         self._build_temperature_tabs()
@@ -297,31 +341,20 @@ class Ui_MainWindow(object):
         self.horizontalLayout.addWidget(self.pButton_Stop)
         sb.addLayout(self.horizontalLayout)
 
-        # --- Start/Stop toggle + progress (Phase 3a/3e) ----------------- #
-        self.pButton_Start = QtWidgets.QPushButton("Start", self.sidebarContainer)
-        self.pButton_Start.setObjectName("pButton_Start")
-        self.pButton_Start.setMinimumHeight(34)
-        sb.addWidget(self.pButton_Start)
-        self.progressBar = QtWidgets.QProgressBar(self.sidebarContainer)
-        self.progressBar.setObjectName("progressBar")
-        self.progressBar.setMaximum(100)
-        self.progressBar.setValue(0)
-        self.progressBar.setAlignment(QtCore.Qt.AlignCenter)
-        sb.addWidget(self.progressBar)
-
-        # --- status labels (verticalLayout + infobar) ------------------- #
+        # --- datalog filename + Start/Stop toggle (3a/3d/3e, R2) --------- #
         self.verticalLayout = QtWidgets.QVBoxLayout()
         self.verticalLayout.setObjectName("verticalLayout")
         self.lblLogFile = QtWidgets.QLabel(self.sidebarContainer)
         self.lblLogFile.setObjectName("lblLogFile")
         self.lblLogFile.hide()
         self.verticalLayout.addWidget(self.lblLogFile)
-        self._label(self.sidebarContainer, "infostatus", "Program status ")
-        self.infostatus.setMinimumSize(QtCore.QSize(250, 0))
-        self.verticalLayout.addWidget(self.infostatus)
         sb.addLayout(self.verticalLayout)
-        self._label(self.sidebarContainer, "infobar", "Infobar")
-        sb.addWidget(self.infobar)
+        self.pButton_Start = QtWidgets.QPushButton("Start", self.sidebarContainer)
+        self.pButton_Start.setObjectName("pButton_Start")
+        self.pButton_Start.setMinimumHeight(34)
+        sb.addWidget(self.pButton_Start)
+        # infostatus / infobar / progressBar live in the bottom status bar
+        # (R2) — created in _build_statusbar().
 
         # --- scroll wrapper --------------------------------------------- #
         self.sidebarScroll = QtWidgets.QScrollArea()

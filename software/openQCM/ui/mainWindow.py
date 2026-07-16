@@ -749,6 +749,8 @@ class MainWindow(QtGui.QMainWindow):
         # This function is connected to the clicked signal of the Stop button.
         # Phase 3d: clear the datalog filename display (sidebar + window title)
         self._show_log_filename("")
+        # R2: reset the bottom-bar compact readings
+        self._reset_status_readings()
         self.ui.infostatus.setStyleSheet(self._status_pill("standby"))
         self.ui.infostatus.setText("● Program Status: Standby")
         self.ui.infobar.setText("Infobar")
@@ -1493,6 +1495,19 @@ class MainWindow(QtGui.QMainWindow):
                 "border: 1px solid transparent; border-radius: 3px").format(
                     self._STATUS_PILL_BG[key])
 
+    def _set_indicator_temperature(self, value):
+        """Sidebar temperature readout + bottom-bar mirror (R2)."""
+        self.ui.indicator_temperature.setText(str(value))
+        self.ui.statusTempValue.setText("T: {}".format(value))
+
+    def _reset_status_readings(self):
+        """Reset the bottom-bar compact readings to placeholders (R2)."""
+        for lbl, tag in ((self.ui.statusFreqValue, "F"),
+                         (self.ui.statusDissValue, "D"),
+                         (self.ui.statusTempValue, "T"),
+                         (self.ui.statusSampValue, "S")):
+            lbl.setText("{}: --".format(tag))
+
     def _apply_theme(self, name):
         """Apply the light/dark theme: window QSS + pyqtgraph repaint + persist."""
         name = "dark" if name == "dark" else "light"
@@ -2193,6 +2208,8 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
         time_value = float("{0:.1f}".format(self.worker.get_time_elapsed()))        
         self.ui.time_indicator.setText(str(time_value))
+        # R2: bottom-bar sampling/elapsed-time mirror
+        self.ui.statusSampValue.setText("S: {} s".format(time_value))
 
         #### SINGLE check 
         # --------------------------------------------------------------------
@@ -2818,7 +2835,7 @@ class MainWindow(QtGui.QMainWindow):
                 
                 # VER 0.1.6 round to 1 decimal
                 label_indicator_temperature = float("{0:.1f}".format(y_temperature[0]))
-                self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+                self._set_indicator_temperature(label_indicator_temperature)
                 
 # =============================================================================
 #                 self._plt4.clear()
@@ -2836,7 +2853,7 @@ class MainWindow(QtGui.QMainWindow):
 # 
 #                 # set temperature current value
 #                 label_indicator_temperature = float("{0:.2f}".format(y_temperature[0]))
-#                 self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+#                 self._set_indicator_temperature(label_indicator_temperature)
 # =============================================================================
 
                 # VER 0.1.6 TEC CURRENT update plot
@@ -3105,7 +3122,7 @@ class MainWindow(QtGui.QMainWindow):
                 
                 # VER 0.1.6 round to 1 decimal
                 label_indicator_temperature = float("{0:.1f}".format(y_temperature[0]))
-                self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+                self._set_indicator_temperature(label_indicator_temperature)
                 
                 
                 # VER 0.1.6 TODO set y range temperature 
@@ -3137,7 +3154,7 @@ class MainWindow(QtGui.QMainWindow):
 # 
 #                 # set temperature current value
 #                 label_indicator_temperature = float("{0:.2f}".format(y_temperature[0]))
-#                 self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+#                 self._set_indicator_temperature(label_indicator_temperature)
 # =============================================================================
 
                 # VER 0.1.6 TEC CURRENT update plot
@@ -3376,7 +3393,7 @@ class MainWindow(QtGui.QMainWindow):
                
                # VER 0.1.6 temprature round to 1 decimal
                label_indicator_temperature = float("{0:.1f}".format(y_temperature[0]))
-               self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+               self._set_indicator_temperature(label_indicator_temperature)
                
 # =============================================================================
 # 
@@ -3394,7 +3411,7 @@ class MainWindow(QtGui.QMainWindow):
 # 
 #                # set temperature current value
 #                label_indicator_temperature = float("{0:.2f}".format(y_temperature[0]))
-#                self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+#                self._set_indicator_temperature(label_indicator_temperature)
 # =============================================================================
 
                # VER 0.1.6 TEC CURRENT update plot
@@ -3614,7 +3631,7 @@ class MainWindow(QtGui.QMainWindow):
                
                # VER 0.1.6  round to 1 decimal  
                label_indicator_temperature = float("{0:.1f}".format(y_temperature[0]))
-               self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+               self._set_indicator_temperature(label_indicator_temperature)
 # =============================================================================
 #                self._plt4.clear()
 #                # do not autoscale y
@@ -3630,7 +3647,7 @@ class MainWindow(QtGui.QMainWindow):
 # 
 #                # set temperature current value
 #                label_indicator_temperature = float("{0:.2f}".format(y_temperature[0]))
-#                self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+#                self._set_indicator_temperature(label_indicator_temperature)
 # =============================================================================
 
                # VER 0.1.6 TEC CURRENT update plot
@@ -3735,6 +3752,10 @@ class MainWindow(QtGui.QMainWindow):
             else:
                 self.ui.F9.setText("nan")
 
+        # R2: mirror the fundamental on the bottom status bar
+        if index == 0:
+            self.ui.statusFreqValue.setText("F: {}".format(label))
+
     def _update_indicator_F_single (self, index, value):
 
         label = float("{0:.1f}".format(value[0]))
@@ -3763,6 +3784,9 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.F9.setText(str(label))
         else:
             self.ui.F9.setText("nan")
+
+        # R2: mirror the measured overtone on the bottom status bar
+        self.ui.statusFreqValue.setText("F: {}".format(label))
 
     def _update_indicator_D (self, index, value):
         value_multiplied = value[0] * 1e6
@@ -3796,6 +3820,10 @@ class MainWindow(QtGui.QMainWindow):
             else:
                 self.ui.D9.setText("nan")
 
+        # R2: mirror the fundamental on the bottom status bar
+        if index == 0:
+            self.ui.statusDissValue.setText("D: {}".format(label))
+
     def _update_indicator_D_single (self, index, value):
         value_multiplied = value[0] * 1e6
         
@@ -3826,6 +3854,9 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.D9.setText(str(label))
         else:
             self.ui.D9.setText("nan")
+
+        # R2: mirror the measured overtone on the bottom status bar
+        self.ui.statusDissValue.setText("D: {}".format(label))
 
 
     def _update_scan_selector(self):

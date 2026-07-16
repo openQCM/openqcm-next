@@ -186,11 +186,12 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
     runtime widgets absorbed; File/View/Tools/Help menu skeleton. Contract-checked (all
     `self.ui.<name>` refs exist) + offscreen instantiation verified. Old generated file kept as
     reference. **Pending: user visual check.**
-  - **R2 — mockup style pass — NEXT (plan approved)**: full-width bottom status bar (state dot +
-    message left; compact F/D/T/S live readings + progress right — wiring in `_update_plot`),
-    card-style sidebar groups per the user's mockup, brand header polish, paddings for both
-    themes. Then Fase 4 (plot polish: grid toggle, right-click menu, Δ cursors, min-scale with
-    `plot_force_yrange`) and Fase 5 (menu wiring) follow.
+  - **R2 — mockup style pass — DONE** (see CHANGELOG): full-width bottom status bar (pill +
+    message left; F/D/T/S live readings + progress right, mirrored from the indicator update
+    paths, reset on Stop); "Serial Connection" and "Measurement Setup" cards; brand header
+    left-aligned; dark-theme sidebar background fix. **Pending: user visual check.**
+    Then Fase 4 (plot polish: grid toggle, right-click menu, Δ cursors, min-scale with
+    `plot_force_yrange`) and Fase 5 (menu wiring) follow; user's fine-tuning pass last.
   4. Plot polish: grid off by default + toggle, right-click menu, **Δ cursors**, min-scale
      (integrate with the `plot_force_yrange` flag); curve colors already aligned.
   5. Scientific menu **File / View / Tools / Help**.
