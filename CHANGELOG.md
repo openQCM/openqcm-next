@@ -137,6 +137,12 @@ Conventional Commits. Versions are marked by Git tags.
   and **brown when running (Stop)** instead of red. Added `brown` / `brown_hover` palette keys
   (`ui/theme.py`, `#DD8E6B` on both themes). The remaining state colors (status pill yellow/red/
   green) are left for a follow-up pass.
+- **GUI Plot Controls card + Autoscale button** — the plot-control buttons moved from a plain
+  row into a titled **"Plot Controls"** sidebar card holding **Autoscale**, **Set/Clear Reference**
+  (the toggle) and **Clear Plots**. The new **Autoscale** button (`pButton_Autoscale` →
+  `autoscale()` → `_autoscale_plot_all(True)`) re-enables **X and Y autorange on all four plots**
+  (amplitude/sweep, frequency, dissipation, temperature); it follows the other plot controls'
+  enable state (usable during acquisition). Styled as a card via `#groupPlotControls` QSS.
 - **GUI Temperature card simplified — removed the inner tab container** — the Temperature card
   wrapped its controls in a single-tab `QTabWidget` whose bordered `::pane` drew a redundant box
   inside the card. The `QTabWidget` is gone; the Temperature Control widgets now sit directly in

@@ -359,33 +359,36 @@ class Ui_MainWindow(object):
 
         sb.addStretch(1)
 
-        # --- plot controls row (horizontalLayout) ----------------------- #
-        self.horizontalLayout = QtWidgets.QHBoxLayout()
-        self.horizontalLayout.setObjectName("horizontalLayout")
+        # --- Plot Controls card (Autoscale · Set/Clear Reference · Clear) --- #
+        self.groupPlotControls = QtWidgets.QGroupBox("Plot Controls",
+                                                     self.sidebarContainer)
+        self.groupPlotControls.setObjectName("groupPlotControls")
+        _pc = QtWidgets.QVBoxLayout(self.groupPlotControls)
+        _pc.setSpacing(6)
+        self.pButton_Autoscale = QtWidgets.QPushButton("Autoscale",
+                                                       self.sidebarContainer)
+        self.pButton_Autoscale.setObjectName("pButton_Autoscale")
         self.pButton_Reference = QtWidgets.QPushButton("Set Reference",
                                                        self.sidebarContainer)
         self.pButton_Reference.setObjectName("pButton_Reference")
-        self.pButton_Reference_Not = QtWidgets.QPushButton("Clear Reference ",
-                                                           self.sidebarContainer)
-        self.pButton_Reference_Not.setObjectName("pButton_Reference_Not")
-        # merged into pButton_Reference as a single Set/Clear toggle (kept alive
-        # for the controller; reference_not() is still called by the toggle)
-        self.pButton_Reference_Not.hide()
         self.pButton_Clear = QtWidgets.QPushButton("Clear Plots",
                                                    self.sidebarContainer)
         self.pButton_Clear.setObjectName("pButton_Clear")
-        # legacy Stop button: superseded by the Start/Stop toggle (Phase 3a)
+        for _b in (self.pButton_Autoscale, self.pButton_Reference,
+                   self.pButton_Clear):
+            _pc.addWidget(_b)
+        sb.addWidget(self.groupPlotControls)
+
+        # legacy buttons kept alive (hidden) for the controller logic:
+        # Clear Reference is merged into the Set/Clear Reference toggle, and
+        # Stop is superseded by the single Start/Stop toggle (Phase 3a).
+        self.pButton_Reference_Not = QtWidgets.QPushButton("Clear Reference ",
+                                                           self.sidebarContainer)
+        self.pButton_Reference_Not.setObjectName("pButton_Reference_Not")
+        self.pButton_Reference_Not.hide()
         self.pButton_Stop = QtWidgets.QPushButton("Stop", self.sidebarContainer)
         self.pButton_Stop.setObjectName("pButton_Stop")
         self.pButton_Stop.hide()
-        self.horizontalLayout.addWidget(self.pButton_Reference)
-        self.horizontalLayout.addWidget(self.pButton_Reference_Not)
-        self.horizontalLayout.addWidget(self.pButton_Clear)
-        self.horizontalLayout.addItem(
-            QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Expanding,
-                                  QtWidgets.QSizePolicy.Minimum))
-        self.horizontalLayout.addWidget(self.pButton_Stop)
-        sb.addLayout(self.horizontalLayout)
 
         # --- datalog filename + Start/Stop toggle (3a/3d/3e, R2) --------- #
         self.verticalLayout = QtWidgets.QVBoxLayout()

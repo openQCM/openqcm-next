@@ -1438,6 +1438,7 @@ class MainWindow(QtGui.QMainWindow):
 
         self.ui.pButton_Clear.setEnabled(not enabled)
         self.ui.pButton_Reference.setEnabled(not enabled)
+        self.ui.pButton_Autoscale.setEnabled(not enabled)
         self.ui.pButton_Reference_Not.setEnabled(not enabled)
         
         # VER 0.1.4
@@ -2134,6 +2135,7 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.pButton_Start.clicked.connect(self._toggle_start_stop)
         self.ui.pButton_Stop.hide()
         self.ui.pButton_Clear.clicked.connect(self.clear)
+        self.ui.pButton_Autoscale.clicked.connect(self.autoscale)
         # single Set/Clear Reference toggle (pButton_Reference_Not is hidden)
         self.ui.pButton_Reference.clicked.connect(self._toggle_reference)
         self.ui.pButton_Reference_Not.clicked.connect(self.reference_not)
@@ -3992,6 +3994,10 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
 
     # VER 0.1.6 autoscale all plot 
+    def autoscale(self):
+        """Plot Controls > Autoscale: re-enable X+Y autorange on all plots."""
+        self._autoscale_plot_all(True)
+
     def _autoscale_plot_all (self, boolean):
        
        # amplitude sweep 

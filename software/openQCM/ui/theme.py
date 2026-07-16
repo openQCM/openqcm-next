@@ -101,10 +101,12 @@ def qss(p):
 
     /* R2 mockup cards: bold title rendered inside the rounded card */
     QGroupBox#groupConnection, QGroupBox#groupSetup,
-    QGroupBox#groupBox_data, QGroupBox#groupTempPID {{
+    QGroupBox#groupBox_data, QGroupBox#groupTempPID,
+    QGroupBox#groupPlotControls {{
         margin-top: 0px; padding: 6px; padding-top: 28px; }}
     QGroupBox#groupConnection::title, QGroupBox#groupSetup::title,
-    QGroupBox#groupBox_data::title, QGroupBox#groupTempPID::title {{
+    QGroupBox#groupBox_data::title, QGroupBox#groupTempPID::title,
+    QGroupBox#groupPlotControls::title {{
         subcontrol-origin: margin; subcontrol-position: top left;
         left: 12px; top: 8px; color: {text};
         font-weight: bold; font-size: 13px; }}
