@@ -80,6 +80,13 @@ Conventional Commits. Versions are marked by Git tags.
   combo lists the calibrated overtones in reverse order) with bidirectional sync, idle-only;
   **calibration** = disabled. Styled via `overtoneBtn` property QSS (accent when checked, kept on
   `:checked:disabled`). Adapted from openQCM Q-1 v3.0 with the NEXT-specific multiscan semantics.
+- **GUI sidebar action-area layout (Phase 3e of the GUI redesign)** — resolves the cramped
+  action row flagged in Phase 1: **Refresh + Connect** move into the connection card as its bottom
+  row (`gridLayout`), styled by theme QSS objectName rules instead of their former inline
+  stylesheets; in `_build_shell` the legacy action row is decomposed — the plot controls
+  (Reference / Clear) keep the old row, while the **Start/Stop toggle gets its own prominent
+  full-width row** (min-height 34) with the **progress bar underneath**, followed by the status
+  labels at the sidebar bottom.
 - **Responsive, clean cancellation of Peak Detection (calibration)** — ported and adapted
   from the more mature openQCM Q-1 v3.0. The peak-detection sweep can now be stopped mid-run
   without a hard process kill or a corrupt serial state, replacing the previous behaviour where

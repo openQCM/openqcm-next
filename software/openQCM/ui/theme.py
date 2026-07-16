@@ -120,6 +120,14 @@ def qss(p):
     QPushButton#pButton_Start[running="true"]:hover {{ background: #e03b3b; }}
     QPushButton#pButton_Start:disabled {{ background: {disabled_bg}; color: {disabled_text}; }}
 
+    /* Connection buttons (Phase 3e) */
+    QPushButton#pButton_Connect, QPushButton#pButton_Refresh {{ background: {accent};
+        color: {accent_text}; border: none; border-radius: 4px; padding: 5px 10px; }}
+    QPushButton#pButton_Connect:hover, QPushButton#pButton_Refresh:hover {{
+        background: #007aa5; }}
+    QPushButton#pButton_Connect:disabled, QPushButton#pButton_Refresh:disabled {{
+        background: {disabled_bg}; color: {disabled_text}; }}
+
     /* Overtone quick-select buttons F0..F9 (Phase 3b) */
     QPushButton[overtoneBtn="true"] {{ background: {field_bg}; color: {text};
         border: 1px solid {border}; border-radius: 4px; padding: 2px 6px; min-width: 28px; }}

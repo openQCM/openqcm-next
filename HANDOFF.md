@@ -174,7 +174,11 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
        hidden legacy radios (`scan_selector` untouched); multiscan = multi-select visual filter,
        live during acquisition; serial = exclusive, drives `cBox_Speed` (reverse-order mapping
        `combo_index = count-1-idx`), idle-only; calibration = disabled.
-     - **3e** card-style sidebar layout (last).
+     - **3e sidebar action-area layout — DONE** (see CHANGELOG): Refresh+Connect moved into the
+       connection card (bottom row, theme QSS instead of inline styles); action row decomposed —
+       plot controls keep the old row, Start/Stop toggle gets a prominent full-width row with the
+       progress bar underneath. This resolves the Phase-1 "cramped action row" note. Remaining
+       fine-tuning (spacing/polish) deferred to the user's visual pass after the block phases.
   4. Plot polish: grid off by default + toggle, right-click menu, **Δ cursors**, min-scale
      (integrate with the `plot_force_yrange` flag); curve colors already aligned.
   5. Scientific menu **File / View / Tools / Help**.

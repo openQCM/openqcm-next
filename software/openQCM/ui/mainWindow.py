@@ -1613,9 +1613,17 @@ class MainWindow(QtGui.QMainWindow):
                        ui.gridLayout_D, ui.gridLayout_5, ui.line_3, ui.tabWidget):
             move(target, sb)
         sb.addStretch(1)
-        # acquisition row (Start/Stop/Connect/Refresh/Reference/Clear/progress)
-        # and the status labels are pinned to the bottom of the sidebar
-        for target in (ui.horizontalLayout, ui.verticalLayout, ui.infobar):
+        # Phase 3e: decompose the legacy action row — the plot controls
+        # (Reference / Clear) stay in horizontalLayout; the Start/Stop toggle
+        # gets its own prominent row with the progress bar underneath; the
+        # status labels close the sidebar bottom.
+        ui.horizontalLayout.removeWidget(ui.pButton_Start)
+        ui.horizontalLayout.removeWidget(ui.progressBar)
+        ui.pButton_Start.setMinimumHeight(34)
+        move(ui.horizontalLayout, sb)
+        sb.addWidget(ui.pButton_Start)
+        sb.addWidget(ui.progressBar)
+        for target in (ui.verticalLayout, ui.infobar):
             move(target, sb)
 
         scroll = QtGui.QScrollArea()
@@ -1974,24 +1982,18 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.pButton_Connect = QtGui.QPushButton(self.ui.centralwidget)
         self.ui.pButton_Connect.setObjectName("pButton_Connect")
         self.ui.pButton_Connect.setText("Connect")
-        self.ui.pButton_Connect.setStyleSheet(
-            "QPushButton { background-color: rgb(0, 142, 192); color: white; border: none; padding: 5px; }"
-            "QPushButton:hover { background-color: rgb(0, 128, 173); }"
-            "QPushButton:disabled { background-color: rgb(200, 200, 200); color: rgb(120, 120, 120); }")
         # Refresh button: rescan connected devices (serial ports)
         self.ui.pButton_Refresh = QtGui.QPushButton(self.ui.centralwidget)
         self.ui.pButton_Refresh.setObjectName("pButton_Refresh")
         self.ui.pButton_Refresh.setText("Refresh")
-        self.ui.pButton_Refresh.setStyleSheet(
-            "QPushButton { background-color: rgb(0, 142, 192); color: white; border: none; padding: 5px; }"
-            "QPushButton:hover { background-color: rgb(0, 128, 173); }"
-            "QPushButton:disabled { background-color: rgb(200, 200, 200); color: rgb(120, 120, 120); }")
         self.ui.pButton_Refresh.clicked.connect(self._refresh_ports)
-
-        # Placement is provisional (Refresh + Connect first in the Start/Stop row);
-        # the optimized GUI layout comes later.
-        self.ui.horizontalLayout.insertWidget(0, self.ui.pButton_Connect)
-        self.ui.horizontalLayout.insertWidget(0, self.ui.pButton_Refresh)
+        # Phase 3e: styled by the theme QSS (objectName rules) instead of the
+        # former inline stylesheets, and placed as the bottom row of the
+        # connection card rather than in the Start/Stop action row.
+        _conn_row = QtGui.QHBoxLayout()
+        _conn_row.addWidget(self.ui.pButton_Refresh)
+        _conn_row.addWidget(self.ui.pButton_Connect)
+        self.ui.gridLayout.addLayout(_conn_row, self.ui.gridLayout.rowCount(), 0, 1, 2)
         self.ui.pButton_Connect.clicked.connect(self._toggle_serial_connection)
 
         # Initial connection status
