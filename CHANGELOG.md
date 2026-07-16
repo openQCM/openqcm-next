@@ -58,6 +58,12 @@ Conventional Commits. Versions are marked by Git tags.
   it tracks every idle↔running transition (start / stop / normal completion / calibration cancel).
   The old `pButton_Stop` is hidden and the inline stylesheet on `pButton_Start` is dropped so the
   toggle follows the theme. Adapted from openQCM Q-1 v3.0.
+- **GUI datalog filename display (Phase 3d of the GUI redesign)** — while acquiring, the active
+  CSV filename is shown in the sidebar (new runtime `lblLogFile` label, middle-elided with the full
+  name as tooltip, accent-colored via theme QSS) and appended to the window title; both are cleared
+  on Stop. A new `Worker.get_csv_filename()` getter mirrors the names composed by the datalog loop
+  (serial: `<ts>_<overtone>.csv`, multiscan: `<ts>_multi_.csv`; calibration returns an empty string
+  → label hidden). Adapted from openQCM Q-1 v3.0.
 - **Responsive, clean cancellation of Peak Detection (calibration)** — ported and adapted
   from the more mature openQCM Q-1 v3.0. The peak-detection sweep can now be stopped mid-run
   without a hard process kill or a corrupt serial state, replacing the previous behaviour where

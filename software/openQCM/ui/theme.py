@@ -95,6 +95,9 @@ def qss(p):
         border-top-left-radius: 5px; border-top-right-radius: 5px; }}
     QTabBar::tab:selected {{ background: {panel}; color: {text}; }}
 
+    /* Datalog filename label (Phase 3d) */
+    QLabel#lblLogFile {{ color: {accent}; font-weight: bold; }}
+
     /* System Log console (theme-aware, monospace) */
     QTextEdit#systemLog {{ background: {field_bg}; color: {field_text};
         border: 1px solid {border};

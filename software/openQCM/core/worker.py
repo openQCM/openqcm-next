@@ -842,6 +842,23 @@ class Worker:
     
     
     ###########################################################################
+    # Returns the datalog CSV filename of the current acquisition
+    ###########################################################################
+    def get_csv_filename(self):
+        # Phase 3d: mirrors the names composed in the storing loop below
+        # (serial: "<ts>_<overtone>", multiscan: "<ts>_multi_"); calibration
+        # writes no datalog, so it reports an empty string.
+        if not self._csv_filename:
+            return ""
+        if self._source == SourceType.serial and self._overtone_name is not None:
+            return "{}_{}.{}".format(self._csv_filename, self._overtone_name,
+                                     Constants.csv_extension)
+        if self._source == SourceType.multiscan:
+            return "{}_{}.{}".format(self._csv_filename, "multi_",
+                                     Constants.csv_extension)
+        return ""
+
+    ###########################################################################
     # Checks if processes are running
     ###########################################################################
     def is_running(self):

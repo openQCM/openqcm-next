@@ -381,6 +381,7 @@ class MainWindow(QtGui.QMainWindow):
         # VER 0.1.6 GUI redesign Phase 1: restructure the fixed two-column grid
         # into a QSplitter [ scrollable sidebar | plots ]. Done last, after every
         # widget (incl. the runtime Connect/Refresh buttons) exists.
+        self._setup_log_filename_label()
         self._build_shell()
         self._install_system_log()
 
@@ -467,6 +468,9 @@ class MainWindow(QtGui.QMainWindow):
         # SINGLE
         # ---------------------------------------------------------------------
         if self.worker.start():
+            # Phase 3d: show the datalog filename (empty in calibration mode)
+            self._show_log_filename(self.worker.get_csv_filename())
+
             # Gets frequency range
             # self._readFREQ = self.worker.get_frequency_range()
 
@@ -734,6 +738,8 @@ class MainWindow(QtGui.QMainWindow):
     def stop(self):
 
         # This function is connected to the clicked signal of the Stop button.
+        # Phase 3d: clear the datalog filename display (sidebar + window title)
+        self._show_log_filename("")
         self.ui.infostatus.setStyleSheet('background: white; padding: 1px; border: 1px solid #cccccc')
         self.ui.infostatus.setText("<font color=#000000 > Program Status Stanby</font>")
         self.ui.infobar.setText("Infobar")
@@ -1569,6 +1575,33 @@ class MainWindow(QtGui.QMainWindow):
             sys.stdout = self._stdout_orig
         if getattr(self, "_stderr_orig", None) is not None:
             sys.stderr = self._stderr_orig
+
+    def _setup_log_filename_label(self):
+        """Phase 3d: runtime label showing the active datalog CSV filename.
+        Added to ui.verticalLayout (status area) before _build_shell() runs,
+        so the re-parenting carries it into the sidebar bottom. Hidden while
+        idle (calibration mode writes no datalog)."""
+        self._window_title_base = self.windowTitle()
+        self.lblLogFile = QtGui.QLabel("")
+        self.lblLogFile.setObjectName("lblLogFile")
+        self.lblLogFile.hide()
+        self.ui.verticalLayout.insertWidget(0, self.lblLogFile)
+
+    def _show_log_filename(self, filename):
+        """Show/clear the datalog filename in the sidebar and window title."""
+        if filename:
+            metrics = QtGui.QFontMetrics(self.lblLogFile.font())
+            width = max(140, self.lblLogFile.width() - 8)
+            self.lblLogFile.setText(metrics.elidedText(
+                "Log: " + filename, QtCore.Qt.ElideMiddle, width))
+            self.lblLogFile.setToolTip(filename)
+            self.lblLogFile.show()
+            self.setWindowTitle("{} — {}".format(self._window_title_base, filename))
+        else:
+            self.lblLogFile.clear()
+            self.lblLogFile.setToolTip("")
+            self.lblLogFile.hide()
+            self.setWindowTitle(self._window_title_base)
 
     ###########################################################################
     # Configures specific elements of the PyQtGraph plots.
