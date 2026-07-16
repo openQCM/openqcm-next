@@ -111,6 +111,26 @@ Conventional Commits. Versions are marked by Git tags.
     no-op. Without this, pressing Stop mid-peak-detection raised before `worker.stop()` ran and the
     sweep continued to completion.
 
+### Added
+- **GUI plot interactions (Phase 4 of the GUI redesign)** — adapted from openQCM Q-1 v3.0, on
+  NEXT's **two separate** frequency / dissipation panels (single dual-axis panel explicitly
+  rejected):
+  - **Grid off by default** everywhere (the phase overlay's grid was the only one still on) with a
+    per-plot **Show/Hide grid** toggle (`alpha 0.3`; the amplitude and phase-twin grids toggle
+    together).
+  - **Custom right-click menu** on all four plots (amplitude/phase, temperature, frequency,
+    dissipation): Auto-scale, Reset zoom, mouse pan/select-zoom mode switch, grid toggle — one
+    `sigMouseClicked` handler per pyqtgraph scene with viewbox hit-testing (the default pyqtgraph
+    menus were already suppressed).
+  - **Δ cursors on the frequency and dissipation panels**: two movable time cursors per panel
+    (amber/green) with a live readout of `Δt` (the axis carries epoch µs → seconds) and `ΔF` (Hz)
+    or `ΔD` (ppm) computed by nearest-sample lookup on the plotted buffers (multiscan → the
+    fundamental, single mode → the measured overtone, same convention as the status bar). Toggled
+    per-panel from the right-click menu or globally via the new **View → Δ Cursors (F / D)**
+    checkable action (state kept in sync). Cursor items are parented to the ViewBox with
+    `ignoreBounds` so they survive `clear()` and never drive the autorange.
+  - Min-Y-scale enforcement deferred by decision.
+
 ### Changed
 - **GUI: programmatic UI builder (redesign R1, structural parity)** — the Qt-Designer generated
   `ui/mainWindow_new_ui.py` is replaced by a hand-written `ui/mainWindow_ui.py` (same

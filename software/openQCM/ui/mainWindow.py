@@ -255,6 +255,9 @@ class MainWindow(QtGui.QMainWindow):
         # Configures specific elements of the PyQtGraph plots
         self._configure_plot()
 
+        # Phase 4: custom right-click menu, grid toggle, Δ cursors (F / D)
+        self._setup_plot_interactions()
+
         # Configures specific elements of the QTimers
         self._configure_timers()
 
@@ -1482,6 +1485,12 @@ class MainWindow(QtGui.QMainWindow):
         if _btn is not None:
             _btn.clicked.connect(lambda: self._apply_theme(
                 "dark" if self._theme == "light" else "light"))
+        # Phase 4: View > Δ Cursors (frequency / dissipation panels)
+        menu_view.addSeparator()
+        self._act_cursors = QtGui.QAction("Δ Cursors (F / D)", self)
+        self._act_cursors.setCheckable(True)
+        self._act_cursors.toggled.connect(self._toggle_all_cursors)
+        menu_view.addAction(self._act_cursors)
 
     # Phase 3c: status pill state colors (background). Text stays dark on the
     # bright state colors; 'standby' is built from the active theme palette.
@@ -1694,7 +1703,8 @@ class MainWindow(QtGui.QMainWindow):
         '''
         # Configures elements of the PyQtGraph plots: phase
         self._plt1 = self.u2.plt.addPlot(row=1, col=1, title= "Real-Time Plot: Phase", **{'font-size':'12pt'})
-        self._plt1.showGrid(x=True, y=True)
+        # Phase 4: grids default OFF everywhere (toggle via right-click menu)
+        self._plt1.showGrid(x=False, y=False)
         self._plt1.setLabel('bottom', 'Samples', units='n')
         self._plt1.setLabel('left', 'Phase', units='deg')
         '''
@@ -3976,6 +3986,140 @@ class MainWindow(QtGui.QMainWindow):
     # leave the plot in autorange (see Constants.plot_force_yrange). Development
     # builds run with the flag False (tight autorange); set True and tune the
     # paddings for distribution.
+    # ------------------------------------------------------------------
+    # Phase 4: plot interactions — custom right-click menu, grid toggle,
+    # Δ cursors on the frequency and dissipation panels. Adapted from
+    # openQCM Q-1 v3.0; NEXT keeps F and D in two separate panels.
+    # ------------------------------------------------------------------
+    def _setup_plot_interactions(self):
+        # per-plot grid state (grids default OFF)
+        self._grid_on = {}
+        self._plot_menu_targets = [self._plt0, self._plt4, self._plt2, self._pltD]
+        # one handler per GraphicsLayoutWidget scene (ui.plt hosts _plt0 + _plt4)
+        for canvas in (self.ui.plt, self.ui.pltB, self.ui.pltD):
+            canvas.scene().sigMouseClicked.connect(self._on_scene_mouse_clicked)
+        # Δ cursors: two movable time cursors + delta readout per panel. The
+        # items are parented to the ViewBox (ignoreBounds) so they survive
+        # PlotItem.clear() and never drive the autorange.
+        self._plot_cursors = {}
+        for plot, kind in ((self._plt2, "F"), (self._pltD, "D")):
+            c1 = pg.InfiniteLine(angle=90, movable=True,
+                                 pen=pg.mkPen("#f4b400", width=2))
+            c2 = pg.InfiniteLine(angle=90, movable=True,
+                                 pen=pg.mkPen("#2e9e5b", width=2))
+            txt = pg.TextItem("", anchor=(0, 0), color="#888888")
+            vb = plot.getViewBox()
+            for item in (c1, c2, txt):
+                item.setVisible(False)
+                vb.addItem(item, ignoreBounds=True)
+            c1.sigPositionChanged.connect(
+                lambda _l, p=plot: self._update_cursor_delta(p))
+            c2.sigPositionChanged.connect(
+                lambda _l, p=plot: self._update_cursor_delta(p))
+            self._plot_cursors[plot] = {"c1": c1, "c2": c2,
+                                        "text": txt, "kind": kind}
+
+    def _on_scene_mouse_clicked(self, ev):
+        if ev.button() != QtCore.Qt.RightButton:
+            return
+        for plot in self._plot_menu_targets:
+            vb = plot.getViewBox()
+            if vb is not None and vb.sceneBoundingRect().contains(ev.scenePos()):
+                ev.accept()
+                self._show_plot_menu(plot, ev.screenPos().toPoint())
+                return
+
+    def _show_plot_menu(self, plot, screen_pos):
+        menu = QtGui.QMenu(self)
+        menu.addAction("Auto-scale", lambda: plot.enableAutoRange())
+        menu.addAction("Reset zoom", lambda: plot.autoRange())
+        vb = plot.getViewBox()
+        if vb.state.get("mouseMode") == pg.ViewBox.RectMode:
+            menu.addAction("Mouse: pan mode",
+                           lambda: vb.setMouseMode(pg.ViewBox.PanMode))
+        else:
+            menu.addAction("Mouse: select/zoom mode",
+                           lambda: vb.setMouseMode(pg.ViewBox.RectMode))
+        menu.addSeparator()
+        menu.addAction("Hide grid" if self._grid_on.get(plot, False)
+                       else "Show grid", lambda: self._toggle_grid(plot))
+        if plot in self._plot_cursors:
+            visible = self._plot_cursors[plot]["c1"].isVisible()
+            menu.addSeparator()
+            menu.addAction("Hide Δ cursors" if visible else "Show Δ cursors",
+                           lambda: self._toggle_cursors_for(plot))
+        menu.exec_(screen_pos)
+
+    def _toggle_grid(self, plot):
+        on = not self._grid_on.get(plot, False)
+        self._grid_on[plot] = on
+        plot.showGrid(x=on, y=on, alpha=0.3)
+        # the phase twin overlays the amplitude plot: keep the grids together
+        if plot is self._plt0:
+            self._plt1.showGrid(x=on, y=on, alpha=0.3)
+
+    def _toggle_cursors_for(self, plot, on=None):
+        info = self._plot_cursors[plot]
+        show = (not info["c1"].isVisible()) if on is None else on
+        if show:
+            x0, x1 = plot.getViewBox().viewRange()[0]
+            info["c1"].setValue(x0 + 0.30 * (x1 - x0))
+            info["c2"].setValue(x0 + 0.70 * (x1 - x0))
+        for item in (info["c1"], info["c2"], info["text"]):
+            item.setVisible(show)
+        if show:
+            self._update_cursor_delta(plot)
+        # keep the View > Δ Cursors checkbox in sync (checked = any visible)
+        act = getattr(self, "_act_cursors", None)
+        if act is not None:
+            any_on = any(i["c1"].isVisible()
+                         for i in self._plot_cursors.values())
+            act.blockSignals(True)
+            act.setChecked(any_on)
+            act.blockSignals(False)
+
+    def _toggle_all_cursors(self, checked):
+        for plot in self._plot_cursors:
+            self._toggle_cursors_for(plot, on=checked)
+
+    def _cursor_series(self, kind):
+        # Data behind the cursor Δy: multiscan → fundamental buffers (same
+        # convention as the status bar); single mode → the measured overtone.
+        if self._get_source() == SourceType.multiscan:
+            t = self.worker.get_time_values_buffer(0)
+            y = (self.worker.get_F_values_buffer(0) if kind == "F"
+                 else self.worker.get_D_values_buffer(0))
+        else:
+            t = (self.worker.get_t1_buffer() if kind == "F"
+                 else self.worker.get_t2_buffer())
+            y = (self.worker.get_d1_buffer() if kind == "F"
+                 else self.worker.get_d2_buffer())
+        return np.asarray(t, dtype=float), np.asarray(y, dtype=float)
+
+    def _update_cursor_delta(self, plot):
+        info = self._plot_cursors.get(plot)
+        if info is None or not info["c1"].isVisible():
+            return
+        x1, x2 = sorted((info["c1"].value(), info["c2"].value()))
+        # the time axis carries epoch microseconds (see Constants.DateAxis)
+        text = "Δt: {:.1f} s".format((x2 - x1) / 1e6)
+        try:
+            t, y = self._cursor_series(info["kind"])
+            ok = np.isfinite(t) & np.isfinite(y)
+            t, y = t[ok], y[ok]
+            if t.size:
+                y1 = y[np.argmin(np.abs(t - x1))]
+                y2 = y[np.argmin(np.abs(t - x2))]
+                if info["kind"] == "F":
+                    text += "   ΔF: {:+.1f} Hz".format(y2 - y1)
+                else:
+                    text += "   ΔD: {:+.2f} ppm".format((y2 - y1) * 1e6)
+        except Exception:
+            pass
+        xr, yr = plot.getViewBox().viewRange()
+        info["text"].setPos(xr[0] + 0.02 * (xr[1] - xr[0]), yr[1])
+        info["text"].setText(text)
+
     def _set_yrange_forced(self, plot, y_min, y_max):
         if Constants.plot_force_yrange:
             plot.setYRange(y_min, y_max)

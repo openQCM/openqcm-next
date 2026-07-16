@@ -202,8 +202,14 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
     the mockup's single dual-axis panel. Do not merge them.
     Other accepted deltas vs the mockup: per-overtone readings grid kept (NEXT is multi-overtone);
     Add-On menu superseded by Tools.
-    Then Fase 4 (plot polish: grid toggle, right-click menu, Δ cursors, min-scale with
-    `plot_force_yrange`) and Fase 5 (menu wiring); user's fine-tuning pass last.
+- **Fase 4 — plot interactions — DONE (pending user visual check; see CHANGELOG)**: grid off by
+  default + per-plot toggle; custom right-click menu on all four plots (auto-scale, reset zoom,
+  pan/select mouse mode, grid); **Δ cursors on the separate F and D panels** (Δt in s — axis is
+  epoch µs —, ΔF Hz / ΔD ppm via nearest-sample on the fundamental (multiscan) or measured
+  overtone (single); right-click per panel or View → Δ Cursors global toggle; items parented to
+  the ViewBox with ignoreBounds so they survive clear() and don't drive autorange).
+  **Deferred by decision**: min-Y-scale enforcement (to be integrated with `plot_force_yrange`).
+  Next: Fase 5 (menu wiring: Tools/Help actions already exist) and the user's GUI fine-tuning pass.
   4. Plot polish: grid off by default + toggle, right-click menu, **Δ cursors**, min-scale
      (integrate with the `plot_force_yrange` flag); curve colors already aligned.
   5. Scientific menu **File / View / Tools / Help**.
