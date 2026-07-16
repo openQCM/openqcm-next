@@ -247,6 +247,10 @@ class MainWindow(QtGui.QMainWindow):
         # VER 0.1.6 moved multiscan array selector here before self._configure_plot()
         self.scan_selector = [0, 0, 0, 0, 0]
 
+        # Phase 3b: compact F0..F9 overtone quick-select buttons (proxy the
+        # legacy radios, which stay the source of truth for scan_selector)
+        self._setup_overtone_buttons()
+
         # Configures specific elements of the PyQtGraph plots
         self._configure_plot()
 
@@ -687,6 +691,8 @@ class MainWindow(QtGui.QMainWindow):
                 self.ui.radioBtn_F9.setChecked(True)
 
                 self._update_scan_selector()
+                # Phase 3b: mirror the all-checked default on the quick-select row
+                self._sync_overtone_buttons_from_radios()
 
 # =============================================================================
 #                 # VER 0.1.2
@@ -988,12 +994,79 @@ class MainWindow(QtGui.QMainWindow):
         # default parameter selection
         self.ui.cBox_PID.setEnabled(my_bool)
 
+    def _setup_overtone_buttons(self):
+        """Phase 3b: compact F0..F9 quick-select buttons (adapted from openQCM
+        Q-1 v3.0). They proxy the legacy overtone radios, which stay the source
+        of truth for scan_selector but are hidden. Multiscan: multi-select,
+        purely-visual curve filter (all overtones are always acquired).
+        Serial: exclusive selection driving cBox_Speed."""
+        self._overtone_radios = [self.ui.radioBtn_F0, self.ui.radioBtn_F3,
+                                 self.ui.radioBtn_F5, self.ui.radioBtn_F7,
+                                 self.ui.radioBtn_F9]
+        self._overtone_buttons = []
+        for idx, lab in enumerate(("F0", "F3", "F5", "F7", "F9")):
+            btn = QtGui.QPushButton(lab)
+            btn.setObjectName("overtoneBtn_" + lab)
+            btn.setProperty("overtoneBtn", True)
+            btn.setCheckable(True)
+            btn.setFixedHeight(24)
+            btn.setToolTip("Overtone " + lab)
+            btn.setChecked(self._overtone_radios[idx].isChecked())
+            btn.clicked.connect(lambda checked, i=idx: self._on_overtone_button(i, checked))
+            self.ui.horizontalLayout_2.addWidget(btn)
+            self._overtone_buttons.append(btn)
+            self._overtone_radios[idx].hide()
+        self.ui.cBox_Speed.currentIndexChanged.connect(self._sync_overtone_buttons_from_speed)
+
+    def _on_overtone_button(self, idx, checked):
+        """Quick-select click: serial → exclusive selection driving cBox_Speed;
+        multiscan → mirrors the hidden radio and refreshes scan_selector."""
+        if self._get_source() == SourceType.serial:
+            # exclusive: one measured overtone; keep the radios (sweep-display
+            # gating) aligned with it
+            for i, r in enumerate(self._overtone_radios):
+                r.setChecked(i == idx)
+            self._update_scan_selector()
+            # the combo lists the calibrated overtones in reverse order
+            count = self.ui.cBox_Speed.count()
+            combo_index = count - 1 - idx
+            if 0 <= combo_index < count:
+                self.ui.cBox_Speed.setCurrentIndex(combo_index)
+            self._sync_overtone_buttons_from_speed()
+        else:
+            self._overtone_radios[idx].setChecked(checked)
+            self._update_scan_selector()
+
+    def _sync_overtone_buttons_from_speed(self, *args):
+        """Serial mode: reflect the cBox_Speed selection on the button row."""
+        if self._get_source() != SourceType.serial:
+            return
+        count = self.ui.cBox_Speed.count()
+        sel = (count - 1 - self.ui.cBox_Speed.currentIndex()) if count else -1
+        for i, b in enumerate(self._overtone_buttons):
+            b.blockSignals(True)
+            b.setChecked(i == sel)
+            b.blockSignals(False)
+
+    def _sync_overtone_buttons_from_radios(self):
+        """Mirror the radios' checked state onto the quick-select buttons."""
+        for i, b in enumerate(self._overtone_buttons):
+            b.blockSignals(True)
+            b.setChecked(self._overtone_radios[i].isChecked())
+            b.blockSignals(False)
+
     def _Overtone_radioBtn_isEnabled(self, my_bool):
         self.ui.radioBtn_F0.setEnabled(my_bool)
         self.ui.radioBtn_F3.setEnabled(my_bool)
         self.ui.radioBtn_F5.setEnabled(my_bool)
         self.ui.radioBtn_F7.setEnabled(my_bool)
         self.ui.radioBtn_F9.setEnabled(my_bool)
+        # Phase 3b: the quick-select buttons follow the mode gating (multiscan:
+        # my_bool; serial: enabled while idle — they drive cBox_Speed there)
+        _serial_idle = (self._get_source() == SourceType.serial
+                        and not self.worker.is_running())
+        for b in getattr(self, "_overtone_buttons", []):
+            b.setEnabled(my_bool or _serial_idle)
 
 
     # PID CONTROL FUNCTION
@@ -1338,6 +1411,13 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.cBox_Speed.setEnabled(not enabled)
             
         # self.ui.cBox_Speed.setEnabled(enabled)
+
+        # Phase 3b: serial quick-select buttons are idle-only (multiscan keeps
+        # them live during acquisition as a purely-visual curve filter)
+        if self._get_source() == SourceType.serial:
+            for b in getattr(self, "_overtone_buttons", []):
+                b.setEnabled(enabled)
+
         # VER 0.1.6b Start requires an active serial connection
         # Phase 3a: pButton_Start is a single Start/Stop toggle — keep it usable
         # while running (to act as Stop); gate only on the active connection.
@@ -3984,8 +4064,11 @@ class MainWindow(QtGui.QMainWindow):
            # VER 0.1.4 disable datalog sampling time 
            self.ui.cBox_sampling_time.setEnabled(False)
            
-           # VER 0.1.6 enable frequency selector inly in single mode 
+           # VER 0.1.6 enable frequency selector inly in single mode
            self.ui.cBox_Speed.setEnabled(True)
+
+           # Phase 3b: reflect the current combo selection on the quick-select row
+           self._sync_overtone_buttons_from_speed()
 
         # calibration
         elif self._get_source() == SourceType.calibration:
@@ -4020,8 +4103,10 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.radioBtn_F5.setChecked(True)
             self.ui.radioBtn_F7.setChecked(True)
             self.ui.radioBtn_F9.setChecked(True)
-            
-            
+
+            # Phase 3b: mirror the all-checked default on the quick-select row
+            self._sync_overtone_buttons_from_radios()
+
             # VER 0.1.6_TEST NOT enable frequency selector in multi
             self.ui.cBox_Speed.setEnabled(False)
             

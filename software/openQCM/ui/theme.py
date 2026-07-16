@@ -120,6 +120,14 @@ def qss(p):
     QPushButton#pButton_Start[running="true"]:hover {{ background: #e03b3b; }}
     QPushButton#pButton_Start:disabled {{ background: {disabled_bg}; color: {disabled_text}; }}
 
+    /* Overtone quick-select buttons F0..F9 (Phase 3b) */
+    QPushButton[overtoneBtn="true"] {{ background: {field_bg}; color: {text};
+        border: 1px solid {border}; border-radius: 4px; padding: 2px 6px; min-width: 28px; }}
+    QPushButton[overtoneBtn="true"]:checked {{ background: {accent}; color: {accent_text};
+        border-color: {accent}; }}
+    QPushButton[overtoneBtn="true"]:disabled {{ background: {disabled_bg}; color: {disabled_text}; }}
+    QPushButton[overtoneBtn="true"]:checked:disabled {{ background: {accent}; color: {accent_text}; }}
+
     QRadioButton, QCheckBox {{ background: transparent; color: {text}; }}
     QScrollArea {{ border: none; background: {window}; }}
     """.format(**p)

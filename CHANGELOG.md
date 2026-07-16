@@ -72,6 +72,14 @@ Conventional Commits. Versions are marked by Git tags.
   `<font>` HTML in favour of a `● Program Status: …` prefix whose dot/text color comes from the
   pill stylesheet. A theme switch re-applies the current pill (`_apply_theme` remembers the last
   state via `_status_key`); the "Stanby" typo is fixed. `infobar` message colors are unchanged.
+- **GUI overtone quick-select buttons F0–F9 (Phase 3b of the GUI redesign)** — five compact
+  checkable buttons replace the legacy overtone radio row visually (the hidden radios remain the
+  source of truth for `scan_selector`, so the plotting/readout logic is untouched). Behaviour by
+  mode: **multiscan** = multi-select, purely-visual curve filter, live during acquisition (all
+  overtones are always acquired); **serial** = exclusive selection that drives `cBox_Speed` (the
+  combo lists the calibrated overtones in reverse order) with bidirectional sync, idle-only;
+  **calibration** = disabled. Styled via `overtoneBtn` property QSS (accent when checked, kept on
+  `:checked:disabled`). Adapted from openQCM Q-1 v3.0 with the NEXT-specific multiscan semantics.
 - **Responsive, clean cancellation of Peak Detection (calibration)** — ported and adapted
   from the more mature openQCM Q-1 v3.0. The peak-detection sweep can now be stopped mid-run
   without a hard process kill or a corrupt serial state, replacing the previous behaviour where
