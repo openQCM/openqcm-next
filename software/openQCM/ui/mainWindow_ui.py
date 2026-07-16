@@ -263,29 +263,10 @@ class Ui_MainWindow(object):
         self.gridSetup.addWidget(self.cBox_Speed, 3, 0, 1, 2)
         sb.addWidget(self.groupSetup)
 
-        # --- frequency / dissipation readouts (groupBox_data) ---------- #
-        self.groupBox_data = QtWidgets.QGroupBox(
-            "Current Readings — F (Hz) · D (ppm)", self.sidebarContainer)
-        self.groupBox_data.setObjectName("groupBox_data")
-        self.gridLayout_7 = QtWidgets.QGridLayout(self.groupBox_data)
-        self.gridLayout_7.setObjectName("gridLayout_7")
+        # frequency / dissipation readouts moved out of the sidebar into
+        # horizontal cards above their plots (see _build_readout_card, called
+        # from _build_center). Keep the overtone list for the selector below.
         overtones = ("F0", "F3", "F5", "F7", "F9")
-        for row, name in enumerate(overtones):
-            dname = "D" + name[1:]
-            col = self._label(self.groupBox_data, "label_%s_col" % name)
-            col.setFixedSize(14, 14)
-            self.gridLayout_7.addWidget(col, row, 0, 1, 1)
-            self.gridLayout_7.addWidget(
-                self._label(self.groupBox_data, "label_%s" % name,
-                            "F %s" % name[1:]), row, 1, 1, 1)
-            self.gridLayout_7.addWidget(
-                self._label(self.groupBox_data, name, "0"), row, 3, 1, 1)
-            self.gridLayout_7.addWidget(
-                self._label(self.groupBox_data, "label_%s" % dname,
-                            "D %s" % name[1:]), row, 4, 1, 1)
-            self.gridLayout_7.addWidget(
-                self._label(self.groupBox_data, dname, "0"), row, 5, 1, 1)
-        sb.addWidget(self.groupBox_data)
 
         # --- overtone selector row (gridLayout_D) ----------------------- #
         self.gridLayout_D = QtWidgets.QGridLayout()
@@ -518,6 +499,31 @@ class Ui_MainWindow(object):
     # ------------------------------------------------------------------ #
     # center: tabs [ Plots | System Log ]                                #
     # ------------------------------------------------------------------ #
+    def _build_readout_card(self, obj_name, title, kind):
+        """Horizontal per-overtone readout card (kind 'F' or 'D') shown above
+        the matching plot. Creates label_<kind><n>_col (color swatch),
+        label_<kind><n> (name) and <kind><n> (value) — the same attribute names
+        the controller updates (F0..F9 / D0..D9 values; label_F*_col /
+        label_D*_col swatches)."""
+        card = QtWidgets.QGroupBox(title)
+        card.setObjectName(obj_name)
+        row = QtWidgets.QHBoxLayout(card)
+        row.setSpacing(14)
+        for n in ("0", "3", "5", "7", "9"):
+            cell = QtWidgets.QWidget(card)
+            ch = QtWidgets.QHBoxLayout(cell)
+            ch.setContentsMargins(0, 0, 0, 0)
+            ch.setSpacing(4)
+            sw = self._label(cell, "label_%s%s_col" % (kind, n))
+            sw.setFixedSize(11, 11)
+            ch.addWidget(sw)
+            ch.addWidget(self._label(cell, "label_%s%s" % (kind, n),
+                                     "%s%s" % (kind, n)))
+            ch.addWidget(self._label(cell, "%s%s" % (kind, n), "0"))
+            row.addWidget(cell)
+        row.addStretch(1)
+        return card
+
     def _build_center(self):
         self.centerTabs = QtWidgets.QTabWidget()
         self.centerTabs.setObjectName("centerTabs")
@@ -531,19 +537,46 @@ class Ui_MainWindow(object):
         self.groupBox_plt = QtWidgets.QGroupBox(self.tabPlots)
         self.groupBox_plt.setObjectName("groupBox_plt")
         self.groupBox_plt.setTitle("")
-        self.gridLayout_9 = QtWidgets.QGridLayout(self.groupBox_plt)
-        self.gridLayout_9.setObjectName("gridLayout_9")
-        self.pltB = GraphicsLayoutWidget(self.groupBox_plt)
-        self.pltB.setObjectName("pltB")
-        self.pltD = GraphicsLayoutWidget(self.groupBox_plt)
-        self.pltD.setObjectName("pltD")
-        self.plt = GraphicsLayoutWidget(self.groupBox_plt)
+        _plots = QtWidgets.QVBoxLayout(self.groupBox_plt)
+        _plots.setContentsMargins(4, 4, 4, 4)
+
+        # pyqtgraph canvases
+        self.plt = GraphicsLayoutWidget(self.groupBox_plt)   # amplitude/phase + temperature
         self.plt.setObjectName("plt")
-        # R2 (mockup order): sweep + temperature canvases on top, then the
-        # resonance-frequency and dissipation time series below
-        self.gridLayout_9.addWidget(self.plt, 0, 0, 1, 1)
-        self.gridLayout_9.addWidget(self.pltB, 1, 0, 1, 1)
-        self.gridLayout_9.addWidget(self.pltD, 2, 0, 1, 1)
+        self.pltB = GraphicsLayoutWidget(self.groupBox_plt)  # resonance frequency
+        self.pltB.setObjectName("pltB")
+        self.pltD = GraphicsLayoutWidget(self.groupBox_plt)  # dissipation
+        self.pltD.setObjectName("pltD")
+
+        # horizontal per-overtone readout cards above the freq / diss plots
+        self.groupFreqReadout = self._build_readout_card(
+            "groupFreqReadout", "Frequency (Hz)", "F")
+        self.groupDissReadout = self._build_readout_card(
+            "groupDissReadout", "Dissipation (ppm)", "D")
+
+        # bottom pane: freq readout + freq plot + diss readout + diss plot
+        _bottom = QtWidgets.QWidget()
+        _bv = QtWidgets.QVBoxLayout(_bottom)
+        _bv.setContentsMargins(0, 0, 0, 0)
+        _bv.setSpacing(4)
+        _bv.addWidget(self.groupFreqReadout)
+        _bv.addWidget(self.pltB, 1)
+        _bv.addWidget(self.groupDissReadout)
+        _bv.addWidget(self.pltD, 1)
+
+        # vertical splitter (the "slider"): amplitude + temperature on top can be
+        # collapsed/hidden by dragging the handle up.
+        self.plotSplitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+        self.plotSplitter.setObjectName("plotSplitter")
+        self.plotSplitter.addWidget(self.plt)
+        self.plotSplitter.addWidget(_bottom)
+        self.plotSplitter.setCollapsible(0, True)   # hide amplitude + temperature
+        self.plotSplitter.setCollapsible(1, False)
+        self.plotSplitter.setStretchFactor(0, 1)
+        self.plotSplitter.setStretchFactor(1, 2)
+        self.plotSplitter.setSizes([220, 520])
+        _plots.addWidget(self.plotSplitter)
+
         self.verticalLayout_plt.addWidget(self.groupBox_plt)
         self.centerTabs.addTab(self.tabPlots, "Plots")
 

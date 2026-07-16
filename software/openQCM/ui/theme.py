@@ -111,6 +111,13 @@ def qss(p):
         left: 12px; top: 8px; color: {text};
         font-weight: bold; font-size: 13px; }}
 
+    /* Readout cards above the frequency / dissipation plots (compact) */
+    QGroupBox#groupFreqReadout, QGroupBox#groupDissReadout {{
+        margin-top: 0px; padding: 4px; padding-top: 20px; }}
+    QGroupBox#groupFreqReadout::title, QGroupBox#groupDissReadout::title {{
+        subcontrol-origin: margin; subcontrol-position: top left;
+        left: 10px; top: 3px; color: {muted}; font-weight: bold; font-size: 11px; }}
+
     /* R2: menu-bar corner theme toggle */
     QToolButton#themeToggleButton {{ color: {muted}; background: {panel};
         border: 1px solid {border}; border-radius: 4px;

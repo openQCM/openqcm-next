@@ -287,7 +287,7 @@ class MainWindow(QtGui.QMainWindow):
         # VER 0.1.6 frequency and dissipation label color
         # init the array of frequency label color 
         label_F = [self.ui.label_F0_col, self.ui.label_F3_col, self.ui.label_F5_col, self.ui.label_F7_col, self.ui.label_F9_col]
-        label_D = [self.ui.label_F0_col, self.ui.label_F3_col, self.ui.label_F5_col, self.ui.label_F7_col, self.ui.label_F9_col] #[self.ui.label_D0_col, self.ui.label_D3_col, self.ui.label_D5_col, self.ui.label_D7_col, self.ui.label_D9_col]
+        label_D = [self.ui.label_D0_col, self.ui.label_D3_col, self.ui.label_D5_col, self.ui.label_D7_col, self.ui.label_D9_col]
         
         # init the array of dissipation label color 
         for color, label in zip(Constants.plot_color_multi, label_F):

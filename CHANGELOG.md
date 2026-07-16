@@ -137,6 +137,16 @@ Conventional Commits. Versions are marked by Git tags.
   and **brown when running (Stop)** instead of red. Added `brown` / `brown_hover` palette keys
   (`ui/theme.py`, `#DD8E6B` on both themes). The remaining state colors (status pill yellow/red/
   green) are left for a follow-up pass.
+- **GUI center: collapsible amplitude/temperature pane + per-plot readout cards** — the Plots tab
+  is now a vertical `QSplitter` (`plotSplitter`): the amplitude/phase-sweep + temperature canvases
+  sit on top and can be **collapsed/hidden by dragging the handle** (`setCollapsible(0, True)`);
+  the frequency and dissipation plots take the bottom pane. The per-overtone F/D readouts moved out
+  of the sidebar "Current Readings" card into two **horizontal cards above their plots**:
+  "Frequency (Hz)" above the frequency plot (F0..F9 + color swatches) and "Dissipation (ppm)" above
+  the dissipation plot (D0..D9 + swatches). Readout widget names are unchanged (`F0..F9` / `D0..D9`
+  / `label_F*_col`; new `label_D*_col` swatches wired into the controller), so the update logic is
+  untouched. The now-empty sidebar "Current Readings" card was removed (also helps the sidebar stay
+  narrow).
 - **GUI Plot Controls card + Autoscale button** — the plot-control buttons moved from a plain
   row into a titled **"Plot Controls"** sidebar card holding **Autoscale**, **Set/Clear Reference**
   (the toggle) and **Clear Plots**. The new **Autoscale** button (`pButton_Autoscale` →
