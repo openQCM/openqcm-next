@@ -146,6 +146,19 @@ Conventional Commits. Versions are marked by Git tags.
     restyled (left-aligned title + muted subtitle, no hardcoded black).
   - **Dark-theme fix**: the sidebar container and scroll-area viewport now follow the theme
     palette (they defaulted to the platform light palette, leaving gray-on-gray labels on dark).
+- **GUI: R2 mockup-fidelity fixes** (after the first on-device check):
+  - **Status-bar height bug fixed**: `statusBarFrame` had no fixed height and swallowed half the
+    window (squeezing the sidebar into a scroll). Now `setFixedHeight(36)` + the splitter takes
+    all extra vertical space (`outer.addWidget(mainSplitter, 1)`).
+  - **Mockup styling**: card titles rendered **inside** the rounded cards (bold, objectName-scoped
+    QSS); the Temperature/PID tabs wrapped in a **"Temperature & PID"** card; readouts card
+    retitled "Current Readings — F (Hz) · D (ppm)"; Start toggle idle color switched to the
+    **accent blue** of the mockup (running stays red); F0–F9 restyled as rounded chips;
+    status-bar readings use full text color.
+  - **Theme quick-toggle** in the menu-bar top-right corner (`themeToggleButton`, shows the theme
+    it switches to), wired alongside the View → Theme menu.
+  - **Plot canvas order** per the mockup: amplitude/phase sweep + temperature on top, then the
+    resonance-frequency and dissipation time series.
 - **Entry point unified into `run.py`**: added a thin `software/run.py` launcher and
   removed the duplicate root `software/app.py`; the `OPENQCM` class now lives only in
   `openQCM/app.py`. Launch with `python run.py` (or `python -m openQCM`).

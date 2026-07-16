@@ -68,9 +68,23 @@ def qss(p):
     QLabel {{ background: transparent; color: {text}; }}
 
     QGroupBox {{ background: {panel}; border: 1px solid {border};
-                 border-radius: 6px; margin-top: 8px; }}
+                 border-radius: 8px; margin-top: 8px; }}
     QGroupBox::title {{ subcontrol-origin: margin; left: 8px;
                         padding: 0 4px; color: {muted}; }}
+
+    /* R2 mockup cards: bold title rendered inside the rounded card */
+    QGroupBox#groupConnection, QGroupBox#groupSetup,
+    QGroupBox#groupBox_data, QGroupBox#groupTempPID {{
+        margin-top: 0px; padding-top: 24px; }}
+    QGroupBox#groupConnection::title, QGroupBox#groupSetup::title,
+    QGroupBox#groupBox_data::title, QGroupBox#groupTempPID::title {{
+        subcontrol-origin: margin; subcontrol-position: top left;
+        left: 10px; top: 6px; color: {text}; font-weight: bold; }}
+
+    /* R2: menu-bar corner theme toggle */
+    QToolButton#themeToggleButton {{ color: {muted}; background: {panel};
+        border: 1px solid {border}; border-radius: 4px;
+        padding: 2px 8px; margin: 2px 6px; }}
 
     QComboBox, QSpinBox, QDoubleSpinBox {{ background: {field_bg}; color: {field_text};
         border: 1px solid {border}; border-radius: 4px; padding: 2px 4px; }}
@@ -112,10 +126,11 @@ def qss(p):
         border-radius: 4px; text-align: center; }}
     QProgressBar::chunk {{ background: {accent}; }}
 
-    /* Single Start/Stop toggle (Phase 3a): green when idle, red while running */
-    QPushButton#pButton_Start {{ background: #2e9e5b; color: #ffffff; border: none;
-        border-radius: 4px; padding: 6px 12px; font-weight: bold; }}
-    QPushButton#pButton_Start:hover {{ background: #33ad64; }}
+    /* Single Start/Stop toggle (3a, R2): accent blue when idle (mockup),
+       red while running */
+    QPushButton#pButton_Start {{ background: {accent}; color: {accent_text};
+        border: none; border-radius: 6px; padding: 6px 12px; font-weight: bold; }}
+    QPushButton#pButton_Start:hover {{ background: #007aa5; }}
     QPushButton#pButton_Start[running="true"] {{ background: #d32f2f; }}
     QPushButton#pButton_Start[running="true"]:hover {{ background: #e03b3b; }}
     QPushButton#pButton_Start:disabled {{ background: {disabled_bg}; color: {disabled_text}; }}
@@ -128,9 +143,9 @@ def qss(p):
     QPushButton#pButton_Connect:disabled, QPushButton#pButton_Refresh:disabled {{
         background: {disabled_bg}; color: {disabled_text}; }}
 
-    /* Overtone quick-select buttons F0..F9 (Phase 3b) */
+    /* Overtone quick-select chips F0..F9 (3b, R2 mockup look) */
     QPushButton[overtoneBtn="true"] {{ background: {field_bg}; color: {text};
-        border: 1px solid {border}; border-radius: 4px; padding: 2px 6px; min-width: 28px; }}
+        border: 1px solid {border}; border-radius: 10px; padding: 2px 10px; min-width: 28px; }}
     QPushButton[overtoneBtn="true"]:checked {{ background: {accent}; color: {accent_text};
         border-color: {accent}; }}
     QPushButton[overtoneBtn="true"]:disabled {{ background: {disabled_bg}; color: {disabled_text}; }}
@@ -149,5 +164,5 @@ def qss(p):
     QFrame#statusBarFrame {{ background: {panel}; border-top: 1px solid {border}; }}
     QLabel#statusFreqValue, QLabel#statusDissValue,
     QLabel#statusTempValue, QLabel#statusSampValue {{
-        color: {muted}; font-weight: bold; padding: 0 4px; }}
+        color: {text}; font-weight: bold; padding: 0 4px; }}
     """.format(**p)

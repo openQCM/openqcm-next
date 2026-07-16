@@ -76,8 +76,8 @@ class Ui_MainWindow(object):
 
         outer = QtWidgets.QVBoxLayout(self.centralwidget)
         outer.setContentsMargins(4, 4, 4, 4)
-        outer.addWidget(self.mainSplitter)
-        outer.addWidget(self.statusBarFrame)
+        outer.addWidget(self.mainSplitter, 1)   # splitter takes all extra space
+        outer.addWidget(self.statusBarFrame)    # thin fixed-height bar
 
     # ------------------------------------------------------------------ #
     # bottom status bar (R2)                                             #
@@ -87,6 +87,7 @@ class Ui_MainWindow(object):
         compact live readings (F/D/T/S) and the progress bar on the right."""
         self.statusBarFrame = QtWidgets.QFrame(self.centralwidget)
         self.statusBarFrame.setObjectName("statusBarFrame")
+        self.statusBarFrame.setFixedHeight(36)
         bar = QtWidgets.QHBoxLayout(self.statusBarFrame)
         bar.setContentsMargins(8, 3, 8, 3)
         bar.setSpacing(8)
@@ -156,6 +157,15 @@ class Ui_MainWindow(object):
 
         for menu in (self.menuFile, self.menuView, self.menuTools, self.menuHelp):
             self.menuBar.addAction(menu.menuAction())
+
+        # R2: light/dark quick toggle in the menu-bar corner (mockup top-right)
+        self.themeToggleButton = QtWidgets.QToolButton(self.menuBar)
+        self.themeToggleButton.setObjectName("themeToggleButton")
+        self.themeToggleButton.setText("◐ theme")
+        self.themeToggleButton.setToolTip("Toggle light/dark theme")
+        self.themeToggleButton.setAutoRaise(True)
+        self.menuBar.setCornerWidget(self.themeToggleButton,
+                                     QtCore.Qt.TopRightCorner)
 
     # ------------------------------------------------------------------ #
     # left sidebar                                                       #
@@ -236,7 +246,7 @@ class Ui_MainWindow(object):
 
         # --- frequency / dissipation readouts (groupBox_data) ---------- #
         self.groupBox_data = QtWidgets.QGroupBox(
-            "Frequency (Hz) - Dissipation (ppm)", self.sidebarContainer)
+            "Current Readings — F (Hz) · D (ppm)", self.sidebarContainer)
         self.groupBox_data.setObjectName("groupBox_data")
         self.gridLayout_7 = QtWidgets.QGridLayout(self.groupBox_data)
         self.gridLayout_7.setObjectName("gridLayout_7")
@@ -310,9 +320,15 @@ class Ui_MainWindow(object):
         self.line_3 = self._hline(self.sidebarContainer, "line_3")
         self.line_3.hide()
 
-        # --- Temperature / PID tabs (tabWidget) ------------------------- #
+        # --- Temperature & PID card wrapping the tabs (R2) --------------- #
         self._build_temperature_tabs()
-        sb.addWidget(self.tabWidget)
+        self.groupTempPID = QtWidgets.QGroupBox("Temperature & PID",
+                                                self.sidebarContainer)
+        self.groupTempPID.setObjectName("groupTempPID")
+        _tpid = QtWidgets.QVBoxLayout(self.groupTempPID)
+        _tpid.setContentsMargins(4, 4, 4, 4)
+        _tpid.addWidget(self.tabWidget)
+        sb.addWidget(self.groupTempPID)
 
         sb.addStretch(1)
 
@@ -478,9 +494,11 @@ class Ui_MainWindow(object):
         self.pltD.setObjectName("pltD")
         self.plt = GraphicsLayoutWidget(self.groupBox_plt)
         self.plt.setObjectName("plt")
-        self.gridLayout_9.addWidget(self.pltB, 0, 0, 1, 1)
-        self.gridLayout_9.addWidget(self.pltD, 1, 0, 1, 1)
-        self.gridLayout_9.addWidget(self.plt, 2, 0, 1, 1)
+        # R2 (mockup order): sweep + temperature canvases on top, then the
+        # resonance-frequency and dissipation time series below
+        self.gridLayout_9.addWidget(self.plt, 0, 0, 1, 1)
+        self.gridLayout_9.addWidget(self.pltB, 1, 0, 1, 1)
+        self.gridLayout_9.addWidget(self.pltD, 2, 0, 1, 1)
         self.verticalLayout_plt.addWidget(self.groupBox_plt)
         self.centerTabs.addTab(self.tabPlots, "Plots")
 

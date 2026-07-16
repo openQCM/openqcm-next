@@ -186,12 +186,17 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
     runtime widgets absorbed; File/View/Tools/Help menu skeleton. Contract-checked (all
     `self.ui.<name>` refs exist) + offscreen instantiation verified. Old generated file kept as
     reference. **Pending: user visual check.**
-  - **R2 — mockup style pass — DONE** (see CHANGELOG): full-width bottom status bar (pill +
-    message left; F/D/T/S live readings + progress right, mirrored from the indicator update
-    paths, reset on Stop); "Serial Connection" and "Measurement Setup" cards; brand header
-    left-aligned; dark-theme sidebar background fix. **Pending: user visual check.**
+  - **R2 — mockup style pass — DONE + fidelity fixes** (see CHANGELOG): full-width bottom status
+    bar (36 px fixed — the unbounded height bug from the first check is fixed; pill + message
+    left; F/D/T/S live readings + progress right, reset on Stop); titled cards with the title
+    inside (Serial Connection, Measurement Setup, Current Readings, Temperature & PID); Start
+    idle = accent blue (running red); F0–F9 chips; menu-bar corner theme toggle; plot canvases
+    reordered [sweep+temp, frequency, dissipation]. **Pending: user visual check.**
+    Known deltas vs the mockup (deferred): frequency+dissipation merged in ONE dual-axis panel
+    (Fase 4 target — today they are two stacked canvases); per-overtone readings grid kept
+    (NEXT is multi-overtone, the mockup shows single rows); Add-On menu superseded by Tools.
     Then Fase 4 (plot polish: grid toggle, right-click menu, Δ cursors, min-scale with
-    `plot_force_yrange`) and Fase 5 (menu wiring) follow; user's fine-tuning pass last.
+    `plot_force_yrange`) and Fase 5 (menu wiring); user's fine-tuning pass last.
   4. Plot polish: grid off by default + toggle, right-click menu, **Δ cursors**, min-scale
      (integrate with the `plot_force_yrange` flag); curve colors already aligned.
   5. Scientific menu **File / View / Tools / Help**.

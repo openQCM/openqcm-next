@@ -1477,6 +1477,11 @@ class MainWindow(QtGui.QMainWindow):
         theme_menu.addAction(self._act_theme_dark)
         self._act_theme_light.triggered.connect(lambda: self._apply_theme("light"))
         self._act_theme_dark.triggered.connect(lambda: self._apply_theme("dark"))
+        # R2: menu-bar corner quick toggle (mockup top-right)
+        _btn = getattr(self.ui, "themeToggleButton", None)
+        if _btn is not None:
+            _btn.clicked.connect(lambda: self._apply_theme(
+                "dark" if self._theme == "light" else "light"))
 
     # Phase 3c: status pill state colors (background). Text stays dark on the
     # bright state colors; 'standby' is built from the active theme palette.
@@ -1518,6 +1523,10 @@ class MainWindow(QtGui.QMainWindow):
         # Phase 3c: re-apply the status pill so 'standby' follows the theme
         self.ui.infostatus.setStyleSheet(
             self._status_pill(getattr(self, "_status_key", "standby")))
+        # R2: corner toggle shows the theme it switches to
+        _btn = getattr(self.ui, "themeToggleButton", None)
+        if _btn is not None:
+            _btn.setText("☾ dark" if name == "light" else "☀ light")
         # pyqtgraph plots (background / axes / titles)
         self._apply_plot_theme(theme.PLOT[name])
         # keep the menu checkmarks in sync
