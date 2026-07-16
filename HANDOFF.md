@@ -2,7 +2,7 @@
 
 > Technical starting point to continue development of the software and of the
 > `impedance-analysis` branch. Working language: Italian in chat, English in the repo.
-> Last updated: 2026-07-15.
+> Last updated: 2026-07-16.
 
 ---
 
@@ -52,7 +52,8 @@ mode). Methods in `software/openQCM/ui/mainWindow.py`:
 
 ### Also done on main
 `run.py` entry point; full README; `requirements.txt` / `environment.yml`; Raw Data fix
-(restored the functional `sweep_data/*.txt`).
+(restored the functional `sweep_data/*.txt`); **robust trimmed-mean averaging** of the raw
+acquisition buffer (see §5 and CHANGELOG).
 
 ## 4. `impedance-analysis` branch (0.1.6G) — detail
 
@@ -84,9 +85,17 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
 
 ## 5. Planned technical tasks (on `main`)
 
+Done (raw-data robustness — see CHANGELOG):
+- **`trim_mean` anti-outlier averaging**: replaced Savitzky-Golay + `np.average` with
+  `scipy.stats.trim_mean(0.10)` on the 10-sample circular buffer for frequency and dissipation
+  (per overtone) **and temperature**, in **both** processors (`Multiscan.py` multi-overtone,
+  `Serial.py` single-overtone). Added `Constants.trim_mean_proportiontocut`. The replaced
+  SG (window=3, order=1) was a linear 3-point moving average with no outlier rejection.
+  - **Still pending — Stage C**: the datalog-decimation average in `core/worker.py:767-769`.
+    There, average over `get_partial()` (NaN-safe) and note that `trim_mean(0.10)` degenerates
+    to the plain mean for buffers < 10 samples (choose proportion or estimator accordingly).
+
 Quick wins:
-- **`trim_mean` anti-outlier**: `core/worker.py:767-769` → replace `np.average(...)` with
-  `scipy.stats.trim_mean(..., 0.10)` on the frequency/dissipation/temperature buffers.
 - **Disconnected-sensor detection**: guard on a minimum Q-factor (`min_valid_q_factor`) in
   `processors` (`parameters_finder`), so noise is not logged as a real peak.
 - **Robust firmware query**: add range-priming (`1;1;1\n`) + reply-format validation in

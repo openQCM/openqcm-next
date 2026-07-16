@@ -10,6 +10,7 @@ from serial.tools import list_ports
 import numpy as np
 from numpy import loadtxt
 from scipy.interpolate import UnivariateSpline
+from scipy.stats import trim_mean
 from openQCM.util.ReadLine import ReadLine as rl
 from time import time as tm
 from progressbar import Bar, Percentage, ProgressBar, RotatingMarker,Timer
@@ -431,14 +432,14 @@ class SerialProcess(multiprocessing.Process):
         
         if self._k>=self._environment:
            #FREQUENCY
-           vec_app1 = self.savitzky_golay(self._frequency_buffer.get_all(), window_size = Constants.SG_window_environment, order = Constants.SG_order_environment)
-           freq_range_mean = np.average(vec_app1)
-           #DISSIPATION     
-           vec_app1d = self.savitzky_golay(self._dissipation_buffer.get_all(), window_size = Constants.SG_window_environment, order = Constants.SG_order_environment)
-           diss_mean = np.average(vec_app1d)
+           # VER 0.1.6 robust trimmed-mean on the raw circular buffer (same
+           # scheme as Multiscan.py): replaces Savitzky-Golay + np.average,
+           # a linear filter with no outlier rejection.
+           freq_range_mean = trim_mean(self._frequency_buffer.get_all(), Constants.trim_mean_proportiontocut)
+           #DISSIPATION
+           diss_mean = trim_mean(self._dissipation_buffer.get_all(), Constants.trim_mean_proportiontocut)
            #TEMPERATURE
-           vec_app1t = self.savitzky_golay(self._temperature_buffer.get_all(), window_size = Constants.SG_window_environment, order = Constants.SG_order_environment)
-           temperature_mean = np.average(vec_app1t)
+           temperature_mean = trim_mean(self._temperature_buffer.get_all(), Constants.trim_mean_proportiontocut)
            
         
         # VER 0.1.4 set the current value of frequency 

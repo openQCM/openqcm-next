@@ -29,6 +29,17 @@ Conventional Commits. Versions are marked by Git tags.
   removed the duplicate root `software/app.py`; the `OPENQCM` class now lives only in
   `openQCM/app.py`. Launch with `python run.py` (or `python -m openQCM`).
 - Firmware version check no longer runs automatically at startup; it runs on connect.
+- **Robust anti-outlier averaging of the raw acquisition buffer**: every physical observable
+  averaged from the 10-sample circular buffer — resonance frequency and dissipation (per
+  overtone) and temperature — is now aggregated with `scipy.stats.trim_mean` (proportion
+  `Constants.trim_mean_proportiontocut = 0.10`) instead of Savitzky-Golay + `np.average`,
+  consistently across **both** acquisition processors (`processors/Multiscan.py`, multi-overtone,
+  and `processors/Serial.py`, single-overtone). The former SG (window=3, order=1) was a linear
+  3-point moving average with no outlier rejection — a single bad sweep leaked almost fully into
+  the logged value (and was amplified at the buffer edges by the SG reflective padding).
+  `trim_mean` drops the min/max sample before averaging, staying as smooth as the mean (no median
+  "staircase"). The per-sweep Savitzky-Golay (sweep-curve smoothing, Stage A) is unchanged; the
+  datalog-decimation average in `core/worker.py` is a separate, pending change.
 
 ### Docs
 - Rewrote `README.md` with a full structure (badges, TOC, features, architecture,

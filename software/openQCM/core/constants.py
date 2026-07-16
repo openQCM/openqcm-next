@@ -688,6 +688,12 @@ class Constants:
    
     SG_order_environment = 1
     SG_window_environment = 3
+
+    # VER 0.1.6 anti-outlier robust averaging of the raw circular buffer.
+    # scipy.stats.trim_mean drops the lowest/highest int(proportiontocut * N)
+    # samples per tail before averaging (N=10 -> 1 per tail). Replaces the old
+    # Savitzky-Golay + np.average, a linear filter with no outlier rejection.
+    trim_mean_proportiontocut = 0.10
     
     ###################
     class SocketClient: #unused
