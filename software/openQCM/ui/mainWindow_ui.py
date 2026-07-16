@@ -211,6 +211,11 @@ class Ui_MainWindow(object):
         self.gridLayout.setObjectName("gridLayout")
         self._label(self.groupConnection, "l1", "Serial COM Port")
         self._label(self.groupConnection, "label_COM_status", "Disconnected")
+        # a long "Connected: <port>" must NOT widen the sidebar: ignore the
+        # label's content width (it clips/keeps the full text in the tooltip)
+        self.label_COM_status.setSizePolicy(QtWidgets.QSizePolicy.Ignored,
+                                            QtWidgets.QSizePolicy.Preferred)
+        self.label_COM_status.setMinimumWidth(0)
         self.cBox_Port = QtWidgets.QComboBox(self.groupConnection)
         self.cBox_Port.setObjectName("cBox_Port")
         self.cBox_Port.setSizeAdjustPolicy(

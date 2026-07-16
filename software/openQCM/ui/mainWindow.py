@@ -2033,6 +2033,7 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.pButton_Refresh.setEnabled(False)
             self.ui.pButton_Start.setEnabled(True)
             self.ui.label_COM_status.setText("Connected: {}".format(port))
+            self.ui.label_COM_status.setToolTip("Connected: {}".format(port))
             print(TAG, "Connected to serial port {}".format(port))
             Log.i(TAG, "Connected to serial port {}".format(port))
             # Firmware version check on connection (moved here from app startup)

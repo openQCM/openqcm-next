@@ -26,6 +26,8 @@ LIGHT = {
     "field_text": "#222222",
     "accent": "#008EC0",
     "accent_text": "#ffffff",
+    "brown": "#DD8E6B",
+    "brown_hover": "#cf7f5c",
     "disabled_bg": "#eceef1",
     "disabled_text": "#9aa0a6",
 }
@@ -41,6 +43,8 @@ DARK = {
     "field_text": "#e6e6e6",
     "accent": "#008EC0",
     "accent_text": "#ffffff",
+    "brown": "#DD8E6B",
+    "brown_hover": "#cf7f5c",
     "disabled_bg": "#3f4143",
     "disabled_text": "#7c8085",
 }
@@ -160,8 +164,8 @@ def qss(p):
         border: none; border-radius: 8px; padding: 8px 12px;
         font-weight: bold; font-size: 14px; }}
     QPushButton#pButton_Start:hover {{ background: #007aa5; }}
-    QPushButton#pButton_Start[running="true"] {{ background: #d32f2f; }}
-    QPushButton#pButton_Start[running="true"]:hover {{ background: #e03b3b; }}
+    QPushButton#pButton_Start[running="true"] {{ background: {brown}; }}
+    QPushButton#pButton_Start[running="true"]:hover {{ background: {brown_hover}; }}
     QPushButton#pButton_Start:disabled {{ background: {disabled_bg}; color: {disabled_text}; }}
 
     /* Connection buttons (3e, R2 polish): Connect = primary, Refresh = outline */

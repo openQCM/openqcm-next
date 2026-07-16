@@ -132,6 +132,11 @@ Conventional Commits. Versions are marked by Git tags.
   - Min-Y-scale enforcement deferred by decision.
 
 ### Changed
+- **GUI palette reduction — Start/Stop toggle now blue/brown** — moving toward a two-color palette
+  (openQCM blue `#008EC0` + brown `#DD8E6B`): the Start/Stop toggle is **blue when idle (Start)**
+  and **brown when running (Stop)** instead of red. Added `brown` / `brown_hover` palette keys
+  (`ui/theme.py`, `#DD8E6B` on both themes). The remaining state colors (status pill yellow/red/
+  green) are left for a follow-up pass.
 - **GUI sidebar horizontal compaction (fine-tuning)** — several changes to narrow the sidebar:
   F0–F9 overtone chips shrunk to the minimum (tight padding, `min-width: 0`, 3px row spacing);
   the TEC **ON / OFF / RESET** buttons moved onto a single compact equal-width row (tight padding);
@@ -236,6 +241,10 @@ Conventional Commits. Versions are marked by Git tags.
   unchanged.
 
 ### Fixed
+- **Long serial-port name widened the sidebar** — on Connect, `label_COM_status` showed
+  "Connected: <port>" and a long port name forced the whole (scroll-bar-off) sidebar wider. The
+  label now has an `Ignored` horizontal size policy and `minimumWidth 0`, so its content never
+  dictates the sidebar width (the full "Connected: <port>" is kept in its tooltip).
 - **Peak-detection / calibration plot was invisible on the light theme** — the live amplitude
   sweep drawn during peak detection (and the serial-mode amplitude sweep and the temperature
   curve) used a hardcoded **white** pen (`Constants.plot_colors[0]` / `plot_color_temperature`),
