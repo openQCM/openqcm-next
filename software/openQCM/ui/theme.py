@@ -50,8 +50,8 @@ DARK = {
 # title: plot title color. Frequency (blue) / dissipation (brown) curve colors
 # are theme-independent and live in Constants.
 PLOT = {
-    "light": {"bg": "w", "axis": "#666666", "title": "#333333"},
-    "dark": {"bg": (43, 43, 43), "axis": "#c8c8c8", "title": "#e0e0e0"},
+    "light": {"bg": "w", "axis": "#666666", "title": "#333333", "curve": "#333333"},
+    "dark": {"bg": (43, 43, 43), "axis": "#c8c8c8", "title": "#e0e0e0", "curve": "#e0e0e0"},
 }
 
 

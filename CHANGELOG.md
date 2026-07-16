@@ -235,6 +235,16 @@ Conventional Commits. Versions are marked by Git tags.
   for distribution by setting the flag `True`. The sweep-spectrum plot's own fixed range is
   unchanged.
 
+### Fixed
+- **Peak-detection / calibration plot was invisible on the light theme** — the live amplitude
+  sweep drawn during peak detection (and the serial-mode amplitude sweep and the temperature
+  curve) used a hardcoded **white** pen (`Constants.plot_colors[0]` / `plot_color_temperature`),
+  which vanished once the theme system set the light theme's plot background to white. These
+  single curves now use a theme-aware foreground color (new `theme.PLOT[theme]["curve"]`, dark on
+  light / light on dark) via a `_curve_color()` helper, applied at every plot/setData site and
+  re-applied on theme switch in `_apply_plot_theme`. The colored multi-overtone
+  frequency/dissipation curves were unaffected. Regression from the GUI theme system (Phase 0).
+
 ### Docs
 - Rewrote `README.md` with a full structure (badges, TOC, features, architecture,
   version history, roadmap).

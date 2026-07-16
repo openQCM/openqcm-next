@@ -566,14 +566,14 @@ class MainWindow(QtGui.QMainWindow):
                                                 
                 
                 # VER 0.1.6 after clear the plt create the reference to the ampli lines again 
-                self._plt0_line = self._plt0.plot(pen=Constants.plot_colors[0])
+                self._plt0_line = self._plt0.plot(pen=self._curve_color())
                 
 # =============================================================================
 #                 # reference to the line object temperature 
 #                 self._plt4_line = self._plt4.plot(pen=Constants.plot_colors[4])
 # =============================================================================
                 # reference to the line object temperature 
-                self._plt4_line = self._plt4.plot(pen=Constants.plot_color_temperature)
+                self._plt4_line = self._plt4.plot(pen=self._curve_color())
                 
                 # VER 0.1.6 add legend in single mode 
                 self._legend_f.addItem(item = self._plt2_line, name = Constants.name_legend[overtone_selected])
@@ -684,7 +684,7 @@ class MainWindow(QtGui.QMainWindow):
 #                 self._plt4_line = self._plt4.plot(pen=Constants.plot_colors[4])    
 # =============================================================================
                 # VER 0.1.6 create the reference to theto the temperature line for real time plot
-                self._plt4_line = self._plt4.plot(pen=Constants.plot_color_temperature)
+                self._plt4_line = self._plt4.plot(pen=self._curve_color())
 
                 # init radio button
                 self.ui.radioBtn_F0.setChecked(True)
@@ -1616,6 +1616,24 @@ class MainWindow(QtGui.QMainWindow):
                     plot.setTitle(title_item.text, color=pt["title"])
             except Exception:
                 pass
+        # VER 0.1.7 recolor the theme-dependent single curves: the amplitude
+        # sweep (Constants.plot_colors[0]) and temperature (plot_color_temperature)
+        # are white and vanish on the light theme's white plot background — give
+        # them the theme foreground curve color.
+        curve = pt.get("curve", pt["axis"])
+        for line in (getattr(self, "_plt0_line", None),
+                     getattr(self, "_plt4_line", None)):
+            if line is not None:
+                try:
+                    line.setPen(pg.mkPen(color=curve))
+                except Exception:
+                    pass
+
+    def _curve_color(self):
+        """Foreground curve color for the active theme (amplitude sweep and
+        temperature; their hardcoded white pen is invisible on the light
+        theme's white plot background)."""
+        return theme.PLOT[self._theme].get("curve", "#333333")
 
     ###########################################################################
     # VER 0.1.6 GUI redesign Phase 1 — single-window splitter shell
@@ -2706,7 +2724,7 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
 #                 self._plt0_line.setData(x = self._readFREQ, y = self.worker.get_value1_buffer(), pen=Constants.plot_colors[0])
 # =============================================================================
-                self._plt0_line.setData(x = x_sweep_reduced, y = y_sweep_reduced, pen=Constants.plot_colors[0])
+                self._plt0_line.setData(x = x_sweep_reduced, y = y_sweep_reduced, pen=self._curve_color())
         
                 
                 
@@ -3270,7 +3288,7 @@ class MainWindow(QtGui.QMainWindow):
                
                # VER 0.1.6 the calibration curve white color
                calibration_readFREQ  = np.arange(len(self.worker.get_value1_buffer())) * (Constants.calib_fStep) + Constants.calibration_frequency_start
-               self._plt0.plot(x=calibration_readFREQ, y=self.worker.get_value1_buffer(), pen=Constants.plot_colors[0])
+               self._plt0.plot(x=calibration_readFREQ, y=self.worker.get_value1_buffer(), pen=self._curve_color())
                
                # VER 0.1.6 remove reference to phase signal
 # =============================================================================
@@ -3300,7 +3318,7 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
 #                 self._plt0_line.setData(x = self._readFREQ, y = self.worker.get_value1_buffer(), pen=Constants.plot_colors[0])
 # =============================================================================
-               self._plt0_line.setData(x = x_sweep_reduced, y = y_sweep_reduced, pen=Constants.plot_colors[0])
+               self._plt0_line.setData(x = x_sweep_reduced, y = y_sweep_reduced, pen=self._curve_color())
 
 # =============================================================================
 #                self._plt0.clear()
@@ -4302,7 +4320,7 @@ class MainWindow(QtGui.QMainWindow):
                                                                      width = Constants.plot_line_width))
                 
                     # VER 0.1.6 after clear the plt create the reference to the ampli lines again 
-                    self._plt0_line = self._plt0.plot(pen=Constants.plot_colors[0], width = Constants.plot_line_width)
+                    self._plt0_line = self._plt0.plot(pen=self._curve_color(), width = Constants.plot_line_width)
                 
                 # VER 0.1.6 after clear the plt create the reference to the lines again 
                 elif self._get_source() == SourceType.multiscan:
@@ -4326,7 +4344,7 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
                 # VER 0.1.6 reference to the line object temperature                 
                 # 
-                self._plt4_line = self._plt4.plot(pen=Constants.plot_color_temperature)
+                self._plt4_line = self._plt4.plot(pen=self._curve_color())
                 
                 # VER 0.1.6 do not autoscale here 
                 # enable autoragne here 
