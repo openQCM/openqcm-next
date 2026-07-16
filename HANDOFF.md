@@ -219,13 +219,6 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
     `spinBox_Cycling_Time/P/I/D_Share`, `pButton_PID_Set`, page `tab_2`) and optionally the
     datalog sampling time, replacing the old in-sidebar PID tab. See memory
     `advanced-temperature-pid-window`.
-  - **v0.1.7 minimalist restyle — DONE** (from the user's Claude Design handoff; see CHANGELOG):
-    `ui/theme.py` replaced wholesale (IBM Plex Sans/Mono typography, softer palettes, hairline
-    borders, uppercase card titles, pill chips, taller Start); `mainWindow_ui.py` tweaks (compact
-    sweep+temp on top / big ΔF & ΔD below — **still two separate panels**, Start 46px, 11px
-    swatches, 14px sidebar rhythm, uppercase titles); `app.py` registers IBM Plex from
-    `res/fonts/`; `constants.py` new overtone blue ramp. **Pending: drop the 5 IBM Plex `.ttf`
-    into `software/openQCM/res/fonts/`** (graceful platform fallback if absent) + user visual check.
   4. Plot polish: grid off by default + toggle, right-click menu, **Δ cursors**, min-scale
      (integrate with the `plot_force_yrange` flag); curve colors already aligned.
   5. Scientific menu **File / View / Tools / Help**.

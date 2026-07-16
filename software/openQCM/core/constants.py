@@ -117,13 +117,12 @@ class Constants:
     
     # plot_color_multi = [(0, 0, 255), (70, 99, 255), (122, 160, 255), (173, 182, 255), (255, 228, 255)]
     
-    # v0.1.7 overtone ramp — distinct on both light and dark plot backgrounds
     plot_color_multi = [
-    (11, 63, 212),    # F0 — indigo blue
-    (14, 122, 209),   # F3 — blue
-    (10, 162, 191),   # F5 — teal-cyan
-    (47, 155, 214),   # F7 — sky
-    (90, 114, 201)    # F9 — slate blue
+    (0, 0, 255),      # Blu puro
+    (0, 127, 255),    # Blu medio-azzurro
+    (0, 191, 255),    # Azzurro brillante
+    (127, 223, 255),  # Azzurro chiaro
+    (191, 255, 255)   # Azzurro molto chiaro/ciano chiaro
     ]
                          
     name_legend = ["0th", "3rd", "5th", "7th", "9th"]                        
