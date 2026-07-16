@@ -150,12 +150,22 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
     (`[240, 900]`). Note much of the action row is superseded by **Phase 3** (single StartStop toggle +
     status dock) — decide whether to polish now or fold into Phase 3. `QtGui.*` widget classes are
     available in `mainWindow.py` via the matplotlib `qt_compat` shim (so keep using `QtGui.QWidget` etc.).
-- **Fasi 2–5 — PLANNED** (approved direction; each phase = own plan + smoke test + commit):
-  2. **Tab system**: `Plots` + `System Log` (redirect stdout/stderr with timestamps).
-  3. Consolidated controls: **single StartStop toggle** (confirmed), overtone quick-select *adapted*
-     to NEXT (single = 1 active; multiscan = multi-select), **status dock** with live F/D/T/S readings
-     + state dot + progress, log-filename display.
-  4. Plot polish: standardized colors, grid off by default, right-click menu, **Δ cursors**, min-scale.
+- **Fase 2 — Tab centrale [ Plots | System Log ] — IMPLEMENTED (pending on-device smoke test)**
+  (see CHANGELOG): center pane is a `QTabWidget` (`centerTabs`); the plots are re-parented into the
+  Plots tab; module-level `LogStream` mirrors the main process's stdout/stderr into a read-only
+  `QTextEdit` (`systemLog`) with `[HH:MM:SS]` timestamps, forwarding to the originals; installed
+  after `_build_shell()` (`_install_system_log`), restored in `closeEvent` (`_restore_system_log`);
+  theme-aware monospace via `QTextEdit#systemLog` in `ui/theme.py`. **Scope**: captures `print()`
+  of the main process only — child-process prints and `logging`-module messages stay on the
+  terminal / log file (a `logging.StreamHandler(LogStream)` would add them; optional Phase 2-bis).
+- **Fasi 3–5 — PLANNED** (approved direction; each phase = own detailed plan + approval + smoke test + commit):
+  3. Consolidated controls **+ sidebar layout tuning (folded in here)**: single StartStop toggle
+     (confirmed); overtone quick-select — single = 1 active; **multiscan = all overtones are always
+     acquired, the F0/F3/F5/F7/F9 selection is purely a visual highlight on the plot** (confirmed);
+     status = **restyle `infostatus`/`infobar` theme-aware + a state dot** (light — confirmed, NOT a
+     dock); log-filename display; card-style sidebar spacing.
+  4. Plot polish: grid off by default + toggle, right-click menu, **Δ cursors**, min-scale
+     (integrate with the `plot_force_yrange` flag); curve colors already aligned.
   5. Scientific menu **File / View / Tools / Help**.
   - **Confirmed UX decisions**: single StartStop toggle; **TEC/PID controls kept as a sidebar card**;
     System Log as a tab; default theme light.

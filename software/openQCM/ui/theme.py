@@ -95,6 +95,11 @@ def qss(p):
         border-top-left-radius: 5px; border-top-right-radius: 5px; }}
     QTabBar::tab:selected {{ background: {panel}; color: {text}; }}
 
+    /* System Log console (theme-aware, monospace) */
+    QTextEdit#systemLog {{ background: {field_bg}; color: {field_text};
+        border: 1px solid {border};
+        font-family: "Menlo", "Consolas", "Courier New", monospace; }}
+
     QMenuBar {{ background: {window}; color: {text}; }}
     QMenuBar::item:selected {{ background: {accent}; color: {accent_text}; }}
     QMenu {{ background: {panel}; color: {text}; border: 1px solid {border}; }}

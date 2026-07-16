@@ -40,6 +40,16 @@ Conventional Commits. Versions are marked by Git tags.
   preserved), so it composes with the theme and all existing behaviour; commenting out the
   `_build_shell()` call reverts to the old layout. **⚠️ Visual layout tuning is still pending** (see
   HANDOFF §5): the action-button row is cramped in the narrow sidebar and needs rearranging.
+- **GUI System Log tab (Phase 2 of the GUI redesign)** — the center pane is now a `QTabWidget`
+  (`centerTabs`) with **Plots** and **System Log** tabs. The plots are re-parented as-is into the
+  Plots tab (no widget recreated); the System Log tab hosts a read-only `QTextEdit` (`systemLog`)
+  fed by a new `LogStream` class that mirrors the **main process's** `stdout`/`stderr` into the
+  widget with `[HH:MM:SS]` timestamps while still forwarding to the original streams (terminal +
+  rotating log file unaffected). Installed in `__init__` right after `_build_shell()`, restored in
+  `closeEvent`. Theme-aware, monospace (`QTextEdit#systemLog` rule added to `ui/theme.py`). Scope:
+  captures main-process `print()`; child-process (Serial/Multiscan/Calibration) prints and
+  `logging`-module messages are not intercepted (they keep going to terminal / log file). Adapted
+  from openQCM Q-1 v3.0.
 - **Responsive, clean cancellation of Peak Detection (calibration)** — ported and adapted
   from the more mature openQCM Q-1 v3.0. The peak-detection sweep can now be stopped mid-run
   without a hard process kill or a corrupt serial state, replacing the previous behaviour where

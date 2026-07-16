@@ -52,6 +52,37 @@ TAG = ""#"[MainWindow]"
 
 # VER 0.1.6 init the SecondWindow class
 # for TEC current real time monitoring 
+class LogStream:
+    """Mirror stdout/stderr into the System Log tab (timestamped) while still
+    forwarding to the original stream. Adapted from openQCM Q-1 v3.0. Captures
+    the main process's print() output; child-process prints and logging-module
+    messages are not intercepted (they keep going to the terminal / log file)."""
+
+    def __init__(self, text_widget, stream):
+        self._text_widget = text_widget
+        self._stream = stream
+
+    def write(self, text):
+        # keep the original stream working (terminal / redirected output)
+        if self._stream is not None:
+            self._stream.write(text)
+            self._stream.flush()
+        if not text:
+            return
+        line = text.rstrip()
+        if line == "" or text == "\r":
+            return
+        stamp = time.strftime("[%H:%M:%S] ")
+        # append is thread-safe via a queued cross-thread invocation
+        QtCore.QMetaObject.invokeMethod(
+            self._text_widget, "append", QtCore.Qt.QueuedConnection,
+            QtCore.Q_ARG(str, stamp + line))
+
+    def flush(self):
+        if self._stream is not None:
+            self._stream.flush()
+
+
 class SecondWindow(QtGui.QWidget):
     def __init__(self):
         super(SecondWindow, self).__init__()
@@ -351,6 +382,7 @@ class MainWindow(QtGui.QMainWindow):
         # into a QSplitter [ scrollable sidebar | plots ]. Done last, after every
         # widget (incl. the runtime Connect/Refresh buttons) exists.
         self._build_shell()
+        self._install_system_log()
 
 
     # https://stackoverflow.com/questions/63182608/colcount-not-working-for-legenditem-in-pyqtgraph-with-pyqt5-library
@@ -1263,6 +1295,8 @@ class MainWindow(QtGui.QMainWindow):
                 Log.i(TAG, "Window closed without stopping the capture, application will stop...")
                 self.stop()
             
+            # Restore stdout/stderr before the window is destroyed
+            self._restore_system_log()
             # Accept the close event
             evnt.accept()
         else:
@@ -1467,11 +1501,24 @@ class MainWindow(QtGui.QMainWindow):
         scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         scroll.setFrameShape(QtGui.QFrame.NoFrame)
 
-        # --- center: the plots ---
-        center = QtGui.QWidget()
-        cv = QtGui.QVBoxLayout(center)
-        cv.setContentsMargins(0, 0, 0, 0)
-        move(ui.verticalLayout_plt, cv)
+        # --- center: tabs [ Plots | System Log ] ---
+        center = QtGui.QTabWidget()
+        center.setObjectName("centerTabs")
+        # Tab 1: the plots (re-parented as-is)
+        plots_tab = QtGui.QWidget()
+        pv = QtGui.QVBoxLayout(plots_tab)
+        pv.setContentsMargins(0, 0, 0, 0)
+        move(ui.verticalLayout_plt, pv)
+        center.addTab(plots_tab, "Plots")
+        # Tab 2: System Log (stdout/stderr mirror; see LogStream / _install_system_log)
+        log_tab = QtGui.QWidget()
+        lv = QtGui.QVBoxLayout(log_tab)
+        lv.setContentsMargins(0, 0, 0, 0)
+        self.systemLog = QtGui.QTextEdit()
+        self.systemLog.setObjectName("systemLog")
+        self.systemLog.setReadOnly(True)
+        lv.addWidget(self.systemLog)
+        center.addTab(log_tab, "System Log")
 
         # --- splitter ---
         splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
@@ -1491,6 +1538,22 @@ class MainWindow(QtGui.QMainWindow):
         outer = QtGui.QVBoxLayout(ui.centralwidget)
         outer.setContentsMargins(4, 4, 4, 4)
         outer.addWidget(splitter)
+
+    def _install_system_log(self):
+        """Redirect stdout/stderr into the System Log tab, keeping the original
+        streams (terminal / file logging unaffected). Reversed in closeEvent."""
+        self._stdout_orig = sys.stdout
+        self._stderr_orig = sys.stderr
+        sys.stdout = LogStream(self.systemLog, self._stdout_orig)
+        sys.stderr = LogStream(self.systemLog, self._stderr_orig)
+        print(TAG, "System Log ready.")
+
+    def _restore_system_log(self):
+        """Restore the original stdout/stderr (called when the window closes)."""
+        if getattr(self, "_stdout_orig", None) is not None:
+            sys.stdout = self._stdout_orig
+        if getattr(self, "_stderr_orig", None) is not None:
+            sys.stderr = self._stderr_orig
 
     ###########################################################################
     # Configures specific elements of the PyQtGraph plots.
