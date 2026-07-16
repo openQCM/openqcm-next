@@ -55,7 +55,8 @@ mode). Methods in `software/openQCM/ui/mainWindow.py`:
 (restored the functional `sweep_data/*.txt`); **robust trimmed-mean averaging** of the raw
 acquisition buffer; **observable plots default to Y autorange** in development
 (`Constants.plot_force_yrange`); **responsive peak-detection (calibration) cancellation**
-(ported from Q-1 v3.0 — Stop now interruptible mid-sweep, clean shutdown) — all see §5 and CHANGELOG.
+(ported from Q-1 v3.0 — Stop now interruptible mid-sweep, clean shutdown); **GUI theme system
+dark/light** (`ui/theme.py` + View → Theme menu, Phase 0 of the GUI redesign) — all see §5 and CHANGELOG.
 
 ## 4. `impedance-analysis` branch (0.1.6G) — detail
 
@@ -119,6 +120,26 @@ Done (responsive peak-detection cancellation — ported from Q-1 v3.0, see CHANG
     "Cancelled" comes from `stop()` and the real cancellation from the responsive loop + graceful join.
   - **Reference sibling repo**: `/Users/marco/claude_code/openQCM_Q-1/OPENQCM` (git; remote
     `github.com/openQCM/openQCM_Q-1`; **v3.0**). This is the authoritative Q-1 roadmap codebase.
+
+GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/marco/claude_code/openQCM_Q-1/OPENQCM`):
+- **Fase 0 — Theme dark/light — DONE** (see CHANGELOG): `ui/theme.py` (LIGHT/DARK palettes + QSS +
+  per-theme plot colors) + `_setup_theme_menu`/`_apply_theme`/`_apply_plot_theme` + `QSettings`
+  persistence (default light). Readout fields migrated from inline white to QSS objectName rules.
+  - Known Phase-0 limitation: `infostatus` standby stays a light pill on the dark theme (uses HTML
+    `<font color=#000000>` text on a white inline background) — harmonise the neutral state in Phase 4.
+- **Fasi 1–5 — PLANNED** (approved direction, not yet coded; each phase = own plan + smoke test + commit):
+  1. Single-window **QSplitter** shell (collapsible scrollable sidebar of group "cards" + center area).
+  2. **Tab system**: `Plots` + `System Log` (redirect stdout/stderr with timestamps).
+  3. Consolidated controls: **single StartStop toggle** (confirmed), overtone quick-select *adapted*
+     to NEXT (single = 1 active; multiscan = multi-select), **status dock** with live F/D/T/S readings
+     + state dot + progress, log-filename display.
+  4. Plot polish: standardized colors, grid off by default, right-click menu, **Δ cursors**, min-scale.
+  5. Scientific menu **File / View / Tools / Help**.
+  - **Confirmed UX decisions**: single StartStop toggle; **TEC/PID controls kept as a sidebar card**;
+    System Log as a tab; default theme light.
+  - ⚠️ **Preserve (do NOT copy Q-1 blindly)**: Q-1 v3.0 has *no* temperature control — NEXT's
+    **TEC/Peltier + PID** must stay; and NEXT's **multiscan** multi-overtone selection differs from
+    Q-1's single-overtone measurement.
 
 Quick wins:
 - **Disconnected-sensor detection** (ported from openQCM Q-1; detailed plan ready, awaiting go):

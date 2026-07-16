@@ -23,6 +23,15 @@ Conventional Commits. Versions are marked by Git tags.
   temperature, TEC on/off, PID, firmware version) go through it via `_serial_write` /
   `_serial_query` instead of opening the port ad-hoc; the port is **handed over** to the
   acquisition process on START (handle closed) and **re-acquired** on STOP.
+- **GUI theme system (dark/light)** — first phase (Phase 0) of the GUI redesign inspired by
+  openQCM Q-1 v3.0. New `ui/theme.py` (`LIGHT`/`DARK` palettes + a parameterised Qt Style Sheet
+  builder + per-theme pyqtgraph plot colors) and a **View → Theme → Light/Dark** menu in
+  `ui/mainWindow.py` (`_setup_theme_menu`, `_apply_theme`, `_apply_plot_theme`). The whole window
+  (controls, group boxes, tabs, menus, readout fields) and the plots (background, axes, titles)
+  follow the active theme; accent blue `#008EC0` and dissipation brown `#DD8E6B` stay fixed on both.
+  The choice persists in `QSettings('openQCM','NEXT')` (default light on first run). The per-overtone
+  readout fields (`F0`..`D9`, temperature indicator) were migrated from hardcoded white inline styles
+  to QSS objectName rules so they theme correctly.
 - **Responsive, clean cancellation of Peak Detection (calibration)** — ported and adapted
   from the more mature openQCM Q-1 v3.0. The peak-detection sweep can now be stopped mid-run
   without a hard process kill or a corrupt serial state, replacing the previous behaviour where

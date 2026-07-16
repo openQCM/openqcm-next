@@ -23,6 +23,7 @@ from openQCM.core.worker import Worker
 from openQCM.processors.Serial import SerialProcess
 from openQCM.core.constants import Constants, SourceType, DateAxis, NonScientificAxis
 from openQCM.ui.popUp import PopUp
+from openQCM.ui import theme
 from openQCM.common.logger import Logger as Log
 from openQCM.common.architecture import Architecture,OSType
 
@@ -232,20 +233,18 @@ class MainWindow(QtGui.QMainWindow):
         # TODO delete sbox number of samples
         # self.ui.sBox_Samples.setValue(samples)  #samples
 
-        # set style temperature indicator
-        self.ui.indicator_temperature.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        # set style freqwuency and dissapation indicator
-        self.ui.F0.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        self.ui.D0.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        self.ui.F3.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        self.ui.D3.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        self.ui.F5.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        self.ui.D5.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        self.ui.F7.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        self.ui.D7.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        self.ui.F9.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        self.ui.D9.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        
+        # VER 0.1.6 the temperature/frequency/dissipation readout fields are now
+        # styled by the theme QSS (via their objectNames), so they follow the
+        # active light/dark theme instead of a hardcoded white background.
+
+        # VER 0.1.6 theme system (GUI redesign Phase 0): build the View > Theme
+        # menu and apply the saved theme (default light on first run).
+        self._theme = "light"
+        self._setup_theme_menu()
+        _saved = QtCore.QSettings("openQCM", "NEXT").value("theme", "light")
+        _saved = str(_saved) if _saved else "light"
+        self._apply_theme(_saved if _saved in ("light", "dark") else "light")
+
         # VER 0.1.6 frequency and dissipation label color
         # init the array of frequency label color 
         label_F = [self.ui.label_F0_col, self.ui.label_F3_col, self.ui.label_F5_col, self.ui.label_F7_col, self.ui.label_F9_col]
@@ -1317,6 +1316,89 @@ class MainWindow(QtGui.QMainWindow):
 #         self.ui.pButton_Tswitch_ON.setEnabled(enabled)
 # =============================================================================
 
+
+    ###########################################################################
+    # VER 0.1.6 Theme system (GUI redesign Phase 0)
+    ###########################################################################
+    def _setup_theme_menu(self):
+        """Add a View > Theme submenu with an exclusive Light/Dark choice."""
+        menu_view = self.menuBar().addMenu("View")
+        theme_menu = menu_view.addMenu("Theme")
+        group = QtGui.QActionGroup(self)
+        group.setExclusive(True)
+        self._act_theme_light = QtGui.QAction("Light", self)
+        self._act_theme_light.setCheckable(True)
+        self._act_theme_dark = QtGui.QAction("Dark", self)
+        self._act_theme_dark.setCheckable(True)
+        group.addAction(self._act_theme_light)
+        group.addAction(self._act_theme_dark)
+        theme_menu.addAction(self._act_theme_light)
+        theme_menu.addAction(self._act_theme_dark)
+        self._act_theme_light.triggered.connect(lambda: self._apply_theme("light"))
+        self._act_theme_dark.triggered.connect(lambda: self._apply_theme("dark"))
+
+    def _apply_theme(self, name):
+        """Apply the light/dark theme: window QSS + pyqtgraph repaint + persist."""
+        name = "dark" if name == "dark" else "light"
+        self._theme = name
+        # window-wide Qt Style Sheet
+        self.setStyleSheet(theme.qss(theme.palette(name)))
+        # pyqtgraph plots (background / axes / titles)
+        self._apply_plot_theme(theme.PLOT[name])
+        # keep the menu checkmarks in sync
+        try:
+            self._act_theme_light.setChecked(name == "light")
+            self._act_theme_dark.setChecked(name == "dark")
+        except Exception:
+            pass
+        # persist the choice for the next launch
+        try:
+            QtCore.QSettings("openQCM", "NEXT").setValue("theme", name)
+        except Exception:
+            pass
+
+    def _apply_plot_theme(self, pt):
+        """Repaint pyqtgraph backgrounds, axes and titles for the active theme."""
+        # GraphicsLayoutWidget backgrounds
+        for w in (getattr(self.ui, "plt", None),
+                  getattr(self.ui, "pltB", None),
+                  getattr(self.ui, "pltD", None)):
+            if w is not None:
+                try:
+                    w.setBackground(pt["bg"])
+                except Exception:
+                    pass
+        # per-plot axes + title (guarded: some refs are ViewBoxes or None)
+        for plot in (self._plt0, self._plt1, self._plt2, self._pltD, self._plt4):
+            if plot is None:
+                continue
+            for side in ("left", "bottom", "right", "top"):
+                try:
+                    ax = plot.getAxis(side)
+                except Exception:
+                    continue
+                if ax is None:
+                    continue
+                try:
+                    ax.setPen(pg.mkPen(color=pt["axis"]))
+                except Exception:
+                    pass
+                try:
+                    ax.setTextPen(pg.mkPen(color=pt["axis"]))
+                except Exception:
+                    pass
+                if side in ("left", "bottom"):
+                    try:
+                        ax.setLabel(**{"color": pt["axis"]})
+                    except Exception:
+                        pass
+            # recolor the plot title if it has one
+            try:
+                title_item = getattr(plot, "titleLabel", None)
+                if title_item is not None and title_item.text:
+                    plot.setTitle(title_item.text, color=pt["title"])
+            except Exception:
+                pass
 
     ###########################################################################
     # Configures specific elements of the PyQtGraph plots.
