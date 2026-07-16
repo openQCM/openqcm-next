@@ -40,6 +40,14 @@ Conventional Commits. Versions are marked by Git tags.
   `trim_mean` drops the min/max sample before averaging, staying as smooth as the mean (no median
   "staircase"). The per-sweep Savitzky-Golay (sweep-curve smoothing, Stage A) is unchanged; the
   datalog-decimation average in `core/worker.py` is a separate, pending change.
+- **Development: observable plots default to Y autorange** (`ui/mainWindow.py`,
+  `core/constants.py`): the per-update forced (padded) Y-range on the frequency, dissipation and
+  temperature plots is now gated behind `Constants.plot_force_yrange` (default `False`), applied
+  through a new `_set_yrange_forced` helper. With the flag off the plots autoscale tight to the
+  data; the forced range — introduced so autoscale would not over-emphasise small signal
+  variations — can be restored and its paddings (`y_f_range` / `y_d_range` / `y_t_range`) tuned
+  for distribution by setting the flag `True`. The sweep-spectrum plot's own fixed range is
+  unchanged.
 
 ### Docs
 - Rewrote `README.md` with a full structure (badges, TOC, features, architecture,

@@ -2454,8 +2454,8 @@ class MainWindow(QtGui.QMainWindow):
                     y_d_min = y_diss_single_min - y_d_range
                   
                     # set y range axis 
-                    self._plt2.setYRange(y_f_min, y_f_max)
-                    self._pltD.setYRange(y_d_min, y_d_max)
+                    self._set_yrange_forced(self._plt2, y_f_min, y_f_max)
+                    self._set_yrange_forced(self._pltD, y_d_min, y_d_max)
 # =============================================================================
 #                
 # =============================================================================
@@ -2512,7 +2512,7 @@ class MainWindow(QtGui.QMainWindow):
                     y_t_range = 1
                     y_t_min = y_temperature_min - y_t_range
                     y_t_max = y_temperature_max + y_t_range
-                    self._plt4.setYRange(y_t_min, y_t_max)
+                    self._set_yrange_forced(self._plt4, y_t_min, y_t_max)
 # =============================================================================
 # 
 # =============================================================================
@@ -2758,8 +2758,8 @@ class MainWindow(QtGui.QMainWindow):
                             y_d_min = y_diss_min - y_d_range
                             
                             # set y range axis 
-                            self._plt2.setYRange(y_f_min, y_f_max)
-                            self._pltD.setYRange(y_d_min, y_d_max)
+                            self._set_yrange_forced(self._plt2, y_f_min, y_f_max)
+                            self._set_yrange_forced(self._pltD, y_d_min, y_d_max)
 
                     else:
                         dummy = [0]
@@ -2819,7 +2819,7 @@ class MainWindow(QtGui.QMainWindow):
                     y_t_range = 1
                     y_t_min = y_temperature_min - y_t_range
                     y_t_max = y_temperature_max + y_t_range
-                    self._plt4.setYRange(y_t_min, y_t_max)
+                    self._set_yrange_forced(self._plt4, y_t_min, y_t_max)
                     
                     
 # =============================================================================
@@ -3026,8 +3026,8 @@ class MainWindow(QtGui.QMainWindow):
                    y_d_min = y_diss_single_min - y_d_range
                  
                    # set y range axis 
-                   self._plt2.setYRange(y_f_min, y_f_max)
-                   self._pltD.setYRange(y_d_min, y_d_max)
+                   self._set_yrange_forced(self._plt2, y_f_min, y_f_max)
+                   self._set_yrange_forced(self._pltD, y_d_min, y_d_max)
 # =============================================================================
 #                
 # =============================================================================
@@ -3070,7 +3070,7 @@ class MainWindow(QtGui.QMainWindow):
                    y_t_range = 1
                    y_t_min = y_temperature_min - y_t_range
                    y_t_max = y_temperature_max + y_t_range
-                   self._plt4.setYRange(y_t_min, y_t_max)
+                   self._set_yrange_forced(self._plt4, y_t_min, y_t_max)
 # =============================================================================
 # 
 # =============================================================================               
@@ -3311,7 +3311,7 @@ class MainWindow(QtGui.QMainWindow):
                    y_t_range = 1
                    y_t_min = y_temperature_min - y_t_range
                    y_t_max = y_temperature_max + y_t_range
-                   self._plt4.setYRange(y_t_min, y_t_max)
+                   self._set_yrange_forced(self._plt4, y_t_min, y_t_max)
                
                # VER 0.1.6  round to 1 decimal  
                label_indicator_temperature = float("{0:.1f}".format(y_temperature[0]))
@@ -3607,8 +3607,18 @@ class MainWindow(QtGui.QMainWindow):
        self._plt2.enableAutoRange(enable=boolean)
        # dissipation 
        self._pltD.enableAutoRange(enable=boolean)
-       # temperature 
+       # temperature
        self._plt4.enableAutoRange(enable=boolean)
+
+    # VER 0.1.6 apply the forced (padded) Y-range only when enabled; otherwise
+    # leave the plot in autorange (see Constants.plot_force_yrange). Development
+    # builds run with the flag False (tight autorange); set True and tune the
+    # paddings for distribution.
+    def _set_yrange_forced(self, plot, y_min, y_max):
+        if Constants.plot_force_yrange:
+            plot.setYRange(y_min, y_max)
+        else:
+            plot.enableAutoRange(axis='y', enable=True)
         
 
 

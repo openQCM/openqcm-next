@@ -53,7 +53,8 @@ mode). Methods in `software/openQCM/ui/mainWindow.py`:
 ### Also done on main
 `run.py` entry point; full README; `requirements.txt` / `environment.yml`; Raw Data fix
 (restored the functional `sweep_data/*.txt`); **robust trimmed-mean averaging** of the raw
-acquisition buffer (see §5 and CHANGELOG).
+acquisition buffer; **observable plots default to Y autorange** in development
+(`Constants.plot_force_yrange`) — all see §5 and CHANGELOG.
 
 ## 4. `impedance-analysis` branch (0.1.6G) — detail
 
@@ -94,6 +95,13 @@ Done (raw-data robustness — see CHANGELOG):
   - **Still pending — Stage C**: the datalog-decimation average in `core/worker.py:767-769`.
     There, average over `get_partial()` (NaN-safe) and note that `trim_mean(0.10)` degenerates
     to the plain mean for buffers < 10 samples (choose proportion or estimator accordingly).
+
+Done (dev plotting — see CHANGELOG):
+- **Observable plots Y autorange** (`ui/mainWindow.py`, `Constants.plot_force_yrange`): the forced
+  padded Y-range on frequency/dissipation/temperature is gated behind the flag (default `False`,
+  routed through the `_set_yrange_forced` helper) so development runs autoscale tight to the data.
+  - **Distribution follow-up**: set `plot_force_yrange = True` and tune the paddings
+    `y_f_range` / `y_d_range` / `y_t_range` for a stable user-facing view.
 
 Quick wins:
 - **Disconnected-sensor detection**: guard on a minimum Q-factor (`min_valid_q_factor`) in

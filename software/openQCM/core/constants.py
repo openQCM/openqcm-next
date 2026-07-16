@@ -67,6 +67,14 @@ class Constants:
     # VER 0.1.6_TEST TODO check the update clock to 50 msec
     # decrease update plot to 50 msec 
     plot_update_ms = 50 # 50
+
+    # VER 0.1.6 development: keep the observable plots (frequency, dissipation,
+    # temperature) in autorange. When False, the per-update forced (padded)
+    # Y-range is skipped so PyQtGraph autoscales tight to the data; set True and
+    # tune the paddings (y_f_range / y_d_range / y_t_range in ui/mainWindow.py)
+    # for distribution builds, where a wider fixed range avoids over-emphasising
+    # small signal variations.
+    plot_force_yrange = False
     
     # VER 0.1.6 set the color to white (unused)
     # plot_colors = ['#ff0000', '#0072bd', '#00ffff', '#edb120', '#000000', '#77ac30', '#4dbeee', '#a2142f'] 
