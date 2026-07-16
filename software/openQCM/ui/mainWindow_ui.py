@@ -18,8 +18,16 @@ Legacy widgets that the logic still expects (pButton_Stop, the overtone
 radios) are created but hidden.
 """
 
+import os
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 from pyqtgraph import GraphicsLayoutWidget
+
+# Application icon, resolved absolutely from this module (robust to the launch
+# working directory — the old relative "favicon.png" only loaded from cwd).
+APP_ICON = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                 "..", "res", "icon", "favicon.png"))
 
 
 class Ui_MainWindow(object):
@@ -48,8 +56,9 @@ class Ui_MainWindow(object):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1100, 980)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap("favicon.png"),
-                       QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        if os.path.exists(APP_ICON):
+            icon.addPixmap(QtGui.QPixmap(APP_ICON),
+                           QtGui.QIcon.Normal, QtGui.QIcon.Off)
         MainWindow.setWindowIcon(icon)
         MainWindow.setWindowTitle("openQCM NEXT - version 0.1.6 DEVELOPMENT")
 
@@ -190,7 +199,7 @@ class Ui_MainWindow(object):
         self.label = QtWidgets.QLabel(self.groupBox_2)
         self.label.setObjectName("label")
         self.label.setMaximumSize(QtCore.QSize(45, 45))
-        self.label.setPixmap(QtGui.QPixmap("favicon.png"))
+        self.label.setPixmap(QtGui.QPixmap(APP_ICON))
         self.label.setScaledContents(True)
         self.label_2 = QtWidgets.QLabel(self.groupBox_2)
         self.label_2.setObjectName("label_2")

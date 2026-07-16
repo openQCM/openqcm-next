@@ -68,8 +68,13 @@ class OPENQCM:
             #win.move(500, 20) #GUI position (x,y) on the screen 
             #win.show()
             
-            # set application icon
-            self._app.setWindowIcon(QtGui.QIcon('\\icon\\favicon.ico'))
+            # set application icon (dock / taskbar + default for all windows).
+            # Absolute, module-relative path (the old '\\icon\\favicon.ico' was
+            # a broken Windows path that never resolved on macOS/Linux).
+            _app_icon = os.path.join(os.path.dirname(__file__),
+                                     "res", "icon", "favicon.png")
+            if os.path.exists(_app_icon):
+                self._app.setWindowIcon(QtGui.QIcon(_app_icon))
             
             # VER 0.1.2
             # set style 

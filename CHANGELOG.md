@@ -247,6 +247,12 @@ Conventional Commits. Versions are marked by Git tags.
   unchanged.
 
 ### Fixed
+- **Application icon now loads on all platforms** — it was set from non-resolving paths:
+  `app.py` used the Windows-only `'\icon\favicon.ico'`, and the window icon + sidebar brand logo
+  used the cwd-relative `"favicon.png"`, so no icon appeared on macOS/Linux (or whenever the app
+  was launched from another directory). All three now use an absolute, module-relative path to
+  `openQCM/res/icon/favicon.png`: `QApplication.setWindowIcon` (dock / taskbar + default window
+  icon), the `MainWindow` window icon, and the sidebar brand logo (guarded by `os.path.exists`).
 - **Long serial-port name widened the sidebar** — on Connect, `label_COM_status` showed
   "Connected: <port>" and a long port name forced the whole (scroll-bar-off) sidebar wider. The
   label now has an `Ignored` horizontal size policy and `minimumWidth 0`, so its content never
