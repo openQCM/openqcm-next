@@ -85,10 +85,15 @@ A **Quartz Crystal Microbalance (QCM)** measures mass changes and material prope
 
 ### Visualization and Analysis
 
-- **Amplitude / Phase** frequency sweep plot
-- **Resonance Frequency / Dissipation** time series
+- **Resonance Frequency** and **Dissipation** time-series plots, each with a **readout card** above
+  it showing the live per-overtone values (F0/F3/F5/F7/F9 · D0/D3/D5/D7/D9) with color swatches
+- **Amplitude / Phase** frequency sweep and **Temperature** plots in a **collapsible** top pane
+  (hide them to give the frequency/dissipation plots the full height)
 - **Temperature** monitoring, with a dedicated **TEC current** window
-- Dark-themed, high-performance real-time plotting via PyQtGraph (`setData`, 50 ms refresh)
+- **Light / dark theme** (toggle from *View → Theme* or the menu-bar corner button), high-performance
+  real-time plotting via PyQtGraph (`setData`, 50 ms refresh)
+- Per-plot **right-click menu** (auto-scale, reset zoom, pan/select, grid toggle), an **Autoscale**
+  button (X+Y on all plots), and **Δ cursors** (Δt / ΔF / ΔD) on the frequency and dissipation plots
 - **Raw Data View** — live visualization of the current sweep (Savitzky-Golay filtered points, spline fit, peak marker, bandwidth region)
 - **Log Data View** — load and visualize previously recorded CSV files (single and multi-overtone formats)
 
@@ -110,12 +115,19 @@ A legacy `FindPeak` routine remains available as a fallback.
 
 ### User Interface
 
-- Explicit **Connect / Disconnect** and **Refresh** controls: the serial connection is
-  managed as a separate step (with a per-port lock against multiple instances), and
-  **Start** is enabled only once connected
-- Single-window layout with sidebar controls and central plots
-- Dark theme optimized for lab environments
-- Real-time filename indicator during acquisition
+- **Single-window layout**: a collapsible, scrollable **sidebar of control cards** (Connection,
+  Measurement Setup, Temperature, Plot Controls) and a **center tab area** with a **Plots** tab and
+  a **System Log** tab (mirrors the program's stdout/stderr with timestamps)
+- **Light / dark theme** (persisted between launches; toggle via *View → Theme* or the menu-bar
+  corner button)
+- Explicit **Connect / Disconnect** and **Refresh** controls: the serial connection is a separate
+  step (with a per-port lock against multiple instances), and **Start** is enabled only once connected
+- Single **Start / Stop toggle** button (blue when idle, brown while running)
+- **Overtone quick-select** chips (F0/F3/F5/F7/F9): pick the measured overtone in single mode, or
+  highlight traces in multiscan
+- **Plot Controls** card: Autoscale · Set/Clear Reference (toggle) · Clear Plots
+- **Bottom status bar**: program state, message, live F/D/T/S readings and the progress bar
+- Real-time datalog **filename indicator** (sidebar + window title) during acquisition
 
 ---
 
@@ -253,6 +265,7 @@ The application uses a **multiprocessing pipeline** to keep acquisition independ
 | `v0.1.5` | `main` | Production baseline (working, stable). |
 | `v0.1.6-dev` | `main` | Automatic peak detection, TEC current monitoring, dark UI + high-performance real-time plotting. |
 | `v0.1.6-dev-073` | `main` | GUI reorganized into an "Add-On" menu, I/O robustness, exit confirmation; firmware `0.1.5a` (POT_VALUE 240). |
+| *(unreleased)* | `main` | **GUI redesign** — programmatic single-window shell: sidebar control cards, light/dark theme, Plots/System Log tabs, single Start/Stop toggle, overtone chips, per-plot frequency/dissipation readout cards, collapsible amplitude/temperature pane, plot right-click menu + Δ cursors, bottom status bar. **Robust trimmed-mean anti-outlier averaging** of the raw acquisition buffer; development plot auto-range. See `CHANGELOG.md`. |
 | `v0.1.6G-test` | `impedance-analysis` | **Experimental**: impedance analysis via conductance spectrum `G(f)` derived from the AD8302 signals. |
 
 The `impedance-analysis` branch is experimental and not merged into `main`. Its documentation lives under `docs/impedance-analysis/` on that branch.
@@ -263,10 +276,13 @@ The `impedance-analysis` branch is experimental and not merged into `main`. Its 
 
 Selected planned work (non-exhaustive):
 
+- Finish the GUI redesign: **scientific menu wiring** (File / View / Tools / Help), harmonise the
+  remaining status colors, and a dedicated **Advanced Temperature Control (PID)** window.
+- Port selected backend improvements from the mature **openQCM Q-1** codebase: **disconnected-sensor
+  detection**, **tracking safety** (auto-disable/resume), and peak-detection validations.
 - Harden the **firmware version check** for older firmware (range-priming + reply validation).
 - Merge the `impedance-analysis` feature once stabilized (make the conductance method selectable rather than hardwired).
 - Implement the exact complex-impedance conductance formula (currently the approximate form is used).
-- Clean up dead code and duplicated assets; consolidate the generated UI files.
 
 ---
 
