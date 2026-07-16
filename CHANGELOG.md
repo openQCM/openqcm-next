@@ -132,6 +132,21 @@ Conventional Commits. Versions are marked by Git tags.
   - Min-Y-scale enforcement deferred by decision.
 
 ### Changed
+- **GUI v0.1.7 minimalist scientific restyle** (from the user's Claude Design handoff; no
+  architecture change — same R2 layout). `ui/theme.py` replaced wholesale (same public API):
+  refreshed light/dark palettes with softer surfaces and hairline borders, **IBM Plex Sans** UI
+  font + **IBM Plex Mono** for numeric readouts, rounder cards (11px) with small muted uppercase
+  titles, pill overtone chips, taller accent Start button, monospace tabular readouts, and a
+  per-theme `PLOT[...]["grid"]` color. `ui/mainWindow_ui.py`: compact amplitude/phase-sweep +
+  temperature row on top (max height 180, row-stretch 0) with the resonance-frequency and
+  dissipation time series given the room (stretch 3/3) — **kept as two separate panels**; Start
+  button 46px; 11px readout color swatches; roomier sidebar (14px margins/spacing); uppercase card
+  titles (CONNECTION / MEASUREMENT / CURRENT READINGS / TEMPERATURE). `app.py`: registers bundled
+  IBM Plex `.ttf` from `res/fonts/` at startup (graceful no-op + platform fallback if absent).
+  `core/constants.py`: `plot_color_multi` overtone ramp replaced with a blue ramp readable on both
+  plot backgrounds. Note vs the handoff diff 2a: our `ui.plt` is the sweep+temperature row and
+  `ui.pltB` the frequency, so the *sweep* (plt) is the compacted one — the diff's inline plt/pltB
+  labels were swapped; implemented per the stated intent.
 - **GUI fine-tuning: hide datalog sampling time and the PID section** — the datalog
   sampling-time selector is hidden from the sidebar (kept created/functional — acquisition uses
   the default sampling time; "Time elapsed" stays). The Temperature card is simplified to

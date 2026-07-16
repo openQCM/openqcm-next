@@ -31,6 +31,9 @@ class OPENQCM:
         freeze_support()
         self._args = self._init_logger()
         self._app = QtGui.QApplication(argv)
+        # VER 0.1.7 register bundled IBM Plex fonts (graceful no-op if absent)
+        self._load_fonts()
+        self._app.setFont(QtGui.QFont("IBM Plex Sans", 10))
         ##
         if Architecture.get_os() is OSType.windows:
           '''
@@ -54,6 +57,20 @@ class OPENQCM:
           ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
           
     
+    ###########################################################################
+    # VER 0.1.7 registers the bundled IBM Plex fonts (UI + monospace readouts)
+    ###########################################################################
+    def _load_fonts(self):
+        # Fonts live under openQCM/res/fonts/. If the .ttf files are absent the
+        # theme QSS font stacks fall back to the platform UI font (nothing breaks).
+        base = os.path.join(os.path.dirname(__file__), "res", "fonts")
+        for fname in ("IBMPlexSans-Regular.ttf", "IBMPlexSans-Medium.ttf",
+                      "IBMPlexSans-SemiBold.ttf", "IBMPlexMono-Regular.ttf",
+                      "IBMPlexMono-Medium.ttf"):
+            path = os.path.join(base, fname)
+            if os.path.exists(path):
+                QtGui.QFontDatabase.addApplicationFont(path)
+
     ###########################################################################
     # Runs the application
     ###########################################################################

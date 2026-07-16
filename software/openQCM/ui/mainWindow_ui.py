@@ -179,8 +179,8 @@ class Ui_MainWindow(object):
         self.sidebarContainer = QtWidgets.QWidget()
         self.sidebarContainer.setObjectName("sidebarContainer")
         sb = QtWidgets.QVBoxLayout(self.sidebarContainer)
-        sb.setContentsMargins(8, 8, 8, 8)
-        sb.setSpacing(10)
+        sb.setContentsMargins(14, 14, 14, 14)
+        sb.setSpacing(14)
 
         # --- brand header (groupBox_2) --------------------------------- #
         self.groupBox_2 = QtWidgets.QGroupBox(self.sidebarContainer)
@@ -204,7 +204,7 @@ class Ui_MainWindow(object):
         sb.addWidget(self.groupBox_2)
 
         # --- Serial Connection card (R2) -------------------------------- #
-        self.groupConnection = QtWidgets.QGroupBox("Serial Connection",
+        self.groupConnection = QtWidgets.QGroupBox("CONNECTION",
                                                    self.sidebarContainer)
         self.groupConnection.setObjectName("groupConnection")
         self.gridLayout = QtWidgets.QGridLayout(self.groupConnection)
@@ -229,7 +229,7 @@ class Ui_MainWindow(object):
         sb.addWidget(self.groupConnection)
 
         # --- Measurement Setup card (R2) -------------------------------- #
-        self.groupSetup = QtWidgets.QGroupBox("Measurement Setup",
+        self.groupSetup = QtWidgets.QGroupBox("MEASUREMENT",
                                               self.sidebarContainer)
         self.groupSetup.setObjectName("groupSetup")
         self.gridSetup = QtWidgets.QGridLayout(self.groupSetup)
@@ -251,7 +251,7 @@ class Ui_MainWindow(object):
 
         # --- frequency / dissipation readouts (groupBox_data) ---------- #
         self.groupBox_data = QtWidgets.QGroupBox(
-            "Current Readings — F (Hz) · D (ppm)", self.sidebarContainer)
+            "CURRENT READINGS — F (Hz) · D (ppm)", self.sidebarContainer)
         self.groupBox_data.setObjectName("groupBox_data")
         self.gridLayout_7 = QtWidgets.QGridLayout(self.groupBox_data)
         self.gridLayout_7.setObjectName("gridLayout_7")
@@ -259,7 +259,7 @@ class Ui_MainWindow(object):
         for row, name in enumerate(overtones):
             dname = "D" + name[1:]
             col = self._label(self.groupBox_data, "label_%s_col" % name)
-            col.setFixedSize(14, 14)
+            col.setFixedSize(11, 11)
             self.gridLayout_7.addWidget(col, row, 0, 1, 1)
             self.gridLayout_7.addWidget(
                 self._label(self.groupBox_data, "label_%s" % name,
@@ -332,7 +332,7 @@ class Ui_MainWindow(object):
 
         # --- Temperature & PID card wrapping the tabs (R2) --------------- #
         self._build_temperature_tabs()
-        self.groupTempPID = QtWidgets.QGroupBox("Temperature",
+        self.groupTempPID = QtWidgets.QGroupBox("TEMPERATURE",
                                                 self.sidebarContainer)
         self.groupTempPID.setObjectName("groupTempPID")
         _tpid = QtWidgets.QVBoxLayout(self.groupTempPID)
@@ -377,7 +377,7 @@ class Ui_MainWindow(object):
         sb.addLayout(self.verticalLayout)
         self.pButton_Start = QtWidgets.QPushButton("Start", self.sidebarContainer)
         self.pButton_Start.setObjectName("pButton_Start")
-        self.pButton_Start.setMinimumHeight(40)
+        self.pButton_Start.setMinimumHeight(46)
         sb.addWidget(self.pButton_Start)
         # infostatus / infobar / progressBar live in the bottom status bar
         # (R2) — created in _build_statusbar().
@@ -511,11 +511,19 @@ class Ui_MainWindow(object):
         self.pltD.setObjectName("pltD")
         self.plt = GraphicsLayoutWidget(self.groupBox_plt)
         self.plt.setObjectName("plt")
-        # R2 (mockup order): sweep + temperature canvases on top, then the
-        # resonance-frequency and dissipation time series below
-        self.gridLayout_9.addWidget(self.plt, 0, 0, 1, 1)
-        self.gridLayout_9.addWidget(self.pltB, 1, 0, 1, 1)
-        self.gridLayout_9.addWidget(self.pltD, 2, 0, 1, 1)
+        # v0.1.7: compact amplitude/phase sweep + temperature on top, then the
+        # resonance-frequency (ΔF) and dissipation (ΔD) time series get the room.
+        # NB: ui.plt holds the sweep+temperature row, ui.pltB the frequency and
+        # ui.pltD the dissipation — the handoff diff's inline labels had plt/pltB
+        # swapped, so here the *sweep* (plt) is the one compacted, per intent.
+        self.gridLayout_9.addWidget(self.plt,  0, 0, 1, 1)   # sweep + temperature (compact)
+        self.gridLayout_9.addWidget(self.pltB, 1, 0, 1, 1)   # resonance frequency (ΔF)
+        self.gridLayout_9.addWidget(self.pltD, 2, 0, 1, 1)   # dissipation (ΔD)
+        self.plt.setMaximumHeight(180)
+        self.gridLayout_9.setRowStretch(0, 0)
+        self.gridLayout_9.setRowStretch(1, 3)
+        self.gridLayout_9.setRowStretch(2, 3)
+        self.gridLayout_9.setSpacing(10)
         self.verticalLayout_plt.addWidget(self.groupBox_plt)
         self.centerTabs.addTab(self.tabPlots, "Plots")
 
