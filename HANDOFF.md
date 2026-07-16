@@ -18,7 +18,8 @@ Serial/Multiscan/Calibration process  →  Worker (queues → ring buffers)  →
 Package `software/openQCM/`:
 - `core/`: `constants.py` (config), `worker.py` (multiprocessing, ring buffers), `ringBuffer.py`
 - `processors/`: `Serial.py` (SerialProcess), `Multiscan.py` (multi-overtone; conductance on the impedance branch), `Calibration.py` (peak detection), `Parser.py`
-- `ui/`: `mainWindow.py` (controller, ~4000 lines), `mainWindow_new_ui.py` (generated UI), `popUp.py`
+- `ui/`: `mainWindow.py` (controller, ~4000 lines), `mainWindow_ui.py` (**programmatic UI builder**,
+  GUI redesign R1; the old generated `mainWindow_new_ui.py` stays as reference only), `theme.py`, `popUp.py`
 - `data_view/`: standalone CSV viewer
 - Entry point: `run.py` → `openQCM.app.OPENQCM().run()`
 
@@ -179,6 +180,17 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
        plot controls keep the old row, Start/Stop toggle gets a prominent full-width row with the
        progress bar underneath. This resolves the Phase-1 "cramped action row" note. Remaining
        fine-tuning (spacing/polish) deferred to the user's visual pass after the block phases.
+- **Riscrittura programmatica GUI (approved follow-up to Phases 0–3)**:
+  - **R1 — programmatic builder, structural parity — DONE** (see CHANGELOG): `ui/mainWindow_ui.py`
+    (hand-written `Ui_MainWindow`) replaces the generated Designer UI; `_build_shell()` deleted;
+    runtime widgets absorbed; File/View/Tools/Help menu skeleton. Contract-checked (all
+    `self.ui.<name>` refs exist) + offscreen instantiation verified. Old generated file kept as
+    reference. **Pending: user visual check.**
+  - **R2 — mockup style pass — NEXT (plan approved)**: full-width bottom status bar (state dot +
+    message left; compact F/D/T/S live readings + progress right — wiring in `_update_plot`),
+    card-style sidebar groups per the user's mockup, brand header polish, paddings for both
+    themes. Then Fase 4 (plot polish: grid toggle, right-click menu, Δ cursors, min-scale with
+    `plot_force_yrange`) and Fase 5 (menu wiring) follow.
   4. Plot polish: grid off by default + toggle, right-click menu, **Δ cursors**, min-scale
      (integrate with the `plot_force_yrange` flag); curve colors already aligned.
   5. Scientific menu **File / View / Tools / Help**.

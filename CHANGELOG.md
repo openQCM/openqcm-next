@@ -112,6 +112,24 @@ Conventional Commits. Versions are marked by Git tags.
     sweep continued to completion.
 
 ### Changed
+- **GUI: programmatic UI builder (redesign R1, structural parity)** — the Qt-Designer generated
+  `ui/mainWindow_new_ui.py` is replaced by a hand-written `ui/mainWindow_ui.py` (same
+  `Ui_MainWindow` class name, one-line import switch in `ui/mainWindow.py`), in the style of
+  openQCM Q-1 v3.0. The builder constructs the single-window shell **directly** — splitter
+  [scrollable sidebar | center tabs (Plots | System Log)] — making the whole `_build_shell()`
+  re-parenting layer obsolete (method deleted). It also absorbs every widget previously created at
+  runtime: Connect/Refresh (connection-card bottom row), the F0–F9 overtone quick-select buttons
+  (legacy radios created hidden, still the `scan_selector` source of truth), `systemLog`,
+  `lblLogFile`, and the hidden legacy `pButton_Stop`. New **File / View / Tools / Help menu
+  skeleton** (File→Quit; Tools→Raw Data / Log Data / Tec Current; Help→Help / Firmware Info /
+  Software Info; the theme submenu now populates the builder's View menu). The controller keeps
+  all behaviour and only wires signals (`_setup_serial_connection_ui`, `_setup_overtone_buttons`,
+  `_setup_log_filename_label`, `_install_system_log` reduced to wiring/aliases). Verified by an
+  attribute-contract check (every `self.ui.<name>` the controller references exists on the new
+  builder) plus an offscreen `QT_QPA_PLATFORM=offscreen` instantiation; widget properties
+  (spinbox ranges/defaults, combo policies, texts, brand header, tab titles) replicated from the
+  generated file, which stays in the repo as reference. Visual-style pass (mockup cards, bottom
+  status bar) is the follow-up R2 step.
 - **Entry point unified into `run.py`**: added a thin `software/run.py` launcher and
   removed the duplicate root `software/app.py`; the `OPENQCM` class now lives only in
   `openQCM/app.py`. Launch with `python run.py` (or `python -m openQCM`).

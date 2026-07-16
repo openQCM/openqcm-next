@@ -1,7 +1,8 @@
 
 # from openQCM.ui.mainWindow_ui import Ui_Controls, Ui_Info, Ui_Plots
 
-from openQCM.ui.mainWindow_new_ui import Ui_MainWindow
+# GUI redesign R1: programmatic UI builder (was: generated mainWindow_new_ui)
+from openQCM.ui.mainWindow_ui import Ui_MainWindow
 
 #from openQCM.ui.ui_controls import Ui_Controls
 #from openQCM.ui.ui_info import Ui_Info
@@ -382,11 +383,9 @@ class MainWindow(QtGui.QMainWindow):
         self._numpy_nan_sweep = np.empty(Constants.SAMPLES, dtype=float)
         self._numpy_nan_sweep.fill(np.nan)
 
-        # VER 0.1.6 GUI redesign Phase 1: restructure the fixed two-column grid
-        # into a QSplitter [ scrollable sidebar | plots ]. Done last, after every
-        # widget (incl. the runtime Connect/Refresh buttons) exists.
+        # GUI redesign R1: the programmatic UI (ui/mainWindow_ui.py) builds the
+        # single-window shell directly; here we only bind the runtime state.
         self._setup_log_filename_label()
-        self._build_shell()
         self._install_system_log()
 
         # Phase 3c: initial status pill (standby, theme-aware)
@@ -1003,19 +1002,12 @@ class MainWindow(QtGui.QMainWindow):
         self._overtone_radios = [self.ui.radioBtn_F0, self.ui.radioBtn_F3,
                                  self.ui.radioBtn_F5, self.ui.radioBtn_F7,
                                  self.ui.radioBtn_F9]
-        self._overtone_buttons = []
-        for idx, lab in enumerate(("F0", "F3", "F5", "F7", "F9")):
-            btn = QtGui.QPushButton(lab)
-            btn.setObjectName("overtoneBtn_" + lab)
-            btn.setProperty("overtoneBtn", True)
-            btn.setCheckable(True)
-            btn.setFixedHeight(24)
-            btn.setToolTip("Overtone " + lab)
+        # R1: the buttons are created (and the radios hidden) by the UI
+        # builder — here we only mirror the initial state and wire the signals.
+        self._overtone_buttons = list(self.ui.overtone_buttons)
+        for idx, btn in enumerate(self._overtone_buttons):
             btn.setChecked(self._overtone_radios[idx].isChecked())
             btn.clicked.connect(lambda checked, i=idx: self._on_overtone_button(i, checked))
-            self.ui.horizontalLayout_2.addWidget(btn)
-            self._overtone_buttons.append(btn)
-            self._overtone_radios[idx].hide()
         self.ui.cBox_Speed.currentIndexChanged.connect(self._sync_overtone_buttons_from_speed)
 
     def _on_overtone_button(self, idx, checked):
@@ -1466,7 +1458,10 @@ class MainWindow(QtGui.QMainWindow):
     ###########################################################################
     def _setup_theme_menu(self):
         """Add a View > Theme submenu with an exclusive Light/Dark choice."""
-        menu_view = self.menuBar().addMenu("View")
+        # R1: the programmatic UI provides the View menu in the menu skeleton
+        menu_view = getattr(self.ui, "menuView", None)
+        if menu_view is None:
+            menu_view = self.menuBar().addMenu("View")
         theme_menu = menu_view.addMenu("Theme")
         group = QtGui.QActionGroup(self)
         group.setExclusive(True)
@@ -1568,114 +1563,10 @@ class MainWindow(QtGui.QMainWindow):
     ###########################################################################
     # VER 0.1.6 GUI redesign Phase 1 — single-window splitter shell
     ###########################################################################
-    def _build_shell(self):
-        """
-        Re-parent the fixed two-column grid (gridLayout_2) into a horizontal
-        QSplitter: a scrollable, collapsible sidebar of control groups on the
-        left and the plots on the right. No widget is recreated — the existing
-        items (and their signal wiring) are moved as-is, so this is reversible
-        by removing the _build_shell() call in __init__.
-        """
-        ui = self.ui
-        grid = ui.gridLayout_2
-
-        def move(target, dest):
-            # Detach `target` (a widget or a bare sub-layout) from gridLayout_2
-            # and re-parent it into `dest`. Widgets go in with addWidget (which
-            # re-parents); bare sub-layouts are wrapped in a container QWidget
-            # via setLayout so their child widgets follow. addItem() is NOT used
-            # because it does not re-parent — that would leave the moved controls
-            # owned by the old central widget and mis-rendered.
-            for i in range(grid.count()):
-                it = grid.itemAt(i)
-                if it is None:
-                    continue
-                if it.widget() is target or it.layout() is target:
-                    item = grid.takeAt(i)
-                    w = item.widget()
-                    if w is not None:
-                        dest.addWidget(w)
-                    else:
-                        container = QtGui.QWidget()
-                        container.setLayout(item.layout())
-                        dest.addWidget(container)
-                    return True
-            print(TAG, "WARNING: _build_shell could not find an item to move")
-            return False
-
-        # --- sidebar: control groups (top), then acquisition + status (bottom)
-        sidebar = QtGui.QWidget()
-        sidebar.setObjectName("sidebarContainer")
-        sb = QtGui.QVBoxLayout(sidebar)
-        sb.setContentsMargins(6, 6, 6, 6)
-        sb.setSpacing(6)
-        for target in (ui.groupBox_2, ui.gridLayout, ui.groupBox_data,
-                       ui.gridLayout_D, ui.gridLayout_5, ui.line_3, ui.tabWidget):
-            move(target, sb)
-        sb.addStretch(1)
-        # Phase 3e: decompose the legacy action row — the plot controls
-        # (Reference / Clear) stay in horizontalLayout; the Start/Stop toggle
-        # gets its own prominent row with the progress bar underneath; the
-        # status labels close the sidebar bottom.
-        ui.horizontalLayout.removeWidget(ui.pButton_Start)
-        ui.horizontalLayout.removeWidget(ui.progressBar)
-        ui.pButton_Start.setMinimumHeight(34)
-        move(ui.horizontalLayout, sb)
-        sb.addWidget(ui.pButton_Start)
-        sb.addWidget(ui.progressBar)
-        for target in (ui.verticalLayout, ui.infobar):
-            move(target, sb)
-
-        scroll = QtGui.QScrollArea()
-        scroll.setObjectName("sidebarScroll")
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(sidebar)
-        scroll.setMinimumWidth(220)
-        scroll.setMaximumWidth(360)
-        scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        scroll.setFrameShape(QtGui.QFrame.NoFrame)
-
-        # --- center: tabs [ Plots | System Log ] ---
-        center = QtGui.QTabWidget()
-        center.setObjectName("centerTabs")
-        # Tab 1: the plots (re-parented as-is)
-        plots_tab = QtGui.QWidget()
-        pv = QtGui.QVBoxLayout(plots_tab)
-        pv.setContentsMargins(0, 0, 0, 0)
-        move(ui.verticalLayout_plt, pv)
-        center.addTab(plots_tab, "Plots")
-        # Tab 2: System Log (stdout/stderr mirror; see LogStream / _install_system_log)
-        log_tab = QtGui.QWidget()
-        lv = QtGui.QVBoxLayout(log_tab)
-        lv.setContentsMargins(0, 0, 0, 0)
-        self.systemLog = QtGui.QTextEdit()
-        self.systemLog.setObjectName("systemLog")
-        self.systemLog.setReadOnly(True)
-        lv.addWidget(self.systemLog)
-        center.addTab(log_tab, "System Log")
-
-        # --- splitter ---
-        splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
-        splitter.setObjectName("mainSplitter")
-        splitter.addWidget(scroll)
-        splitter.addWidget(center)
-        splitter.setCollapsible(0, True)
-        splitter.setCollapsible(1, False)
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
-        splitter.setSizes([240, 900])
-        self._main_splitter = splitter
-
-        # --- swap the central layout: move the old (now near-empty) grid onto a
-        # throwaway widget so centralwidget can host a new top-level layout. ---
-        QtGui.QWidget().setLayout(grid)
-        outer = QtGui.QVBoxLayout(ui.centralwidget)
-        outer.setContentsMargins(4, 4, 4, 4)
-        outer.addWidget(splitter)
-
     def _install_system_log(self):
         """Redirect stdout/stderr into the System Log tab, keeping the original
         streams (terminal / file logging unaffected). Reversed in closeEvent."""
+        self.systemLog = self.ui.systemLog   # created by the UI builder
         self._stdout_orig = sys.stdout
         self._stderr_orig = sys.stderr
         sys.stdout = LogStream(self.systemLog, self._stdout_orig)
@@ -1690,15 +1581,10 @@ class MainWindow(QtGui.QMainWindow):
             sys.stderr = self._stderr_orig
 
     def _setup_log_filename_label(self):
-        """Phase 3d: runtime label showing the active datalog CSV filename.
-        Added to ui.verticalLayout (status area) before _build_shell() runs,
-        so the re-parenting carries it into the sidebar bottom. Hidden while
-        idle (calibration mode writes no datalog)."""
+        """Phase 3d: datalog-filename label (created by the UI builder in the
+        sidebar status area, hidden while idle — calibration writes no log)."""
         self._window_title_base = self.windowTitle()
-        self.lblLogFile = QtGui.QLabel("")
-        self.lblLogFile.setObjectName("lblLogFile")
-        self.lblLogFile.hide()
-        self.ui.verticalLayout.insertWidget(0, self.lblLogFile)
+        self.lblLogFile = self.ui.lblLogFile
 
     def _show_log_filename(self, filename):
         """Show/clear the datalog filename in the sidebar and window title."""
@@ -1978,22 +1864,9 @@ class MainWindow(QtGui.QMainWindow):
         self._connected_port = None
         self._lock_file = None
 
-        # Dedicated Connect/Disconnect button, placed first in the Start/Stop row
-        self.ui.pButton_Connect = QtGui.QPushButton(self.ui.centralwidget)
-        self.ui.pButton_Connect.setObjectName("pButton_Connect")
-        self.ui.pButton_Connect.setText("Connect")
-        # Refresh button: rescan connected devices (serial ports)
-        self.ui.pButton_Refresh = QtGui.QPushButton(self.ui.centralwidget)
-        self.ui.pButton_Refresh.setObjectName("pButton_Refresh")
-        self.ui.pButton_Refresh.setText("Refresh")
+        # R1: Connect / Refresh are created by the UI builder inside the
+        # connection card (bottom row); here we only wire their signals.
         self.ui.pButton_Refresh.clicked.connect(self._refresh_ports)
-        # Phase 3e: styled by the theme QSS (objectName rules) instead of the
-        # former inline stylesheets, and placed as the bottom row of the
-        # connection card rather than in the Start/Stop action row.
-        _conn_row = QtGui.QHBoxLayout()
-        _conn_row.addWidget(self.ui.pButton_Refresh)
-        _conn_row.addWidget(self.ui.pButton_Connect)
-        self.ui.gridLayout.addLayout(_conn_row, self.ui.gridLayout.rowCount(), 0, 1, 2)
         self.ui.pButton_Connect.clicked.connect(self._toggle_serial_connection)
 
         # Initial connection status
