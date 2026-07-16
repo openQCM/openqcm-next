@@ -54,7 +54,8 @@ mode). Methods in `software/openQCM/ui/mainWindow.py`:
 `run.py` entry point; full README; `requirements.txt` / `environment.yml`; Raw Data fix
 (restored the functional `sweep_data/*.txt`); **robust trimmed-mean averaging** of the raw
 acquisition buffer; **observable plots default to Y autorange** in development
-(`Constants.plot_force_yrange`) — all see §5 and CHANGELOG.
+(`Constants.plot_force_yrange`); **responsive peak-detection (calibration) cancellation**
+(ported from Q-1 v3.0 — Stop now interruptible mid-sweep, clean shutdown) — all see §5 and CHANGELOG.
 
 ## 4. `impedance-analysis` branch (0.1.6G) — detail
 
@@ -102,6 +103,22 @@ Done (dev plotting — see CHANGELOG):
   routed through the `_set_yrange_forced` helper) so development runs autoscale tight to the data.
   - **Distribution follow-up**: set `plot_force_yrange = True` and tune the paddings
     `y_f_range` / `y_d_range` / `y_t_range` for a stable user-facing view.
+
+Done (responsive peak-detection cancellation — ported from Q-1 v3.0, see CHANGELOG):
+- Peak detection (calibration) is now **interruptible cleanly** instead of blocking the Stop button
+  for the whole ~1 min sweep. `processors/Calibration.py`: inner sweep-read loop polls `self._exit`
+  with a `0.1 s` serial read timeout (Stop acts in ~0.1 s), emits a `-1` cancellation sentinel on
+  `parser5` + `return` on mid-sweep cancel, drains stale serial bytes on start. `core/worker.py`:
+  `_calibration_cancelled` flag (`is_calibration_cancelled()`), `stop()` joins-then-terminates the
+  peak-detection process (graceful) while measurement modes keep the direct terminate.
+  `ui/mainWindow.py`: Stop stays enabled during peak detection; `_update_plot` checks the flag first;
+  `stop()` shows "Peak Detection Cancelled" and clears the real-time amplitude trace; init
+  `_overtones_number_all = 0` (fix for the latent `AttributeError` that Stop-during-calibration exposed).
+  - **Note (dormant scaffolding)**: the `-1` sentinel + flag path mirrors Q-1 but rarely fires in
+    NEXT — the GUI `stop()` stops the plot timer before the sentinel is consumed, so the user-facing
+    "Cancelled" comes from `stop()` and the real cancellation from the responsive loop + graceful join.
+  - **Reference sibling repo**: `/Users/marco/claude_code/openQCM_Q-1/OPENQCM` (git; remote
+    `github.com/openQCM/openQCM_Q-1`; **v3.0**). This is the authoritative Q-1 roadmap codebase.
 
 Quick wins:
 - **Disconnected-sensor detection** (ported from openQCM Q-1; detailed plan ready, awaiting go):
