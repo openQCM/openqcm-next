@@ -191,10 +191,17 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
     left; F/D/T/S live readings + progress right, reset on Stop); titled cards with the title
     inside (Serial Connection, Measurement Setup, Current Readings, Temperature & PID); Start
     idle = accent blue (running red); F0–F9 chips; menu-bar corner theme toggle; plot canvases
-    reordered [sweep+temp, frequency, dissipation]. **Pending: user visual check.**
-    Known deltas vs the mockup (deferred): frequency+dissipation merged in ONE dual-axis panel
-    (Fase 4 target — today they are two stacked canvases); per-overtone readings grid kept
-    (NEXT is multi-overtone, the mockup shows single rows); Add-On menu superseded by Tools.
+    reordered [sweep+temp, frequency, dissipation].
+  - **R2-bis — QSS refinement pass — DONE** (see CHANGELOG): refined palettes (softer borders /
+    fields), rounded cards (10px) with 13px bold inside titles, restyled inputs, primary Connect /
+    outline Refresh, larger Start (40px, 14px bold), pill chips, borderless bold readout values,
+    themed tabs (accent on selected), slim rounded progress, in-window menu polish; TEC state
+    banner converted to a theme-aware `_tec_state_pill` helper (off/warn/active/err, re-applied
+    on theme switch). **Pending: user visual check.**
+  - ⚠️ **Frequency and dissipation stay in TWO separate panels** — the user explicitly rejected
+    the mockup's single dual-axis panel. Do not merge them.
+    Other accepted deltas vs the mockup: per-overtone readings grid kept (NEXT is multi-overtone);
+    Add-On menu superseded by Tools.
     Then Fase 4 (plot polish: grid toggle, right-click menu, Δ cursors, min-scale with
     `plot_force_yrange`) and Fase 5 (menu wiring); user's fine-tuning pass last.
   4. Plot polish: grid off by default + toggle, right-click menu, **Δ cursors**, min-scale

@@ -321,7 +321,7 @@ class MainWindow(QtGui.QMainWindow):
         self._dissipation_buffer_1 = RingBuffer(Constants.ring_buffer_samples)
         self._dissipation_buffer_2 = RingBuffer(Constants.ring_buffer_samples)
 
-        self.ui.label_Temperature_state.setStyleSheet("background-color: yellow; border: 1px solid gray; border-radius:2px; padding: 2 px;")
+        self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("warn"))
 
         
 
@@ -805,7 +805,7 @@ class MainWindow(QtGui.QMainWindow):
         
         # VER 0.1.4
         # set TEC status control to null 
-        self.ui.label_Temperature_state.setStyleSheet("background-color: white; color: black; border: 1px solid gray; border-radius:2px; padding: 2 px;")
+        self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("off"))
         self.ui.label_Temperature_state.setText("Temperature Control")
         
 # =============================================================================
@@ -925,7 +925,7 @@ class MainWindow(QtGui.QMainWindow):
     def Temperature_Control_ON(self):
 
         # change the indicator color
-        self.ui.label_Temperature_state.setStyleSheet("background-color: rgba(0, 142, 192, 0.4); border: 1px solid gray; border-radius: 2px;  padding: 2 px;")
+        self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("active"))
 
         print ("Temperature Control ON")
         # enable TEC over the persistent connection
@@ -954,7 +954,7 @@ class MainWindow(QtGui.QMainWindow):
     def Temperature_Control_OFF(self):
 
         # change the led color
-        self.ui.label_Temperature_state.setStyleSheet("background-color: yellow; border: 1px solid gray; border-radius:2px; padding: 2 px;")
+        self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("warn"))
         # set temoerature control to default
         self.ui.doubleSpinBox_Temperature.setValue( Constants.Temperature_Set_Value )
 
@@ -1500,6 +1500,26 @@ class MainWindow(QtGui.QMainWindow):
                 "border: 1px solid transparent; border-radius: 3px").format(
                     self._STATUS_PILL_BG[key])
 
+    # R2 polish: TEC state banner (softened colors, rounded; 'off' follows the
+    # theme). Keys: off / warn (getting setpoint) / active / err.
+    _TEC_PILL_BG = {"warn": ("#ffd54f", "#4a3f00"),
+                    "active": ("rgba(0, 142, 192, 0.35)", None),
+                    "err": ("#ef5350", "#ffffff")}
+
+    def _tec_state_pill(self, key):
+        """Stylesheet for label_Temperature_state; remembers the state so a
+        theme switch can re-apply it."""
+        self._tec_state_key = key
+        if key == "off":
+            p = getattr(self, "_theme_palette", theme.LIGHT)
+            return ("background-color: {}; color: {}; border: 1px solid {}; "
+                    "border-radius: 6px; padding: 3px 6px;").format(
+                        p["field_bg"], p["text"], p["border"])
+        bg, fg = self._TEC_PILL_BG[key]
+        fg_css = "color: {};".format(fg) if fg else ""
+        return ("background-color: {}; {} border: 1px solid transparent; "
+                "border-radius: 6px; padding: 3px 6px;").format(bg, fg_css)
+
     def _set_indicator_temperature(self, value):
         """Sidebar temperature readout + bottom-bar mirror (R2)."""
         self.ui.indicator_temperature.setText(str(value))
@@ -1527,6 +1547,9 @@ class MainWindow(QtGui.QMainWindow):
         _btn = getattr(self.ui, "themeToggleButton", None)
         if _btn is not None:
             _btn.setText("☾ dark" if name == "light" else "☀ light")
+        # R2 polish: re-apply the TEC state banner so 'off' follows the theme
+        self.ui.label_Temperature_state.setStyleSheet(
+            self._tec_state_pill(getattr(self, "_tec_state_key", "off")))
         # pyqtgraph plots (background / axes / titles)
         self._apply_plot_theme(theme.PLOT[name])
         # keep the menu checkmarks in sync
@@ -3677,7 +3700,7 @@ class MainWindow(QtGui.QMainWindow):
     def _update_TEC_status(self, value): 
         # temperature control active, temperature is out of range, electric current is null ERROR
         if value == Constants.STATUS_CONTROL_ACTIVE_LOW_CURRENT_NULL: 
-            self.ui.label_Temperature_state.setStyleSheet("background-color: red; color: white; border: 1px solid gray; border-radius: 2px;  padding: 2 px;")
+            self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("err"))
             self.ui.label_Temperature_state.setText("Error, please reset the TEC controller ")
             self.ui.pButton_TEC_Reset.setEnabled(True)
             
@@ -3691,19 +3714,19 @@ class MainWindow(QtGui.QMainWindow):
             
         # temperature control NOT active     
         if value == Constants.STATUS_CONTROL_NOT_ACTIVE: 
-            self.ui.label_Temperature_state.setStyleSheet("background-color: white; color: black; border: 1px solid gray; border-radius:2px; padding: 2 px;")
+            self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("off"))
             self.ui.label_Temperature_state.setText("Temperature Control: Not active ")
             self.ui.pButton_TEC_Reset.setEnabled(False)
             
         # temperature control active, temperature is out of range, electric current is NOT null    
         if value == Constants.STATUS_CONTROL_ACTIVE_LOW_CURRENT_NOT_NULL:
-            self.ui.label_Temperature_state.setStyleSheet("background-color: yellow; color: black; border: 1px solid gray; border-radius:2px; padding: 2 px;")
+            self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("warn"))
             self.ui.label_Temperature_state.setText("Temperature Control: Active getting setpoint ")
             self.ui.pButton_TEC_Reset.setEnabled(False)
             
         # temperature control active and temperature in range    
         if value == Constants.STATUS_CONTROL_ACTIVE_HIGH:
-            self.ui.label_Temperature_state.setStyleSheet("background-color: rgba(0, 142, 192, 0.4); color: black; border: 1px solid gray; border-radius: 2px;  padding: 2 px;")
+            self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("active"))
             self.ui.label_Temperature_state.setText("Temperature Control: Status in range ")
             self.ui.pButton_TEC_Reset.setEnabled(False)
         

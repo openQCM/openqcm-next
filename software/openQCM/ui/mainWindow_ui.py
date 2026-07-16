@@ -106,6 +106,7 @@ class Ui_MainWindow(object):
         self.progressBar.setValue(0)
         self.progressBar.setAlignment(QtCore.Qt.AlignCenter)
         self.progressBar.setFixedWidth(160)
+        self.progressBar.setFixedHeight(20)
         bar.addWidget(self.progressBar)
 
     # ------------------------------------------------------------------ #
@@ -178,8 +179,8 @@ class Ui_MainWindow(object):
         self.sidebarContainer = QtWidgets.QWidget()
         self.sidebarContainer.setObjectName("sidebarContainer")
         sb = QtWidgets.QVBoxLayout(self.sidebarContainer)
-        sb.setContentsMargins(6, 6, 6, 6)
-        sb.setSpacing(6)
+        sb.setContentsMargins(8, 8, 8, 8)
+        sb.setSpacing(10)
 
         # --- brand header (groupBox_2) --------------------------------- #
         self.groupBox_2 = QtWidgets.QGroupBox(self.sidebarContainer)
@@ -371,7 +372,7 @@ class Ui_MainWindow(object):
         sb.addLayout(self.verticalLayout)
         self.pButton_Start = QtWidgets.QPushButton("Start", self.sidebarContainer)
         self.pButton_Start.setObjectName("pButton_Start")
-        self.pButton_Start.setMinimumHeight(34)
+        self.pButton_Start.setMinimumHeight(40)
         sb.addWidget(self.pButton_Start)
         # infostatus / infobar / progressBar live in the bottom status bar
         # (R2) — created in _build_statusbar().

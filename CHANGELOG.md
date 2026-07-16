@@ -165,6 +165,15 @@ Conventional Commits. Versions are marked by Git tags.
   lines, themed splitter handle. **Menu bar forced in-window** (`setNativeMenuBar(False)`): on
   macOS the native system bar swallowed the File/View/Tools/Help row and the corner theme toggle
   (mockup layout restored). Fixed "Temperature _PID" card title — the `&` needed escaping (`&&`).
+- **GUI: QSS refinement pass (mockup fidelity)** — refined light/dark palettes (softer window,
+  borders and field fills), 10px rounded cards with 13px bold inside titles and wider sidebar
+  spacing, restyled inputs (rounded, padded, min-height), **Connect primary / Refresh outline**
+  button pair, larger Start toggle (40px, 14px bold), pill-shaped F0–F9 chips, **borderless bold
+  readout values** (F/D grid, temperature, elapsed time), themed tabs (accent bold on the selected
+  tab, rounded pane), slim rounded progress bar, padded in-window menu items, muted infobar. The
+  TEC state banner's six inline styles are replaced by a theme-aware `_tec_state_pill` helper
+  (off follows the theme; warn amber / active translucent accent / err red), re-applied on theme
+  switch. Note: frequency and dissipation keep **two separate plot panels** by explicit decision.
 - **Entry point unified into `run.py`**: added a thin `software/run.py` launcher and
   removed the duplicate root `software/app.py`; the `OPENQCM` class now lives only in
   `openQCM/app.py`. Launch with `python run.py` (or `python -m openQCM`).
