@@ -64,6 +64,14 @@ Conventional Commits. Versions are marked by Git tags.
   on Stop. A new `Worker.get_csv_filename()` getter mirrors the names composed by the datalog loop
   (serial: `<ts>_<overtone>.csv`, multiscan: `<ts>_multi_.csv`; calibration returns an empty string
   → label hidden). Adapted from openQCM Q-1 v3.0.
+- **GUI theme-aware program status pill (Phase 3c of the GUI redesign)** — the `infostatus` label
+  is now styled through a `_status_pill(key)` helper (`standby`/`warn`/`err`/`ok`): the standby
+  state follows the active theme palette (fixing the light pill stuck on the dark theme), while the
+  warning/error/ok states keep their yellow/red/green backgrounds with forced dark text; all 15
+  inline `setStyleSheet` call sites were converted. Status texts drop the hardcoded black
+  `<font>` HTML in favour of a `● Program Status: …` prefix whose dot/text color comes from the
+  pill stylesheet. A theme switch re-applies the current pill (`_apply_theme` remembers the last
+  state via `_status_key`); the "Stanby" typo is fixed. `infobar` message colors are unchanged.
 - **Responsive, clean cancellation of Peak Detection (calibration)** — ported and adapted
   from the more mature openQCM Q-1 v3.0. The peak-detection sweep can now be stopped mid-run
   without a hard process kill or a corrupt serial state, replacing the previous behaviour where

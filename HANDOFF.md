@@ -167,9 +167,12 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
      - **3d log-filename display — DONE** (see CHANGELOG): runtime `lblLogFile` in the sidebar
        status area (elided + tooltip) + window title suffix; `Worker.get_csv_filename()` mirrors
        the datalog names (serial `<ts>_<overtone>.csv`, multiscan `<ts>_multi_.csv`, calibration "").
-     - **3c** status `infostatus`/`infobar` theme-aware + state dot; **3b** overtone quick-select
-       F0/F3/F5/F7/F9 — single = 1 active, **multiscan = all overtones acquired, the selection is
-       purely a visual highlight on the plot** (confirmed); **3e** card-style sidebar layout (last).
+     - **3c status pill theme-aware + state dot — DONE** (see CHANGELOG): `_status_pill(key)`
+       helper (standby follows the theme; warn/err/ok keep yellow/red/green with dark text),
+       `● Program Status: …` texts, re-applied on theme switch via `_status_key`.
+     - **3b** overtone quick-select F0/F3/F5/F7/F9 — single = 1 active, **multiscan = all overtones
+       acquired, the selection is purely a visual highlight on the plot** (confirmed);
+       **3e** card-style sidebar layout (last).
   4. Plot polish: grid off by default + toggle, right-click menu, **Δ cursors**, min-scale
      (integrate with the `plot_force_yrange` flag); curve colors already aligned.
   5. Scientific menu **File / View / Tools / Help**.
