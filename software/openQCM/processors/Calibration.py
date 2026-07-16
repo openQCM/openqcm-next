@@ -1,4 +1,5 @@
 import multiprocessing
+import time
 from openQCM.core.constants import Constants
 from openQCM.common.fileStorage import FileStorage
 from openQCM.common.logger import Logger as Log
@@ -366,13 +367,30 @@ class CalibrationProcess(multiprocessing.Process):
             #fStep     = Constants.calibration_fStep
             readFREQ  = Constants.calibration_readFREQ
             # Gets the state of the serial port
-            if not self._serial.isOpen(): 
+            if not self._serial.isOpen():
                 # Opens the serial port
-                self._serial.open() 
+                self._serial.open()
+                # VER 0.1.6 responsive cancellation (ported from openQCM Q-1 v3.0):
+                # use a short read timeout so the sweep-read loop can poll
+                # self._exit instead of blocking for serial_timeout_ms (4 s).
+                self._serial.timeout = 0.1
+                self._serial.flushInput()
+                self._serial.flushOutput()
+                # VER 0.1.6 drain any bytes left over from a previously
+                # interrupted peak detection so a fresh run starts clean: a
+                # mid-sweep Stop can leave the Teensy mid-transmission.
+                drain_deadline = time.time() + 5.0
+                while time.time() < drain_deadline:
+                    stale = self._serial.read(self._serial.inWaiting())
+                    if not stale:
+                        time.sleep(0.1)
+                        stale = self._serial.read(self._serial.inWaiting())
+                        if not stale:
+                            break
                 self._serial.flushInput()
                 self._serial.flushOutput()
                 # Initializes the sweep counter
-                k=0 
+                k=0
                 print(TAG,'Peak Detection Started')
                 print(TAG,'The operation might take just a while to complete. Please wait.')
                 
@@ -420,13 +438,20 @@ class CalibrationProcess(multiprocessing.Process):
                         #################################################################################
                         # bar = ProgressBar(widgets=[TAG,' ', Bar(marker='>'),' ',Percentage(),' ', Timer()], maxval=830000).start()
                         # READS and decodes sweep from the serial port
-                        while 1:
-                            buffer += self._serial.read(self._serial.inWaiting()).decode() #Constants.app_encoding 
+                        # VER 0.1.6 poll self._exit so a Stop pressed mid-sweep
+                        # breaks out promptly (responsive cancellation, Q-1 v3.0).
+                        while not self._exit.is_set():
+                            buffer += self._serial.read(self._serial.inWaiting()).decode() #Constants.app_encoding
                             #len_buffer = len(buffer)
                             #bar.update(len_buffer)
                             # print(buffer)
                             if 's' in buffer:
                                  break
+                        # If cancelled before the end-of-message marker arrived,
+                        # abandon this section and let the outer sweep loop exit.
+                        if self._exit.is_set() and 's' not in buffer:
+                            print(TAG, "Peak Detection interrupted by user")
+                            break
                         #################################################################################
                         # CHANGED v2.0
                         # PRINT LEN BUFFER WHEN THE EOM is RECEIVED
@@ -513,6 +538,22 @@ class CalibrationProcess(multiprocessing.Process):
                         self.stop()
                         break
                 #### END SWEEPS LOOP
+
+                # VER 0.1.6 user cancellation (ported from openQCM Q-1 v3.0):
+                # the sweep loop exited early because Stop set self._exit while
+                # still mid-run (k < calib_sections) and no acquisition error
+                # occurred (_flag == 0). Normal completion calls self.stop() too,
+                # but only once k == calib_sections, so it is excluded here.
+                # Signal the cancellation on parser5 (-1 sentinel) and skip the
+                # peak-detection / file-storage stage entirely.
+                if self._exit.is_set() and k < Constants.calib_sections and self._flag == 0:
+                    print(TAG, "Peak Detection interrupted by user at section {}/{}".format(
+                        k, Constants.calib_sections))
+                    self._parser5.add5([-1, 0])
+                    if self._serial.isOpen():
+                        self._serial.close()
+                    return
+
                 '''
                 # CALLS baseline_correction method
                 (data_mag_baseline, data_ph_baseline) = self.baseline_correction(readFREQ,temp1,temp2)

@@ -163,8 +163,15 @@ class MainWindow(QtGui.QMainWindow):
         self._plt2_multiline = [None, None, None, None, None]
         self._pltD_multiline = [None, None, None, None, None]
         
-        # VER 0.1.6 init a reference to the line object amplitude sweep in multiscan mode 
+        # VER 0.1.6 init a reference to the line object amplitude sweep in multiscan mode
         self._plt0_multiline = [None, None, None, None, None]
+
+        # VER 0.1.6 number of overtone lines/legend items; set per-run in start()
+        # for serial/multiscan. Default 0 so stop()'s legend-removal loop is a
+        # no-op in calibration/peak-detection mode (which never populates a legend)
+        # — previously this attribute was undefined there and stop() (now reachable
+        # via the Stop button during peak detection) raised AttributeError.
+        self._overtones_number_all = 0
 
         self._timer_plot = None
         self._readFREQ = None
@@ -539,8 +546,12 @@ class MainWindow(QtGui.QMainWindow):
             #### CALIBRATION
             # -----------------------------------------------------------------
             elif self._get_source() == SourceType.calibration:
-                
-                # VER 0.1.6 delete the call to label_quartz in calibration peak detection mode 
+
+                # VER 0.1.6 peak detection populates no overtone legend; keep the
+                # count at 0 so a Stop-triggered stop() removes no legend items.
+                self._overtones_number_all = 0
+
+                # VER 0.1.6 delete the call to label_quartz in calibration peak detection mode
 # =============================================================================
 #                 label_quartz = self.ui.cBox_Speed.currentText()
 # =============================================================================
@@ -683,6 +694,20 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.infostatus.setStyleSheet('background: white; padding: 1px; border: 1px solid #cccccc')
         self.ui.infostatus.setText("<font color=#000000 > Program Status Stanby</font>")
         self.ui.infobar.setText("Infobar")
+
+        # VER 0.1.6 peak detection is the only mode that reaches stop() while
+        # still running via the Stop button — normal completion (and errors)
+        # tear down inline in _update_plot, never through stop(). So a stop()
+        # during calibration is always a user cancellation: reflect it.
+        if self._get_source() == SourceType.calibration:
+            self.ui.infostatus.setStyleSheet('background: #ffff00; padding: 1px; border: 1px solid #cccccc')
+            self.ui.infostatus.setText("<font color=#000000 > Program Status </font>Peak Detection Cancelled")
+            self.ui.infobar.setText("Infobar <font color=#e65100>Peak Detection cancelled by user.</font>")
+            # VER 0.1.6 clear the real-time amplitude sweep trace: the generic
+            # clear() later in stop() is a no-op during calibration (its frequency
+            # buffer is NaN), so the last partial sweep would otherwise linger on
+            # the amplitude plot after a cancellation.
+            self._plt0.clear()
 
         # TODO Enable temperature control button
         self.ui.pButton_Tswitch_OFF.setEnabled(True)
@@ -2054,8 +2079,15 @@ class MainWindow(QtGui.QMainWindow):
             # VER 0.1.6 DEBUG check the stop flag variable 
             pre_stop_flag = stop_flag
             
-            # disable stop button             
-            self.ui.pButton_Stop.setEnabled(False)
+            # VER 0.1.6 user cancellation (ported from openQCM Q-1 v3.0): if the
+            # user pressed Stop mid-sweep, CalibrationProcess emitted the -1
+            # sentinel and the worker latched it — tear down cleanly, once.
+            # The Stop button is intentionally left ENABLED during peak detection
+            # (it used to be disabled here) so the procedure can be cancelled.
+            if self.worker.is_calibration_cancelled():
+                if self._timer_plot.isActive():   # guard: run the teardown once
+                    self.stop()
+                return
 
             # get additional error flag 
             vector1 = self.worker.get_value1_buffer()

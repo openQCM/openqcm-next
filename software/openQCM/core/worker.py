@@ -120,7 +120,12 @@ class Worker:
         # instances of the processes
         self._acquisition_process = None
         self._parser_process = None
-        
+
+        # VER 0.1.6 peak-detection (calibration) user-cancellation flag, latched
+        # from the -1 sentinel that CalibrationProcess emits on parser5 when the
+        # user presses Stop mid-sweep. Read by the GUI via is_calibration_cancelled().
+        self._calibration_cancelled = False
+
         # others
         self._QCS_on = QCS_on # QCS installed on device (unused now)
         self._port = port     # serial port 
@@ -194,7 +199,10 @@ class Worker:
             
         # Setup/reset the internal buffers
         self.reset_buffers(self._samples)
-        
+
+        # VER 0.1.6 clear any stale peak-detection cancellation flag before a new run
+        self._calibration_cancelled = False
+
         # Instantiates process
 # =============================================================================
 #         self._parser_process = ParserProcess(self._queue1, self._queue2, self._queue3, self._queue4, self._queue5, self._queue6, 
@@ -332,16 +340,29 @@ class Worker:
         # when stop is called, terminate the processes alive in the worker 
 
         if self._acquisition_process is not None and self._acquisition_process.is_alive():
-            # stop the process 
+            # Signal the process to stop (sets its _exit event).
             self._acquisition_process.stop()
-            # self._acquisition_process.join(Constants.process_join_timeout_ms)
-            
-            # terminate the process 
-            # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.Process.terminate
-            self._acquisition_process.terminate()
-            
-            # wait for a while 
-            sleep(1)
+
+            if self._source == SourceType.calibration:
+                # VER 0.1.6 graceful shutdown for peak detection (ported from
+                # openQCM Q-1 v3.0): the responsive sweep loop returns within
+                # ~0.1 s of _exit being set, releasing the serial port cleanly.
+                # Wait for it to exit on its own and only force terminate() as a
+                # fallback, so a mid-sweep Stop does not hard-kill the process
+                # and leave the serial port in a bad state.
+                self._acquisition_process.join(3.0)
+                if self._acquisition_process.is_alive():
+                    print(TAG, "Peak detection process did not exit, forcing terminate...")
+                    Log.w(TAG, "Peak detection process did not exit, forcing terminate...")
+                    self._acquisition_process.terminate()
+                    self._acquisition_process.join(2.0)
+            else:
+                # Measurement modes (serial / multiscan): terminate directly —
+                # unchanged behaviour, their read loops are not exit-polled.
+                # https://docs.python.org/3/library/multiprocessing.html#multiprocessing.Process.terminate
+                self._acquisition_process.terminate()
+                # wait for a while
+                sleep(1)
 
         # TODO check if it is necessary to terminate parser
         self._parser_process.stop()
@@ -554,8 +575,12 @@ class Worker:
     def _queue_data5(self,data):
         # Additional function: exports processed data in a file if export box is checked.
         #:param data: values to add for temperature :type data: float.
+        # VER 0.1.6 a -1 on the time field is the peak-detection cancellation
+        # sentinel emitted by CalibrationProcess when the user presses Stop.
+        if data[0] == -1:
+            self._calibration_cancelled = True
         self._t3_store = data[0] # time (unused)
-        self._d3_store = data[1] # data 
+        self._d3_store = data[1] # data
         
         
         
@@ -819,8 +844,16 @@ class Worker:
     ###########################################################################
     # Checks if processes are running
     ###########################################################################
-    def is_running(self):  
+    def is_running(self):
         return self._acquisition_process is not None and self._acquisition_process.is_alive()
+
+    ###########################################################################
+    # Returns True if the running peak detection was cancelled by the user.
+    ###########################################################################
+    def is_calibration_cancelled(self):
+        # VER 0.1.6 latched from the -1 sentinel in _queue_data5; the GUI polls
+        # this in the calibration branch of _update_plot to tear down cleanly.
+        return self._calibration_cancelled
 
 
     ###########################################################################

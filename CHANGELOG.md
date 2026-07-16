@@ -23,6 +23,29 @@ Conventional Commits. Versions are marked by Git tags.
   temperature, TEC on/off, PID, firmware version) go through it via `_serial_write` /
   `_serial_query` instead of opening the port ad-hoc; the port is **handed over** to the
   acquisition process on START (handle closed) and **re-acquired** on STOP.
+- **Responsive, clean cancellation of Peak Detection (calibration)** — ported and adapted
+  from the more mature openQCM Q-1 v3.0. The peak-detection sweep can now be stopped mid-run
+  without a hard process kill or a corrupt serial state, replacing the previous behaviour where
+  the **Stop** button was disabled for the whole (~1 min) sweep.
+  - `processors/Calibration.py`: the inner sweep-read loop now polls `self._exit`
+    (`while not self._exit.is_set()`) with a short `0.1 s` serial read timeout, so a Stop
+    interrupts within ~0.1 s instead of blocking on `serial_timeout_ms` (4 s). On cancellation
+    mid-sweep (`_exit` set with `k < calib_sections` and no acquisition error) it emits a `-1`
+    sentinel on `parser5` and returns, skipping peak detection / file storage. On start it drains
+    any bytes left over from a previously interrupted run before sweeping.
+  - `core/worker.py`: latches the `-1` sentinel in `_queue_data5` into `_calibration_cancelled`
+    (exposed via `is_calibration_cancelled()`, reset each `start()`); `stop()` now shuts the
+    peak-detection process down gracefully (`join` first, `terminate()` only as a fallback) so the
+    serial port is released cleanly. Measurement modes (serial/multiscan) keep the direct terminate.
+  - `ui/mainWindow.py`: the **Stop** button is no longer disabled during peak detection; the
+    calibration branch of `_update_plot` checks `is_calibration_cancelled()` first and tears down
+    once; `stop()` reports **"Peak Detection Cancelled"** when invoked during calibration.
+    Fixed a latent `AttributeError` this exposed: `stop()`'s legend-removal loop read
+    `self._overtones_number_all`, which was only set for serial/multiscan — undefined in
+    calibration mode, where `stop()` was previously unreachable (Stop disabled). It is now
+    initialised to `0` in `__init__` (and in the calibration `start()` branch), so the loop is a
+    no-op. Without this, pressing Stop mid-peak-detection raised before `worker.stop()` ran and the
+    sweep continued to completion.
 
 ### Changed
 - **Entry point unified into `run.py`**: added a thin `software/run.py` launcher and
