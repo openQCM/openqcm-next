@@ -104,16 +104,44 @@ Done (dev plotting — see CHANGELOG):
     `y_f_range` / `y_d_range` / `y_t_range` for a stable user-facing view.
 
 Quick wins:
-- **Disconnected-sensor detection**: guard on a minimum Q-factor (`min_valid_q_factor`) in
-  `processors` (`parameters_finder`), so noise is not logged as a real peak.
+- **Disconnected-sensor detection** (ported from openQCM Q-1; detailed plan ready, awaiting go):
+  add `Constants.min_valid_q_factor = 100` and, in `parameters_finder` — **both** `Multiscan.py`
+  (before the `return` ~:317) and `Serial.py` (~:319) — set `self._err1 = self._err2 = 1` when the
+  true Q is below the threshold, so amplifier noise from a detached sensor is not logged as a peak.
+  **Adaptation — do NOT blind-copy Q-1**: our `parameters_finder` returns `Qfac` = *bandwidth*
+  (consumed by the dissipation calc), not a Q-factor. Compute a separate local
+  `q_factor = freq_resonance / bandwidth` (inside `np.errstate(divide='ignore', invalid='ignore')`,
+  so `bandwidth == 0` → `inf` → passes) **only** for the guard; leave the returned `Qfac` and the
+  dissipation untouched. Reuses the existing `_err1/_err2` → `parser6.add6(...)` "-3dB not found"
+  pipeline (no new plumbing). Threshold `100` is Q-1's (its bandwidth is FWHM `0.707·f_max`); ours
+  uses `f_max - THRESHOLD_DB` (0.3 dB), so the value **must be validated/tuned on hardware** with a
+  physically disconnected sensor. Optional first step: synthetic Lorentzian-vs-noise check offline.
 - **Robust firmware query**: add range-priming (`1;1;1\n`) + reply-format validation in
   `ui/mainWindow.py` (adapt the regex to the `0.1.5a` version format) to survive older firmware.
 - **Firmware updater .hex fix**: `firmware_update/` ships the `0.1.5` image (POT 180) while the
   software expects `0.1.5a` (POT 240) → ship the `0.1.5a` image (already in `firmware/`).
 
-Later: peak-detection validations; UI (System Log tab, measurement cursors, light theme, overtone
-quick-select); packaging (`common/resources.py` + hardcoded-icon fix, PyInstaller); cross-platform
-validation; merge the impedance feature once stable (make the conductance method selectable).
+Backend backlog ported from the more mature **openQCM Q-1** sibling codebase (its CHANGELOG is the
+roadmap). ⚠️ Each Q-1-inspired change needs a **detailed plan + explicit approval before coding**
+(code must be adapted to this repo, not copied verbatim — see the Q-factor example above):
+- **Tracking safety (auto-disable / auto-resume)**: disable auto-tracking after N consecutive
+  sweeps with the peak lost, auto-resume when it returns. Backend = a `_consecutive_edge_errors`
+  counter in the acquisition process + tracking events on a parser queue + Worker→GUI notifications
+  (Q-1: disable after 10, resume after 5). Builds on the disconnected-sensor guard (same `_err`
+  pipeline). GUI status-bar notification part deferred.
+- **Peak-detection validations**: validate the fundamental is a plausible QCM frequency
+  (4-6 / 9-11 MHz), flag when all expected overtones are zero, auto-detect QCM type (5/10 MHz),
+  tune the magnitude/phase cross-validation threshold. Two-phase detection already exists in
+  `processors/Calibration.py` (`peak_detection_qcm_fundamental` / `..._overtones`).
+- **Windows serial anti-jitter**: add `sleep(0.001)` inside the `inWaiting()` read loop
+  (`Serial.py:826`, currently a tight busy-wait) to reduce Windows scheduler jitter.
+- **Minor / defensive**: `FileManager.create_dir(None)` raises `TypeError`; `file_exists(None)`
+  returns `None`. `Constants.environment = 50` for production (currently `10`, development).
+
+Later (GUI / firmware / packaging — deferred): UI (System Log tab, measurement cursors, light
+theme, overtone quick-select); packaging (`common/resources.py` + hardcoded-icon fix, PyInstaller);
+cross-platform validation; merge the impedance feature once stable (make the conductance method
+selectable).
 
 ## 6. Conventions and gotchas
 
