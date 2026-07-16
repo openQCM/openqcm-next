@@ -174,9 +174,13 @@ def qss(p):
     QPushButton#pButton_Connect:disabled, QPushButton#pButton_Refresh:disabled {{
         background: {disabled_bg}; color: {disabled_text}; border-color: {border}; }}
 
-    /* Overtone quick-select chips F0..F9 (3b, R2 mockup look) */
+    /* Overtone quick-select chips F0..F9 — as compact as possible (sidebar) */
     QPushButton[overtoneBtn="true"] {{ background: {field_bg}; color: {text};
-        border: 1px solid {border}; border-radius: 11px; padding: 3px 12px; min-width: 28px; }}
+        border: 1px solid {border}; border-radius: 7px; padding: 2px 3px; min-width: 0px; }}
+
+    /* Temperature controller buttons: single compact row (ON / OFF / RESET) */
+    QPushButton#pButton_Tswitch_ON, QPushButton#pButton_Tswitch_OFF,
+    QPushButton#pButton_TEC_Reset {{ padding: 5px 3px; min-width: 0px; }}
     QPushButton[overtoneBtn="true"]:checked {{ background: {accent}; color: {accent_text};
         border-color: {accent}; }}
     QPushButton[overtoneBtn="true"]:disabled {{ background: {disabled_bg}; color: {disabled_text}; }}

@@ -132,6 +132,15 @@ Conventional Commits. Versions are marked by Git tags.
   - Min-Y-scale enforcement deferred by decision.
 
 ### Changed
+- **GUI sidebar horizontal compaction (fine-tuning)** — several changes to narrow the sidebar:
+  F0–F9 overtone chips shrunk to the minimum (tight padding, `min-width: 0`, 3px row spacing);
+  the TEC **ON / OFF / RESET** buttons moved onto a single compact equal-width row (tight padding);
+  **Set Reference / Clear Reference merged into one toggle** on `pButton_Reference`
+  (`_toggle_reference` calls `reference()` / `reference_not()` by `_reference_flag` and relabels
+  the button; the label is re-synced on Start; `pButton_Reference_Not` is hidden but kept alive);
+  the Temperature Control state banner now word-wraps so its longer state strings no longer force
+  the card wide; the sidebar scroll `minimumWidth` lowered 220 → 170. The current-readings F/D grid
+  is deliberately left for a later pass (now the main remaining width driver).
 - **GUI fine-tuning: hide datalog sampling time and the PID section** — the datalog
   sampling-time selector is hidden from the sidebar (kept created/functional — acquisition uses
   the default sampling time; "Time elapsed" stays). The Temperature card is simplified to

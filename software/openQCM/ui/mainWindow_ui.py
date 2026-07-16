@@ -279,6 +279,9 @@ class Ui_MainWindow(object):
         self.line_2 = self._hline(self.sidebarContainer, "line_2")
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
+        # tight row so the 5 chips take the least horizontal room possible
+        self.horizontalLayout_2.setSpacing(3)
+        self.horizontalLayout_2.setContentsMargins(0, 0, 0, 0)
         radio_texts = ("0th", "3rd", "5th", "7th", "9th")
         self.overtone_buttons = []
         for name, rtext in zip(overtones, radio_texts):
@@ -351,6 +354,9 @@ class Ui_MainWindow(object):
         self.pButton_Reference_Not = QtWidgets.QPushButton("Clear Reference ",
                                                            self.sidebarContainer)
         self.pButton_Reference_Not.setObjectName("pButton_Reference_Not")
+        # merged into pButton_Reference as a single Set/Clear toggle (kept alive
+        # for the controller; reference_not() is still called by the toggle)
+        self.pButton_Reference_Not.hide()
         self.pButton_Clear = QtWidgets.QPushButton("Clear Plots",
                                                    self.sidebarContainer)
         self.pButton_Clear.setObjectName("pButton_Clear")
@@ -387,7 +393,7 @@ class Ui_MainWindow(object):
         self.sidebarScroll.setObjectName("sidebarScroll")
         self.sidebarScroll.setWidgetResizable(True)
         self.sidebarScroll.setWidget(self.sidebarContainer)
-        self.sidebarScroll.setMinimumWidth(220)
+        self.sidebarScroll.setMinimumWidth(170)
         self.sidebarScroll.setMaximumWidth(360)
         self.sidebarScroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.sidebarScroll.setFrameShape(QtWidgets.QFrame.NoFrame)
@@ -408,6 +414,10 @@ class Ui_MainWindow(object):
         self.gridLayout_4 = QtWidgets.QGridLayout()
         self.gridLayout_4.setObjectName("gridLayout_4")
         self._label(self.tab, "label_Temperature_state", "Temperature Control")
+        # minimize the state indicator: wrap long state text instead of forcing
+        # the card wider, and don't let it dictate a large minimum width
+        self.label_Temperature_state.setWordWrap(True)
+        self.label_Temperature_state.setMinimumWidth(0)
         self.pButton_Tswitch_ON = QtWidgets.QPushButton("ON", self.tab)
         self.pButton_Tswitch_ON.setObjectName("pButton_Tswitch_ON")
         self.pButton_Tswitch_OFF = QtWidgets.QPushButton("OFF", self.tab)
@@ -426,13 +436,17 @@ class Ui_MainWindow(object):
         self._label(self.tab, "label_Temperature", "Temperature (° C)")
         self._label(self.tab, "indicator_temperature", "0")
         self.gridLayout_4.addWidget(self.label_Temperature_state, 0, 0, 1, 4)
-        self.gridLayout_4.addWidget(self.pButton_Tswitch_ON, 1, 0, 1, 2)
-        self.gridLayout_4.addWidget(self.pButton_Tswitch_OFF, 1, 2, 1, 2)
-        self.gridLayout_4.addWidget(self.pButton_TEC_Reset, 2, 0, 1, 4)
-        self.gridLayout_4.addWidget(self.pButton_Temperature_Set, 3, 0, 1, 2)
-        self.gridLayout_4.addWidget(self.doubleSpinBox_Temperature, 3, 2, 1, 2)
-        self.gridLayout_4.addWidget(self.label_Temperature, 4, 0, 1, 2)
-        self.gridLayout_4.addWidget(self.indicator_temperature, 4, 2, 1, 2)
+        # ON / OFF / RESET on a single compact row (equal-width)
+        _tec_btns = QtWidgets.QHBoxLayout()
+        _tec_btns.setSpacing(4)
+        for _b in (self.pButton_Tswitch_ON, self.pButton_Tswitch_OFF,
+                   self.pButton_TEC_Reset):
+            _tec_btns.addWidget(_b)
+        self.gridLayout_4.addLayout(_tec_btns, 1, 0, 1, 4)
+        self.gridLayout_4.addWidget(self.pButton_Temperature_Set, 2, 0, 1, 2)
+        self.gridLayout_4.addWidget(self.doubleSpinBox_Temperature, 2, 2, 1, 2)
+        self.gridLayout_4.addWidget(self.label_Temperature, 3, 0, 1, 2)
+        self.gridLayout_4.addWidget(self.indicator_temperature, 3, 2, 1, 2)
         self.gridLayout_6.addWidget(self.line_4, 2, 0, 1, 1)
         self.gridLayout_6.addLayout(self.gridLayout_4, 3, 0, 1, 1)
         self.tabWidget.addTab(self.tab, "Temperature Control")

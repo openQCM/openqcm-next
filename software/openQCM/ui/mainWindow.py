@@ -486,6 +486,7 @@ class MainWindow(QtGui.QMainWindow):
 
             # Duplicate frequencies
             self._reference_flag = False
+            self._update_reference_button()   # keep the Set/Clear toggle label in sync
             # self._vector_reference_frequency = list(self._readFREQ)
             self._reference_value_frequency = 0
             self._reference_value_dissipation = 0
@@ -2114,7 +2115,8 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.pButton_Start.clicked.connect(self._toggle_start_stop)
         self.ui.pButton_Stop.hide()
         self.ui.pButton_Clear.clicked.connect(self.clear)
-        self.ui.pButton_Reference.clicked.connect(self.reference)
+        # single Set/Clear Reference toggle (pButton_Reference_Not is hidden)
+        self.ui.pButton_Reference.clicked.connect(self._toggle_reference)
         self.ui.pButton_Reference_Not.clicked.connect(self.reference_not)
 
         # TODO delete sample box
@@ -4387,6 +4389,19 @@ class MainWindow(QtGui.QMainWindow):
     ###########################################################################
     # Set reference
     ###########################################################################
+    def _toggle_reference(self):
+        # Single Set/Clear Reference toggle. reference() may decline to set (no
+        # valid data yet), so reflect the actual _reference_flag on the label.
+        if self._reference_flag:
+            self.reference_not()
+        else:
+            self.reference()
+        self._update_reference_button()
+
+    def _update_reference_button(self):
+        self.ui.pButton_Reference.setText(
+            "Clear Reference" if self._reference_flag else "Set Reference")
+
     def reference(self):
         import numpy as np
 
