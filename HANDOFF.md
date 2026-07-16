@@ -2,7 +2,7 @@
 
 > Technical starting point to continue development of the software and of the
 > `impedance-analysis` branch. Working language: Italian in chat, English in the repo.
-> Last updated: 2026-07-16.
+> Last updated: 2026-07-17.
 
 ---
 
@@ -210,20 +210,37 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
   the ViewBox with ignoreBounds so they survive clear() and don't drive autorange).
   **Deferred by decision**: min-Y-scale enforcement (to be integrated with `plot_force_yrange`).
   Next: Fase 5 (menu wiring: Tools/Help actions already exist) and the user's GUI fine-tuning pass.
-- **GUI fine-tuning (in progress)**:
-  - **DONE**: datalog sampling-time selector and the whole PID section **hidden** from the GUI
-    (hidden-only — widgets stay created, controller logic intact; `ui/mainWindow_ui.py` via
-    `removeTab` + `tabBar().hide()` + `.hide()`). Temperature card simplified to Temperature
-    Control only.
-  - **TODO — dedicated "Advanced Temperature Control" window**: re-expose PID (`cBox_PID`,
-    `spinBox_Cycling_Time/P/I/D_Share`, `pButton_PID_Set`, page `tab_2`) and optionally the
-    datalog sampling time, replacing the old in-sidebar PID tab. See memory
+- **GUI fine-tuning — DONE this session (2026-07-17; all committed & pushed, see CHANGELOG)**:
+  - **Sidebar compaction**: minimal F0–F9 chips; TEC ON/OFF/RESET on one compact row; **Set/Clear
+    Reference merged into a single toggle** (`_toggle_reference`); Temperature state banner
+    word-wraps; sidebar scroll `minimumWidth` 220 → 170; a long "Connected: <port>" no longer widens
+    the sidebar (`label_COM_status` size policy `Ignored` + full name in tooltip).
+  - **Temperature card**: datalog sampling-time selector + whole PID section **hidden** (widgets
+    kept alive on a hidden standalone `tab_2`); the redundant inner `QTabWidget` container removed —
+    controls sit directly in the card.
+  - **Plot Controls card** (Autoscale · Set/Clear Reference · Clear) + new **Autoscale** button
+    (`autoscale()` → X+Y autorange on all plots).
+  - **Center layout**: vertical `QSplitter` (`plotSplitter`) — amplitude/phase-sweep + temperature
+    on top, **collapsible/hideable** via the handle; per-overtone **readout cards moved above the
+    plots** ("Frequency (Hz)" / "Dissipation (ppm)"); sidebar "Current Readings" card removed.
+  - **Palette reduction** toward blue `#008EC0` + brown `#DD8E6B`: Start/Stop toggle **blue (idle) /
+    brown (running)** (added `brown` / `brown_hover` palette keys).
+  - **App icon** now loads from an absolute module-relative path (`res/icon/favicon.png`).
+  - **Fix**: peak-detection / amplitude-sweep / temperature curves were white → invisible on the
+    light theme's white plot background; now theme-aware (`theme.PLOT[theme]["curve"]` +
+    `_curve_color()`, re-applied on theme switch).
+- **GUI — remaining / TODO**:
+  - **Fase 5** — scientific menu wiring (File/View/Tools/Help actions exist in the builder skeleton,
+    need connecting in the controller).
+  - **Harmonise the remaining state colors** (status pill yellow/red/green) toward the blue+brown
+    palette (deferred by the user during the palette-reduction step).
+  - **min-Y-scale** enforcement (integrate with `Constants.plot_force_yrange`).
+  - **Dedicated "Advanced Temperature Control" window** — re-expose PID (`cBox_PID`, `spinBox_*`,
+    `pButton_PID_Set`, hidden `tab_2`) + optionally the datalog sampling time. See memory
     `advanced-temperature-pid-window`.
-  4. Plot polish: grid off by default + toggle, right-click menu, **Δ cursors**, min-scale
-     (integrate with the `plot_force_yrange` flag); curve colors already aligned.
-  5. Scientific menu **File / View / Tools / Help**.
-  - **Confirmed UX decisions**: single StartStop toggle; **TEC/PID controls kept as a sidebar card**;
-    System Log as a tab; default theme light.
+  - **Confirmed UX decisions**: single StartStop toggle; **TEC/PID kept in the sidebar** (advanced
+    window later); System Log as a tab; default theme light; **frequency & dissipation stay TWO
+    separate panels** (single dual-axis panel rejected).
   - ⚠️ **Preserve (do NOT copy Q-1 blindly)**: Q-1 v3.0 has *no* temperature control — NEXT's
     **TEC/Peltier + PID** must stay; and NEXT's **multiscan** multi-overtone selection differs from
     Q-1's single-overtone measurement.
