@@ -50,6 +50,14 @@ Conventional Commits. Versions are marked by Git tags.
   captures main-process `print()`; child-process (Serial/Multiscan/Calibration) prints and
   `logging`-module messages are not intercepted (they keep going to terminal / log file). Adapted
   from openQCM Q-1 v3.0.
+- **GUI single Start/Stop toggle (Phase 3a of the GUI redesign)** — the separate Start and Stop
+  buttons are merged into one toggle on `pButton_Start`: it runs `_toggle_start_stop()` (Stop if
+  acquiring, else Start), stays enabled while running (gated only on an active serial connection),
+  and shows **Start** (green) / **Stop** (red) via a `running` dynamic property + `unpolish/polish`
+  and theme QSS (`#pButton_Start` in `ui/theme.py`). The visual state flips inside `_enable_ui`, so
+  it tracks every idle↔running transition (start / stop / normal completion / calibration cancel).
+  The old `pButton_Stop` is hidden and the inline stylesheet on `pButton_Start` is dropped so the
+  toggle follows the theme. Adapted from openQCM Q-1 v3.0.
 - **Responsive, clean cancellation of Peak Detection (calibration)** — ported and adapted
   from the more mature openQCM Q-1 v3.0. The peak-detection sweep can now be stopped mid-run
   without a hard process kill or a corrupt serial state, replacing the previous behaviour where

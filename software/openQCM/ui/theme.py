@@ -109,6 +109,14 @@ def qss(p):
         border-radius: 4px; text-align: center; }}
     QProgressBar::chunk {{ background: {accent}; }}
 
+    /* Single Start/Stop toggle (Phase 3a): green when idle, red while running */
+    QPushButton#pButton_Start {{ background: #2e9e5b; color: #ffffff; border: none;
+        border-radius: 4px; padding: 6px 12px; font-weight: bold; }}
+    QPushButton#pButton_Start:hover {{ background: #33ad64; }}
+    QPushButton#pButton_Start[running="true"] {{ background: #d32f2f; }}
+    QPushButton#pButton_Start[running="true"]:hover {{ background: #e03b3b; }}
+    QPushButton#pButton_Start:disabled {{ background: {disabled_bg}; color: {disabled_text}; }}
+
     QRadioButton, QCheckBox {{ background: transparent; color: {text}; }}
     QScrollArea {{ border: none; background: {window}; }}
     """.format(**p)

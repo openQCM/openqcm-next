@@ -418,6 +418,13 @@ class MainWindow(QtGui.QMainWindow):
             _addItemToLayout(legend, sample, label)
         legend.updateSize()
 
+    def _toggle_start_stop(self):
+        # Phase 3a: single Start/Stop toggle — one button drives both actions.
+        if self.worker.is_running():
+            self.stop()
+        else:
+            self.start()
+
     ###########################################################################
     # Starts the acquisition of the selected serial port
     ###########################################################################
@@ -1322,7 +1329,15 @@ class MainWindow(QtGui.QMainWindow):
             
         # self.ui.cBox_Speed.setEnabled(enabled)
         # VER 0.1.6b Start requires an active serial connection
-        self.ui.pButton_Start.setEnabled(enabled and self._serial_connected)
+        # Phase 3a: pButton_Start is a single Start/Stop toggle — keep it usable
+        # while running (to act as Stop); gate only on the active connection.
+        self.ui.pButton_Start.setEnabled(self._serial_connected)
+        # reflect the running state on the toggle (enabled True == idle)
+        _running = not enabled
+        self.ui.pButton_Start.setText("Stop" if _running else "Start")
+        self.ui.pButton_Start.setProperty("running", _running)
+        self.ui.pButton_Start.style().unpolish(self.ui.pButton_Start)
+        self.ui.pButton_Start.style().polish(self.ui.pButton_Start)
 
         # TODO delete or implement export txt file
         # self.ui.chBox_export.setEnabled(enabled)
@@ -2024,8 +2039,10 @@ class MainWindow(QtGui.QMainWindow):
         # VER 0.1.6b set up the serial connection feature (button + state)
         self._setup_serial_connection_ui()
 
-        self.ui.pButton_Start.clicked.connect(self.start)
-        self.ui.pButton_Stop.clicked.connect(self.stop)
+        # Phase 3a: single Start/Stop toggle — pButton_Start drives both; Stop hidden.
+        self.ui.pButton_Start.setStyleSheet("")   # drop inline style so theme QSS (#pButton_Start) applies
+        self.ui.pButton_Start.clicked.connect(self._toggle_start_stop)
+        self.ui.pButton_Stop.hide()
         self.ui.pButton_Clear.clicked.connect(self.clear)
         self.ui.pButton_Reference.clicked.connect(self.reference)
         self.ui.pButton_Reference_Not.clicked.connect(self.reference_not)
