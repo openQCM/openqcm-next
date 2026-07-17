@@ -108,8 +108,13 @@ def qss(p):
     QGroupBox#groupBox_data::title, QGroupBox#groupTempPID::title,
     QGroupBox#groupPlotControls::title {{
         subcontrol-origin: margin; subcontrol-position: top left;
-        left: 12px; top: 8px; color: {text};
-        font-weight: bold; font-size: 13px; }}
+        left: 12px; top: 8px; color: {text}; font-size: 14px; }}
+    /* Qt ignores font-weight on ::title, so the bold weight is set on the
+       QGroupBox widget font in the builder; reset the card CONTENT to normal
+       so only the title is bold. */
+    QGroupBox#groupConnection QWidget, QGroupBox#groupSetup QWidget,
+    QGroupBox#groupBox_data QWidget, QGroupBox#groupTempPID QWidget,
+    QGroupBox#groupPlotControls QWidget {{ font-weight: normal; }}
 
     /* Readout cards above the frequency / dissipation plots (compact) */
     QGroupBox#groupFreqReadout, QGroupBox#groupDissReadout {{
@@ -170,30 +175,46 @@ def qss(p):
     /* Single Start/Stop toggle (3a, R2): accent blue when idle (mockup),
        red while running */
     QPushButton#pButton_Start {{ background: {accent}; color: {accent_text};
-        border: none; border-radius: 8px; padding: 8px 12px;
-        font-weight: bold; font-size: 14px; }}
+        border: none; border-radius: 8px; padding: 10px 12px;
+        font-weight: normal; font-size: 17px; }}
     QPushButton#pButton_Start:hover {{ background: #007aa5; }}
     QPushButton#pButton_Start[running="true"] {{ background: {brown}; }}
     QPushButton#pButton_Start[running="true"]:hover {{ background: {brown_hover}; }}
     QPushButton#pButton_Start:disabled {{ background: {disabled_bg}; color: {disabled_text}; }}
 
-    /* Connection buttons (3e, R2 polish): Connect = primary, Refresh = outline */
-    QPushButton#pButton_Connect {{ background: {accent}; color: {accent_text};
-        border: none; border-radius: 6px; padding: 5px 12px; font-weight: bold; }}
-    QPushButton#pButton_Connect:hover {{ background: #007aa5; }}
-    QPushButton#pButton_Refresh {{ background: transparent; color: {accent};
-        border: 1px solid {accent}; border-radius: 6px; padding: 5px 12px; }}
-    QPushButton#pButton_Refresh:hover {{ background: {field_bg}; }}
-    QPushButton#pButton_Connect:disabled, QPushButton#pButton_Refresh:disabled {{
-        background: {disabled_bg}; color: {disabled_text}; border-color: {border}; }}
+    /* Secondary "outline" buttons — the standard look for secondary-importance
+       controls (less invasive; width adapts to the label). Covers Connect/
+       Disconnect, Refresh, the plot controls (AUTO / SET REF / CLEAR) and the
+       temperature toggle + TEC Reset. Blue outline by default; brown when a
+       toggle is in its "deactivate" state (Disconnect, temperature OFF); grey
+       when disabled. */
+    QPushButton#pButton_Connect, QPushButton#pButton_Refresh,
+    QPushButton#pButton_Autoscale, QPushButton#pButton_Reference,
+    QPushButton#pButton_Reference_Not, QPushButton#pButton_Clear,
+    QPushButton#pButton_Tswitch_ON, QPushButton#pButton_TEC_Reset,
+    QPushButton#pButton_Temperature_Set {{
+        background: transparent; color: {accent}; border: 1px solid {accent};
+        border-radius: 6px; padding: 4px 10px; min-width: 0px; }}
+    QPushButton#pButton_Connect:hover, QPushButton#pButton_Refresh:hover,
+    QPushButton#pButton_Autoscale:hover, QPushButton#pButton_Reference:hover,
+    QPushButton#pButton_Reference_Not:hover, QPushButton#pButton_Clear:hover,
+    QPushButton#pButton_Tswitch_ON:hover, QPushButton#pButton_TEC_Reset:hover,
+    QPushButton#pButton_Temperature_Set:hover {{
+        background: {field_bg}; }}
+    QPushButton#pButton_Connect[connected="true"] {{ color: {brown}; border-color: {brown}; }}
+    QPushButton#pButton_Tswitch_ON[tecOn="true"] {{ color: {brown}; border-color: {brown}; }}
+    QPushButton#pButton_Connect:disabled, QPushButton#pButton_Refresh:disabled,
+    QPushButton#pButton_Autoscale:disabled, QPushButton#pButton_Reference:disabled,
+    QPushButton#pButton_Reference_Not:disabled, QPushButton#pButton_Clear:disabled,
+    QPushButton#pButton_Tswitch_ON:disabled, QPushButton#pButton_TEC_Reset:disabled,
+    QPushButton#pButton_Temperature_Set:disabled {{
+        background: transparent; color: {disabled_text}; border-color: {border}; }}
 
     /* Overtone quick-select chips F0..F9 — as compact as possible (sidebar) */
     QPushButton[overtoneBtn="true"] {{ background: {field_bg}; color: {text};
         border: 1px solid {border}; border-radius: 7px; padding: 2px 3px; min-width: 0px; }}
 
-    /* Temperature controller buttons: single compact row (ON / OFF / RESET) */
-    QPushButton#pButton_Tswitch_ON, QPushButton#pButton_Tswitch_OFF,
-    QPushButton#pButton_TEC_Reset {{ padding: 5px 3px; min-width: 0px; }}
+    /* (Temperature toggle + TEC Reset share the secondary-outline rule above.) */
     QPushButton[overtoneBtn="true"]:checked {{ background: {accent}; color: {accent_text};
         border-color: {accent}; }}
     QPushButton[overtoneBtn="true"]:disabled {{ background: {disabled_bg}; color: {disabled_text}; }}

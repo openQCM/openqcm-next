@@ -46,6 +46,28 @@ Conventional Commits. Versions are marked by Git tags.
   show/hide toggles for the **Sidebar** (`sidebarScroll`) and the bottom **Status bar**
   (`statusBarFrame`). File→Quit, View→Theme/Δ Cursors, Tools→Raw/Log/Tec, Help→Firmware/Software were
   already wired. This closes the phased GUI redesign (Phases 0–5).
+- **GUI refinement pass (main window)** — visual/UX polish on top of the phased redesign:
+  - Single **temperature ON/OFF toggle** replacing the two buttons: blue "ON" (enable) / brown "OFF"
+    (disable), enabled only while the serial port is connected, kept in sync with the firmware TEC
+    status during acquisition (`_toggle_temperature_control` / `_update_tec_toggle` / `_tec_on`).
+  - Unified **"secondary" outline button style** (blue outline; brown for a toggle's deactivate state
+    — Disconnect, temperature OFF; grey outline when disabled) applied to Connect/Disconnect, Refresh,
+    the plot controls, T SET and TEC Reset; each sized to its label (trailing stretch) so it no longer
+    fills the sidebar width.
+  - **Renames**: Autoscale → AUTO, Set/Clear Reference → SET REF / UNSET REF, Clear Plots → CLEAR,
+    Temperature Set → T SET.
+  - **Card titles** rendered bold (set on the `QGroupBox` widget font — Qt ignores font-weight on the
+    `::title` subcontrol — with the card content reset to normal weight).
+  - **Start / Stop** button: larger (17 px, not bold) with minimalist outline glyphs (▷ play / □ stop).
+  - **Plot Controls** card anchored just below Temperature (the sidebar stretch now sits between it
+    and the Start/Stop button).
+  - Removed redundant sidebar captions ("Serial COM Port", the "Connected: …" status label,
+    "Operation mode", "Frequency (single mode)"); the **frequency selector is shown only in Single
+    Measurement**.
+  - **Sidebar**: correct default width (300 px), smoothly resizable (260–400 px); the rich-text brand
+    label now wraps so it no longer forces a ~459 px minimum that clipped the column.
+  - **Temperature card** redistributed: the setpoint spinbox and the live temperature indicator are
+    aligned to the right margin with an expanding gap.
 - **GUI System Log tab (Phase 2 of the GUI redesign)** — the center pane is now a `QTabWidget`
   (`centerTabs`) with **Plots** and **System Log** tabs. The plots are re-parented as-is into the
   Plots tab (no widget recreated); the System Log tab hosts a read-only `QTextEdit` (`systemLog`)

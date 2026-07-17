@@ -233,6 +233,18 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
   webpage + new `Help → About`; `View → Sidebar` / `View → Status bar` show/hide toggles
   (`_open_help_website`, `_show_about`, `_toggle_sidebar`, `_toggle_statusbar` in the controller).
   **The phased GUI redesign (Phases 0–5) is complete.**
+- **GUI refinement pass — DONE (2026-07-17, see CHANGELOG)**: single **temperature ON/OFF toggle**
+  (blue/brown, gated on the serial connection, synced to firmware TEC status;
+  `_toggle_temperature_control`/`_update_tec_toggle`/`_tec_on`); unified **secondary outline button
+  style** in `theme.py` (Connect/Disconnect, Refresh, AUTO/SET REF/CLEAR, T SET, TEC Reset — blue
+  outline, brown for the deactivate state, grey outline disabled) with widths sized to the label
+  (HBox + trailing stretch); renames **AUTO / SET REF↔UNSET REF / CLEAR / T SET**; **bold card titles**
+  via the QGroupBox widget font (Qt ignores font-weight on `::title`; card content reset to normal);
+  **Start/Stop** larger, not bold, with ▷/□ glyphs; **Plot Controls** anchored under Temperature
+  (sidebar stretch moved below it); removed redundant captions; **frequency selector shown only in
+  Single Measurement** (`_source_changed` `setVisible`); **sidebar** default 300 px, resizable 260–400
+  (brand `label_2` set to word-wrap to stop it pinning a ~459 px minimum); temperature setpoint +
+  indicator right-aligned. ⚠️ A few small visual refinements remain (per the user, to do later).
 - **GUI — remaining / TODO** (polish / optional, after the block phases):
   - **Harmonise the remaining state colors** (status pill yellow/red/green) toward the blue+brown
     palette (deferred by the user during the palette-reduction step).

@@ -122,10 +122,14 @@ A legacy `FindPeak` routine remains available as a fallback.
   corner button)
 - Explicit **Connect / Disconnect** and **Refresh** controls: the serial connection is a separate
   step (with a per-port lock against multiple instances), and **Start** is enabled only once connected
-- Single **Start / Stop toggle** button (blue when idle, brown while running)
+- Single **Start / Stop toggle** button (▷ play / □ stop glyphs; blue when idle, brown while running)
+- Single **temperature ON / OFF toggle** (blue to enable, brown to disable; enabled once connected),
+  with a settable setpoint (**T SET**) and a live temperature readout
 - **Overtone quick-select** chips (F0/F3/F5/F7/F9): pick the measured overtone in single mode, or
-  highlight traces in multiscan
-- **Plot Controls** card: Autoscale · Set/Clear Reference (toggle) · Clear Plots
+  highlight traces in multiscan; the **frequency selector** is shown only in *Single Measurement*
+- **Plot Controls** card: **AUTO** · **SET REF / UNSET REF** (toggle) · **CLEAR**
+- Consistent lightweight **"secondary" button style** (blue outline, brown for the "deactivate"
+  state, grey when disabled) sized to fit each label, and **bold card titles**
 - **Bottom status bar**: program state, message, live F/D/T/S readings and the progress bar
 - Real-time datalog **filename indicator** (sidebar + window title) during acquisition
 
@@ -276,8 +280,9 @@ The `impedance-analysis` branch is experimental and not merged into `main`. Its 
 
 Selected planned work (non-exhaustive):
 
-- Finish the GUI redesign: **scientific menu wiring** (File / View / Tools / Help), harmonise the
-  remaining status colors, and a dedicated **Advanced Temperature Control (PID)** window.
+- GUI polish (the redesign and the scientific menu are done): harmonise the remaining status
+  colors toward the blue/brown palette, a dedicated **Advanced Temperature Control (PID)** window,
+  and a few minor layout refinements.
 - Port selected backend improvements from the mature **openQCM Q-1** codebase: **disconnected-sensor
   detection**, **tracking safety** (auto-disable/resume), and peak-detection validations.
 - Harden the **firmware version check** for older firmware (range-priming + reply validation).

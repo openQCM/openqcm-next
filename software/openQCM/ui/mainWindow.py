@@ -214,10 +214,12 @@ class MainWindow(QtGui.QMainWindow):
         self._ser_error2 = 0
         self._ser_err_usb= 0
         
-        # VER 0.1.4  
+        # VER 0.1.4
         # TEC status var
         self._TEC_status = 0
         self._old_value = 0
+        # GUI: intended state of the single Temperature ON/OFF toggle
+        self._tec_on = False
 
         # internet connection variable
         self._internet_connected = False
@@ -781,9 +783,9 @@ class MainWindow(QtGui.QMainWindow):
             # the amplitude plot after a cancellation.
             self._plt0.clear()
 
-        # TODO Enable temperature control button
-        self.ui.pButton_Tswitch_OFF.setEnabled(True)
-        self.ui.pButton_Tswitch_ON.setEnabled(True)
+        # Re-enable the temperature toggle after a run, but only if still
+        # connected (it is gated on the serial connection).
+        self.ui.pButton_Tswitch_ON.setEnabled(self._serial_connected)
 
         # remove legend item
         for idx in range(self._overtones_number_all):
@@ -934,7 +936,28 @@ class MainWindow(QtGui.QMainWindow):
     # TEMPERATURE CONTROL FUNCTION
     ###########################################################################
 
+    def _toggle_temperature_control(self):
+        # Single ON/OFF toggle: turn the TEC off if it is on, otherwise on.
+        if self._tec_on:
+            self.Temperature_Control_OFF()
+        else:
+            self.Temperature_Control_ON()
+
+    def _update_tec_toggle(self):
+        # Reflect the TEC state on the single toggle button: accent "Temperature
+        # ON" when the control is off (a click turns it on); brown "Temperature
+        # OFF" when the control is on (a click turns it off).
+        btn = self.ui.pButton_Tswitch_ON
+        btn.setText("OFF" if self._tec_on else "ON")
+        btn.setProperty("tecOn", self._tec_on)
+        btn.style().unpolish(btn)
+        btn.style().polish(btn)
+
     def Temperature_Control_ON(self):
+
+        # GUI: mark the toggle state on and restyle it (brown = will turn off)
+        self._tec_on = True
+        self._update_tec_toggle()
 
         # change the indicator color
         self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("active"))
@@ -964,6 +987,10 @@ class MainWindow(QtGui.QMainWindow):
 
 
     def Temperature_Control_OFF(self):
+
+        # GUI: mark the toggle state off and restyle it (accent = will turn on)
+        self._tec_on = False
+        self._update_tec_toggle()
 
         # change the led color
         self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("warn"))
@@ -1430,7 +1457,8 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.pButton_Start.setEnabled(self._serial_connected)
         # reflect the running state on the toggle (enabled True == idle)
         _running = not enabled
-        self.ui.pButton_Start.setText("Stop" if _running else "Start")
+        # minimalist outline glyphs: ▷ play (start), □ square (stop)
+        self.ui.pButton_Start.setText("□  Stop" if _running else "▷  Start")
         self.ui.pButton_Start.setProperty("running", _running)
         self.ui.pButton_Start.style().unpolish(self.ui.pButton_Start)
         self.ui.pButton_Start.style().polish(self.ui.pButton_Start)
@@ -2082,9 +2110,13 @@ class MainWindow(QtGui.QMainWindow):
             self._serial_connected = True
             self._connected_port = port
             self.ui.pButton_Connect.setText("Disconnect")
+            self.ui.pButton_Connect.setProperty("connected", True)
+            self.ui.pButton_Connect.style().unpolish(self.ui.pButton_Connect)
+            self.ui.pButton_Connect.style().polish(self.ui.pButton_Connect)
             self.ui.cBox_Port.setEnabled(False)
             self.ui.pButton_Refresh.setEnabled(False)
             self.ui.pButton_Start.setEnabled(True)
+            self.ui.pButton_Tswitch_ON.setEnabled(True)
             self.ui.label_COM_status.setText("Connected: {}".format(port))
             self.ui.label_COM_status.setToolTip("Connected: {}".format(port))
             print(TAG, "Connected to serial port {}".format(port))
@@ -2103,9 +2135,13 @@ class MainWindow(QtGui.QMainWindow):
             self._serial_connected = False
             self._connected_port = None
             self.ui.pButton_Connect.setText("Connect")
+            self.ui.pButton_Connect.setProperty("connected", False)
+            self.ui.pButton_Connect.style().unpolish(self.ui.pButton_Connect)
+            self.ui.pButton_Connect.style().polish(self.ui.pButton_Connect)
             self.ui.cBox_Port.setEnabled(True)
             self.ui.pButton_Refresh.setEnabled(True)
             self.ui.pButton_Start.setEnabled(False)
+            self.ui.pButton_Tswitch_ON.setEnabled(False)
             self.ui.label_COM_status.setText("Disconnected")
             print(TAG, "Disconnected from serial port")
             Log.i(TAG, "Disconnected from serial port")
@@ -2206,8 +2242,13 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.cBox_sampling_time.currentIndexChanged.connect(self._datalog_sampling_time_changed)
 
         # Temperature control button
-        self.ui.pButton_Tswitch_ON.clicked.connect(self.Temperature_Control_ON)
-        self.ui.pButton_Tswitch_OFF.clicked.connect(self.Temperature_Control_OFF)
+        # GUI: single Temperature control ON/OFF toggle. pButton_Tswitch_ON is
+        # repurposed as the toggle; the separate OFF button is hidden.
+        self.ui.pButton_Tswitch_ON.clicked.connect(self._toggle_temperature_control)
+        self.ui.pButton_Tswitch_OFF.hide()
+        self._update_tec_toggle()
+        # gated on the serial connection: disabled/grey until connected
+        self.ui.pButton_Tswitch_ON.setEnabled(self._serial_connected)
         
         
         # VER 0.1.4
@@ -3809,12 +3850,19 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.label_Temperature_state.setText("Temperature Control: Active getting setpoint ")
             self.ui.pButton_TEC_Reset.setEnabled(False)
             
-        # temperature control active and temperature in range    
+        # temperature control active and temperature in range
         if value == Constants.STATUS_CONTROL_ACTIVE_HIGH:
             self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("active"))
             self.ui.label_Temperature_state.setText("Temperature Control: Status in range ")
             self.ui.pButton_TEC_Reset.setEnabled(False)
-        
+
+        # GUI: keep the single toggle in sync with the firmware-reported state
+        # (any active state = will turn OFF/brown; not-active = will turn ON).
+        _active = (value != Constants.STATUS_CONTROL_NOT_ACTIVE)
+        if _active != self._tec_on:
+            self._tec_on = _active
+            self._update_tec_toggle()
+
         self._old_value = value
             
     def _TEC_Reset_button(self):
@@ -4227,6 +4275,8 @@ class MainWindow(QtGui.QMainWindow):
            
            # VER 0.1.6 enable frequency selector inly in single mode
            self.ui.cBox_Speed.setEnabled(True)
+           # frequency dropdown is only meaningful in Single Measurement
+           self.ui.cBox_Speed.setVisible(True)
 
            # Phase 3b: reflect the current combo selection on the quick-select row
            self._sync_overtone_buttons_from_speed()
@@ -4242,8 +4292,10 @@ class MainWindow(QtGui.QMainWindow):
            # VER 0.1.4 disable datalog sampling time 
            self.ui.cBox_sampling_time.setEnabled(False)
            
-           # VER 0.1.6 NOT enable frequency selector in peak detection  
+           # VER 0.1.6 NOT enable frequency selector in peak detection
            self.ui.cBox_Speed.setEnabled(False)
+           # hidden outside Single Measurement
+           self.ui.cBox_Speed.setVisible(False)
 
 
         # multi frequency measurement
@@ -4270,6 +4322,8 @@ class MainWindow(QtGui.QMainWindow):
 
             # VER 0.1.6_TEST NOT enable frequency selector in multi
             self.ui.cBox_Speed.setEnabled(False)
+            # hidden outside Single Measurement
+            self.ui.cBox_Speed.setVisible(False)
             
             # VER 0.1.6 do not update scan selector here 
 # =============================================================================
@@ -4477,7 +4531,7 @@ class MainWindow(QtGui.QMainWindow):
 
     def _update_reference_button(self):
         self.ui.pButton_Reference.setText(
-            "Clear Reference" if self._reference_flag else "Set Reference")
+            "UNSET REF" if self._reference_flag else "SET REF")
 
     def reference(self):
         import numpy as np

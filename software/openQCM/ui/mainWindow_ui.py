@@ -81,7 +81,7 @@ class Ui_MainWindow(object):
         self.mainSplitter.setCollapsible(1, False)
         self.mainSplitter.setStretchFactor(0, 0)
         self.mainSplitter.setStretchFactor(1, 1)
-        self.mainSplitter.setSizes([240, 900])
+        self.mainSplitter.setSizes([300, 900])
 
         outer = QtWidgets.QVBoxLayout(self.centralwidget)
         outer.setContentsMargins(4, 4, 4, 4)
@@ -208,6 +208,9 @@ class Ui_MainWindow(object):
             '<span style=" font-size:16pt; font-weight:600;">openQCM NEXT</span><br/>'
             '<span style=" color:#8a8a8a;">Quartz Crystal Microbalance</span>'
             '</p></body></html>')
+        # allow wrapping so the rich-text brand does not force a wide minimum
+        # width on the whole sidebar (it was pinning ~459 px otherwise)
+        self.label_2.setWordWrap(True)
         self.gridLayout_8.addWidget(self.label, 0, 0, 1, 1)
         self.gridLayout_8.addWidget(self.label_2, 0, 1, 1, 1)
         sb.addWidget(self.groupBox_2)
@@ -236,8 +239,15 @@ class Ui_MainWindow(object):
         conn_row = QtWidgets.QHBoxLayout()
         conn_row.addWidget(self.pButton_Refresh)
         conn_row.addWidget(self.pButton_Connect)
+        conn_row.addStretch(1)   # buttons keep their natural (label) width
         self.gridLayout.addWidget(self.l1, 0, 0, 1, 1)
         self.gridLayout.addWidget(self.label_COM_status, 0, 1, 1, 1)
+        # GUI lightening: the "Serial COM Port" caption and the "Connected: ..."
+        # status label are hidden (kept alive for the controller). The port
+        # combo, the Connect/Disconnect button colour and the bottom status bar
+        # already convey the connection state.
+        self.l1.hide()
+        self.label_COM_status.hide()
         self.gridLayout.addWidget(self.cBox_Port, 1, 0, 1, 2)
         self.gridLayout.addLayout(conn_row, 2, 0, 1, 2)
         sb.addWidget(self.groupConnection)
@@ -261,6 +271,10 @@ class Ui_MainWindow(object):
         self.gridSetup.addWidget(self.cBox_Source, 1, 0, 1, 2)
         self.gridSetup.addWidget(self.l2, 2, 0, 1, 2)
         self.gridSetup.addWidget(self.cBox_Speed, 3, 0, 1, 2)
+        # GUI lightening: hide the "Operation mode" / "Frequency (single mode)"
+        # captions (kept alive) — the combos are self-describing.
+        self.info11.hide()
+        self.l2.hide()
         sb.addWidget(self.groupSetup)
 
         # frequency / dissipation readouts moved out of the sidebar into
@@ -338,27 +352,32 @@ class Ui_MainWindow(object):
         _tpid.addWidget(self.tab)   # controls directly in the card (no tab box)
         sb.addWidget(self.groupTempPID)
 
-        sb.addStretch(1)
-
         # --- Plot Controls card (Autoscale · Set/Clear Reference · Clear) --- #
         self.groupPlotControls = QtWidgets.QGroupBox("Plot Controls",
                                                      self.sidebarContainer)
         self.groupPlotControls.setObjectName("groupPlotControls")
-        _pc = QtWidgets.QVBoxLayout(self.groupPlotControls)
+        # compact horizontal row: buttons keep their natural (label) width,
+        # left-aligned via a trailing stretch (same rule as the other groups)
+        _pc = QtWidgets.QHBoxLayout(self.groupPlotControls)
         _pc.setSpacing(6)
-        self.pButton_Autoscale = QtWidgets.QPushButton("Autoscale",
+        self.pButton_Autoscale = QtWidgets.QPushButton("AUTO",
                                                        self.sidebarContainer)
         self.pButton_Autoscale.setObjectName("pButton_Autoscale")
-        self.pButton_Reference = QtWidgets.QPushButton("Set Reference",
+        self.pButton_Reference = QtWidgets.QPushButton("SET REF",
                                                        self.sidebarContainer)
         self.pButton_Reference.setObjectName("pButton_Reference")
-        self.pButton_Clear = QtWidgets.QPushButton("Clear Plots",
+        self.pButton_Clear = QtWidgets.QPushButton("CLEAR",
                                                    self.sidebarContainer)
         self.pButton_Clear.setObjectName("pButton_Clear")
         for _b in (self.pButton_Autoscale, self.pButton_Reference,
                    self.pButton_Clear):
             _pc.addWidget(_b)
+        _pc.addStretch(1)
         sb.addWidget(self.groupPlotControls)
+
+        # Plot Controls is the last top-anchored card; this stretch pushes the
+        # datalog filename + Start/Stop toggle to the bottom of the sidebar.
+        sb.addStretch(1)
 
         # legacy buttons kept alive (hidden) for the controller logic:
         # Clear Reference is merged into the Set/Clear Reference toggle, and
@@ -379,10 +398,19 @@ class Ui_MainWindow(object):
         self.lblLogFile.hide()
         self.verticalLayout.addWidget(self.lblLogFile)
         sb.addLayout(self.verticalLayout)
-        self.pButton_Start = QtWidgets.QPushButton("Start", self.sidebarContainer)
+        self.pButton_Start = QtWidgets.QPushButton("▷  Start", self.sidebarContainer)
         self.pButton_Start.setObjectName("pButton_Start")
         self.pButton_Start.setMinimumHeight(40)
         sb.addWidget(self.pButton_Start)
+
+        # Card titles must be bold. Qt ignores font-weight on QGroupBox::title,
+        # so set the bold weight on the groupbox widget font (the native title
+        # uses it); the theme QSS resets the card content back to normal weight.
+        for _card in (self.groupConnection, self.groupSetup,
+                      self.groupTempPID, self.groupPlotControls):
+            _cf = _card.font()
+            _cf.setBold(True)
+            _card.setFont(_cf)
         # infostatus / infobar / progressBar live in the bottom status bar
         # (R2) — created in _build_statusbar().
 
@@ -391,8 +419,12 @@ class Ui_MainWindow(object):
         self.sidebarScroll.setObjectName("sidebarScroll")
         self.sidebarScroll.setWidgetResizable(True)
         self.sidebarScroll.setWidget(self.sidebarContainer)
-        self.sidebarScroll.setMinimumWidth(170)
-        self.sidebarScroll.setMaximumWidth(360)
+        # Default width 300 px (set on the splitter below): shows the whole
+        # sidebar content without clipping. Kept resizable — min/max instead of
+        # a fixed width — so the splitter handle can smoothly drag it, not just
+        # snap open/closed.
+        self.sidebarScroll.setMinimumWidth(260)
+        self.sidebarScroll.setMaximumWidth(400)
         self.sidebarScroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.sidebarScroll.setFrameShape(QtWidgets.QFrame.NoFrame)
 
@@ -426,7 +458,7 @@ class Ui_MainWindow(object):
         self.pButton_Tswitch_OFF.setObjectName("pButton_Tswitch_OFF")
         self.pButton_TEC_Reset = QtWidgets.QPushButton("RESET", self.tab)
         self.pButton_TEC_Reset.setObjectName("pButton_TEC_Reset")
-        self.pButton_Temperature_Set = QtWidgets.QPushButton("Temperature Set",
+        self.pButton_Temperature_Set = QtWidgets.QPushButton("T SET",
                                                              self.tab)
         self.pButton_Temperature_Set.setObjectName("pButton_Temperature_Set")
         self.doubleSpinBox_Temperature = QtWidgets.QDoubleSpinBox(self.tab)
@@ -435,20 +467,33 @@ class Ui_MainWindow(object):
         self.doubleSpinBox_Temperature.setMinimum(5.0)
         self.doubleSpinBox_Temperature.setMaximum(45.0)
         self.doubleSpinBox_Temperature.setValue(25.0)
+        self.doubleSpinBox_Temperature.setMinimumWidth(70)
         self._label(self.tab, "label_Temperature", "Temperature (° C)")
         self._label(self.tab, "indicator_temperature", "0")
         self.gridLayout_4.addWidget(self.label_Temperature_state, 0, 0, 1, 4)
-        # ON / OFF / RESET on a single compact row (equal-width)
+        # Temperature toggle + RESET on a single compact row, left-aligned at
+        # their natural width (trailing stretch so they don't fill the sidebar)
         _tec_btns = QtWidgets.QHBoxLayout()
         _tec_btns.setSpacing(4)
         for _b in (self.pButton_Tswitch_ON, self.pButton_Tswitch_OFF,
                    self.pButton_TEC_Reset):
             _tec_btns.addWidget(_b)
+        _tec_btns.addStretch(1)
         self.gridLayout_4.addLayout(_tec_btns, 1, 0, 1, 4)
-        self.gridLayout_4.addWidget(self.pButton_Temperature_Set, 2, 0, 1, 2)
-        self.gridLayout_4.addWidget(self.doubleSpinBox_Temperature, 2, 2, 1, 2)
-        self.gridLayout_4.addWidget(self.label_Temperature, 3, 0, 1, 2)
-        self.gridLayout_4.addWidget(self.indicator_temperature, 3, 2, 1, 2)
+        # T SET on the left, setpoint spinbox pushed to the right margin with an
+        # expanding gap between them (mirrors the temperature readout row below).
+        _tset_row = QtWidgets.QHBoxLayout()
+        _tset_row.setSpacing(4)
+        _tset_row.addWidget(self.pButton_Temperature_Set)
+        _tset_row.addStretch(1)
+        _tset_row.addWidget(self.doubleSpinBox_Temperature)
+        self.gridLayout_4.addLayout(_tset_row, 2, 0, 1, 4)
+        # temperature readout: label left, live value aligned to the right margin
+        _treadout = QtWidgets.QHBoxLayout()
+        _treadout.addWidget(self.label_Temperature)
+        _treadout.addStretch(1)
+        _treadout.addWidget(self.indicator_temperature)
+        self.gridLayout_4.addLayout(_treadout, 3, 0, 1, 4)
         self.gridLayout_6.addLayout(self.gridLayout_4, 0, 0, 1, 1)
 
         # PID Control — hidden, standalone (kept alive for the controller)
