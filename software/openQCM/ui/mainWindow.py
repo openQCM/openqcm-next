@@ -373,7 +373,15 @@ class MainWindow(QtGui.QMainWindow):
 #         self.ui.actionFirmware.triggered.connect(self.dummy)
 # =============================================================================
         self.ui.actionSoftware.triggered.connect(lambda: self.get_web_info(False))
-        self.ui.actionHelp.triggered.connect(self.dummy)
+        # VER 0.1.6 (Fase 5) real Help target + About entry (replaces the dummy)
+        self.ui.actionHelp.triggered.connect(self._open_help_website)
+        try:
+            self.ui.menuHelp.addSeparator()
+            self._act_about = QtGui.QAction("About openQCM NEXT", self)
+            self._act_about.triggered.connect(self._show_about)
+            self.ui.menuHelp.addAction(self._act_about)
+        except Exception:
+            pass
 
         # VER 0.1.6 toolbar menu add on application
         self.ui.actionTEC_current.triggered.connect(self.open_second_window)
@@ -1493,6 +1501,50 @@ class MainWindow(QtGui.QMainWindow):
         self._act_cursors.setCheckable(True)
         self._act_cursors.toggled.connect(self._toggle_all_cursors)
         menu_view.addAction(self._act_cursors)
+        # Fase 5: View > panel visibility toggles (Sidebar, Status bar)
+        menu_view.addSeparator()
+        self._act_view_sidebar = QtGui.QAction("Sidebar", self)
+        self._act_view_sidebar.setCheckable(True)
+        self._act_view_sidebar.setChecked(True)
+        self._act_view_sidebar.toggled.connect(self._toggle_sidebar)
+        menu_view.addAction(self._act_view_sidebar)
+        self._act_view_statusbar = QtGui.QAction("Status bar", self)
+        self._act_view_statusbar.setCheckable(True)
+        self._act_view_statusbar.setChecked(True)
+        self._act_view_statusbar.toggled.connect(self._toggle_statusbar)
+        menu_view.addAction(self._act_view_statusbar)
+
+    ###########################################################################
+    # VER 0.1.6 Fase 5 — Help / View menu handlers
+    ###########################################################################
+    def _open_help_website(self):
+        """Open the openQCM NEXT software page in the default browser."""
+        import webbrowser
+        try:
+            webbrowser.open("https://openqcm.com/openqcm-next-software/")
+        except Exception as e:
+            print(TAG, "Could not open help URL: {}".format(str(e)))
+
+    def _show_about(self):
+        """About dialog: name, version, one-line description, website link."""
+        msg = ("<b>openQCM NEXT</b> &mdash; version {}<br><br>"
+               "Real-time acquisition and analysis software for the openQCM NEXT "
+               "Quartz Crystal Microbalance.<br><br>"
+               "<a href='https://openqcm.com/openqcm-next-software/'>"
+               "openQCM NEXT software webpage</a>").format(Constants.app_version)
+        PopUp.info_not_blocking_rtf(self, "About openQCM NEXT", msg)
+
+    def _toggle_sidebar(self, checked):
+        """Show/hide the left sidebar (mainSplitter pane 0)."""
+        scroll = getattr(self.ui, "sidebarScroll", None)
+        if scroll is not None:
+            scroll.setVisible(checked)
+
+    def _toggle_statusbar(self, checked):
+        """Show/hide the bottom status bar."""
+        bar = getattr(self.ui, "statusBarFrame", None)
+        if bar is not None:
+            bar.setVisible(checked)
 
     # Phase 3c: status pill state colors (background). Text stays dark on the
     # bright state colors; 'standby' is built from the active theme palette.

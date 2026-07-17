@@ -40,6 +40,12 @@ Conventional Commits. Versions are marked by Git tags.
   preserved), so it composes with the theme and all existing behaviour; commenting out the
   `_build_shell()` call reverts to the old layout. **⚠️ Visual layout tuning is still pending** (see
   HANDOFF §5): the action-button row is cramped in the narrow sidebar and needs rearranging.
+- **Scientific menu wiring (GUI redesign Phase 5)** — completes the File/View/Tools/Help menu.
+  `Help → Help` now opens the openQCM NEXT software webpage (replacing the `dummy` placeholder) and a
+  new `Help → About openQCM NEXT` dialog shows name/version/description + link; `View` gained
+  show/hide toggles for the **Sidebar** (`sidebarScroll`) and the bottom **Status bar**
+  (`statusBarFrame`). File→Quit, View→Theme/Δ Cursors, Tools→Raw/Log/Tec, Help→Firmware/Software were
+  already wired. This closes the phased GUI redesign (Phases 0–5).
 - **GUI System Log tab (Phase 2 of the GUI redesign)** — the center pane is now a `QTabWidget`
   (`centerTabs`) with **Plots** and **System Log** tabs. The plots are re-parented as-is into the
   Plots tab (no widget recreated); the System Log tab hosts a read-only `QTextEdit` (`systemLog`)

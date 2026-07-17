@@ -159,7 +159,7 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
   theme-aware monospace via `QTextEdit#systemLog` in `ui/theme.py`. **Scope**: captures `print()`
   of the main process only — child-process prints and `logging`-module messages stay on the
   terminal / log file (a `logging.StreamHandler(LogStream)` would add them; optional Phase 2-bis).
-- **Fasi 3–5 — PLANNED** (approved direction; each phase = own detailed plan + approval + smoke test + commit):
+- **Fase 3 — Consolidated controls — DONE** (sub-steps below; see CHANGELOG):
   3. Consolidated controls **+ sidebar layout tuning (folded in here)** — sub-steps:
      - **3a single Start/Stop toggle — DONE** (see CHANGELOG): `pButton_Start` toggles Start/Stop
        (`_toggle_start_stop`, uses `worker.is_running()`), green/red via a `running` dynamic
@@ -229,9 +229,11 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
   - **Fix**: peak-detection / amplitude-sweep / temperature curves were white → invisible on the
     light theme's white plot background; now theme-aware (`theme.PLOT[theme]["curve"]` +
     `_curve_color()`, re-applied on theme switch).
-- **GUI — remaining / TODO**:
-  - **Fase 5** — scientific menu wiring (File/View/Tools/Help actions exist in the builder skeleton,
-    need connecting in the controller).
+- **Fase 5 — scientific menu wiring — DONE** (see CHANGELOG): `Help → Help` opens the software
+  webpage + new `Help → About`; `View → Sidebar` / `View → Status bar` show/hide toggles
+  (`_open_help_website`, `_show_about`, `_toggle_sidebar`, `_toggle_statusbar` in the controller).
+  **The phased GUI redesign (Phases 0–5) is complete.**
+- **GUI — remaining / TODO** (polish / optional, after the block phases):
   - **Harmonise the remaining state colors** (status pill yellow/red/green) toward the blue+brown
     palette (deferred by the user during the palette-reduction step).
   - **min-Y-scale** enforcement (integrate with `Constants.plot_force_yrange`).
