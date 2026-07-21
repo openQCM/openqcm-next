@@ -2,7 +2,7 @@
 
 > Technical starting point to continue development of the software and of the
 > `impedance-analysis` branch. Working language: Italian in chat, English in the repo.
-> Last updated: 2026-07-17.
+> Last updated: 2026-07-21.
 
 ---
 
@@ -58,6 +58,18 @@ acquisition buffer; **observable plots default to Y autorange** in development
 (`Constants.plot_force_yrange`); **responsive peak-detection (calibration) cancellation**
 (ported from Q-1 v3.0 — Stop now interruptible mid-sweep, clean shutdown); **GUI theme system
 dark/light** (`ui/theme.py` + View → Theme menu, Phase 0 of the GUI redesign) — all see §5 and CHANGELOG.
+
+### ⚠️ TEST-ONLY firmware variant (no-TEC board) — temporary, will be removed
+`firmware/openQCM_Next_py_0.1.5a_TEST_teensy/` (`0.1.5a-TEST`) is a **throwaway internal
+variant** for a special bench board that **does not mount the TEC section**. It is a copy of the
+production `0.1.5a` firmware with all MTD415T/Serial1, MCP9808, fan and TEC-pin code removed (on a
+no-TEC board those blocking Serial1 reads stall the sweep), and the temperature field **simulated**
+(`25.00 °C` baseline + slow ±`0.05 °C` wobble; `#define USE_INTERNAL_TEMP` switches to the real
+Teensy 4.0 die temperature). The DDS/ADC sweep engine and the host wire format are unchanged
+(`temperature;status(0);error(0);s`), so **no software change is needed** and TEC commands are
+accepted as no-ops. **Do not build features on this variant — it exists only for the current test
+board and will be deleted once that board is retired.** Production firmware stays
+`firmware/openQCM_Next_py_0.1.5a_teensy/`.
 
 ## 4. `impedance-analysis` branch (0.1.6G) — detail
 

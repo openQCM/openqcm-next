@@ -6,6 +6,18 @@ Conventional Commits. Versions are marked by Git tags.
 ## [Unreleased] — `main`
 
 ### Added
+- ⚠️ **TEST-ONLY firmware variant (no-TEC board)** — _internal, temporary; to be removed._
+  New Teensy sketch `firmware/openQCM_Next_py_0.1.5a_TEST_teensy/` (version `0.1.5a-TEST`)
+  for a special openQCM NEXT board built for testing that **does not mount the
+  temperature-control (TEC) section** (no MTD415T on Serial1, no MCP9808, no fan / enable /
+  status / control-switch pins). It strips every Serial1/MTD415T interaction (which would
+  otherwise block ~250 ms per query on a board with no TEC), keeps the DDS/ADC sweep engine
+  identical to production, and **simulates the temperature** (stable `25.00 °C` baseline with
+  a slow ±`0.05 °C` wobble; optional real Teensy die temperature via `#define USE_INTERNAL_TEMP`).
+  The end-of-measurement line stays fully host-compatible — `temperature;status(0);error(0);s` —
+  so **no software change is required**; TEC commands (`T/C/P/I/D/L/X/A/E`) are accepted as
+  benign no-ops. Compiles clean for Teensy 4.0. **This is a throwaway variant for internal
+  bench testing and will be deleted once the test board is retired — do not build on it.**
 - **Pinned dependencies for reproducible setup**: `software/requirements.txt` (pip) and
   `software/environment.yml` (conda). Tested on Python 3.9.12; PyQt5 pinned to 5.9.2
   (the GUI relies on the classic QtGui widget namespace).
