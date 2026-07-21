@@ -9,6 +9,32 @@ Conventional Commits. Versions are marked by Git tags.
 - Core in `processors/Multiscan.py`; offline script `sweep_data/plot_conductance.py`.
 - Note: approximate formula; development/DEBUG state. Not production-ready.
 
+### Unreleased (impedance dev — 2026-07-21)
+- **G DATA VIEW / `sweep_data/plot_conductance.py`** — offline-only additions
+  (the live `Multiscan.py` pipeline is unchanged):
+  - **Susceptance vs conductance (B–G) plots** — admittance locus per overtone.
+    A raw `B = sin(phi)/|Z|` version (folded phase → "lens" shape), plus a
+    **motional** version that reconstructs the *signed* phase (re-activated the
+    unused `_phase_V_phase` unfold) and removes the baseline from G and B so the
+    locus closes into the **admittance circle** (1:1 aspect via a new optional
+    `_plot(..., aspect_equal=True)`).
+  - **Exact complex-divider formula** (`_RX_exact`/`_G_exact`/`_B_exact`, from
+    `docs/impedance-analysis/conductance-calculation.md`): inverts the divider
+    `Z_q = M·e^{-j·phi} − R17` and computes `Y_q = 1/Z_q`. New "conductance
+    (exact formula)" spectrum + exact admittance circle, side by side with the
+    approximate ones. On real 5 MHz data the exact G_max is ~5× higher
+    (physically plausible R_m), matching the synthetic prediction.
+  - **Unit fix**: the "conductance shifted" plots were labelled mS but plotted S;
+    now converted to mS.
+  - ⚠️ **The "exact" formula is NOT yet validated against hardware** — the source
+    doc `conductance-calculation.md` and its constants (R17, AD8302 slopes, V_CP,
+    unfold heuristic) still need validation with known reference impedances; the
+    synthetic test only proved algebraic self-consistency. See the doc's
+    "VALIDATION STATUS" banner and `HANDOFF.md`.
+  - ⏳ **Pending**: once validated, port the exact formula into
+    `parameters_finder_impedance` (live pipeline) — this **will change the logged
+    frequency/dissipation values**.
+
 ## [v0.1.6-dev-073] — `main`
 - GUI: buttons reorganized into an "Add-On" menu, Temperature/PID tab widget.
 - Robustness: fallback when reading `PeakFrequenciesRT.txt`; exit confirmation.

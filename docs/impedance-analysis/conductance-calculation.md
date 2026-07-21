@@ -1,5 +1,38 @@
 # Exact Conductance Calculation for QCM Impedance Analysis
 
+> ## ⚠️ VALIDATION STATUS — NOT YET VALIDATED (2026-07-21)
+>
+> This document is the **source of truth used to implement the "exact" formula**
+> in `sweep_data/plot_conductance.py` (`_RX_exact` / `_G_exact` / `_B_exact`), but
+> **the formula itself and its assumptions are not yet validated against the real
+> hardware.**
+>
+> **What HAS been checked:** a synthetic Butterworth–Van Dyke resonance was fed
+> through the *assumed* forward model (divider `H = R17/(Z_q+R17)` + the nominal
+> AD8302 equations below) and then inverted with `_RX_exact`. It recovered `Z_q`
+> essentially perfectly (G_max error ~0.002 %, vs ~87 % for the approximate
+> formula). This proves only that **the algebra/code correctly inverts the assumed
+> model** — it is a self-consistency check, **not** an independent validation.
+>
+> **What is STILL unvalidated:**
+> - the circuit model & constants — `R17 = 52.3 Ω`, AD8302 slopes `30 mV/dB` and
+>   `10 mV/deg`, `V_CP = 0.9 V`, and the divider topology — vs the actual board;
+> - the AD8302 behaviour near **phase ≈ 0°** (nonlinear + sign-folded output), and
+>   the **phase-unfold heuristic** (flip at the phase minimum) used to recover the
+>   signed phase;
+> - unmodelled parasitics (board strays, connector, static branch beyond C0).
+>
+> **To validate (TODO):** measure **known reference impedances / RLC standards**
+> with the board and compare the recovered `R_q, X_q` (and `f_s, R_m, Q`) against a
+> calibrated impedance/network analyzer; from that, confirm or recalibrate the
+> slopes / `R17` / `V_CP`.
+>
+> **Consequence:** until validated, the live measurement pipeline
+> (`processors/Multiscan.py::parameters_finder_impedance`) intentionally still uses
+> the **approximate** formula. The exact formula lives only in the offline
+> `plot_conductance.py` (G DATA VIEW) for inspection. **If/when validated, porting
+> it to the live pipeline will change the logged frequency/dissipation values.**
+
 ## Circuit Configuration
 
 Voltage divider topology:

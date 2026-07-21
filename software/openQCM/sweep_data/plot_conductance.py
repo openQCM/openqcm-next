@@ -292,16 +292,47 @@ def _G_calc(Zabs, phase):
 def _B_calc(Zabs, phase):
         phase_rad = np.deg2rad(phase)
         B = np.sin(phase_rad)/Zabs
-        
+
 # =============================================================================
 #         import matplotlib.pyplot as plt
 #         plt.title("susceptance")
 #         plt.plot(B)
 #         plt.show()
 # =============================================================================
-        
+
         return B
-    
+
+# --- EXACT complex-divider inversion --------------------------------------
+# (docs/impedance-analysis/conductance-calculation.md)
+# The AD8302 measures the divider transfer function H = R17/(Z_q + R17):
+#   |Z_q + R17| = M = R17 * 10^((V_CP - V_MAG)/0.6)      (V_CP = 0.9, 30 mV/dB)
+#   angle(Z_q + R17) = -phi_meas  (phi_meas = signed transfer-function phase)
+# so   Z_q = M*exp(-j*phi) - R17  ->  R_q = M*cos(phi) - R17 ; X_q = -M*sin(phi)
+# and the admittance is exactly Y_q = 1/Z_q:
+#   G = R_q/(R_q^2 + X_q^2) ;  B = -X_q/(R_q^2 + X_q^2)
+# The approximate method instead treated the divider algebra as scalar
+# (|Z_q| ~ M - R17... code used M + R17) and the measured phase as the phase of
+# Z_q itself. NOTE: phi must be the SIGNED phase (unfold of the AD8302 |phase|
+# output, e.g. via _phase_V_phase); G is even in phi, but R_q/X_q are not both.
+R17 = 52.3  # series resistor of the measuring divider (ohm)
+
+def _RX_exact(V_mag, phase_signed_deg):
+        # |Z_q + R17| from the raw AD8302 magnitude voltage
+        M = R17 * np.power(10.0, (0.9 - V_mag) / 0.6)
+        phi = np.deg2rad(phase_signed_deg)
+        R_q = M * np.cos(phi) - R17
+        X_q = -M * np.sin(phi)
+        return R_q, X_q
+
+def _G_exact(R_q, X_q):
+        den = np.maximum(R_q**2 + X_q**2, 1e-12)
+        return R_q / den
+
+def _B_exact(R_q, X_q):
+        den = np.maximum(R_q**2 + X_q**2, 1e-12)
+        return -X_q / den
+
+
 def _Freq_G (G_conductance, F_sweep): 
         idx_max = np.nanargmax(G_conductance)
         print (idx_max)
@@ -338,41 +369,48 @@ def _half_bandwidth_G(G_conductance,  F_sweep):
         return idx_l, bw 
         
 
-def _plot (plot_title, yaxis_label, x, y): 
-    
+def _plot (plot_title, yaxis_label, x, y, xaxis_label = "Frequency (Hz)",
+           aspect_equal = False):
+
     fig, axs = plt.subplots(3, 2)
     fig.tight_layout()
-    
+
     axs[0,0].plot(x[0], y[0], marker = 'o', markersize = 1, color = Constants.plot_color_multi_g[0],  linewidth = 0)
     #axs[0,0].plot(xx_1_a, amp_1_a_sp, 'k',  linewidth = 2)
     axs[0,0].ticklabel_format(axis="x" ,useOffset=False, style='scientific', useMathText = True )
-    axs[0,0].set( ylabel = yaxis_label, xlabel = "Frequency (Hz)", title = "Fundamental" )
+    axs[0,0].set( ylabel = yaxis_label, xlabel = xaxis_label, title = "Fundamental" )
 
-   
+
     axs[0,1].plot(x[1], y[1], marker = 'o', markersize = 1, color = Constants.plot_color_multi_g[1], linewidth = 0)
     #axs[0,1].plot(xx_3_a, amp_3_a_sp, 'k',  linewidth = 2)
     axs[0,1].ticklabel_format(axis="x" ,useOffset=False, style='scientific', useMathText = True )
-    axs[0,1].set( ylabel = yaxis_label, xlabel = "Frequency (Hz)", title = "3-rd Overtone" )
+    axs[0,1].set( ylabel = yaxis_label, xlabel = xaxis_label, title = "3-rd Overtone" )
 
-    
+
     axs[1,0].plot(x[2], y[2], marker = 'o', markersize = 1, color = Constants.plot_color_multi_g[2], linewidth = 0)
     #axs[1,0].plot(xx_5_a, amp_5_a_sp, 'k',  linewidth = 2)
     axs[1,0].ticklabel_format(axis="x" ,useOffset=False, style='scientific', useMathText = True )
-    axs[1,0].set( ylabel = yaxis_label, xlabel = "Frequency (Hz)", title = "5-th Overtone" )
+    axs[1,0].set( ylabel = yaxis_label, xlabel = xaxis_label, title = "5-th Overtone" )
 
-   
+
     axs[1,1].plot(x[3], y[3], marker = 'o', markersize = 1, color = Constants.plot_color_multi_g[3], linewidth = 0)
     #axs[1,1].plot(xx_7_a, amp_7_a_sp, 'k',  linewidth = 2)
     axs[1,1].ticklabel_format(axis="x" ,useOffset=False, style='scientific', useMathText = True )
-    axs[1,1].set( ylabel = yaxis_label, xlabel = "Frequency (Hz)", title = "7-th Overtone" )
+    axs[1,1].set( ylabel = yaxis_label, xlabel = xaxis_label, title = "7-th Overtone" )
 
-    
+
     axs[2,0].plot(x[4], y[4], marker = 'o', markersize = 1, color = Constants.plot_color_multi_g[4], linewidth = 0)
     #axs[2,0].plot(xx_9_a, amp_9_a_sp, 'k',  linewidth = 2)
     axs[2,0].ticklabel_format(axis="x" ,useOffset=False, style='scientific', useMathText = True )
-    axs[2,0].set( ylabel = yaxis_label, xlabel = "Frequency (Hz)", title = "9-th Overtone" )
+    axs[2,0].set( ylabel = yaxis_label, xlabel = xaxis_label, title = "9-th Overtone" )
 
-    # turn off the axis of a last subplot in the grid 
+    # 1:1 aspect for locus plots (e.g. susceptance vs conductance): a circle
+    # must render as a circle, not an ellipse
+    if aspect_equal:
+        for ax in (axs[0,0], axs[0,1], axs[1,0], axs[1,1], axs[2,0]):
+            ax.set_aspect('equal', adjustable='datalim')
+
+    # turn off the axis of a last subplot in the grid
     plt.title(plot_title)
     axs[-1, -1].axis('off')
     plt.tight_layout()
@@ -1019,6 +1057,18 @@ def script():
     _plot("conductance ", "mS", frq_a_sp, G_mS)     
     
     
+    # %% CALC SUSCEPTANCE + PLOT SUSCEPTANCE vs CONDUCTANCE (admittance locus)
+    # B = sin(phase)/|Z| (same units as G); plotting B (y) against G (x) traces
+    # the admittance circle of each resonance.
+    B = [0, 0, 0, 0, 0]
+    for i in range (len (Z_abs)):
+        B[i] = _B_calc(Z_abs[i], phs_a_sp_p[i])
+    B_mS = [0, 0, 0, 0, 0]
+    for i in range (len (B_mS)):
+        B_mS[i] = B[i] * 1000
+    _plot("susceptance vs conductance", "susceptance B (mS)", G_mS, B_mS,
+          xaxis_label = "conductance G (mS)")
+
     # %% CALC FREQ AND BW
     idx = [0,0,0,0,0]
     idx_l = [0,0,0,0,0]
@@ -1047,10 +1097,60 @@ def script():
         # shift down
         G_shifted[i] = G[i] - G_min[i]
     
-    _plot("conductance shifted", "mS", frq_a_sp, G_shifted)   
-    
-    # %% PLOT CONDUCTANCE MARKER 
-    _plot_marker("conductance shifted", "mS", frq_a_sp, G_shifted, idx, idx_l)
+    # (unit fix: G_shifted is in S — convert to mS for the plot)
+    G_shifted_mS = [g * 1000 for g in G_shifted]
+    _plot("conductance shifted", "mS", frq_a_sp, G_shifted_mS)
+
+    # %% PLOT SUSCEPTANCE vs CONDUCTANCE (motional, signed phase) — admittance circle.
+    # The AD8302 outputs |phase| only (no sign): the true phase crosses zero at
+    # resonance, so the measured one is folded upward. G = cos(phi)/|Z| is EVEN
+    # in phi and unaffected, but B = sin(phi)/|Z| is ODD: with the folded phase
+    # the lower half of the admittance circle mirrors onto the upper one (the
+    # "lens" shape). Reconstruct the signed phase with _phase_V_phase (unfold at
+    # the phase minimum = the zero crossing near resonance), recompute B, then
+    # remove the static baseline from both G and B: the locus becomes the
+    # admittance circle (verified exact on a synthetic RLC resonance).
+    phs_signed = [0, 0, 0, 0, 0]
+    B_signed = [0, 0, 0, 0, 0]
+    B_shifted = [0, 0, 0, 0, 0]
+    for i in range (len (Z_abs)):
+        phs_signed[i] = _phase_V_phase(phs_a_sp[i])
+        B_signed[i] = _B_calc(Z_abs[i], phs_signed[i])
+        B_shifted[i] = B_signed[i] - np.average(B_signed[i][:100])
+    # both axes in mS and 1:1 aspect so the circle keeps its shape
+    G_sh_mS = [g * 1000 for g in G_shifted]
+    B_sh_mS = [b * 1000 for b in B_shifted]
+    _plot("susceptance vs conductance (motional)", "susceptance B (mS)",
+          G_sh_mS, B_sh_mS, xaxis_label = "conductance G (mS)", aspect_equal = True)
+
+    # %% EXACT FORMULA — complex divider inversion (see _RX_exact)
+    # Inputs: raw V_MAG voltage (amp_a_sp) + SIGNED phase (phs_signed, unfolded
+    # above). Yields R_q/X_q of the crystal and the exact admittance G/B.
+    R_q = [0, 0, 0, 0, 0]
+    X_q = [0, 0, 0, 0, 0]
+    G_ex = [0, 0, 0, 0, 0]
+    B_ex = [0, 0, 0, 0, 0]
+    for i in range (len (amp_a_sp)):
+        R_q[i], X_q[i] = _RX_exact(amp_a_sp[i], phs_signed[i])
+        G_ex[i] = _G_exact(R_q[i], X_q[i])
+        B_ex[i] = _B_exact(R_q[i], X_q[i])
+
+    # exact conductance spectrum (compare with the approximate "conductance")
+    G_ex_mS = [g * 1000 for g in G_ex]
+    _plot("conductance (exact formula)", "mS", frq_a_sp, G_ex_mS)
+
+    # exact admittance circle (baselines removed, 1:1 aspect)
+    G_ex_sh_mS = [0, 0, 0, 0, 0]
+    B_ex_sh_mS = [0, 0, 0, 0, 0]
+    for i in range (len (G_ex)):
+        G_ex_sh_mS[i] = (G_ex[i] - np.average(G_ex[i][:100])) * 1000
+        B_ex_sh_mS[i] = (B_ex[i] - np.average(B_ex[i][:100])) * 1000
+    _plot("susceptance vs conductance (exact formula)", "susceptance B (mS)",
+          G_ex_sh_mS, B_ex_sh_mS, xaxis_label = "conductance G (mS)",
+          aspect_equal = True)
+
+    # %% PLOT CONDUCTANCE MARKER
+    _plot_marker("conductance shifted", "mS", frq_a_sp, G_shifted_mS, idx, idx_l)
     
 # =============================================================================
 #     # ROUTINE 
