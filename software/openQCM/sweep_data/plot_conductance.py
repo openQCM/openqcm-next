@@ -227,8 +227,35 @@ def _phase_V_phase(Vph_var):
         
         return phase
 
-# phase raw from V phase 
-def _phase_raw_V_phase(Vph_var): 
+# signed phase from V phase — CONDITIONAL unfold (air vs liquid regimes)
+def _phase_signed(Vph_var, fold_threshold_deg = 5.0):
+        """
+        Signed transfer-function phase from the raw AD8302 V_PHS voltage.
+
+        The AD8302 outputs |phase| only. Two regimes:
+        - LOW damping (air): the true phase crosses zero at resonance, so the
+          measured |phase| is FOLDED (V shape touching ~0). Detected by
+          min|phase| < fold_threshold_deg -> unfold: snap the minimum to 0 and
+          flip the sign of the branch after it.
+        - HIGH damping (liquid: C0/strays dominate, the phase never crosses
+          zero, min|phase| stays tens of degrees above 0): there is NO fold —
+          the raw phase already IS the signed phase. Unfolding here would
+          subtract a large real offset and invert half the sweep, distorting
+          the admittance locus into an "S" (observed in liquid, 2026-07-21).
+
+        fold_threshold_deg discriminates the regimes (air minima ~0-2 deg,
+        liquid minima ~10-40 deg on real data); tune if a borderline case shows up.
+        """
+        phase = (1.8 - Vph_var) / 0.01
+        im_min = np.nanargmin(phase)
+        if phase[im_min] < fold_threshold_deg:
+            # zero crossing -> folded output: shift the seam to 0 and unfold
+            phase = phase - phase[im_min]
+            phase[im_min:] = -phase[im_min:]
+        return phase
+
+# phase raw from V phase
+def _phase_raw_V_phase(Vph_var):
         
         phase = (1.8 - Vph_var) / 0.01
 # =============================================================================
@@ -1106,15 +1133,18 @@ def script():
     # resonance, so the measured one is folded upward. G = cos(phi)/|Z| is EVEN
     # in phi and unaffected, but B = sin(phi)/|Z| is ODD: with the folded phase
     # the lower half of the admittance circle mirrors onto the upper one (the
-    # "lens" shape). Reconstruct the signed phase with _phase_V_phase (unfold at
-    # the phase minimum = the zero crossing near resonance), recompute B, then
+    # "lens" shape). Reconstruct the signed phase with _phase_signed — a
+    # CONDITIONAL unfold: flip at the phase minimum only when the phase actually
+    # crossed zero (air / low damping); in liquid (heavy damping) the phase
+    # never reaches zero and the raw phase already is the signed one — always
+    # unfolding there distorted the locus into an "S". Then recompute B and
     # remove the static baseline from both G and B: the locus becomes the
-    # admittance circle (verified exact on a synthetic RLC resonance).
+    # admittance circle (verified exact on synthetic RLC in BOTH regimes).
     phs_signed = [0, 0, 0, 0, 0]
     B_signed = [0, 0, 0, 0, 0]
     B_shifted = [0, 0, 0, 0, 0]
     for i in range (len (Z_abs)):
-        phs_signed[i] = _phase_V_phase(phs_a_sp[i])
+        phs_signed[i] = _phase_signed(phs_a_sp[i])
         B_signed[i] = _B_calc(Z_abs[i], phs_signed[i])
         B_shifted[i] = B_signed[i] - np.average(B_signed[i][:100])
     # both axes in mS and 1:1 aspect so the circle keeps its shape

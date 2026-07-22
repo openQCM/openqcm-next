@@ -34,6 +34,18 @@ Conventional Commits. Versions are marked by Git tags.
   - ⏳ **Pending**: once validated, port the exact formula into
     `parameters_finder_impedance` (live pipeline) — this **will change the logged
     frequency/dissipation values**.
+  - **Conditional phase unfold (liquid fix)** — new `_phase_signed()` used by the
+    motional and exact B–G plots. The AD8302 outputs |phase| only; the previous
+    always-unfold (`_phase_V_phase`: shift min→0 + flip after the minimum) is
+    correct **only when the phase actually crosses zero** (air / low damping).
+    In liquid the phase minimum stays 10–40° above zero (heavy damping, C0/stray
+    dominated — no zero crossing): unfolding there subtracted a large real offset
+    and inverted half the sweep, distorting the admittance locus into an **"S"**
+    (observed on-device in liquid). `_phase_signed` unfolds only if
+    `min|phase| < fold_threshold_deg` (default 5°; air minima ~0–2°, liquid
+    ~10–40°), otherwise the raw phase already is the signed phase. Verified on
+    synthetic BVD in both regimes: liquid exact G/B error 55%/121% → **0.000**,
+    air unchanged. *(Pending: on-device liquid retest.)*
 
 ## [v0.1.6-dev-073] — `main`
 - GUI: buttons reorganized into an "Add-On" menu, Temperature/PID tab widget.

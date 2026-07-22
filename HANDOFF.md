@@ -38,6 +38,17 @@ In `sweep_data/plot_conductance.py` (the live `Multiscan.py` pipeline is UNCHANG
   (exact formula)" + exact circle, shown alongside the approximate ones. On real 5 MHz data
   the exact `G_max` is ~5× the approximate → physically plausible `R_m`.
 - **Unit fix**: "conductance shifted" plots were labelled mS but plotted S → converted to mS.
+- **Conditional phase unfold — liquid fix** (`_phase_signed`, used by the motional and exact
+  B–G plots): the always-unfold distorted the admittance locus into an "S" **in liquid**,
+  where the phase minimum stays 10–40° above zero (no zero crossing → no fold to undo; the
+  raw phase already is the signed phase). Unfold now happens only if `min|phase| <
+  fold_threshold_deg` (default 5°, tunable). Verified on synthetic BVD in both regimes
+  (liquid exact-G/B error 55%/121% → 0.000; air unchanged). **Pending: on-device liquid
+  retest** (user testing on another machine).
+  - Empirical note (air, real device): the exact formula produced **negative G** on the
+    strongest modes (F0/3rd) — catastrophic cancellation `M·cosφ − R17` where `R_m` is small
+    vs the nominal-constants error. Concrete evidence for the §3 calibration need. In liquid
+    (`R_m ≫ R17`) the exact formula should be much less sensitive to this.
 
 ## 3. ⚠️ OPEN POINT — validate the "exact" formula (source of truth not yet trusted)
 The "exact" formula was implemented from `conductance-calculation.md`, **but that document
