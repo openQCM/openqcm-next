@@ -45,7 +45,9 @@ Conventional Commits. Versions are marked by Git tags.
     `min|phase| < fold_threshold_deg` (default 5°; air minima ~0–2°, liquid
     ~10–40°), otherwise the raw phase already is the signed phase. Verified on
     synthetic BVD in both regimes: liquid exact G/B error 55%/121% → **0.000**,
-    air unchanged. *(Pending: on-device liquid retest.)*
+    air unchanged. **Confirmed on-device**: the liquid B–G loci now close into
+    circles (no more "S"). ⏳ A *systematic* test across the air→liquid transition
+    (validating the `fold_threshold_deg` discrimination) is still to be run.
 
 ## [v0.1.6-dev-073] — `main`
 - GUI: buttons reorganized into an "Add-On" menu, Temperature/PID tab widget.

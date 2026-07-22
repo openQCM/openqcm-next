@@ -43,8 +43,11 @@ In `sweep_data/plot_conductance.py` (the live `Multiscan.py` pipeline is UNCHANG
   where the phase minimum stays 10–40° above zero (no zero crossing → no fold to undo; the
   raw phase already is the signed phase). Unfold now happens only if `min|phase| <
   fold_threshold_deg` (default 5°, tunable). Verified on synthetic BVD in both regimes
-  (liquid exact-G/B error 55%/121% → 0.000; air unchanged). **Pending: on-device liquid
-  retest** (user testing on another machine).
+  (liquid exact-G/B error 55%/121% → 0.000; air unchanged). **Confirmed on-device: the
+  liquid B–G loci now close into circles** (no more "S"). ⏳ Still to do: a *systematic*
+  test across the air→liquid transition to validate the `fold_threshold_deg` cut-off
+  (air minima ~0–2°, liquid ~10–40°; the critical case is intermediate/viscous loads
+  with min|phase| near the 5° threshold) — user is setting up that experiment.
   - Empirical note (air, real device): the exact formula produced **negative G** on the
     strongest modes (F0/3rd) — catastrophic cancellation `M·cosφ − R17` where `R_m` is small
     vs the nominal-constants error. Concrete evidence for the §3 calibration need. In liquid
