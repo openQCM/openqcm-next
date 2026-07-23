@@ -48,6 +48,21 @@ Conventional Commits. Versions are marked by Git tags.
     air unchanged. **Confirmed on-device**: the liquid B–G loci now close into
     circles (no more "S"). ⏳ A *systematic* test across the air→liquid transition
     (validating the `fold_threshold_deg` discrimination) is still to be run.
+  - **Exact-formula fix + AIR VALIDATION (2026-07-23)** — root cause of the
+    negative-resistance/negative-G circles found: the exact inversion was fed the
+    **baseline-corrected** `V_MAG` (relative level; calibration polynomial
+    subtracted), which scales `M = R17·10^((0.9−V)/0.6)` by `10^(Vb/0.6)` (0.55×
+    at F0 → `M(res) < R17` → `R_q < 0` everywhere). **Fix**: new `amp_a_sp_raw`
+    chain (same SG+spline, no baseline subtraction) feeds `_RX_exact`; the
+    approximate path is untouched. The phase channel receives no baseline anywhere
+    (verified offline + live) — correct for this method. Source PDFs confirm the
+    divider topology and the INPB ×10 attenuation already compensated by the
+    −0.6 V conversion offset. **On-device air validation (5 MHz)**: all exact
+    circles at positive G; `R_m` = 10.6/12.1/40.5/76.5/132.6 Ω (F0→9th), `D` =
+    3–10 ppm, circle-fit diameter = `G_max` within ±5% (rms 1–6%). The nominal
+    constants are **rehabilitated**; remaining for metrology: phase systematics
+    (esp. liquid) via reference-impedance calibration. Docs: rewritten
+    "VALIDATION STATUS" banner in `conductance-calculation.md`.
 
 ## [v0.1.6-dev-073] — `main`
 - GUI: buttons reorganized into an "Add-On" menu, Temperature/PID tab widget.

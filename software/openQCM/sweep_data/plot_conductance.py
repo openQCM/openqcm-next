@@ -635,9 +635,25 @@ def script():
     xx_9_a = np.arange(frq_9_a[0],frq_9_a[-1], 1)
     amp_9_a_sp = s_9_a(xx_9_a)
     
-    # create array 
+    # create array
     frq_a_sp = [xx_1_a, xx_3_a, xx_5_a, xx_7_a, xx_9_a]
     amp_a_sp = [amp_1_a_sp, amp_3_a_sp, amp_5_a_sp, amp_7_a_sp, amp_9_a_sp]
+
+    # RAW (absolute) V_MAG on the same spline grids — required by the EXACT
+    # complex-divider inversion. amp_a_sp above is baseline-corrected (the
+    # calibration polynomial is subtracted): a RELATIVE level, fine for the
+    # approximate G but fatal for the absolute inversion, because
+    # M = R17*10^((0.9-Vmag)/0.6) then gets scaled by 10^(Vb/0.6) (0.55x at F0
+    # on real data -> M(res) < R17 -> R_q < 0 everywhere -> negative-G circles).
+    # Same SG + spline smoothing, NO baseline subtraction.
+    _amp_a_raw = [amp_1_a, amp_3_a, amp_5_a, amp_7_a, amp_9_a]
+    _frq_a_raw = [frq_1_a, frq_3_a, frq_5_a, frq_7_a, frq_9_a]
+    amp_a_sp_raw = [0, 0, 0, 0, 0]
+    for i in range (len (_amp_a_raw)):
+        _flt = savitzky_golay(_amp_a_raw[i], window_size = sg_window_size[i],
+                              order = sg_order[i])
+        amp_a_sp_raw[i] = UnivariateSpline(_frq_a_raw[i], _flt,
+                                           s = spline_factor[i])(frq_a_sp[i])
 
     
     # %% VPHASE ROUTINE
@@ -1154,14 +1170,16 @@ def script():
           G_sh_mS, B_sh_mS, xaxis_label = "conductance G (mS)", aspect_equal = True)
 
     # %% EXACT FORMULA — complex divider inversion (see _RX_exact)
-    # Inputs: raw V_MAG voltage (amp_a_sp) + SIGNED phase (phs_signed, unfolded
-    # above). Yields R_q/X_q of the crystal and the exact admittance G/B.
+    # Inputs: RAW absolute V_MAG (amp_a_sp_raw — NOT the baseline-corrected
+    # amp_a_sp, which is a relative level and breaks the inversion) + SIGNED
+    # phase (phs_signed, conditional unfold above). Yields R_q/X_q of the
+    # crystal and the exact admittance G/B.
     R_q = [0, 0, 0, 0, 0]
     X_q = [0, 0, 0, 0, 0]
     G_ex = [0, 0, 0, 0, 0]
     B_ex = [0, 0, 0, 0, 0]
-    for i in range (len (amp_a_sp)):
-        R_q[i], X_q[i] = _RX_exact(amp_a_sp[i], phs_signed[i])
+    for i in range (len (amp_a_sp_raw)):
+        R_q[i], X_q[i] = _RX_exact(amp_a_sp_raw[i], phs_signed[i])
         G_ex[i] = _G_exact(R_q[i], X_q[i])
         B_ex[i] = _B_exact(R_q[i], X_q[i])
 

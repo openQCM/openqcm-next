@@ -1,7 +1,7 @@
 # HANDOFF — `impedance-analysis` branch (openQCM NEXT)
 
 > Developer notes specific to the experimental **conductance / impedance** branch.
-> Working language: Italian in chat, English in the repo. Last updated: 2026-07-21.
+> Working language: Italian in chat, English in the repo. Last updated: 2026-07-23.
 
 ---
 
@@ -48,33 +48,48 @@ In `sweep_data/plot_conductance.py` (the live `Multiscan.py` pipeline is UNCHANG
   test across the air→liquid transition to validate the `fold_threshold_deg` cut-off
   (air minima ~0–2°, liquid ~10–40°; the critical case is intermediate/viscous loads
   with min|phase| near the 5° threshold) — user is setting up that experiment.
-  - Empirical note (air, real device): the exact formula produced **negative G** on the
-    strongest modes (F0/3rd) — catastrophic cancellation `M·cosφ − R17` where `R_m` is small
-    vs the nominal-constants error. Concrete evidence for the §3 calibration need. In liquid
-    (`R_m ≫ R17`) the exact formula should be much less sensitive to this.
+  - ~~Empirical note: negative G on F0/3rd blamed on the nominal constants~~ — **superseded
+    2026-07-23**: the real cause was a pipeline mismatch (see next bullet), the constants are fine.
+- **Exact-formula fix + AIR VALIDATION (2026-07-23)**: the exact inversion was being fed the
+  **baseline-corrected** `V_MAG` (relative level) while `M = R17·10^((0.9−V)/0.6)` needs the
+  **absolute** divider level — the calibration-polynomial subtraction scaled `M` by `10^(Vb/0.6)`
+  (0.55× at F0 → `M(res) < R17` → `R_q < 0` everywhere → the negative-G circles, reproduced to the
+  decimal). **Fix**: `amp_a_sp_raw` chain (same SG+spline, no baseline subtraction) → `_RX_exact`;
+  approximate path untouched. The **phase** gets no baseline correction anywhere (offline: SG+spline
+  only; live: computed but never applied) — and that is *correct* for this method (off-resonance
+  phase is DUT physics; board-phase systematics belong to reference-load calibration instead).
+  Source PDFs confirm the divider topology; the INPB ×10 attenuation is already compensated by the
+  −0.6 V decade offset in the ADC→V conversion. **On-device air validation (5 MHz)**: all exact
+  circles at positive G; `R_m` = 10.6/12.1/40.5/76.5/132.6 Ω (F0→9th), `Γ` = 24–124 Hz,
+  `D` = 3–10 ppm, circle-fit diameter = `G_max` within **±5%** (rms 1–6%), B/G span 0.98–1.17.
 
-## 3. ⚠️ OPEN POINT — validate the "exact" formula (source of truth not yet trusted)
-The "exact" formula was implemented from `conductance-calculation.md`, **but that document
-and its assumptions are not yet validated against the real hardware.** The synthetic
-Butterworth–Van Dyke test only proved the inversion is the **algebraic inverse of the assumed
-forward model** (self-consistency) — it does NOT confirm the model/constants.
+## 3. Validation status of the "exact" formula — VALIDATED IN AIR; metrological refinement open
+The exact formula (from `conductance-calculation.md`) is now **validated on-device in air**
+(2026-07-23, see §2): the earlier "negative G" evidence against it was a pipeline mismatch
+(baseline-corrected `V_MAG`), not the model. Model topology and conversion levels are also
+confirmed by the source PDFs (divider `Z_q`+`R17`; INPB ×10 attenuation compensated by the
+−0.6 V conversion offset). The nominal constants (`R17 = 52.3 Ω`, 30 mV/dB, 10 mV/deg,
+`V_CP = 0.9 V`) produce textbook-physical results in air.
 
-Still to validate:
-- circuit model & constants: `R17 = 52.3 Ω`, AD8302 slopes `30 mV/dB` & `10 mV/deg`,
-  `V_CP = 0.9 V`, divider topology — vs the actual board;
-- AD8302 behaviour near **phase ≈ 0°** (nonlinear + sign-folded) and the **phase-unfold
-  heuristic** (flip at the phase minimum);
-- unmodelled parasitics.
+**Still open (second-order systematics, mainly for liquid / metrological use):**
+- board/cable **phase offsets** — in air the fold-unfold re-anchors the phase at resonance;
+  in liquid there is no fold, so any constant phase error propagates into `R_q/X_q`;
+- AD8302 nonlinearity near **phase ≈ 0°**; residual `ωC0` beyond the constant baseline
+  (visible as B/G span ≤1.17 and slightly negative circle centers);
+- the `fold_threshold_deg = 5°` cut-off across the air→liquid transition (systematic
+  experiment planned by the user).
 
-**How to validate:** measure **known reference impedances / RLC standards** with the board,
-compare recovered `R_q, X_q` (and `f_s, R_m, Q`) against a calibrated impedance/network
-analyzer; then confirm or recalibrate slopes / `R17` / `V_CP`.
+**How to refine:** measure **known reference impedances / RLC standards** vs a calibrated
+impedance/network analyzer; de-embed board phase via a reference load.
 
 ## 4. Pending / roadmap (each needs a plan + approval before coding)
-1. **Validate the exact formula** (§3) — prerequisite for everything below.
-2. **Port the validated formula into the live pipeline** (`parameters_finder_impedance` in
-   `Multiscan.py`). ⚠️ **This CHANGES the measured/logged values** (resonance frequency and
-   dissipation in `logged_data/*_multi_.csv`) — must be a deliberate, documented step.
+1. **Complete the validation** (§3): systematic air→liquid transition test (fold threshold)
+   + reference-load calibration for metrological use. Air: DONE (2026-07-23).
+2. **Port the exact formula into the live pipeline** (`parameters_finder_impedance` in
+   `Multiscan.py`) — now a realistic option after the air validation. ⚠️ **This CHANGES the
+   measured/logged values** (resonance frequency and dissipation in
+   `logged_data/*_multi_.csv`) — must be a deliberate, documented step. Note it needs the
+   RAW `V_MAG` (not the baseline-corrected one) exactly as fixed in the offline script.
 3. Make the measurement **selectable** (classic vs conductance) instead of hard-wired in
    `elaborate_multi`.
 4. Remove the **DEBUG** state (`constants.py`: `environment = 4`, `plot_autoscale_yaxis = True`).

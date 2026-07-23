@@ -1,37 +1,48 @@
 # Exact Conductance Calculation for QCM Impedance Analysis
 
-> ## ⚠️ VALIDATION STATUS — NOT YET VALIDATED (2026-07-21)
+> ## VALIDATION STATUS — VALIDATED IN AIR, on-device (2026-07-23)
 >
-> This document is the **source of truth used to implement the "exact" formula**
-> in `sweep_data/plot_conductance.py` (`_RX_exact` / `_G_exact` / `_B_exact`), but
-> **the formula itself and its assumptions are not yet validated against the real
-> hardware.**
+> This document is the source of the "exact" formula implemented in
+> `sweep_data/plot_conductance.py` (`_RX_exact` / `_G_exact` / `_B_exact`).
 >
-> **What HAS been checked:** a synthetic Butterworth–Van Dyke resonance was fed
-> through the *assumed* forward model (divider `H = R17/(Z_q+R17)` + the nominal
-> AD8302 equations below) and then inverted with `_RX_exact`. It recovered `Z_q`
-> essentially perfectly (G_max error ~0.002 %, vs ~87 % for the approximate
-> formula). This proves only that **the algebra/code correctly inverts the assumed
-> model** — it is a self-consistency check, **not** an independent validation.
+> **History of the validation:**
+> - *2026-07-21*: synthetic Butterworth–Van Dyke self-consistency check passed
+>   (G_max error ~0.002 % vs ~87 % for the approximate formula) — algebra correct,
+>   model/constants still unproven. First on-device air tests showed **negative
+>   conductance** on the strongest modes (F0/3rd) — initially blamed on the
+>   nominal constants.
+> - *2026-07-23*: **root cause found — a pipeline mismatch, not the formula/constants.**
+>   The exact inversion was fed the **baseline-corrected** `V_MAG` (calibration
+>   polynomial subtracted — a *relative* level, appropriate only for the
+>   approximate/relative G). The inversion `M = R17·10^((V_CP−V_MAG)/0.6)` needs
+>   the **absolute** divider level: the subtraction scaled `M` by `10^(Vb/0.6)`
+>   (0.55× at F0 on real data → `M(res) < R17` → `R_q < 0` everywhere → the
+>   negative-G circles). **Fixed**: the exact block now uses the raw (absolute)
+>   `V_MAG` (`amp_a_sp_raw`, same SG+spline smoothing, no baseline subtraction).
+>   The **phase** channel receives no baseline correction anywhere — which is
+>   *correct* for this method (off-resonance phase is DUT physics, not board
+>   artifact).
+> - The source PDFs confirm the assumed topology (divider `Z_q` + `R17` to ground)
+>   and document the **INPB ×10 attenuation** (R11/R19 mod), which is already
+>   compensated by the −0.6 V decade offset in the ADC→V conversion — so the raw
+>   sweep files are at the correct absolute level for this inversion.
 >
-> **What is STILL unvalidated:**
-> - the circuit model & constants — `R17 = 52.3 Ω`, AD8302 slopes `30 mV/dB` and
->   `10 mV/deg`, `V_CP = 0.9 V`, and the divider topology — vs the actual board;
-> - the AD8302 behaviour near **phase ≈ 0°** (nonlinear + sign-folded output), and
->   the **phase-unfold heuristic** (flip at the phase minimum) used to recover the
->   signed phase;
-> - unmodelled parasitics (board strays, connector, static branch beyond C0).
+> **Quantitative air validation (5 MHz crystal, on-device, 2026-07-23):**
+> physically consistent across all overtones — `R_m` = 10.6/12.1/40.5/76.5/132.6 Ω
+> (F0→9th), `D` = 3–10 ppm, and the admittance-circle fit diameter matches
+> `G_max` within **±5 %** (circle rms 1–6 %).
 >
-> **To validate (TODO):** measure **known reference impedances / RLC standards**
-> with the board and compare the recovered `R_q, X_q` (and `f_s, R_m, Q`) against a
-> calibrated impedance/network analyzer; from that, confirm or recalibrate the
-> slopes / `R17` / `V_CP`.
+> **Still open (metrological refinement, mainly for liquid):** second-order
+> systematics — board/cable **phase offsets** (no fold to re-anchor the phase in
+> liquid), AD8302 nonlinearity near 0°, residual `ωC0` beyond the constant
+> baseline; visible as a slight B/G span excess (≤17 %) and a slightly negative
+> circle center. Refine via **known reference impedances / RLC standards** vs a
+> calibrated impedance analyzer.
 >
-> **Consequence:** until validated, the live measurement pipeline
-> (`processors/Multiscan.py::parameters_finder_impedance`) intentionally still uses
-> the **approximate** formula. The exact formula lives only in the offline
-> `plot_conductance.py` (G DATA VIEW) for inspection. **If/when validated, porting
-> it to the live pipeline will change the logged frequency/dissipation values.**
+> **Consequence:** the live pipeline (`processors/Multiscan.py::
+> parameters_finder_impedance`) still uses the **approximate** formula. Porting
+> the exact formula there is now a realistic option — it **will change the logged
+> frequency/dissipation values** and must be a deliberate, documented step.
 
 ## Circuit Configuration
 
