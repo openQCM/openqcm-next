@@ -66,13 +66,13 @@ Conventional Commits. Versions are marked by Git tags.
   theme. The panel is collapsible, and the two plots sit in their own vertical
   splitter so either can take the whole height.
 
-  ⚠️ **Display only — no measured value changes.** The exact formula
-  (`_phase_signed` / `_RX_exact` / `_G_exact` / `_B_exact`, ported verbatim from
-  `sweep_data/plot_conductance.py`) runs in `elaborate_multi` on a new RAW
-  absolute `V_MAG` chain, in a block that feeds nothing but the panel.
-  `parameters_finder_impedance()` still publishes the logged frequency and
-  dissipation from the approximate formula, unchanged. Verified: offline results
-  on the frozen regression fixture are identical to the last digit.
+  The exact formula (`_phase_signed` / `_RX_exact` / `_G_exact` / `_B_exact`,
+  ported from `sweep_data/plot_conductance.py`) runs in `elaborate_multi` on a
+  new RAW absolute `V_MAG` chain. It arrived as a display-only path — at that
+  point `parameters_finder_impedance()` still published the logged values from
+  the approximate formula, and the offline regression fixture confirmed nothing
+  had moved. It is now also the **published** path: see "Changed — MEASURED
+  VALUES" above.
 
   Data path mirrors the existing `A_multi` channel: `Multiscan` →
   `Parser.add_GB_multi` → `Worker.consume_queue_GB_multi` →
