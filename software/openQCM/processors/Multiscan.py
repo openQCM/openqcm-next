@@ -369,13 +369,15 @@ class MultiscanProcess(multiprocessing.Process):
         return B
 
     # ------------------------------------------------------------------------
-    # VER 0.1.6G EXACT complex-divider inversion — DISPLAY ONLY
+    # VER 0.1.6G EXACT complex-divider inversion — THE PUBLISHED PATH
     # ------------------------------------------------------------------------
-    # Ported verbatim from sweep_data/plot_conductance.py, where it was validated
-    # on-device in air (2026-07-23). It feeds the live impedance panel and NOTHING
-    # else: parameters_finder_impedance() above still publishes the logged
-    # frequency and dissipation from the approximate formula, so these methods
-    # cannot change a measured value.
+    # Ported from sweep_data/plot_conductance.py, where it was validated
+    # on-device in air (2026-07-23) and then across the air->liquid transition
+    # (isopropanol, 2026-07-27). elaborate_multi() now reads the logged
+    # resonance frequency and dissipation off these spectra, via
+    # parameters_finder_impedance_exact(); the approximate helpers above
+    # (_Zabs_Vmag / _G_calc / _B_calc / _phase_raw_V_phase) are kept for the old
+    # parameters_finder_impedance(), which is no longer called.
     #
     # The AD8302 measures the divider transfer function H = R17/(Z_q + R17):
     #   |Z_q + R17| = M = R17 * 10**((V_CP - V_MAG)/0.6)
@@ -434,6 +436,66 @@ class MultiscanProcess(multiprocessing.Process):
     def _B_exact(self, R_q, X_q):
         den = np.maximum(R_q**2 + X_q**2, 1e-12)
         return -X_q / den
+
+    # VER 0.1.6G resonance frequency and half-bandwidth from the EXACT
+    # conductance. This is what the pipeline publishes now.
+    def parameters_finder_impedance_exact(self, freq, G_conductance):
+        idx_max, fr = self._Freq_G(G_conductance, freq)
+        bw = self._half_bandwidth_G_exact(G_conductance, freq)
+        return idx_max, fr, bw
+
+    # VER 0.1.6G half-bandwidth Gamma at half height of the conductance peak.
+    #
+    # Two differences from _half_bandwidth_G, which it replaces in the published
+    # path:
+    #  - TWO-SIDED. The old one measured f_r - f_left and called it Gamma, which
+    #    is only right for a perfectly symmetric peak; the real one is skewed by
+    #    the residual C0 branch. Using (f_right - f_left)/2 removed a consistent
+    #    ~20 % bias on both air and isopropanol data.
+    #  - SUB-SAMPLE. The crossings are linearly interpolated instead of snapped
+    #    to the nearest grid point. On the fundamental in air Gamma is a few tens
+    #    of hertz on a 1 Hz grid, so integer snapping alone quantised D by a few
+    #    percent.
+    # Falls back to the one-sided value if the sweep window does not contain a
+    # crossing on one side — which happens on damped loads, where Gamma reaches
+    # kilohertz and the window (LEFT=12000 / RIGHT=6000 Hz) is sized for air.
+    def _half_bandwidth_G_exact(self, G_conductance, F_sweep):
+        n_base = min(100, len(G_conductance))
+        G = np.asarray(G_conductance, dtype=float) - np.average(G_conductance[:n_base])
+        F = np.asarray(F_sweep, dtype=float)
+        idx_max = int(np.nanargmax(G))
+        half = G[idx_max] / 2.0
+        if not np.isfinite(half) or half <= 0:
+            return 0.0
+
+        def _cross(i_lo, i_hi):
+            # linear interpolation of the half-height crossing between two
+            # neighbouring samples straddling it
+            g0, g1 = G[i_lo], G[i_hi]
+            if g1 == g0:
+                return F[i_lo]
+            return F[i_lo] + (half - g0) * (F[i_hi] - F[i_lo]) / (g1 - g0)
+
+        f_left = None
+        below = np.where(G[:idx_max] < half)[0]
+        if len(below):
+            i = int(below[-1])
+            f_left = _cross(i, min(i + 1, idx_max))
+
+        f_right = None
+        below = np.where(G[idx_max:] < half)[0]
+        if len(below):
+            j = idx_max + int(below[0])
+            f_right = _cross(j, max(j - 1, idx_max))
+
+        f_res = F[idx_max]
+        if f_left is not None and f_right is not None:
+            return (f_right - f_left) / 2.0
+        if f_left is not None:
+            return f_res - f_left
+        if f_right is not None:
+            return f_right - f_res
+        return 0.0
     
     # VER 0.1.6G calculate resonance frequency 
     def _Freq_G (self, G_conductance, F_sweep): 
@@ -805,19 +867,28 @@ class MultiscanProcess(multiprocessing.Process):
         (index_peak_fit, max_peak_fit, bandwidth_fit, 
          index_f1_fit, index_f2_fit, Qfac_fit, frequency_resonance) = self.parameters_finder(freq_range, mag_result_fit, overtone_number, Constants.THRESHOLD_DB)
         
-        # VER 0.1.5a_G_DEV parameter finder impedance
-        (index_peak_fit_G, frequency_resonance_G, half_bandwidth) = self.parameters_finder_impedance(freq_range, Vmag_result_fit, Vphase_result_fit, overtone_number)
-
-        # VER 0.1.6G EXACT-FORMULA SPECTRA FOR THE LIVE IMPEDANCE PANEL
+        # VER 0.1.6G EXACT IMPEDANCE ANALYSIS — this is the published path now.
         # ---------------------------------------------------------------------
-        # Display only: nothing below this block feeds _my_list_f / _my_list_d,
-        # so the logged frequency and dissipation are untouched. Inputs are the
-        # RAW absolute V_MAG and the SIGNED phase, exactly as validated offline.
+        # Inverts the measuring divider exactly (Z_q = M*exp(-j*phi) - R17,
+        # Y_q = 1/Z_q) instead of the old scalar approximation, and reads the
+        # resonance frequency and half-bandwidth off the resulting conductance.
+        # Inputs that matter: the RAW ABSOLUTE V_MAG (the baseline-corrected one
+        # is a relative level and breaks the inversion) and the SIGNED phase.
+        #
+        # The same spectra feed the live impedance panel below, so the panel and
+        # the datalog can never disagree.
+        phase_signed = self._phase_signed(Vphase_result_fit)
+        R_q, X_q = self._RX_exact(Vmag_raw_result_fit, phase_signed)
+        G_exact_S = self._G_exact(R_q, X_q)
+        B_exact_S = self._B_exact(R_q, X_q)
+
+        (index_peak_fit_G, frequency_resonance_G, half_bandwidth) = \
+            self.parameters_finder_impedance_exact(freq_range, G_exact_S)
+
+        # VER 0.1.6G spectra for the live impedance panel
         try:
-            phase_signed = self._phase_signed(Vphase_result_fit)
-            R_q, X_q = self._RX_exact(Vmag_raw_result_fit, phase_signed)
-            G_exact = self._G_exact(R_q, X_q) * 1000.0   # mS
-            B_exact = self._B_exact(R_q, X_q) * 1000.0   # mS
+            G_exact = G_exact_S * 1000.0   # mS
+            B_exact = B_exact_S * 1000.0   # mS
             # Remove the static baseline so the locus closes into the admittance
             # circle, as in the offline script (mean of the first 100 samples).
             n_base = min(100, len(G_exact))
@@ -840,19 +911,18 @@ class MultiscanProcess(multiprocessing.Process):
             if keep.sum() < 16:          # pathological: fall back to everything
                 keep = np.ones_like(freq_range, dtype=bool)
 
-            self._my_list_freq_G[overtone_number] = freq_range[keep].tolist()
-            self._my_list_G_exact[overtone_number] = G_exact[keep].tolist()
-            self._my_list_B_exact[overtone_number] = B_exact[keep].tolist()
-            # f_r and Gamma travel with the spectrum: the panel needs them to
-            # restrict the circle fit to the core of the resonance, which is the
-            # only region that stays trustworthy on a damped load.
-            self._my_list_fr_G[overtone_number] = float(f_res)
-            self._my_list_gam_G[overtone_number] = float(abs(half_bandwidth))
-            self._parser_GB_multi.add_GB_multi([self._my_list_freq_G,
-                                                self._my_list_G_exact,
-                                                self._my_list_B_exact,
-                                                self._my_list_fr_G,
-                                                self._my_list_gam_G])
+            # Ship ONE overtone per message. elaborate_multi runs once per
+            # overtone, so re-sending all five lists every time (the pattern the
+            # older A_multi channel uses) put five times the spectra on the
+            # queue and five times the pickling cost for no new information.
+            # f_r and Gamma travel along: the panel needs them to restrict the
+            # circle fit to the core of the resonance.
+            self._parser_GB_multi.add_GB_multi([int(overtone_number),
+                                                freq_range[keep].tolist(),
+                                                G_exact[keep].tolist(),
+                                                B_exact[keep].tolist(),
+                                                float(f_res),
+                                                float(abs(half_bandwidth))])
         except Exception as e:
             # The panel is a diagnostic view: never let it break an acquisition.
             print("Warning: exact G/B for the impedance panel failed:", e)
@@ -1130,11 +1200,6 @@ class MultiscanProcess(multiprocessing.Process):
         # VER 0.1.6G exact-formula conductance / susceptance per overtone, for the
         # live impedance panel. Same shape as the lists above: one spectrum per
         # overtone, replaced on every sweep. Display only — never logged.
-        self._my_list_G_exact = [None, None, None, None, None]
-        self._my_list_B_exact = [None, None, None, None, None]
-        self._my_list_freq_G = [None, None, None, None, None]
-        self._my_list_fr_G = [0.0, 0.0, 0.0, 0.0, 0.0]
-        self._my_list_gam_G = [0.0, 0.0, 0.0, 0.0, 0.0]
         
         # DEBUG_0.1.1a
         # byte available at port
@@ -1260,10 +1325,6 @@ class MultiscanProcess(multiprocessing.Process):
             self._my_list_amp[nn] = self._zerolistmaker(Constants.SAMPLES)
             self._my_list_phase[nn] = self._zerolistmaker(Constants.SAMPLES)
             self._my_list_freq[nn] = self._zerolistmaker(Constants.SAMPLES)
-            # VER 0.1.6G exact G/B for the live impedance panel
-            self._my_list_G_exact[nn] = self._zerolistmaker(Constants.SAMPLES)
-            self._my_list_B_exact[nn] = self._zerolistmaker(Constants.SAMPLES)
-            self._my_list_freq_G[nn] = self._zerolistmaker(Constants.SAMPLES)
         
         # Checks if the serial port is currently connected
         if self._is_port_available(self._serial.port):

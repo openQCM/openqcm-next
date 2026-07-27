@@ -5,6 +5,53 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Changed — ⚠️ MEASURED VALUES
+- **The published resonance frequency and dissipation now come from the EXACT
+  complex-divider inversion.** `elaborate_multi` computes `Y_q = 1/(M·e^{-jφ} −
+  R17)` once from the RAW absolute `V_MAG` and the signed phase, and reads f_r
+  and Γ off that conductance via the new
+  `parameters_finder_impedance_exact()`. The old
+  `parameters_finder_impedance()` (approximate `G = cosφ/|Z|`, fed the
+  baseline-corrected `V_MAG`) is no longer called. The panel and the datalog now
+  share one computation, so they cannot disagree.
+- **The half-bandwidth is measured two-sided and interpolated**
+  (`_half_bandwidth_G_exact`). The old one returned `f_r − f_left`, correct only
+  for a symmetric peak — the real one is skewed by the residual C0 branch — and
+  snapped the crossing to the 1 Hz grid, which quantised D by a few percent when
+  Γ is a few tens of hertz. Falls back to one-sided when the sweep window holds
+  no crossing on a side, which happens on damped loads.
+
+  **Impact, measured on real data.** `f_r` moves by at most 71 Hz (≤1.6 ppm).
+  `D` changes a lot, and for the better:
+
+  | | air, D before → after | isopropanol, D before → after |
+  |---|---|---|
+  | n=1 | 68.4 → 25.1 ppm | 386 → 387 ppm |
+  | n=3 | 24.3 → 5.6 ppm | 227 → 194 ppm |
+  | n=5 | 17.0 → 5.4 ppm | 183 → 146 ppm |
+  | n=7 | 12.7 → 4.9 ppm | 152 → 124 ppm |
+  | n=9 | 11.8 → 5.6 ppm | 140 → 113 ppm |
+
+  In air the formula dominates (D falls 2–3×) and the two-sided window adds a
+  further ~20 %; in liquid the formula contributes ~5 % and the window ~15–20 %.
+  The new values are the physical ones: ~5 ppm on the overtones in air is
+  textbook for a good 5 MHz crystal, and 387 ppm at the fundamental in
+  isopropanol matches the Kanazawa–Gordon prediction (~400 ppm). The old
+  approximate values were inflated 2–4× in air.
+  **A pre-change and a post-change datalog are not comparable.**
+
+### Performance
+- **The impedance panel no longer dominates the GUI.** It was recomputing and
+  redrawing on every `plot_update_ms` tick (20 Hz) data that only changes once
+  per sweep. Three fixes: a per-overtone revision counter so the panel repaints
+  only on new data (the selector state is part of the key, so toggling an
+  overtone still responds at once); the list→array conversion moved to the
+  consumer, done once per sweep instead of 20 times a second; and one overtone
+  per queue message instead of re-sending all five lists on every
+  `elaborate_multi` call, cutting the queue payload and pickling cost 5×.
+  Measured on five overtones × 3000 points: steady-state cost per tick
+  **≈5 ms → ≈1 µs**, i.e. from ~10 % of the 50 ms budget to nothing.
+
 ### Added
 - **Live impedance panel** — a right-hand dock in the main window with two
   real-time views, both computed with the **exact** complex-divider inversion:

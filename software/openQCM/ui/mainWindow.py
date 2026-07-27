@@ -209,6 +209,9 @@ class MainWindow(QtGui.QMainWindow):
         self._pltGB_multiline = [None, None, None, None, None]
         # fitted-circle overlay, one per overtone (dashed, same colour)
         self._pltGB_fitline = [None, None, None, None, None]
+        # (revision, selected) of the last spectrum actually drawn per overtone,
+        # so the panel repaints only on new data instead of every 50 ms tick
+        self._pltGB_seq = [None, None, None, None, None]
 
         # VER 0.1.6 number of overtone lines/legend items; set per-run in start()
         # for serial/multiscan. Default 0 so stop()'s legend-removal loop is a
@@ -714,6 +717,8 @@ class MainWindow(QtGui.QMainWindow):
                     self._pltGB_fitline[idx] = self._pltGB.plot(
                         pen = pg.mkPen(color = Constants.plot_color_multi[idx],
                                        width = 1, style = QtCore.Qt.DashLine))
+                    # force a repaint on the next tick: the curves are new
+                    self._pltGB_seq[idx] = None
 
 # =============================================================================
 #                 # VER 0.1.6 reference to the line object temperature 
@@ -2471,6 +2476,23 @@ class MainWindow(QtGui.QMainWindow):
             for idx in range(self._overtones_number_all):
                 if self._pltG_multiline[idx] is None:
                     continue
+
+                # Nothing to do unless this overtone produced a new spectrum.
+                # _update_plot runs every plot_update_ms (50 ms) while a sweep
+                # takes seconds, so without this the panel redid the decimation,
+                # the circle fit and three setData calls per overtone about
+                # twenty times for every single new measurement — the reason the
+                # whole GUI felt sluggish. The selector state is part of the key
+                # so toggling an overtone still repaints immediately.
+                try:
+                    seq = (self.worker.get_GB_seq(idx),
+                           bool(self.scan_selector[idx]))
+                except Exception:
+                    seq = None
+                if seq is not None and seq == self._pltGB_seq[idx]:
+                    continue
+                self._pltGB_seq[idx] = seq
+
                 g_axis = self.worker.get_G_exact_buffer(idx)
                 b_axis = self.worker.get_B_exact_buffer(idx)
                 f_axis = self.worker.get_F_G_values_buffer(idx)
@@ -2490,9 +2512,9 @@ class MainWindow(QtGui.QMainWindow):
                                                          y = self._numpy_nan_sweep)
                     continue
 
-                g_np = np.asarray(g_axis, dtype=float)
-                b_np = np.asarray(b_axis, dtype=float)
-                f_np = np.asarray(f_axis, dtype=float) - peaks_mag[idx]
+                # already numpy, converted once by the worker on arrival
+                g_np, b_np = g_axis, b_axis
+                f_np = f_axis - peaks_mag[idx]
 
                 # Adaptive decimation. The producer already clips the spectrum
                 # to a few Gamma around resonance, so the arrays are short in
@@ -2522,7 +2544,7 @@ class MainWindow(QtGui.QMainWindow):
                         gam = float(self.worker.get_gamma_G_buffer(idx))
                         f_res = float(self.worker.get_fr_G_buffer(idx))
                         if gam > 0:
-                            f_abs = np.asarray(f_axis, dtype=float)[::step]
+                            f_abs = f_axis[::step]
                             sel = (np.abs(f_abs - f_res)
                                    <= Constants.IMPEDANCE_PANEL_FIT_GAMMA * gam)
                             if sel.sum() >= 12:
@@ -4713,6 +4735,7 @@ class MainWindow(QtGui.QMainWindow):
                             self._pltGB_fitline[idx] = self._pltGB.plot(
                                 pen = pg.mkPen(color = Constants.plot_color_multi[idx],
                                                width = 1, style = QtCore.Qt.DashLine))
+                            self._pltGB_seq[idx] = None
 
 # =============================================================================
 #                 # reference to the line object temperature 

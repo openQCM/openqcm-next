@@ -90,6 +90,7 @@ class Worker:
         self._F_G_multi_buffer = None
         self._fr_G_buffer = None
         self._gam_G_buffer = None
+        self._GB_seq = None
         
         # data buffers
         self._data1_buffer = None # amplitude 
@@ -559,24 +560,32 @@ class Worker:
             self._queue_data_GB_multi(self._queue_GB_multi.get(False))
 
     def _queue_data_GB_multi(self, data):
-        freq_list, G_list, B_list = data[0], data[1], data[2]
-        # f_r / Gamma are optional so an older payload still unpacks
-        fr_list = data[3] if len(data) > 3 else None
-        gam_list = data[4] if len(data) > 4 else None
-        for idx in range(len(G_list)):
-            self._F_G_multi_buffer[idx] = freq_list[idx]
-            self._G_exact_buffer[idx] = G_list[idx]
-            self._B_exact_buffer[idx] = B_list[idx]
-            if fr_list is not None:
-                self._fr_G_buffer[idx] = fr_list[idx]
-            if gam_list is not None:
-                self._gam_G_buffer[idx] = gam_list[idx]
+        # One overtone per message: [idx, freq, G, B, f_r, Gamma].
+        # Convert to numpy HERE, once per new sweep, instead of in the GUI
+        # repaint: the panel is refreshed every plot_update_ms (50 ms) but the
+        # spectra only change once per sweep, so converting on the consumer side
+        # took the cost from ~20 times a second down to once.
+        idx = int(data[0])
+        if not 0 <= idx < len(self._G_exact_buffer):
+            return
+        self._F_G_multi_buffer[idx] = np.asarray(data[1], dtype=float)
+        self._G_exact_buffer[idx] = np.asarray(data[2], dtype=float)
+        self._B_exact_buffer[idx] = np.asarray(data[3], dtype=float)
+        self._fr_G_buffer[idx] = float(data[4])
+        self._gam_G_buffer[idx] = float(data[5])
+        # bump the per-overtone revision so the GUI can skip untouched curves
+        self._GB_seq[idx] += 1
 
     def get_fr_G_buffer(self, idx = 0):
         return self._fr_G_buffer[idx]
 
     def get_gamma_G_buffer(self, idx = 0):
         return self._gam_G_buffer[idx]
+
+    def get_GB_seq(self, idx = 0):
+        # revision counter of the exact G/B spectrum of one overtone; the panel
+        # redraws only when it moves
+        return self._GB_seq[idx]
 
     def get_G_exact_buffer(self, idx = 0):
         return self._G_exact_buffer[idx]
@@ -1059,6 +1068,7 @@ class Worker:
         self._F_G_multi_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
         self._fr_G_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
         self._gam_G_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
+        self._GB_seq = self._zerolistmaker(len(Constants.overtone_dummy))
         
         # INIT self._F_store and self._D_store list 
         # TODO IMPORTANT self._F_store and self._D_store same legth of self._F_multi_buffer and self._D_multi_buffer
