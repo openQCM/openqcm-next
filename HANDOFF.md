@@ -2,7 +2,7 @@
 
 > Technical starting point to continue development of the software and of the
 > `impedance-analysis` branch. Working language: Italian in chat, English in the repo.
-> Last updated: 2026-07-21.
+> Last updated: 2026-07-27.
 
 ---
 
@@ -78,60 +78,84 @@ board and will be deleted once that board is retired.** Production firmware stay
 MAG/PHASE signals (software post-processing; same firmware/protocol as the classic method).
 
 **Where in the code (on the branch)**:
-- `software/openQCM/processors/Multiscan.py`: `parameters_finder_impedance()` (~:328), `_Zabs_Vmag`,
-  `_phase_raw_V_phase`, `_G_calc`, `_B_calc`, `_Freq_G`, `_half_bandwidth_G`. Wired into
-  `elaborate_multi()` (~:626): it runs **both** the classic and the conductance method but
-  **publishes the conductance** results (the classic lines are commented out).
-- `software/openQCM/sweep_data/plot_conductance.py`: offline analysis script. Reads the `g<n>.txt`
-  sweeps (same 3-column layout as `<n>.txt`, but columns 2–3 are the **raw AD8302 voltages**
-  V_MAG / V_PHS in volts, not dB/degrees), written by `Multiscan.py` (~:1430) alongside the
-  classic ones. Launched from **Tools → Conductance Data**.
-- `docs/impedance-analysis/`: documentation (`conductance-calculation.md`,
+- `software/openQCM/processors/Multiscan.py` — the **exact** complex-divider inversion:
+  `_phase_signed` (conditional unfold), `_RX_exact`, `_G_exact`, `_B_exact`,
+  `parameters_finder_impedance_exact()` and `_half_bandwidth_G_exact()`. Wired into
+  `elaborate_multi()`: the exact spectra are computed **once** and used both for the
+  **published** resonance frequency / dissipation and for the live panel, so the two can
+  never disagree. The RAW absolute `V_MAG` chain (`Vmag_raw_result_fit`) feeds the inversion;
+  the baseline-corrected one is only kept for the classic amplitude path.
+- `software/openQCM/ui/mainWindow.py` + `ui/mainWindow_ui.py` — the **live impedance panel**
+  (right-hand dock): `_build_impedance_panel`, `_update_impedance_panel`,
+  `_fit_circle_taubin`, plus **Tools → Conductance Data** (`actionConductance_Data`).
+- Data path `Multiscan → Parser.add_GB_multi → Worker.consume_queue_GB_multi → GUI`, one
+  overtone per message, `f_r` and Γ travelling with each spectrum.
+- `software/openQCM/sweep_data/plot_conductance.py`: offline analysis script — the reference
+  implementation everything above was validated against. Reads the `g<n>.txt` sweeps (same
+  3-column layout as `<n>.txt`, but columns 2–3 are the **raw AD8302 voltages** V_MAG / V_PHS
+  in volts, not dB/degrees), documented in `software/docs/DATA_FORMAT_sweep_data.md`.
+- `docs/impedance-analysis/`: method documentation (`conductance-calculation.md`,
   `openQCM_Next_G_Impedance_Analysis.md`, 3 PDFs).
 
-**State**:
-- The **live pipeline** implements the **approximate** formula (`G = cosφ/|Z|`), fed with the
-  *baseline-corrected* `V_MAG`.
-- The **exact** complex-divider inversion (`Z_q = M·e^{-jφ} − R17`, `Y_q = 1/Z_q`) is implemented
-  **offline only**, in `plot_conductance.py` (`_RX_exact` / `_G_exact` / `_B_exact`), fed with the
-  **raw absolute** `V_MAG` (`amp_a_sp_raw`) and the conditionally unfolded signed phase
-  (`_phase_signed`, `fold_threshold_deg = 5°`). **Validated on-device in air** (2026-07-23):
-  physical `R_m` on all overtones, admittance-circle fit matching `G_max` within ±5 %.
-- The method is **always on, not selectable** (hard-wired in `elaborate_multi`, which publishes the
-  conductance results while the classic lines stay commented out).
+**State (2026-07-27)**:
+- ✅ The **exact** formula is the **published** path. `f_r` and Γ come from
+  `Y_q = 1/(M·e^{-jφ} − R17)` on the raw absolute `V_MAG` and the signed phase. Γ is measured
+  **two-sided** and interpolated sub-sample. The old approximate
+  `parameters_finder_impedance()` and its helpers (`_Zabs_Vmag`, `_G_calc`, `_B_calc`,
+  `_phase_raw_V_phase`) are kept but **no longer called**.
+- ✅ **Live impedance panel**: G(f) and the B–G admittance circle, all overtones, matching
+  colours, fitted-circle overlay. Tuned for damped loads — see the three
+  `Constants.IMPEDANCE_PANEL_*` knobs.
+- ✅ Validated **in air and in isopropanol**. D in air is now ~5 ppm on the overtones (textbook);
+  in isopropanol 387 ppm at the fundamental, matching Kanazawa–Gordon (~400 ppm). The old
+  approximate values were inflated 2–4× in air.
+- The method is **always on, not selectable** (hard-wired in `elaborate_multi`).
 - `elaborate_conductance_multi()` is **dead code** (UNUSED).
-- The DEBUG state is **gone** (removed by the 2026-07-27 merge): `environment` is back to `10`, and
-  `plot_autoscale_yaxis` was dropped in favour of main's equivalent `Constants.plot_force_yrange`.
+- The DEBUG state is gone (2026-07-27 merge): `environment` back to `10`,
+  `plot_autoscale_yaxis` dropped for main's `Constants.plot_force_yrange`.
 
-**Offline analyses, 2026-07-27** (no code changed; datasets kept at
-`~/claude_code/openqcm-next-impedance-datasets/2026-07-27/`):
-- **Admittance-circle fit** on the exact `G`/`B`: the loci *are* circles — 0.5–2 % rms of the
-  fitted radius on the flanks. One systematic survives every configuration: a radial **bulge at
-  f_r** (+5 % to +34 % of the radius), attributable to a **2–6 mV** error in the V_MAG channel
-  (a phase error cannot reproduce it), well inside the AD8302's own magnitude accuracy. Near
-  resonance `R_q = M·cosφ − R17` is a difference of close numbers, so `dR_m/R_m ≈ 2 % per mV`:
-  the circle diameter is a more robust `R_m` estimator than the peak of `G(f)`.
-- The circle centres sit low in B (`B_c/r` = −15 % to −28 %) in **every** configuration — a
-  phase/reactive systematic of the chain, the one needing reference-load de-embedding.
-- **Savitzky–Golay bias**: with a 1 Hz sweep step, `SG_WINDOW_SIZE_G = 51` is wider than the FWHM
-  of the fundamental and 3rd overtone in air, inflating Γ (hence D) by +9 % and +16 %.
-  `f_r` is unaffected (≤ 4 Hz).
-- **Hardware diagnosis** (swap experiment, 3 configurations): excess motional resistance follows
-  the **sensor module**, not the central body (module swap → R_m ×3.4–11.2; body swap → ×0.94–1.39,
-  with L_m = R_m/(4πΓ) invariant). Cleaning the crystal recovered R_m by 3.7–8.1× on the overtones
+**What the offline campaign established** (2026-07-27; datasets at
+`~/claude_code/openqcm-next-impedance-datasets/2026-07-27/`, five configurations A–E):
+- **The loci are circles.** 0.5–2 % rms of the fitted radius on the flanks in air.
+- **A radial bulge at f_r** survives every hardware configuration: +5 % to +34 % of the radius,
+  explained by a **2–6 mV** error in the V_MAG channel (no phase error reproduces it), well
+  inside the AD8302's own magnitude accuracy. Near resonance `R_q = M·cosφ − R17` is a
+  difference of close numbers, so `dR_m/R_m ≈ 2 % per mV` — **the circle diameter is a more
+  robust R_m than the peak of G(f)**.
+- **Circle centres sit low in B** (`B_c/r` = −15 % to −28 %) in every air configuration — the
+  phase/reactive systematic that still needs reference-load de-embedding. In liquid the large
+  ωC0 offset makes this ratio meaningless as a metric.
+- ✅ **The 5° unfold threshold is validated across the air→liquid transition.** In isopropanol
+  the fundamental sits at min|φ| = 2.04°, the critical intermediate case, and the rule
+  correctly unfolds it (rms 0.52 % vs 33.4 % if left folded); the 3rd–9th (12.1°–43.8°) are
+  correctly left alone. Right call on all five, in both regimes.
+- **Savitzky–Golay bias**: with a 1 Hz sweep step, `SG_WINDOW_SIZE_G = 51` is wider than the
+  FWHM of the fundamental and 3rd overtone **in air**, inflating Γ by +9 % and +16 %. `f_r` is
+  unaffected (≤ 4 Hz). Irrelevant in liquid, where Γ is kilohertz.
+- **Hardware diagnosis** (swap experiment): excess motional resistance follows the **sensor
+  module**, not the central body (module swap → R_m ×3.4–11.2; body swap → ×0.94–1.39, with
+  L_m = R_m/(4πΓ) invariant). Cleaning the crystal recovered R_m by 3.7–8.1× on the overtones
   (7th and 9th back to reference within 8 %); the **fundamental stays ~2.8× the reference**.
-  Frequencies rose after cleaning (Δf/n = 142…97 Hz ⇒ ~1.6–2.5 µg/cm² of a soft, non-rigid deposit).
+  Frequencies rose (Δf/n = 142…97 Hz ⇒ ~1.6–2.5 µg/cm² of a soft, non-rigid deposit).
+- ⚠️ **Standing hardware limitation.** `R17 = 52.3 Ω` against a liquid load of 0.8–3.4 kΩ puts
+  the whole sweep at **−23 to −36 dB** of divider ratio, against the AD8302's specified ±30 dB,
+  with a resonance contrast of only 2–12 dB. Past ~1 half-bandwidth the deviation from a circle
+  becomes systematic and **neither a magnitude-only nor a phase-only error explains it** — both
+  channels degrade together down there. This is why the panel fits the core and not the wings.
+  A larger R17 would recentre the ratio; it also changes loading and calibration, so it is a
+  measurement-design decision.
+- ⚠️ **Sweep window sized for air.** `LEFT = 12000 / RIGHT = 6000 Hz` around the peak. In
+  isopropanol Γ reaches 2.5 kHz, so ±3Γ no longer fits above resonance on the 7th and 9th, and
+  the "off-resonance" baseline (mean of the first 100 samples) is taken on the resonance skirt.
 
-**Roadmap** (each needs a plan + approval; every item changes measured values):
-1. **Port the exact formula into the live pipeline** (`parameters_finder_impedance`). Needs the RAW
-   `V_MAG` (not the baseline-corrected one) exactly as fixed offline. ⚠️ Changes the logged
-   frequency and dissipation.
-2. Make the measurement **selectable** (classic vs conductance) instead of hard-wired.
-3. Remove the dead `elaborate_conductance_multi()`.
-4. Complete the validation: systematic air→liquid test of `fold_threshold_deg`; reference-load
-   calibration for metrological use.
-5. Decide on the analysis band (the ±1Γ / ±3Γ question) and on the Savitzky–Golay window for the
-   low overtones — both move R_m and D.
+**Roadmap** (each needs a plan + approval):
+1. Make the measurement **selectable** (classic vs conductance) instead of hard-wired.
+2. Remove the dead `elaborate_conductance_multi()`.
+3. **Reference-load / RLC-standard calibration** for metrological use — de-embed the board
+   phase, and settle the 2–6 mV V_MAG systematic at resonance.
+4. Widen the sweep window for liquid work, and revisit `SG_WINDOW_SIZE_G` for the low overtones
+   in air (both move Γ, hence D).
+5. Consider publishing `R_m` from the **circle-fit diameter** rather than from `G_max`.
 
 ## 5. Planned technical tasks (on `main`)
 

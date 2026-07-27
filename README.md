@@ -271,8 +271,12 @@ The application uses a **multiprocessing pipeline** to keep acquisition independ
 | `v0.1.6-dev-073` | `main` | GUI reorganized into an "Add-On" menu, I/O robustness, exit confirmation; firmware `0.1.5a` (POT_VALUE 240). |
 | *(unreleased)* | `main` | **GUI redesign** — programmatic single-window shell: sidebar control cards, light/dark theme, Plots/System Log tabs, single Start/Stop toggle, overtone chips, per-plot frequency/dissipation readout cards, collapsible amplitude/temperature pane, plot right-click menu + Δ cursors, bottom status bar. **Robust trimmed-mean anti-outlier averaging** of the raw acquisition buffer; development plot auto-range. See `CHANGELOG.md`. |
 | `v0.1.6G-test` | `impedance-analysis` | **Experimental**: impedance analysis via conductance spectrum `G(f)` derived from the AD8302 signals. |
+| `v0.1.6G-pre-merge` | `impedance-analysis` | State of the impedance branch just before it was aligned with `main`. |
+| *(unreleased)* | `impedance-analysis` | Aligned with `main`. The **exact** complex-divider inversion is now the published path (resonance frequency and dissipation), the half-bandwidth is measured two-sided, and a **live impedance panel** shows G(f) and the B–G admittance circle for all overtones. Validated in air and in isopropanol. See `CHANGELOG.md`. |
 
-The `impedance-analysis` branch is experimental and not merged into `main`. Its documentation lives under `docs/impedance-analysis/` on that branch.
+The `impedance-analysis` branch is experimental and not merged into `main`. It is kept aligned by
+merging `main` into it; its documentation lives under `docs/impedance-analysis/` on that branch,
+and the raw sweep format it consumes is described in `software/docs/DATA_FORMAT_sweep_data.md`.
 
 ---
 
@@ -286,8 +290,10 @@ Selected planned work (non-exhaustive):
 - Port selected backend improvements from the mature **openQCM Q-1** codebase: **disconnected-sensor
   detection**, **tracking safety** (auto-disable/resume), and peak-detection validations.
 - Harden the **firmware version check** for older firmware (range-priming + reply validation).
-- Merge the `impedance-analysis` feature once stabilized (make the conductance method selectable rather than hardwired).
-- Implement the exact complex-impedance conductance formula (currently the approximate form is used).
+- Merge the `impedance-analysis` feature once stabilized (make the conductance method selectable
+  rather than hardwired). The exact complex-impedance formula is **done** and is the published path
+  on that branch; what remains is the selector, reference-load calibration for metrological use, and
+  a sweep window sized for liquid work.
 
 ---
 

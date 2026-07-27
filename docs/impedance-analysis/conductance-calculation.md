@@ -1,9 +1,12 @@
 # Exact Conductance Calculation for QCM Impedance Analysis
 
-> ## VALIDATION STATUS — VALIDATED IN AIR, on-device (2026-07-23)
+> ## VALIDATION STATUS — VALIDATED in air and in liquid; PUBLISHED path (2026-07-27)
 >
-> This document is the source of the "exact" formula implemented in
-> `sweep_data/plot_conductance.py` (`_RX_exact` / `_G_exact` / `_B_exact`).
+> This document is the source of the "exact" formula, implemented twice: offline in
+> `sweep_data/plot_conductance.py` (the reference) and live in
+> `processors/Multiscan.py` (`_RX_exact` / `_G_exact` / `_B_exact` /
+> `_phase_signed`), where it feeds both the published measurement and the
+> impedance panel.
 >
 > **History of the validation:**
 > - *2026-07-21*: synthetic Butterworth–Van Dyke self-consistency check passed
@@ -32,17 +35,42 @@
 > (F0→9th), `D` = 3–10 ppm, and the admittance-circle fit diameter matches
 > `G_max` within **±5 %** (circle rms 1–6 %).
 >
-> **Still open (metrological refinement, mainly for liquid):** second-order
-> systematics — board/cable **phase offsets** (no fold to re-anchor the phase in
-> liquid), AD8302 nonlinearity near 0°, residual `ωC0` beyond the constant
-> baseline; visible as a slight B/G span excess (≤17 %) and a slightly negative
-> circle center. Refine via **known reference impedances / RLC standards** vs a
-> calibrated impedance analyzer.
+> **Update — 2026-07-27: also validated in liquid, and now the PUBLISHED path.**
 >
-> **Consequence:** the live pipeline (`processors/Multiscan.py::
-> parameters_finder_impedance`) still uses the **approximate** formula. Porting
-> the exact formula there is now a realistic option — it **will change the logged
-> frequency/dissipation values** and must be a deliberate, documented step.
+> - **Isopropanol run.** `D` = 387/194/146/124/113 ppm across the overtones; the
+>   fundamental matches the Kanazawa–Gordon prediction for isopropanol (~400 ppm).
+> - **The conditional unfold threshold (5°) is validated across the air→liquid
+>   transition** — the systematic test that had been left open. In isopropanol the
+>   fundamental sits at min|φ| = 2.04°, the critical intermediate case, and the rule
+>   correctly unfolds it (circle rms 0.52 % vs 33.4 % if left folded); the 3rd–9th
+>   (12.1°–43.8°) are correctly left alone.
+> - **The live pipeline now uses this formula.** `elaborate_multi()` computes the
+>   exact spectra once and reads the logged resonance frequency and half-bandwidth
+>   off them, via `parameters_finder_impedance_exact()`. The old approximate
+>   `parameters_finder_impedance()` is kept but no longer called. The half-bandwidth
+>   is measured **two-sided** and interpolated sub-sample
+>   (`_half_bandwidth_G_exact`). Measured effect: `f_r` moves ≤ 1.6 ppm, while `D`
+>   drops 2–4× in air (to a textbook ~5 ppm on the overtones) and 15–20 % in liquid.
+>
+> **Still open (metrological refinement):** second-order systematics — board/cable
+> **phase offsets** (no fold to re-anchor the phase in liquid), a **2–6 mV** V_MAG
+> error at resonance that produces a radial bulge in the locus (see below),
+> residual `ωC0` beyond the constant baseline. Refine via **known reference
+> impedances / RLC standards** vs a calibrated impedance analyzer.
+>
+> **Dynamic-range caveat, important for liquid work.** `R17 = 52.3 Ω` against a
+> liquid load of 0.8–3.4 kΩ puts the entire sweep at **−23 to −36 dB** of divider
+> ratio, against the AD8302's specified ±30 dB, with a resonance contrast of only
+> 2–12 dB. Beyond roughly one half-bandwidth from resonance the deviation from a
+> circle becomes systematic, and neither a magnitude-only nor a phase-only error
+> reproduces it — both channels degrade together. Read `R_m` from the **core** of
+> the resonance, not from the wings.
+>
+> **Sensitivity worth remembering.** At resonance `R_q = M·cosφ − R17` is a
+> difference of two close numbers, so `dR_m/R_m ≈ 2 % per mV` of V_MAG error on the
+> fundamental. The **circle-fit diameter is a more robust estimator of `R_m` than
+> the peak of `G(f)`**, because it averages a well-conditioned arc instead of
+> trusting the single worst-conditioned sample.
 
 ## Circuit Configuration
 
