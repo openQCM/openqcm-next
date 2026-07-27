@@ -3,6 +3,161 @@
 Reconstruction of the openQCM NEXT development history. Format inspired by
 Conventional Commits. Versions are marked by Git tags.
 
+## [Unreleased] — `impedance-analysis`
+
+### Changed — ⚠️ MEASURED VALUES
+- **The published resonance frequency and dissipation now come from the EXACT
+  complex-divider inversion.** `elaborate_multi` computes `Y_q = 1/(M·e^{-jφ} −
+  R17)` once from the RAW absolute `V_MAG` and the signed phase, and reads f_r
+  and Γ off that conductance via the new
+  `parameters_finder_impedance_exact()`. The old
+  `parameters_finder_impedance()` (approximate `G = cosφ/|Z|`, fed the
+  baseline-corrected `V_MAG`) is no longer called. The panel and the datalog now
+  share one computation, so they cannot disagree.
+- **The half-bandwidth is measured two-sided and interpolated**
+  (`_half_bandwidth_G_exact`). The old one returned `f_r − f_left`, correct only
+  for a symmetric peak — the real one is skewed by the residual C0 branch — and
+  snapped the crossing to the 1 Hz grid, which quantised D by a few percent when
+  Γ is a few tens of hertz. Falls back to one-sided when the sweep window holds
+  no crossing on a side, which happens on damped loads.
+
+  **Impact, measured on real data.** `f_r` moves by at most 71 Hz (≤1.6 ppm).
+  `D` changes a lot, and for the better:
+
+  | | air, D before → after | isopropanol, D before → after |
+  |---|---|---|
+  | n=1 | 68.4 → 25.1 ppm | 386 → 387 ppm |
+  | n=3 | 24.3 → 5.6 ppm | 227 → 194 ppm |
+  | n=5 | 17.0 → 5.4 ppm | 183 → 146 ppm |
+  | n=7 | 12.7 → 4.9 ppm | 152 → 124 ppm |
+  | n=9 | 11.8 → 5.6 ppm | 140 → 113 ppm |
+
+  In air the formula dominates (D falls 2–3×) and the two-sided window adds a
+  further ~20 %; in liquid the formula contributes ~5 % and the window ~15–20 %.
+  The new values are the physical ones: ~5 ppm on the overtones in air is
+  textbook for a good 5 MHz crystal, and 387 ppm at the fundamental in
+  isopropanol matches the Kanazawa–Gordon prediction (~400 ppm). The old
+  approximate values were inflated 2–4× in air.
+  **A pre-change and a post-change datalog are not comparable.**
+
+### Performance
+- **The impedance panel no longer dominates the GUI.** It was recomputing and
+  redrawing on every `plot_update_ms` tick (20 Hz) data that only changes once
+  per sweep. Three fixes: a per-overtone revision counter so the panel repaints
+  only on new data (the selector state is part of the key, so toggling an
+  overtone still responds at once); the list→array conversion moved to the
+  consumer, done once per sweep instead of 20 times a second; and one overtone
+  per queue message instead of re-sending all five lists on every
+  `elaborate_multi` call, cutting the queue payload and pickling cost 5×.
+  Measured on five overtones × 3000 points: steady-state cost per tick
+  **≈5 ms → ≈1 µs**, i.e. from ~10 % of the 50 ms budget to nothing.
+
+### Added
+- **Live impedance panel** — a right-hand dock in the main window with two
+  real-time views, both computed with the **exact** complex-divider inversion:
+  - **Conductance G(f)**, all overtones overlaid, x plotted as the offset from
+    the detected peak so every overtone shares one axis;
+  - **Admittance circle B vs G**, all overtones overlaid, aspect-locked so a
+    circle looks like a circle.
+
+  Per-overtone colours match the frequency/dissipation plots, the scan selector
+  is honoured (deselected overtones disappear here too), and both views join the
+  existing right-click menu (grid, autoscale, reset zoom) and the light/dark
+  theme. The panel is collapsible, and the two plots sit in their own vertical
+  splitter so either can take the whole height.
+
+  The exact formula (`_phase_signed` / `_RX_exact` / `_G_exact` / `_B_exact`,
+  ported from `sweep_data/plot_conductance.py`) runs in `elaborate_multi` on a
+  new RAW absolute `V_MAG` chain. It arrived as a display-only path — at that
+  point `parameters_finder_impedance()` still published the logged values from
+  the approximate formula, and the offline regression fixture confirmed nothing
+  had moved. It is now also the **published** path: see "Changed — MEASURED
+  VALUES" above.
+
+  Data path mirrors the existing `A_multi` channel: `Multiscan` →
+  `Parser.add_GB_multi` → `Worker.consume_queue_GB_multi` →
+  `get_G_exact_buffer` / `get_B_exact_buffer` / `get_F_G_values_buffer` → GUI.
+  The queue argument is optional, so an older `ParserProcess` call signature
+  still works and `add_GB_multi` degrades to a no-op. The whole computation and
+  the panel refresh are wrapped in try/except: a diagnostic view must never take
+  down an acquisition.
+- `Constants.FOLD_THRESHOLD_DEG_G` (5.0) — the air/liquid discriminator for the
+  conditional phase unfold, previously hard-coded in the offline script.
+- **Impedance panel tuned for damped (liquid) loads.** On an isopropanol
+  acquisition the displayed circles came out visibly distorted. Three changes,
+  all display-side:
+  - **Adaptive window** (`IMPEDANCE_PANEL_BAND_GAMMA`, default 3.0): the
+    producer now clips each spectrum to a few half-bandwidths around resonance
+    before shipping it. In air the sweep spans ±50 to ±190 Γ and almost all of
+    it piles onto one spot of the locus; in a liquid Γ grows to ~1–2.5 kHz and
+    the far points are exactly the ones acquired deepest in the AD8302
+    dynamic-range corner. Also cuts the queue payload and the redraw cost.
+  - **Fitted-circle overlay** (`IMPEDANCE_PANEL_SHOW_FIT`): a dashed circle per
+    overtone, so the circle the data supports stays visible even when the raw
+    locus is out of round — and its diameter is a far more robust 1/R_m than
+    the peak of G.
+  - **The fit runs on the core, not on everything plotted**
+    (`IMPEDANCE_PANEL_FIT_GAMMA`, default 1.0). Past about one half-bandwidth
+    the deviation from a circle is *systematic*, not sporadic, so on a damped
+    load a majority of a ±3 Γ window is off-circle and residual-based outlier
+    rejection locks onto the wrong subset (measured: −36 % error on R_m at the
+    3rd overtone). Fitting the core instead reproduces the offline reference
+    within **+0.5 % to +6.6 %** in air and isopropanol alike. `f_r` and Γ now
+    travel with the spectrum so the panel knows where the core is; both are
+    optional in the payload, so an older producer still unpacks.
+
+### Validated
+- **The 5° conditional-unfold threshold is confirmed across the air→liquid
+  transition** — the systematic test left open in the handoff. In isopropanol
+  the fundamental sits at min|φ| = 2.04°, the critical intermediate case, and
+  the rule correctly unfolds it (circle rms 0.52 % vs 33.4 % if left folded),
+  while the 3rd to 9th (12.1° to 43.8°) are correctly left alone (e.g. 1.06 %
+  vs 2.49 % on the 7th). Right call on all five overtones, in both regimes.
+
+### Changed
+- **Aligned with `main`** (merge of `main` @ 52a42a9, 47 commits; pre-merge state
+  tagged `v0.1.6G-pre-merge`). The branch now carries the whole `main` line —
+  `run.py` entry point, serial connection Steps 1–2, `requirements.txt` /
+  `environment.yml`, the GUI redesign (programmatic UI builder + dark/light theme),
+  robust trimmed-mean averaging, responsive calibration cancellation, firmware
+  `0.1.5a` and `docs/DATA_FORMAT_sweep_data.md` — on top of the conductance feature.
+- ⚠️ **Logged values will shift**: main's `trim_mean` replaces the
+  Savitzky-Golay + `np.average` on the acquisition ring buffer, and now averages the
+  **conductance-derived** frequency and dissipation. By design, not a regression —
+  but a pre-merge and a post-merge `logged_data/*_multi_.csv` are not directly
+  comparable.
+- **G DATA VIEW moved to the menu bar**: **Tools → Conductance Data**
+  (`actionConductance_Data`). The old sidebar button is gone — main's redesign
+  removed that whole family of buttons in favour of the menu. The handler
+  `_conductance_data_plot` is unchanged.
+- **DEBUG state removed** (roadmap item, closed by the merge): `environment` back to
+  `10`; `plot_autoscale_yaxis` dropped in favour of main's `plot_force_yrange`,
+  which gates the same forced Y-range with inverted polarity.
+- `Calibration_{5,10}MHz.txt` and `PeakFrequencies{,RT}.txt` now hold the **5 MHz**
+  sensor module currently mounted (they previously described a 10 MHz crystal).
+  These are runtime output, rewritten by `Calibration.py` on every calibration run.
+
+### Added
+- **`g<n>.txt` documented** in `software/docs/DATA_FORMAT_sweep_data.md`: the second
+  sweep family written by this branch — same layout as `<n>.txt`, but columns 2–3 are
+  the **raw AD8302 voltages** V_MAG / V_PHS instead of dB / degrees. Includes the ADC→V
+  conversion, the divider inversion it feeds, and the two traps (never baseline-correct
+  V_MAG before the exact inversion; column 3 is `|phase|`, sign folded).
+- Example `g<n>.txt` sweeps versioned alongside main's `<n>.txt`, for the same reason
+  main versions those: the Conductance Data view needs input on a fresh clone.
+
+### Removed
+- The three dead Qt-Designer UI files (`res/mainWindow_new.ui`,
+  `res/mainWindow_new_ui.py`, `ui/mainWindow_new_ui.py`). Nothing has imported them
+  since the GUI redesign; they only generated merge conflicts.
+
+### Verified
+- Offline path **byte-identical** across the merge (`plot_conductance.py`,
+  `fileStorage.py`), and offline results identical to the pre-merge baseline to the
+  last digit. `py_compile` clean across the package.
+- ⏳ **Not yet verified**: on-device smoke test (acquisition, Tools → Conductance Data)
+  and the logged-value comparison.
+
 ## [Unreleased] — `main`
 
 ### Added
@@ -336,6 +491,61 @@ Conventional Commits. Versions are marked by Git tags.
   the AD8302 MAG/PHASE signals (software post-processing, same firmware).
 - Core in `processors/Multiscan.py`; offline script `sweep_data/plot_conductance.py`.
 - Note: approximate formula; development/DEBUG state. Not production-ready.
+
+### Unreleased (impedance dev — 2026-07-21)
+- **G DATA VIEW / `sweep_data/plot_conductance.py`** — offline-only additions
+  (the live `Multiscan.py` pipeline is unchanged):
+  - **Susceptance vs conductance (B–G) plots** — admittance locus per overtone.
+    A raw `B = sin(phi)/|Z|` version (folded phase → "lens" shape), plus a
+    **motional** version that reconstructs the *signed* phase (re-activated the
+    unused `_phase_V_phase` unfold) and removes the baseline from G and B so the
+    locus closes into the **admittance circle** (1:1 aspect via a new optional
+    `_plot(..., aspect_equal=True)`).
+  - **Exact complex-divider formula** (`_RX_exact`/`_G_exact`/`_B_exact`, from
+    `docs/impedance-analysis/conductance-calculation.md`): inverts the divider
+    `Z_q = M·e^{-j·phi} − R17` and computes `Y_q = 1/Z_q`. New "conductance
+    (exact formula)" spectrum + exact admittance circle, side by side with the
+    approximate ones. On real 5 MHz data the exact G_max is ~5× higher
+    (physically plausible R_m), matching the synthetic prediction.
+  - **Unit fix**: the "conductance shifted" plots were labelled mS but plotted S;
+    now converted to mS.
+  - ⚠️ **The "exact" formula is NOT yet validated against hardware** — the source
+    doc `conductance-calculation.md` and its constants (R17, AD8302 slopes, V_CP,
+    unfold heuristic) still need validation with known reference impedances; the
+    synthetic test only proved algebraic self-consistency. See the doc's
+    "VALIDATION STATUS" banner and `HANDOFF.md`.
+  - ⏳ **Pending**: once validated, port the exact formula into
+    `parameters_finder_impedance` (live pipeline) — this **will change the logged
+    frequency/dissipation values**.
+  - **Conditional phase unfold (liquid fix)** — new `_phase_signed()` used by the
+    motional and exact B–G plots. The AD8302 outputs |phase| only; the previous
+    always-unfold (`_phase_V_phase`: shift min→0 + flip after the minimum) is
+    correct **only when the phase actually crosses zero** (air / low damping).
+    In liquid the phase minimum stays 10–40° above zero (heavy damping, C0/stray
+    dominated — no zero crossing): unfolding there subtracted a large real offset
+    and inverted half the sweep, distorting the admittance locus into an **"S"**
+    (observed on-device in liquid). `_phase_signed` unfolds only if
+    `min|phase| < fold_threshold_deg` (default 5°; air minima ~0–2°, liquid
+    ~10–40°), otherwise the raw phase already is the signed phase. Verified on
+    synthetic BVD in both regimes: liquid exact G/B error 55%/121% → **0.000**,
+    air unchanged. **Confirmed on-device**: the liquid B–G loci now close into
+    circles (no more "S"). ⏳ A *systematic* test across the air→liquid transition
+    (validating the `fold_threshold_deg` discrimination) is still to be run.
+  - **Exact-formula fix + AIR VALIDATION (2026-07-23)** — root cause of the
+    negative-resistance/negative-G circles found: the exact inversion was fed the
+    **baseline-corrected** `V_MAG` (relative level; calibration polynomial
+    subtracted), which scales `M = R17·10^((0.9−V)/0.6)` by `10^(Vb/0.6)` (0.55×
+    at F0 → `M(res) < R17` → `R_q < 0` everywhere). **Fix**: new `amp_a_sp_raw`
+    chain (same SG+spline, no baseline subtraction) feeds `_RX_exact`; the
+    approximate path is untouched. The phase channel receives no baseline anywhere
+    (verified offline + live) — correct for this method. Source PDFs confirm the
+    divider topology and the INPB ×10 attenuation already compensated by the
+    −0.6 V conversion offset. **On-device air validation (5 MHz)**: all exact
+    circles at positive G; `R_m` = 10.6/12.1/40.5/76.5/132.6 Ω (F0→9th), `D` =
+    3–10 ppm, circle-fit diameter = `G_max` within ±5% (rms 1–6%). The nominal
+    constants are **rehabilitated**; remaining for metrology: phase systematics
+    (esp. liquid) via reference-impedance calibration. Docs: rewritten
+    "VALIDATION STATUS" banner in `conductance-calculation.md`.
 
 ## [v0.1.6-dev-073] — `main`
 - GUI: buttons reorganized into an "Add-On" menu, Temperature/PID tab widget.

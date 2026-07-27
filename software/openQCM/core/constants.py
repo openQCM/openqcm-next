@@ -80,9 +80,8 @@ class Constants:
     # plot_colors = ['#ff0000', '#0072bd', '#00ffff', '#edb120', '#000000', '#77ac30', '#4dbeee', '#a2142f'] 
     plot_colors = [(255, 255, 255)]
     
-    
     plot_max_lines = len(plot_colors)
-    
+
 # =============================================================================
 #     plot_line_width = 1.2
 # =============================================================================
@@ -116,7 +115,7 @@ class Constants:
     # plot_color_multi = [(0, 0, 255), (70, 130, 255), (135, 206, 250), (173, 216, 230), (240, 248, 255)]
     
     # plot_color_multi = [(0, 0, 255), (70, 99, 255), (122, 160, 255), (173, 182, 255), (255, 228, 255)]
-    
+
     plot_color_multi = [
     (0, 0, 255),      # Blu puro
     (0, 127, 255),    # Blu medio-azzurro
@@ -124,6 +123,9 @@ class Constants:
     (127, 223, 255),  # Azzurro chiaro
     (191, 255, 255)   # Azzurro molto chiaro/ciano chiaro
     ]
+
+    # VER 0.1.6G hex palette for the conductance plots (matplotlib, not pyqtgraph)
+    plot_color_multi_g =  ['#0000FF', '#4663FF', '#7AA0FF', '#ADB6FF', '#FFE4FF']
                          
     name_legend = ["0th", "3rd", "5th", "7th", "9th"]                        
     
@@ -144,7 +146,7 @@ class Constants:
 #     environment = 50
 # =============================================================================
     
-    # VER 0.1.6 temporary 4 samples for saving time in dev mode  
+    # VER 0.1.6 temporary 4 samples for saving time in dev mode
     environment = 10 # 4 samples in developemtn mode just for saving time chenage
     
     # VER 0.1.6 reduce the real-time chart history length to 8192 samples 
@@ -229,6 +231,9 @@ class Constants:
     # VER 0.1.4 increase spline factor for smoothing with 1 Hz sampling frequency   
     SPLINE_FACTOR = 1
     # VER 0.1.4 find the best spline factor 
+    
+    # VER 0.1.6G reduce spline factor for smoothing voltage output
+    SPLINE_FACTOR_G = 0.001
         
 # =============================================================================
 #     argument_default_samples = 501#1001
@@ -278,6 +283,51 @@ class Constants:
     # VER 0.1.4 TODO
     # Savitzky-Golay window size definition 
     SG_WINDOW_SIZE = 51
+    
+    # VER 0.1.6G reduce the  Savitzky-Golay window sizefor voltage output
+    SG_WINDOW_SIZE_G = 51
+
+    # VER 0.1.6G threshold (deg) that discriminates the two phase regimes for the
+    # exact-formula unfold. The AD8302 outputs |phase|: in air the true phase
+    # crosses zero at resonance and the output is folded (minimum ~0-2 deg, must
+    # be unfolded); in liquid it never crosses zero (minimum stays ~10-40 deg)
+    # and the raw phase already is the signed one. See
+    # MultiscanProcess._phase_signed and sweep_data/plot_conductance.py.
+    FOLD_THRESHOLD_DEG_G = 5.0
+
+    # VER 0.1.6G live impedance panel: half-width of the plotted window, in units
+    # of the half-bandwidth Gamma of the resonance being displayed.
+    #
+    # Why a window at all. In air Gamma is ~60-130 Hz while the sweep spans
+    # +-6..12 kHz, i.e. +-50 to +-190 Gamma: all but a sliver of the sweep is
+    # off-resonance and piles up in one spot of the locus, costing plotting time
+    # and telling nothing. In a liquid Gamma grows to ~1-2.5 kHz, the sweep
+    # covers only a few Gamma, and the far points are the ones acquired deepest
+    # in the AD8302's dynamic-range corner (the whole isopropanol sweep sits at
+    # -23 to -36 dB of divider ratio, against a specified +-30 dB): they are the
+    # least trustworthy part of the measurement and they visibly distort the
+    # circle. Clipping to a few Gamma keeps the informative arc in both regimes.
+    #
+    # 3.0 keeps roughly 300 deg of the locus for an ideal resonance. Lower it
+    # (1.5-2) to trade coverage for robustness on heavily damped loads.
+    IMPEDANCE_PANEL_BAND_GAMMA = 3.0
+
+    # VER 0.1.6G draw the fitted circle on top of the measured locus. The fit is
+    # a Taubin algebraic estimate with one round of outlier trimming, so it
+    # follows the well-measured core and ignores the degraded wings — where the
+    # raw locus is distorted, the overlay still shows the circle the data
+    # actually supports (and its diameter is a far more robust 1/R_m than the
+    # peak of G).
+    IMPEDANCE_PANEL_SHOW_FIT = True
+
+    # VER 0.1.6G half-width of the region the overlay circle is FITTED on, in
+    # units of Gamma — deliberately narrower than the plotted window. Past about
+    # one half-bandwidth the deviation from a circle is systematic, not
+    # sporadic, so on a damped load a majority of a +-3 Gamma window can be
+    # off-circle and residual-based outlier rejection locks onto the wrong
+    # subset. Fitting the core instead reproduces the offline reference within a
+    # few percent in air and in liquid alike.
+    IMPEDANCE_PANEL_FIT_GAMMA = 1.0
     
 # =============================================================================
 #     #--------------

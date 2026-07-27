@@ -69,24 +69,74 @@ class Ui_MainWindow(object):
         self._build_menubar(MainWindow)
         self._build_sidebar()
         self._build_center()
+        self._build_impedance_panel()
         self._build_statusbar()
 
-        # --- main splitter: [ sidebar | center tabs ] ------------------- #
+        # --- main splitter: [ sidebar | center tabs | impedance ] ------- #
         self.mainSplitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal,
                                                 self.centralwidget)
         self.mainSplitter.setObjectName("mainSplitter")
         self.mainSplitter.addWidget(self.sidebarScroll)
         self.mainSplitter.addWidget(self.centerTabs)
+        self.mainSplitter.addWidget(self.impedancePanel)
         self.mainSplitter.setCollapsible(0, True)
         self.mainSplitter.setCollapsible(1, False)
+        self.mainSplitter.setCollapsible(2, True)
         self.mainSplitter.setStretchFactor(0, 0)
         self.mainSplitter.setStretchFactor(1, 1)
-        self.mainSplitter.setSizes([300, 900])
+        self.mainSplitter.setStretchFactor(2, 0)
+        self.mainSplitter.setSizes([280, 700, 380])
 
         outer = QtWidgets.QVBoxLayout(self.centralwidget)
         outer.setContentsMargins(4, 4, 4, 4)
         outer.addWidget(self.mainSplitter, 1)   # splitter takes all extra space
         outer.addWidget(self.statusBarFrame)    # thin fixed-height bar
+
+    # ------------------------------------------------------------------ #
+    # right panel: live impedance (exact formula)                        #
+    # ------------------------------------------------------------------ #
+    def _build_impedance_panel(self):
+        """VER 0.1.6G right-hand dock with the two live impedance views:
+        the exact conductance spectrum G(f) and the admittance locus B vs G,
+        both with all overtones overlaid in the standard per-overtone colours.
+
+        Display only — these are computed with the exact complex-divider
+        inversion, while the logged frequency/dissipation still come from the
+        approximate formula in parameters_finder_impedance().
+        """
+        self.impedancePanel = QtWidgets.QWidget()
+        self.impedancePanel.setObjectName("impedancePanel")
+        self.impedancePanel.setMinimumWidth(260)
+
+        lay = QtWidgets.QVBoxLayout(self.impedancePanel)
+        lay.setContentsMargins(4, 4, 4, 4)
+        lay.setSpacing(4)
+
+        header = QtWidgets.QLabel("Impedance — exact formula")
+        header.setObjectName("impedanceHeader")
+        lay.addWidget(header)
+
+        # conductance spectrum G(f), all overtones
+        self.pltG = GraphicsLayoutWidget(self.impedancePanel)
+        self.pltG.setObjectName("pltG")
+        self.pltG.setAntialiasing(True)
+
+        # admittance locus B vs G, all overtones
+        self.pltGB = GraphicsLayoutWidget(self.impedancePanel)
+        self.pltGB.setObjectName("pltGB")
+        self.pltGB.setAntialiasing(True)
+
+        # vertical splitter so either view can be given the whole panel
+        self.impedanceSplitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+        self.impedanceSplitter.setObjectName("impedanceSplitter")
+        self.impedanceSplitter.addWidget(self.pltG)
+        self.impedanceSplitter.addWidget(self.pltGB)
+        self.impedanceSplitter.setCollapsible(0, True)
+        self.impedanceSplitter.setCollapsible(1, True)
+        self.impedanceSplitter.setStretchFactor(0, 1)
+        self.impedanceSplitter.setStretchFactor(1, 1)
+        self.impedanceSplitter.setSizes([340, 340])
+        lay.addWidget(self.impedanceSplitter, 1)
 
     # ------------------------------------------------------------------ #
     # bottom status bar (R2)                                             #
@@ -152,7 +202,11 @@ class Ui_MainWindow(object):
         self.actionLog_Data.setObjectName("actionLog_Data")
         self.actionTEC_current = QtWidgets.QAction("Tec Current", MainWindow)
         self.actionTEC_current.setObjectName("actionTEC_current")
+        # VER 0.1.6G conductance / impedance offline view (branch impedance-analysis)
+        self.actionConductance_Data = QtWidgets.QAction("Conductance Data", MainWindow)
+        self.actionConductance_Data.setObjectName("actionConductance_Data")
         self.menuTools.addAction(self.actionRaw_Data)
+        self.menuTools.addAction(self.actionConductance_Data)
         self.menuTools.addAction(self.actionLog_Data)
         self.menuTools.addAction(self.actionTEC_current)
 
