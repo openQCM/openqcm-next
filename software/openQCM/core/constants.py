@@ -294,6 +294,40 @@ class Constants:
     # and the raw phase already is the signed one. See
     # MultiscanProcess._phase_signed and sweep_data/plot_conductance.py.
     FOLD_THRESHOLD_DEG_G = 5.0
+
+    # VER 0.1.6G live impedance panel: half-width of the plotted window, in units
+    # of the half-bandwidth Gamma of the resonance being displayed.
+    #
+    # Why a window at all. In air Gamma is ~60-130 Hz while the sweep spans
+    # +-6..12 kHz, i.e. +-50 to +-190 Gamma: all but a sliver of the sweep is
+    # off-resonance and piles up in one spot of the locus, costing plotting time
+    # and telling nothing. In a liquid Gamma grows to ~1-2.5 kHz, the sweep
+    # covers only a few Gamma, and the far points are the ones acquired deepest
+    # in the AD8302's dynamic-range corner (the whole isopropanol sweep sits at
+    # -23 to -36 dB of divider ratio, against a specified +-30 dB): they are the
+    # least trustworthy part of the measurement and they visibly distort the
+    # circle. Clipping to a few Gamma keeps the informative arc in both regimes.
+    #
+    # 3.0 keeps roughly 300 deg of the locus for an ideal resonance. Lower it
+    # (1.5-2) to trade coverage for robustness on heavily damped loads.
+    IMPEDANCE_PANEL_BAND_GAMMA = 3.0
+
+    # VER 0.1.6G draw the fitted circle on top of the measured locus. The fit is
+    # a Taubin algebraic estimate with one round of outlier trimming, so it
+    # follows the well-measured core and ignores the degraded wings — where the
+    # raw locus is distorted, the overlay still shows the circle the data
+    # actually supports (and its diameter is a far more robust 1/R_m than the
+    # peak of G).
+    IMPEDANCE_PANEL_SHOW_FIT = True
+
+    # VER 0.1.6G half-width of the region the overlay circle is FITTED on, in
+    # units of Gamma — deliberately narrower than the plotted window. Past about
+    # one half-bandwidth the deviation from a circle is systematic, not
+    # sporadic, so on a damped load a majority of a +-3 Gamma window can be
+    # off-circle and residual-based outlier rejection locks onto the wrong
+    # subset. Fitting the core instead reproduces the offline reference within a
+    # few percent in air and in liquid alike.
+    IMPEDANCE_PANEL_FIT_GAMMA = 1.0
     
 # =============================================================================
 #     #--------------

@@ -36,6 +36,36 @@ Conventional Commits. Versions are marked by Git tags.
   down an acquisition.
 - `Constants.FOLD_THRESHOLD_DEG_G` (5.0) — the air/liquid discriminator for the
   conditional phase unfold, previously hard-coded in the offline script.
+- **Impedance panel tuned for damped (liquid) loads.** On an isopropanol
+  acquisition the displayed circles came out visibly distorted. Three changes,
+  all display-side:
+  - **Adaptive window** (`IMPEDANCE_PANEL_BAND_GAMMA`, default 3.0): the
+    producer now clips each spectrum to a few half-bandwidths around resonance
+    before shipping it. In air the sweep spans ±50 to ±190 Γ and almost all of
+    it piles onto one spot of the locus; in a liquid Γ grows to ~1–2.5 kHz and
+    the far points are exactly the ones acquired deepest in the AD8302
+    dynamic-range corner. Also cuts the queue payload and the redraw cost.
+  - **Fitted-circle overlay** (`IMPEDANCE_PANEL_SHOW_FIT`): a dashed circle per
+    overtone, so the circle the data supports stays visible even when the raw
+    locus is out of round — and its diameter is a far more robust 1/R_m than
+    the peak of G.
+  - **The fit runs on the core, not on everything plotted**
+    (`IMPEDANCE_PANEL_FIT_GAMMA`, default 1.0). Past about one half-bandwidth
+    the deviation from a circle is *systematic*, not sporadic, so on a damped
+    load a majority of a ±3 Γ window is off-circle and residual-based outlier
+    rejection locks onto the wrong subset (measured: −36 % error on R_m at the
+    3rd overtone). Fitting the core instead reproduces the offline reference
+    within **+0.5 % to +6.6 %** in air and isopropanol alike. `f_r` and Γ now
+    travel with the spectrum so the panel knows where the core is; both are
+    optional in the payload, so an older producer still unpacks.
+
+### Validated
+- **The 5° conditional-unfold threshold is confirmed across the air→liquid
+  transition** — the systematic test left open in the handoff. In isopropanol
+  the fundamental sits at min|φ| = 2.04°, the critical intermediate case, and
+  the rule correctly unfolds it (circle rms 0.52 % vs 33.4 % if left folded),
+  while the 3rd to 9th (12.1° to 43.8°) are correctly left alone (e.g. 1.06 %
+  vs 2.49 % on the 7th). Right call on all five overtones, in both regimes.
 
 ### Changed
 - **Aligned with `main`** (merge of `main` @ 52a42a9, 47 commits; pre-merge state

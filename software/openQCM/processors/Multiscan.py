@@ -824,12 +824,35 @@ class MultiscanProcess(multiprocessing.Process):
             G_exact = G_exact - np.average(G_exact[:n_base])
             B_exact = B_exact - np.average(B_exact[:n_base])
 
-            self._my_list_freq_G[overtone_number] = freq_range.tolist()
-            self._my_list_G_exact[overtone_number] = G_exact.tolist()
-            self._my_list_B_exact[overtone_number] = B_exact.tolist()
+            # Clip to a window of a few Gamma around the resonance before
+            # shipping it. Off-resonance points carry no shape information (they
+            # collapse onto one spot of the locus) and, on a damped load, they
+            # are exactly the ones measured deepest in the AD8302 dynamic-range
+            # corner — they distort the displayed circle. f_r and the
+            # half-bandwidth come free from the parameters finder above.
+            f_res = freq_range[int(index_peak_fit_G)]
+            half_w = Constants.IMPEDANCE_PANEL_BAND_GAMMA * abs(half_bandwidth)
+            # guard against a degenerate width estimate: never keep less than
+            # 5 % nor more than the whole sweep
+            span = float(freq_range[-1] - freq_range[0])
+            half_w = min(max(half_w, 0.05 * span), span)
+            keep = np.abs(freq_range - f_res) <= half_w
+            if keep.sum() < 16:          # pathological: fall back to everything
+                keep = np.ones_like(freq_range, dtype=bool)
+
+            self._my_list_freq_G[overtone_number] = freq_range[keep].tolist()
+            self._my_list_G_exact[overtone_number] = G_exact[keep].tolist()
+            self._my_list_B_exact[overtone_number] = B_exact[keep].tolist()
+            # f_r and Gamma travel with the spectrum: the panel needs them to
+            # restrict the circle fit to the core of the resonance, which is the
+            # only region that stays trustworthy on a damped load.
+            self._my_list_fr_G[overtone_number] = float(f_res)
+            self._my_list_gam_G[overtone_number] = float(abs(half_bandwidth))
             self._parser_GB_multi.add_GB_multi([self._my_list_freq_G,
                                                 self._my_list_G_exact,
-                                                self._my_list_B_exact])
+                                                self._my_list_B_exact,
+                                                self._my_list_fr_G,
+                                                self._my_list_gam_G])
         except Exception as e:
             # The panel is a diagnostic view: never let it break an acquisition.
             print("Warning: exact G/B for the impedance panel failed:", e)
@@ -1110,6 +1133,8 @@ class MultiscanProcess(multiprocessing.Process):
         self._my_list_G_exact = [None, None, None, None, None]
         self._my_list_B_exact = [None, None, None, None, None]
         self._my_list_freq_G = [None, None, None, None, None]
+        self._my_list_fr_G = [0.0, 0.0, 0.0, 0.0, 0.0]
+        self._my_list_gam_G = [0.0, 0.0, 0.0, 0.0, 0.0]
         
         # DEBUG_0.1.1a
         # byte available at port

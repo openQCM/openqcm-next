@@ -88,6 +88,8 @@ class Worker:
         self._G_exact_buffer = None
         self._B_exact_buffer = None
         self._F_G_multi_buffer = None
+        self._fr_G_buffer = None
+        self._gam_G_buffer = None
         
         # data buffers
         self._data1_buffer = None # amplitude 
@@ -558,10 +560,23 @@ class Worker:
 
     def _queue_data_GB_multi(self, data):
         freq_list, G_list, B_list = data[0], data[1], data[2]
+        # f_r / Gamma are optional so an older payload still unpacks
+        fr_list = data[3] if len(data) > 3 else None
+        gam_list = data[4] if len(data) > 4 else None
         for idx in range(len(G_list)):
             self._F_G_multi_buffer[idx] = freq_list[idx]
             self._G_exact_buffer[idx] = G_list[idx]
             self._B_exact_buffer[idx] = B_list[idx]
+            if fr_list is not None:
+                self._fr_G_buffer[idx] = fr_list[idx]
+            if gam_list is not None:
+                self._gam_G_buffer[idx] = gam_list[idx]
+
+    def get_fr_G_buffer(self, idx = 0):
+        return self._fr_G_buffer[idx]
+
+    def get_gamma_G_buffer(self, idx = 0):
+        return self._gam_G_buffer[idx]
 
     def get_G_exact_buffer(self, idx = 0):
         return self._G_exact_buffer[idx]
@@ -1042,6 +1057,8 @@ class Worker:
         self._G_exact_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
         self._B_exact_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
         self._F_G_multi_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
+        self._fr_G_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
+        self._gam_G_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
         
         # INIT self._F_store and self._D_store list 
         # TODO IMPORTANT self._F_store and self._D_store same legth of self._F_multi_buffer and self._D_multi_buffer

@@ -207,6 +207,8 @@ class MainWindow(QtGui.QMainWindow):
         self._pltGB = None
         self._pltG_multiline = [None, None, None, None, None]
         self._pltGB_multiline = [None, None, None, None, None]
+        # fitted-circle overlay, one per overtone (dashed, same colour)
+        self._pltGB_fitline = [None, None, None, None, None]
 
         # VER 0.1.6 number of overtone lines/legend items; set per-run in start()
         # for serial/multiscan. Default 0 so stop()'s legend-removal loop is a
@@ -709,6 +711,9 @@ class MainWindow(QtGui.QMainWindow):
                     self._pltGB_multiline[idx] = self._pltGB.plot(
                         pen = pg.mkPen(color = Constants.plot_color_multi[idx],
                                        width = Constants.plot_line_width))
+                    self._pltGB_fitline[idx] = self._pltGB.plot(
+                        pen = pg.mkPen(color = Constants.plot_color_multi[idx],
+                                       width = 1, style = QtCore.Qt.DashLine))
 
 # =============================================================================
 #                 # VER 0.1.6 reference to the line object temperature 
@@ -2393,6 +2398,59 @@ class MainWindow(QtGui.QMainWindow):
                    print ("Warning: unable to plot raw data in single mode ")
                    print(f"error occurred: {e}")
             
+    # VER 0.1.6G algebraic circle fit for the impedance panel overlay.
+    # Taubin estimate (closed form, a handful of numpy reductions - cheap enough
+    # for the 50 ms refresh) followed by one round of outlier trimming, so the
+    # circle follows the well-measured core instead of being dragged by the
+    # degraded wings. Returns (xc, yc, r) or None.
+    @staticmethod
+    def _fit_circle_taubin(x, y, trim_sigma = 2.0):
+        def _once(x, y):
+            n = len(x)
+            if n < 8:
+                return None
+            mx, my = x.mean(), y.mean()
+            u, v = x - mx, y - my
+            z = u * u + v * v
+            Muu, Mvv, Muv = (u * u).mean(), (v * v).mean(), (u * v).mean()
+            Muz, Mvz = (u * z).mean(), (v * z).mean()
+            Mz = Muu + Mvv
+            Cov = Muu * Mvv - Muv * Muv
+            det = Cov - 0.0
+            if abs(det) < 1e-30:
+                return None
+            xc = (Muz * Mvv - Mvz * Muv) / det / 2.0
+            yc = (Mvz * Muu - Muz * Muv) / det / 2.0
+            r = np.sqrt(max(xc * xc + yc * yc + Mz, 0.0))
+            if not np.isfinite([xc, yc, r]).all() or r <= 0:
+                return None
+            return xc + mx, yc + my, r
+
+        f = _once(x, y)
+        if f is None:
+            return None
+        # Iterate the trimming. One pass is not enough on a damped load: past
+        # roughly one half-bandwidth the deviation is systematic rather than
+        # sporadic, so the majority of a +-3 Gamma window can be off-circle and
+        # the first median residual is itself biased. Re-fitting a few times
+        # walks the estimate back onto the well-measured core; the floor at 25 %
+        # of the samples stops it collapsing onto a handful of points.
+        keep = np.ones(len(x), dtype=bool)
+        floor = max(8, int(0.25 * len(x)))
+        for _ in range(6):
+            d = np.hypot(x - f[0], y - f[1]) - f[2]
+            s = 1.4826 * np.median(np.abs(d[keep] - np.median(d[keep])))
+            if not np.isfinite(s) or s <= 0:
+                break
+            new_keep = np.abs(d) < trim_sigma * s
+            if new_keep.sum() < floor or np.array_equal(new_keep, keep):
+                break
+            f2 = _once(x[new_keep], y[new_keep])
+            if f2 is None:
+                break
+            keep, f = new_keep, f2
+        return f
+
     # VER 0.1.6G live impedance panel update (exact complex-divider formula)
     def _update_impedance_panel(self, peaks_mag):
         """Refresh the two right-panel views from the exact G/B spectra.
@@ -2427,19 +2485,59 @@ class MainWindow(QtGui.QMainWindow):
                                                       y = self._numpy_nan_sweep)
                     self._pltGB_multiline[idx].setData(x = self._numpy_nan_sweep,
                                                        y = self._numpy_nan_sweep)
+                    if self._pltGB_fitline[idx] is not None:
+                        self._pltGB_fitline[idx].setData(x = self._numpy_nan_sweep,
+                                                         y = self._numpy_nan_sweep)
                     continue
 
                 g_np = np.asarray(g_axis, dtype=float)
                 b_np = np.asarray(b_axis, dtype=float)
                 f_np = np.asarray(f_axis, dtype=float) - peaks_mag[idx]
 
-                # same decimation as the amplitude sweep, to keep the 50 ms
-                # refresh cheap
-                step = Constants.FREQ_STEP_PLOT
-                self._pltG_multiline[idx].setData(x = f_np[1::step],
-                                                  y = g_np[1::step])
-                self._pltGB_multiline[idx].setData(x = g_np[1::step],
-                                                   y = b_np[1::step])
+                # Adaptive decimation. The producer already clips the spectrum
+                # to a few Gamma around resonance, so the arrays are short in
+                # air and shorter still in a liquid; a fixed stride would leave
+                # too few points. Target ~250 samples per curve.
+                step = max(1, len(g_np) // 250)
+                gp, bp, fp = g_np[::step], b_np[::step], f_np[::step]
+
+                self._pltG_multiline[idx].setData(x = fp, y = gp)
+                self._pltGB_multiline[idx].setData(x = gp, y = bp)
+
+                # Fitted circle on top of the measured locus. The fit runs on
+                # the CORE of the resonance only, not on everything plotted: on
+                # a damped load the wings are acquired deep in the AD8302
+                # dynamic-range corner and pull the locus out of round, and past
+                # about one half-bandwidth that deviation is systematic rather
+                # than sporadic — so no amount of outlier rejection recovers it,
+                # only knowing where the trustworthy data is. Restricting the
+                # fit to |f - f_r| <= 1 Gamma reproduces the offline reference
+                # within a few percent in both air and liquid.
+                if self._pltGB_fitline[idx] is None:
+                    continue
+                fit = None
+                if Constants.IMPEDANCE_PANEL_SHOW_FIT:
+                    core = np.ones(len(gp), dtype=bool)
+                    try:
+                        gam = float(self.worker.get_gamma_G_buffer(idx))
+                        f_res = float(self.worker.get_fr_G_buffer(idx))
+                        if gam > 0:
+                            f_abs = np.asarray(f_axis, dtype=float)[::step]
+                            sel = (np.abs(f_abs - f_res)
+                                   <= Constants.IMPEDANCE_PANEL_FIT_GAMMA * gam)
+                            if sel.sum() >= 12:
+                                core = sel
+                    except Exception:
+                        pass
+                    fit = self._fit_circle_taubin(gp[core], bp[core])
+                if fit is None:
+                    self._pltGB_fitline[idx].setData(x = self._numpy_nan_sweep,
+                                                     y = self._numpy_nan_sweep)
+                else:
+                    xc, yc, r = fit
+                    th = np.linspace(0.0, 2.0 * np.pi, 181)
+                    self._pltGB_fitline[idx].setData(x = xc + r * np.cos(th),
+                                                     y = yc + r * np.sin(th))
         except Exception as e:
             print("Warning: unable to update the impedance panel")
             print(f"error occurred: {e}")
@@ -4612,6 +4710,9 @@ class MainWindow(QtGui.QMainWindow):
                             self._pltGB_multiline[idx] = self._pltGB.plot(
                                 pen = pg.mkPen(color = Constants.plot_color_multi[idx],
                                                width = Constants.plot_line_width))
+                            self._pltGB_fitline[idx] = self._pltGB.plot(
+                                pen = pg.mkPen(color = Constants.plot_color_multi[idx],
+                                               width = 1, style = QtCore.Qt.DashLine))
 
 # =============================================================================
 #                 # reference to the line object temperature 
