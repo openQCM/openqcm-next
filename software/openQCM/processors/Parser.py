@@ -101,10 +101,6 @@ class ParserProcess(multiprocessing.Process):
     # VER 0.1.6 add the TEC current data to the parser    
     def addCurrentTec(self, data):
         # add current TEC data acquired in queue
-# =============================================================================
-#         # VER 0.1.6 DEBUG parser print data 
-#         print ("VER 0.1.6 DEBUG parser print data ", data)
-# =============================================================================
         self._out_queueCurrentTec.put(data)
     
     def add6(self, data):

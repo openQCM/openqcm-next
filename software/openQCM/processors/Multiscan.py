@@ -10,6 +10,7 @@ from serial.tools import list_ports
 import numpy as np
 from numpy import loadtxt
 from scipy.interpolate import UnivariateSpline
+from scipy.stats import trim_mean
 
 from progressbar import Bar, Percentage, ProgressBar, RotatingMarker,Timer
 
@@ -748,27 +749,27 @@ class MultiscanProcess(multiprocessing.Process):
         self._temperature_buffer_0.append(temperature)
        
         if self._k >= self._environment:
-           # FREQUENCY 
-           self._vec_app1 [overtone_number] = self.savitzky_golay(self._my_list_f[overtone_number].get_all(), 
-                          window_size = Constants.SG_window_environment, 
-                          order = Constants.SG_order_environment)
-           
-           self._freq_range_mean [overtone_number] = np.average( self._vec_app1 [overtone_number] )
-           
-           
-           #DISSIPATION  
-           self._vec_app1d [overtone_number] = self.savitzky_golay(self._my_list_d[overtone_number].get_all(), 
-                           window_size = Constants.SG_window_environment, 
-                           order = Constants.SG_order_environment)
-           # TODO insert a median 
-           self._diss_mean [overtone_number] = np.average( self._vec_app1d [overtone_number] )
+           # FREQUENCY
+           # VER 0.1.6 robust average of the raw circular buffer. Replaces
+           # the Savitzky-Golay + np.average: SG(window=3, order=1) was a
+           # linear 3-point moving average with NO outlier rejection, so a
+           # single bad sweep leaked almost entirely into the logged value
+           # (and was even amplified at the buffer edges by the reflective
+           # padding). trim_mean drops the lowest/highest int(proportion*N)
+           # samples per tail (N=10 -> 1) before averaging, without the
+           # staircase artifact of a plain median.
+           self._freq_range_mean [overtone_number] = trim_mean(
+               self._my_list_f[overtone_number].get_all(), Constants.trim_mean_proportiontocut)
+
+           # DISSIPATION (same robust trimmed-mean; resolves the former
+           # "TODO insert a median" that used to sit on this averaging line)
+           self._diss_mean [overtone_number] = trim_mean(
+               self._my_list_d[overtone_number].get_all(), Constants.trim_mean_proportiontocut)
            
            # TEMPERATURE
            if overtone_number == 0:
-               self._vec_app1t = self.savitzky_golay(self._temperature_buffer_0.get_all(), 
-                                                     window_size = Constants.SG_window_environment, 
-                                                     order = Constants.SG_order_environment)
-               self._temperature_mean = np.average(self._vec_app1t)
+               self._temperature_mean = trim_mean(
+                   self._temperature_buffer_0.get_all(), Constants.trim_mean_proportiontocut)
                
         
         #  VER 0.2 BETA 
@@ -966,10 +967,8 @@ class MultiscanProcess(multiprocessing.Process):
         # TODO 5M modified the number of items in the array below
         
         # init array for frequency, dissipation and temperature
-        self._vec_app1 = [0,0,0,0,0]
         self._freq_range_mean = [0,0,0,0,0]
         
-        self._vec_app1d = [0,0,0,0,0]
         self._diss_mean = [0,0,0,0,0]
         
         self._my_time = 0
@@ -1550,11 +1549,6 @@ class MultiscanProcess(multiprocessing.Process):
                                 out_message = ''
                                 out_message = self._serial.read(byte_at_port).decode(Constants.app_encoding)
                                 out_message = out_message.rstrip('\n')
-                                
-                                # VER 0.1.6 DEBUG
-# =============================================================================
-#                                 print ("TEC current = ", out_message) 
-# =============================================================================
                                 
                                 # VER 0.1.6 store the value of current only at fundamantal 
                                 if (overtone_index == 0):

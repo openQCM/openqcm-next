@@ -35,6 +35,17 @@
 
    HISTORY CHANGES
    --------------------------------------------------------------------------------
+   version      0.1.5a
+   version tag  // VER 0.1.5a
+   date         2024-02-19 
+
+   MINOR REVISION
+   - Higher pot (potentiometer) value for signal noise reduction. electronic amplifier fixed 
+     
+     #define POT_VALUE 240 // 180 
+     
+     note: add a led blink alert for checking the firmware minor update
+   
    version     0.1.5
    version tag // VER 0.1.5
    date        2022-11-14 
@@ -153,7 +164,8 @@
 #define ADDRESS 0x2C
 // potentiometer AD5252 default value
 // VER 0.1.4 low pot value for compatibility with new electronic amplifier
-#define POT_VALUE 180 //240
+// VER 0.1.5a higher pot value electronic amplifier fixed 
+#define POT_VALUE 240 // 180 
 // reference clock
 #define REFCLK 125000000
 
@@ -165,7 +177,7 @@
 #define MTD415T_TIME_SEC_STARTUP  1000
 
 // VER 0.1.4 define firmware version
-#define FW_VERSION "0.1.5"
+#define FW_VERSION "0.1.5a"
 
 
 /*************************** VARIABLE DECLARATION ***************************/
@@ -316,6 +328,21 @@ void RGB_color(int red_light_value, int green_light_value, int blue_light_value)
   analogWrite(RGB_RED_PIN, 255 - red_light_value);
   analogWrite(RGB_GREEN_PIN, 255 - green_light_value);
   analogWrite(RGB_BLUE_PIN, 255 - blue_light_value);
+}
+
+// VER 0.1.5a blink message 
+void blink_a(){
+  // point
+  RGB_color(0, 0, 0); 
+  delay(250);
+  RGB_color(255, 255, 255); 
+  delay(250); 
+  
+  // line
+  RGB_color(0, 0, 0); 
+  delay(750);     
+  RGB_color(255, 255, 255); 
+  
 }
 
 // flush serial 1
@@ -828,6 +855,10 @@ void loop()
     // character 'F'
     else if (buf[0] == 'F') {
       Serial.println(FW_VERSION);
+
+      // VER 0.1.5a
+      blink_a();
+      
     }
 
     // VER 0.1.5

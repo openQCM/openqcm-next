@@ -1,4 +1,5 @@
 import multiprocessing
+import time
 from openQCM.core.constants import Constants
 from openQCM.common.fileStorage import FileStorage
 from openQCM.common.logger import Logger as Log
@@ -137,19 +138,10 @@ class CalibrationProcess(multiprocessing.Process):
         f_mag_max = freq_arr_sub[idx_mag_max_arr][idx_mag_max]
         # frequency of maximum phase 
         f_phase_max = freq_arr_sub[idx_phase_max_arr][idx_phase_max]
-               
-# =============================================================================
-#         print ("PEAK QCM frequency fundamental (magnitude) = ", f_mag_max)
-# =============================================================================
-        
+                       
         # Calculate the absolute difference between the frequencies
         freq_difference = np.abs(f_mag_max - f_phase_max)
         
-        # VER 0.1.6 DELETE
-# =============================================================================
-#         print ("absolute difference between the frequencies = ", freq_difference)
-# =============================================================================
-       
         # return the QCM fundamental frequency 
         return f_mag_max
         
@@ -234,11 +226,6 @@ class CalibrationProcess(multiprocessing.Process):
                 f_phase_max = freq_arr_sub[idx_phase_max_arr][idx_phase_max]
                 # index of maximum phase in global array idx_phase_max_arr
                 idx_phase_max_global = idx_phase_max_arr[idx_phase_max]
-                
-                # VER 0.1.6 DELETE
-# =============================================================================
-#                 print ("Misura della fase al picco = ", round( phase_arr_sub[idx_phase_max_global], 1 ))
-# =============================================================================
                 # store the value of phase maximim value for i-index
                 phase_max_arr[i] = phase_arr_sub[idx_phase_max_global]
 
@@ -255,27 +242,14 @@ class CalibrationProcess(multiprocessing.Process):
             else:
                 freq_diff_arr[i] = None  # or np.nan to indicate unavailable comparison
         
-        # VER 0.1.6 DELETE
-# =============================================================================
-#         # Print the differences 
-#         print ("absolute difference between the overtones = ", freq_diff_arr)
-# =============================================================================
-        
         # Frequency difference threshold
         diff_threshold = (Constants.calib_fStep * points_overtone)/4    
-        print (diff_threshold)
         
         # Define the phase threshold in degrees TODO make it global 
         phase_threshold = 10
         
         # Array to track indices of frequencies to discard
         indices_to_discard = []
-        
-        # VER 0.1.6 DELETE        
-# =============================================================================
-#         # Print the phase maximum values 
-#         print("Phase Maximum values = ", phase_max_arr)         
-# =============================================================================
         
         # Loop through frequency differences to check against the diff_threshold
         for i, diff in enumerate(freq_diff_arr):
@@ -294,13 +268,7 @@ class CalibrationProcess(multiprocessing.Process):
         # discard the corresponding frequencies from your measurements:
         frequency_overtones_filtered = np.delete(frequency_overtones, indices_to_discard)
         freq_diff_arr_filtered = np.delete(freq_diff_arr, indices_to_discard)  
-        
-        # VER 0.1.6 DELETE
-# =============================================================================
-#         print ("frequency_overtones_filtered", frequency_overtones_filtered)
-#         print ("freq_diff_arr_filtered", freq_diff_arr_filtered)
-# =============================================================================
-        
+         
         # return the QCM overtones 
         # return (frequency_overtones)
         # return the QCM overtones filtered
@@ -399,13 +367,30 @@ class CalibrationProcess(multiprocessing.Process):
             #fStep     = Constants.calibration_fStep
             readFREQ  = Constants.calibration_readFREQ
             # Gets the state of the serial port
-            if not self._serial.isOpen(): 
+            if not self._serial.isOpen():
                 # Opens the serial port
-                self._serial.open() 
+                self._serial.open()
+                # VER 0.1.6 responsive cancellation (ported from openQCM Q-1 v3.0):
+                # use a short read timeout so the sweep-read loop can poll
+                # self._exit instead of blocking for serial_timeout_ms (4 s).
+                self._serial.timeout = 0.1
+                self._serial.flushInput()
+                self._serial.flushOutput()
+                # VER 0.1.6 drain any bytes left over from a previously
+                # interrupted peak detection so a fresh run starts clean: a
+                # mid-sweep Stop can leave the Teensy mid-transmission.
+                drain_deadline = time.time() + 5.0
+                while time.time() < drain_deadline:
+                    stale = self._serial.read(self._serial.inWaiting())
+                    if not stale:
+                        time.sleep(0.1)
+                        stale = self._serial.read(self._serial.inWaiting())
+                        if not stale:
+                            break
                 self._serial.flushInput()
                 self._serial.flushOutput()
                 # Initializes the sweep counter
-                k=0 
+                k=0
                 print(TAG,'Peak Detection Started')
                 print(TAG,'The operation might take just a while to complete. Please wait.')
                 
@@ -453,13 +438,20 @@ class CalibrationProcess(multiprocessing.Process):
                         #################################################################################
                         # bar = ProgressBar(widgets=[TAG,' ', Bar(marker='>'),' ',Percentage(),' ', Timer()], maxval=830000).start()
                         # READS and decodes sweep from the serial port
-                        while 1:
-                            buffer += self._serial.read(self._serial.inWaiting()).decode() #Constants.app_encoding 
+                        # VER 0.1.6 poll self._exit so a Stop pressed mid-sweep
+                        # breaks out promptly (responsive cancellation, Q-1 v3.0).
+                        while not self._exit.is_set():
+                            buffer += self._serial.read(self._serial.inWaiting()).decode() #Constants.app_encoding
                             #len_buffer = len(buffer)
                             #bar.update(len_buffer)
                             # print(buffer)
                             if 's' in buffer:
                                  break
+                        # If cancelled before the end-of-message marker arrived,
+                        # abandon this section and let the outer sweep loop exit.
+                        if self._exit.is_set() and 's' not in buffer:
+                            print(TAG, "Peak Detection interrupted by user")
+                            break
                         #################################################################################
                         # CHANGED v2.0
                         # PRINT LEN BUFFER WHEN THE EOM is RECEIVED
@@ -546,6 +538,22 @@ class CalibrationProcess(multiprocessing.Process):
                         self.stop()
                         break
                 #### END SWEEPS LOOP
+
+                # VER 0.1.6 user cancellation (ported from openQCM Q-1 v3.0):
+                # the sweep loop exited early because Stop set self._exit while
+                # still mid-run (k < calib_sections) and no acquisition error
+                # occurred (_flag == 0). Normal completion calls self.stop() too,
+                # but only once k == calib_sections, so it is excluded here.
+                # Signal the cancellation on parser5 (-1 sentinel) and skip the
+                # peak-detection / file-storage stage entirely.
+                if self._exit.is_set() and k < Constants.calib_sections and self._flag == 0:
+                    print(TAG, "Peak Detection interrupted by user at section {}/{}".format(
+                        k, Constants.calib_sections))
+                    self._parser5.add5([-1, 0])
+                    if self._serial.isOpen():
+                        self._serial.close()
+                    return
+
                 '''
                 # CALLS baseline_correction method
                 (data_mag_baseline, data_ph_baseline) = self.baseline_correction(readFREQ,temp1,temp2)

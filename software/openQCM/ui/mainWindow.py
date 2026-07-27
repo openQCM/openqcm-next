@@ -1,7 +1,8 @@
 
 # from openQCM.ui.mainWindow_ui import Ui_Controls, Ui_Info, Ui_Plots
 
-from openQCM.ui.mainWindow_new_ui import Ui_MainWindow
+# GUI redesign R1: programmatic UI builder (was: generated mainWindow_new_ui)
+from openQCM.ui.mainWindow_ui import Ui_MainWindow
 
 #from openQCM.ui.ui_controls import Ui_Controls
 #from openQCM.ui.ui_info import Ui_Info
@@ -23,12 +24,16 @@ from openQCM.core.worker import Worker
 from openQCM.processors.Serial import SerialProcess
 from openQCM.core.constants import Constants, SourceType, DateAxis, NonScientificAxis
 from openQCM.ui.popUp import PopUp
+from openQCM.ui import theme
 from openQCM.common.logger import Logger as Log
 from openQCM.common.architecture import Architecture,OSType
 
 import numpy as np
 import sys
 import serial
+import os
+import tempfile
+import re
 
 import time
 from numpy import loadtxt
@@ -50,18 +55,47 @@ TAG = ""#"[MainWindow]"
 
 # VER 0.1.6 init the SecondWindow class
 # for TEC current real time monitoring 
+class LogStream:
+    """Mirror stdout/stderr into the System Log tab (timestamped) while still
+    forwarding to the original stream. Adapted from openQCM Q-1 v3.0. Captures
+    the main process's print() output; child-process prints and logging-module
+    messages are not intercepted (they keep going to the terminal / log file)."""
+
+    def __init__(self, text_widget, stream):
+        self._text_widget = text_widget
+        self._stream = stream
+
+    def write(self, text):
+        # keep the original stream working (terminal / redirected output)
+        if self._stream is not None:
+            self._stream.write(text)
+            self._stream.flush()
+        if not text:
+            return
+        line = text.rstrip()
+        if line == "" or text == "\r":
+            return
+        stamp = time.strftime("[%H:%M:%S] ")
+        # append is thread-safe via a queued cross-thread invocation
+        QtCore.QMetaObject.invokeMethod(
+            self._text_widget, "append", QtCore.Qt.QueuedConnection,
+            QtCore.Q_ARG(str, stamp + line))
+
+    def flush(self):
+        if self._stream is not None:
+            self._stream.flush()
+
+
 class SecondWindow(QtGui.QWidget):
     def __init__(self):
         super(SecondWindow, self).__init__()
-        
-        # init the x-axis as a time axis format hh:mm:ss
-        date_axis = DateAxis(orientation='bottom')
+    
+        # VER 0.1.6 set x axis as seconds and disable SI prefix, same format as main window
+        date_axis = DateAxis(orientation='bottom',  time_format='seconds')
+        date_axis.enableAutoSIPrefix(False)
         
         # create the second plot
         self.graphWidget = pg.PlotWidget(self, axisItems={'bottom': date_axis})
-        
-        # VER 0.1.6 set x axis as h:m:s and disable SI prefix 
-        date_axis.enableAutoSIPrefix(False)
         
         # Change the plot background color
         self.graphWidget.setBackground(Constants.plot_background_color)
@@ -74,10 +108,8 @@ class SecondWindow(QtGui.QWidget):
         # Set labels and title
         self.graphWidget.setLabel('left', 'TEC current', units='mA')
         # self.graphWidget.setLabel('bottom', 'Time', units='hh:mm:ss')
-        self.graphWidget.setLabel('bottom', 'Time (H:M:S)')
+        self.graphWidget.setLabel('bottom', 'Time (Sec)')
         self.graphWidget.setTitle('TEC current Real-Time Plot', size = '16pt')
-        
-        
         
         # Adjusting window size:
         self.resize(800, 600)  # You can adjust the size according to your needs.
@@ -87,19 +119,39 @@ class SecondWindow(QtGui.QWidget):
         self.layout.addWidget(self.lastValueLabel)
 
         
-    def update_plot(self, x_s, y_s):
+    def update_plot(self, x_s, y_s, start_time = None):
+        """
+        Update the plot with new data and optionally update time axis
+        
+        Args:
+            x_s: x-axis data (time values)
+            y_s: y-axis data (TEC current values)
+            start_time: optional start time for synchronizing x-axis
+        """
 
         self.x = x_s    
         self.y = y_s
-        self.plotData.setData(self.x, self.y)
         
+        # Update x-axis start time if provided
+        if start_time is not None:
+            self.graphWidget.getAxis('bottom').start_time = start_time
+            
+        self.plotData.setData(self.x, self.y)
+         
         # Updating the QLabel text with the last value of y_s
         last_value = y_s[0]  # getting the last value
         if np.isnan(last_value):
             self.lastValueLabel.setText("TEC current: NaN mA")
         else:
             self.lastValueLabel.setText(f"TEC current: {int(last_value)} mA")
-        
+
+    # VER 0.1.6 add a close event to handle window closing         
+    def closeEvent(self, event):
+        """
+        Override close event to handle window closing
+        """
+        # Just accept the close event, no questions asked as this is a secondary window
+        event.accept()
 
 ##########################################################################################
 # Package that handles the UIs elements and connects to worker service to execute processes
@@ -115,6 +167,9 @@ class MainWindow(QtGui.QMainWindow):
         #:param samples: Default samples shown in the plot :type samples: int.
         # to be always placed at the beginning, initializes some important methods
         QtGui.QMainWindow.__init__(self)
+
+        # VER 0.1.6 Flag to track closing state in closeEvent method 
+        self._closing = False 
 
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
@@ -143,8 +198,15 @@ class MainWindow(QtGui.QMainWindow):
         self._plt2_multiline = [None, None, None, None, None]
         self._pltD_multiline = [None, None, None, None, None]
         
-        # VER 0.1.6 init a reference to the line object amplitude sweep in multiscan mode 
+        # VER 0.1.6 init a reference to the line object amplitude sweep in multiscan mode
         self._plt0_multiline = [None, None, None, None, None]
+
+        # VER 0.1.6 number of overtone lines/legend items; set per-run in start()
+        # for serial/multiscan. Default 0 so stop()'s legend-removal loop is a
+        # no-op in calibration/peak-detection mode (which never populates a legend)
+        # — previously this attribute was undefined there and stop() (now reachable
+        # via the Stop button during peak detection) raised AttributeError.
+        self._overtones_number_all = 0
 
         self._timer_plot = None
         self._readFREQ = None
@@ -154,10 +216,12 @@ class MainWindow(QtGui.QMainWindow):
         self._ser_error2 = 0
         self._ser_err_usb= 0
         
-        # VER 0.1.4  
+        # VER 0.1.4
         # TEC status var
         self._TEC_status = 0
         self._old_value = 0
+        # GUI: intended state of the single Temperature ON/OFF toggle
+        self._tec_on = False
 
         # internet connection variable
         self._internet_connected = False
@@ -188,8 +252,15 @@ class MainWindow(QtGui.QMainWindow):
         # VER 0.1.6 moved multiscan array selector here before self._configure_plot()
         self.scan_selector = [0, 0, 0, 0, 0]
 
+        # Phase 3b: compact F0..F9 overtone quick-select buttons (proxy the
+        # legacy radios, which stay the source of truth for scan_selector)
+        self._setup_overtone_buttons()
+
         # Configures specific elements of the PyQtGraph plots
         self._configure_plot()
+
+        # Phase 4: custom right-click menu, grid toggle, Δ cursors (F / D)
+        self._setup_plot_interactions()
 
         # Configures specific elements of the QTimers
         self._configure_timers()
@@ -205,20 +276,18 @@ class MainWindow(QtGui.QMainWindow):
         # TODO delete sbox number of samples
         # self.ui.sBox_Samples.setValue(samples)  #samples
 
-        # set style temperature indicator
-        self.ui.indicator_temperature.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        # set style freqwuency and dissapation indicator
-        self.ui.F0.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        self.ui.D0.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        self.ui.F3.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        self.ui.D3.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        self.ui.F5.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        self.ui.D5.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        self.ui.F7.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        self.ui.D7.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        self.ui.F9.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        self.ui.D9.setStyleSheet("background-color:white; padding: 2 px; border-style: inset; border-color: gray; border-width: 1px;")
-        
+        # VER 0.1.6 the temperature/frequency/dissipation readout fields are now
+        # styled by the theme QSS (via their objectNames), so they follow the
+        # active light/dark theme instead of a hardcoded white background.
+
+        # VER 0.1.6 theme system (GUI redesign Phase 0): build the View > Theme
+        # menu and apply the saved theme (default light on first run).
+        self._theme = "light"
+        self._setup_theme_menu()
+        _saved = QtCore.QSettings("openQCM", "NEXT").value("theme", "light")
+        _saved = str(_saved) if _saved else "light"
+        self._apply_theme(_saved if _saved in ("light", "dark") else "light")
+
         # VER 0.1.6 frequency and dissipation label color
         # init the array of frequency label color 
         label_F = [self.ui.label_F0_col, self.ui.label_F3_col, self.ui.label_F5_col, self.ui.label_F7_col, self.ui.label_F9_col]
@@ -259,7 +328,7 @@ class MainWindow(QtGui.QMainWindow):
         self._dissipation_buffer_1 = RingBuffer(Constants.ring_buffer_samples)
         self._dissipation_buffer_2 = RingBuffer(Constants.ring_buffer_samples)
 
-        self.ui.label_Temperature_state.setStyleSheet("background-color: yellow; border: 1px solid gray; border-radius:2px; padding: 2 px;")
+        self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("warn"))
 
         
 
@@ -308,13 +377,37 @@ class MainWindow(QtGui.QMainWindow):
 #         self.ui.actionFirmware.triggered.connect(self.dummy)
 # =============================================================================
         self.ui.actionSoftware.triggered.connect(lambda: self.get_web_info(False))
-        self.ui.actionHelp.triggered.connect(self.dummy)
+        # VER 0.1.6 (Fase 5) real Help target + About entry (replaces the dummy)
+        self.ui.actionHelp.triggered.connect(self._open_help_website)
+        try:
+            self.ui.menuHelp.addSeparator()
+            self._act_about = QtGui.QAction("About openQCM NEXT", self)
+            self._act_about.triggered.connect(self._show_about)
+            self.ui.menuHelp.addAction(self._act_about)
+        except Exception:
+            pass
+
+        # VER 0.1.6 toolbar menu add on application
+        self.ui.actionTEC_current.triggered.connect(self.open_second_window)
+        self.ui.actionLog_Data.triggered.connect(self._log_data_plot)
+        self.ui.actionRaw_Data.triggered.connect(self._raw_data_plot)
+        # VER 0.1.6G conductance / impedance offline view
+        self.ui.actionConductance_Data.triggered.connect(self._conductance_data_plot)
         
-        # VER 0.1.6 init the null numpy array 
+        # VER 0.1.6 init the null numpy array
         self._numpy_nan_signal = np.empty(Constants.ring_buffer_samples, dtype=float)
         self._numpy_nan_signal.fill(np.nan)
         self._numpy_nan_sweep = np.empty(Constants.SAMPLES, dtype=float)
         self._numpy_nan_sweep.fill(np.nan)
+
+        # GUI redesign R1: the programmatic UI (ui/mainWindow_ui.py) builds the
+        # single-window shell directly; here we only bind the runtime state.
+        self._setup_log_filename_label()
+        self._install_system_log()
+
+        # Phase 3c: initial status pill (standby, theme-aware)
+        self.ui.infostatus.setStyleSheet(self._status_pill("standby"))
+        self.ui.infostatus.setText("● Program Status: Standby")
 
 
     # https://stackoverflow.com/questions/63182608/colcount-not-working-for-legenditem-in-pyqtgraph-with-pyqt5-library
@@ -350,6 +443,13 @@ class MainWindow(QtGui.QMainWindow):
             _addItemToLayout(legend, sample, label)
         legend.updateSize()
 
+    def _toggle_start_stop(self):
+        # Phase 3a: single Start/Stop toggle — one button drives both actions.
+        if self.worker.is_running():
+            self.stop()
+        else:
+            self.start()
+
     ###########################################################################
     # Starts the acquisition of the selected serial port
     ###########################################################################
@@ -380,17 +480,27 @@ class MainWindow(QtGui.QMainWindow):
                              speed = self.ui.cBox_Speed.currentText(),
                              samples = Constants.argument_default_samples,
                              source = self._get_source(),
-                             export_enabled = False, 
+                             export_enabled = False,
                              sampling_time = self._get_sampling_time())
+
+        # Hand the serial port over to the acquisition process: release the
+        # persistent GUI handle so the child can open it exclusively.
+        # (The level-1 lock file stays held by the GUI.)
+        if self._serial_lock is not None and self._serial_lock.isOpen():
+            self._serial_lock.close()
 
         # SINGLE
         # ---------------------------------------------------------------------
         if self.worker.start():
+            # Phase 3d: show the datalog filename (empty in calibration mode)
+            self._show_log_filename(self.worker.get_csv_filename())
+
             # Gets frequency range
             # self._readFREQ = self.worker.get_frequency_range()
 
             # Duplicate frequencies
             self._reference_flag = False
+            self._update_reference_button()   # keep the Set/Clear toggle label in sync
             # self._vector_reference_frequency = list(self._readFREQ)
             self._reference_value_frequency = 0
             self._reference_value_dissipation = 0
@@ -470,14 +580,14 @@ class MainWindow(QtGui.QMainWindow):
                                                 
                 
                 # VER 0.1.6 after clear the plt create the reference to the ampli lines again 
-                self._plt0_line = self._plt0.plot(pen=Constants.plot_colors[0])
+                self._plt0_line = self._plt0.plot(pen=self._curve_color())
                 
 # =============================================================================
 #                 # reference to the line object temperature 
 #                 self._plt4_line = self._plt4.plot(pen=Constants.plot_colors[4])
 # =============================================================================
                 # reference to the line object temperature 
-                self._plt4_line = self._plt4.plot(pen=Constants.plot_color_temperature)
+                self._plt4_line = self._plt4.plot(pen=self._curve_color())
                 
                 # VER 0.1.6 add legend in single mode 
                 self._legend_f.addItem(item = self._plt2_line, name = Constants.name_legend[overtone_selected])
@@ -508,8 +618,12 @@ class MainWindow(QtGui.QMainWindow):
             #### CALIBRATION
             # -----------------------------------------------------------------
             elif self._get_source() == SourceType.calibration:
-                
-                # VER 0.1.6 delete the call to label_quartz in calibration peak detection mode 
+
+                # VER 0.1.6 peak detection populates no overtone legend; keep the
+                # count at 0 so a Stop-triggered stop() removes no legend items.
+                self._overtones_number_all = 0
+
+                # VER 0.1.6 delete the call to label_quartz in calibration peak detection mode
 # =============================================================================
 #                 label_quartz = self.ui.cBox_Speed.currentText()
 # =============================================================================
@@ -584,7 +698,7 @@ class MainWindow(QtGui.QMainWindow):
 #                 self._plt4_line = self._plt4.plot(pen=Constants.plot_colors[4])    
 # =============================================================================
                 # VER 0.1.6 create the reference to theto the temperature line for real time plot
-                self._plt4_line = self._plt4.plot(pen=Constants.plot_color_temperature)
+                self._plt4_line = self._plt4.plot(pen=self._curve_color())
 
                 # init radio button
                 self.ui.radioBtn_F0.setChecked(True)
@@ -594,6 +708,8 @@ class MainWindow(QtGui.QMainWindow):
                 self.ui.radioBtn_F9.setChecked(True)
 
                 self._update_scan_selector()
+                # Phase 3b: mirror the all-checked default on the quick-select row
+                self._sync_overtone_buttons_from_radios()
 
 # =============================================================================
 #                 # VER 0.1.2
@@ -649,13 +765,31 @@ class MainWindow(QtGui.QMainWindow):
     def stop(self):
 
         # This function is connected to the clicked signal of the Stop button.
-        self.ui.infostatus.setStyleSheet('background: white; padding: 1px; border: 1px solid #cccccc')
-        self.ui.infostatus.setText("<font color=#000000 > Program Status Stanby</font>")
-        self.ui.infobar.setText("<font color=#0000ff > Infobar </font>")
+        # Phase 3d: clear the datalog filename display (sidebar + window title)
+        self._show_log_filename("")
+        # R2: reset the bottom-bar compact readings
+        self._reset_status_readings()
+        self.ui.infostatus.setStyleSheet(self._status_pill("standby"))
+        self.ui.infostatus.setText("● Program Status: Standby")
+        self.ui.infobar.setText("Infobar")
 
-        # TODO Enable temperature control button
-        self.ui.pButton_Tswitch_OFF.setEnabled(True)
-        self.ui.pButton_Tswitch_ON.setEnabled(True)
+        # VER 0.1.6 peak detection is the only mode that reaches stop() while
+        # still running via the Stop button — normal completion (and errors)
+        # tear down inline in _update_plot, never through stop(). So a stop()
+        # during calibration is always a user cancellation: reflect it.
+        if self._get_source() == SourceType.calibration:
+            self.ui.infostatus.setStyleSheet(self._status_pill("warn"))
+            self.ui.infostatus.setText("● Program Status:Peak Detection Cancelled")
+            self.ui.infobar.setText("Infobar <font color=#e65100>Peak Detection cancelled by user.</font>")
+            # VER 0.1.6 clear the real-time amplitude sweep trace: the generic
+            # clear() later in stop() is a no-op during calibration (its frequency
+            # buffer is NaN), so the last partial sweep would otherwise linger on
+            # the amplitude plot after a cancellation.
+            self._plt0.clear()
+
+        # Re-enable the temperature toggle after a run, but only if still
+        # connected (it is gated on the serial connection).
+        self.ui.pButton_Tswitch_ON.setEnabled(self._serial_connected)
 
         # remove legend item
         for idx in range(self._overtones_number_all):
@@ -672,6 +806,10 @@ class MainWindow(QtGui.QMainWindow):
         # add a delay to prevent the error caused by the serial com port open
         time.sleep(1)
 
+        # Re-acquire the serial port for the GUI (Standby) now that the child
+        # acquisition process has released it, so the queries below can run.
+        self._reacquire_serial_lock()
+
         # turn off the peltier
         self.Temperature_Control_OFF()
 
@@ -685,7 +823,7 @@ class MainWindow(QtGui.QMainWindow):
         
         # VER 0.1.4
         # set TEC status control to null 
-        self.ui.label_Temperature_state.setStyleSheet("background-color: white; color: black; border: 1px solid gray; border-radius:2px; padding: 2 px;")
+        self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("off"))
         self.ui.label_Temperature_state.setText("Temperature Control")
         
 # =============================================================================
@@ -712,9 +850,17 @@ class MainWindow(QtGui.QMainWindow):
         if (self._get_source() == SourceType.multiscan):
             self.ui.cBox_sampling_time.setEnabled(True)
             
-        # VER 0.1.6 enable again freqquency drop down menu only if in single mode 
+        # VER 0.1.6 enable again frequency drop down menu only if in single mode 
         if (self._get_source() == SourceType.serial):
             self.ui.cBox_Speed.setEnabled(True)
+
+        # VER 0.1.6 close second window if exist 
+        try:
+            if hasattr(self, 'second_window') and self.second_window is not None:
+                self.second_window.close()
+                self.second_window = None
+        except:
+            pass    
          
         # VER 0.1.6 TODO reset x time to zero     
 # =============================================================================
@@ -728,10 +874,6 @@ class MainWindow(QtGui.QMainWindow):
 #         self._pltD_line.setData(self._numpy_nan_signal, self._numpy_nan_signal)
 # =============================================================================
         
-        # VER 0.1.6 DEBUG just print something at the end of the stop 
-        print ("Stop processes...debug...")
-        
-       
 
     ###########################################################################
     # SET TEMPERATURE
@@ -770,22 +912,8 @@ class MainWindow(QtGui.QMainWindow):
 
         print ("Set Temperature =  ", var/1000)
 
-        # serial port parameter
-        self._my_serial.port = self.ui.cBox_Port.currentText()
-        self._my_serial.baudrate = Constants.serial_default_speed #115200
-        self._my_serial.stopbits = serial.STOPBITS_ONE
-        self._my_serial.bytesize = serial.EIGHTBITS
-        self._my_serial.timeout = Constants.serial_timeout_ms
-        self._my_serial.writetimeout = Constants.serial_writetimeout_ms
-
-        # check if a process is NOT running
-        if ( self.worker.is_running() == False ):
-            # open the serial port
-            self._my_serial.open()
-            # write set temperature command
-            self._my_serial.write(cmd.encode())
-            # close serial
-            self._my_serial.close()
+        # send the set-temperature command over the persistent connection
+        self._serial_write(cmd.encode())
 
     def _get_temperature(self):
         _var = self.ui.doubleSpinBox_Temperature.value() * 1000
@@ -812,31 +940,37 @@ class MainWindow(QtGui.QMainWindow):
     # TEMPERATURE CONTROL FUNCTION
     ###########################################################################
 
+    def _toggle_temperature_control(self):
+        # Single ON/OFF toggle: turn the TEC off if it is on, otherwise on.
+        if self._tec_on:
+            self.Temperature_Control_OFF()
+        else:
+            self.Temperature_Control_ON()
+
+    def _update_tec_toggle(self):
+        # Reflect the TEC state on the single toggle button: accent "Temperature
+        # ON" when the control is off (a click turns it on); brown "Temperature
+        # OFF" when the control is on (a click turns it off).
+        btn = self.ui.pButton_Tswitch_ON
+        btn.setText("OFF" if self._tec_on else "ON")
+        btn.setProperty("tecOn", self._tec_on)
+        btn.style().unpolish(btn)
+        btn.style().polish(btn)
+
     def Temperature_Control_ON(self):
 
+        # GUI: mark the toggle state on and restyle it (brown = will turn off)
+        self._tec_on = True
+        self._update_tec_toggle()
+
         # change the indicator color
-        self.ui.label_Temperature_state.setStyleSheet("background-color: rgba(0, 142, 192, 0.4); border: 1px solid gray; border-radius: 2px;  padding: 2 px;")
+        self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("active"))
 
         print ("Temperature Control ON")
-        # set the temperature control ONLY in NOT measuring mode
-        self._my_serial.port = self.ui.cBox_Port.currentText()
-        self._my_serial.baudrate = Constants.serial_default_speed #115200
-        self._my_serial.stopbits = serial.STOPBITS_ONE
-        self._my_serial.bytesize = serial.EIGHTBITS
-        self._my_serial.timeout = Constants.serial_timeout_ms
-        self._my_serial.writetimeout = Constants.serial_writetimeout_ms
-
-        # Gets the state of the serial port
-        # if not self._my_serial.isOpen():
-        # VER 0.1.2
-        # check if a process is NOT running to verify the serial is available
-        if ( self.worker.is_running() == False ):
-            # OPENS the serial port
-            self._my_serial.open()
-            var = 1
-            cmd = 'X' + str(int(var)) + '\n'
-            self._my_serial.write(cmd.encode())
-            self._my_serial.close()
+        # enable TEC over the persistent connection
+        var = 1
+        cmd = 'X' + str(int(var)) + '\n'
+        self._serial_write(cmd.encode())
 
 # =============================================================================
 #         # VER 0.1.2 TODO
@@ -858,32 +992,20 @@ class MainWindow(QtGui.QMainWindow):
 
     def Temperature_Control_OFF(self):
 
+        # GUI: mark the toggle state off and restyle it (accent = will turn on)
+        self._tec_on = False
+        self._update_tec_toggle()
+
         # change the led color
-        self.ui.label_Temperature_state.setStyleSheet("background-color: yellow; border: 1px solid gray; border-radius:2px; padding: 2 px;")
+        self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("warn"))
         # set temoerature control to default
         self.ui.doubleSpinBox_Temperature.setValue( Constants.Temperature_Set_Value )
 
         print ("Temperature Control OFF ")
-        # set the temperature control ONLY in NOT measuring mode
-        self._my_serial.port = self.ui.cBox_Port.currentText()
-        self._my_serial.baudrate = Constants.serial_default_speed #115200
-        self._my_serial.stopbits = serial.STOPBITS_ONE
-        self._my_serial.bytesize = serial.EIGHTBITS
-        self._my_serial.timeout = Constants.serial_timeout_ms
-        self._my_serial.writetimeout = Constants.serial_writetimeout_ms
-
-        # Gets the state of the serial port
-        # if not self._my_serial.isOpen():
-
-        #DEV
-        # check if a process is NOT running to verify the serial is available
-        if ( self.worker.is_running() == False ):
-            # open the serial port
-            self._my_serial.open()
-            var = 0
-            cmd = 'X' + str(int(var)) + '\n'
-            self._my_serial.write(cmd.encode())
-            self._my_serial.close()
+        # disable TEC over the persistent connection
+        var = 0
+        cmd = 'X' + str(int(var)) + '\n'
+        self._serial_write(cmd.encode())
 
 # =============================================================================
 #         elif  ( self.worker.is_running() == True ):
@@ -916,12 +1038,72 @@ class MainWindow(QtGui.QMainWindow):
         # default parameter selection
         self.ui.cBox_PID.setEnabled(my_bool)
 
+    def _setup_overtone_buttons(self):
+        """Phase 3b: compact F0..F9 quick-select buttons (adapted from openQCM
+        Q-1 v3.0). They proxy the legacy overtone radios, which stay the source
+        of truth for scan_selector but are hidden. Multiscan: multi-select,
+        purely-visual curve filter (all overtones are always acquired).
+        Serial: exclusive selection driving cBox_Speed."""
+        self._overtone_radios = [self.ui.radioBtn_F0, self.ui.radioBtn_F3,
+                                 self.ui.radioBtn_F5, self.ui.radioBtn_F7,
+                                 self.ui.radioBtn_F9]
+        # R1: the buttons are created (and the radios hidden) by the UI
+        # builder — here we only mirror the initial state and wire the signals.
+        self._overtone_buttons = list(self.ui.overtone_buttons)
+        for idx, btn in enumerate(self._overtone_buttons):
+            btn.setChecked(self._overtone_radios[idx].isChecked())
+            btn.clicked.connect(lambda checked, i=idx: self._on_overtone_button(i, checked))
+        self.ui.cBox_Speed.currentIndexChanged.connect(self._sync_overtone_buttons_from_speed)
+
+    def _on_overtone_button(self, idx, checked):
+        """Quick-select click: serial → exclusive selection driving cBox_Speed;
+        multiscan → mirrors the hidden radio and refreshes scan_selector."""
+        if self._get_source() == SourceType.serial:
+            # exclusive: one measured overtone; keep the radios (sweep-display
+            # gating) aligned with it
+            for i, r in enumerate(self._overtone_radios):
+                r.setChecked(i == idx)
+            self._update_scan_selector()
+            # the combo lists the calibrated overtones in reverse order
+            count = self.ui.cBox_Speed.count()
+            combo_index = count - 1 - idx
+            if 0 <= combo_index < count:
+                self.ui.cBox_Speed.setCurrentIndex(combo_index)
+            self._sync_overtone_buttons_from_speed()
+        else:
+            self._overtone_radios[idx].setChecked(checked)
+            self._update_scan_selector()
+
+    def _sync_overtone_buttons_from_speed(self, *args):
+        """Serial mode: reflect the cBox_Speed selection on the button row."""
+        if self._get_source() != SourceType.serial:
+            return
+        count = self.ui.cBox_Speed.count()
+        sel = (count - 1 - self.ui.cBox_Speed.currentIndex()) if count else -1
+        for i, b in enumerate(self._overtone_buttons):
+            b.blockSignals(True)
+            b.setChecked(i == sel)
+            b.blockSignals(False)
+
+    def _sync_overtone_buttons_from_radios(self):
+        """Mirror the radios' checked state onto the quick-select buttons."""
+        for i, b in enumerate(self._overtone_buttons):
+            b.blockSignals(True)
+            b.setChecked(self._overtone_radios[i].isChecked())
+            b.blockSignals(False)
+
     def _Overtone_radioBtn_isEnabled(self, my_bool):
         self.ui.radioBtn_F0.setEnabled(my_bool)
         self.ui.radioBtn_F3.setEnabled(my_bool)
         self.ui.radioBtn_F5.setEnabled(my_bool)
         self.ui.radioBtn_F7.setEnabled(my_bool)
         self.ui.radioBtn_F9.setEnabled(my_bool)
+        # Phase 3b: the quick-select buttons follow the mode gating (multiscan:
+        # my_bool; serial: enabled while idle — they drive cBox_Speed there)
+        _serial_idle = (self._get_source() == SourceType.serial
+                        and not self.worker.is_running())
+        for b in getattr(self, "_overtone_buttons", []):
+            b.setEnabled(my_bool or _serial_idle)
 
 
     # PID CONTROL FUNCTION
@@ -932,50 +1114,19 @@ class MainWindow(QtGui.QMainWindow):
         print ("Setting PID Parameter")
         self._get_PID()
 
-        # serial port parameter
-        self._my_serial.port = self.ui.cBox_Port.currentText()
-        self._my_serial.baudrate = Constants.serial_default_speed #115200
-        self._my_serial.stopbits = serial.STOPBITS_ONE
-        self._my_serial.bytesize = serial.EIGHTBITS
-        self._my_serial.timeout = Constants.serial_timeout_ms
-        self._my_serial.writetimeout = Constants.serial_writetimeout_ms
+        # get PID parameters from UI
+        _var_cycling_time = self.ui.spinBox_Cycling_Time.value()
+        _var_P_share = self.ui.spinBox_P_Share.value()
+        _var_I_Share = self.ui.spinBox_I_Share.value()
+        _var_D_Share = self.ui.spinBox_D_Share.value()
 
-        # check if a process is NOT running to verify the serial is available
-        if ( self.worker.is_running() == False ):
-
-            # open the serial port
-            self._my_serial.open()
-
-            # get PID paramter from UI
-            _var_cycling_time = self.ui.spinBox_Cycling_Time.value()
-            _var_P_share = self.ui.spinBox_P_Share.value()
-            _var_I_Share = self.ui.spinBox_I_Share.value()
-            _var_D_Share = self.ui.spinBox_D_Share.value()
-
-            # set PID parameters
-            cycling_time_msg = 'C' + str(int(_var_cycling_time)) + '\n'
-            # VER 0.1.2 add a short sleep for communication
+        # send PID parameters over the persistent connection (short gap between commands)
+        for msg in ('C' + str(int(_var_cycling_time)),
+                    'P' + str(int(_var_P_share)),
+                    'I' + str(int(_var_I_Share)),
+                    'D' + str(int(_var_D_Share))):
             sleep(0.1)
-            self._my_serial.write(cycling_time_msg.encode())
-            sleep(0.1)
-
-            P_Share_msg = 'P' + str(int(_var_P_share)) + '\n'
-            self._my_serial.write(P_Share_msg.encode())
-            sleep(0.1)
-
-            I_Share_msg = 'I' + str(int(_var_I_Share)) + '\n'
-            self._my_serial.write(I_Share_msg.encode())
-            sleep(0.1)
-
-            D_Share_msg = 'D' + str(int(_var_D_Share)) + '\n'
-            self._my_serial.write(D_Share_msg.encode())
-            sleep(0.1)
-            # close the serial port
-            self._my_serial.close()
-
-        # VER 0.1.2 TODO
-        else:
-            print ("the worker is still running ")
+            self._serial_write((msg + '\n').encode())
 
     def _get_PID(self):
         # TODO get pid parameters from main gui
@@ -1042,15 +1193,9 @@ class MainWindow(QtGui.QMainWindow):
     
     # VER 0.1.4 get frimware version 
     def get_firmware_version(self, autoMode):
-        # set the serial port 
-        self._my_serial.port = self.ui.cBox_Port.currentText()
-        self._my_serial.baudrate = Constants.serial_default_speed #115200
-        self._my_serial.stopbits = serial.STOPBITS_ONE
-        self._my_serial.bytesize = serial.EIGHTBITS
-        self._my_serial.timeout = Constants.serial_timeout_ms
-        self._my_serial.writetimeout = Constants.serial_writetimeout_ms
-        
-        # init the byte at port and read serlai string 
+        # query the device over the persistent connection (opened on Connect)
+
+        # init the byte at port and read serlai string
         byte_at_port = 0
         read_serial = ""
         firmware_version_current = ""
@@ -1058,53 +1203,33 @@ class MainWindow(QtGui.QMainWindow):
         # chek if worker is running, to prevent conflict
         if ( (self.worker.is_running() == False) and (autoMode == True)):
             try:
-                # open serial port
-                self._my_serial.open()
-                # send firmware version  
-                cmd = 'F' + '\n'
-                self._my_serial.write(cmd.encode())
-                # VER 0.1.5 wait for longer time
-                sleep(0.4)  
-                # serial read answer from the device 
-                byte_at_port = self._my_serial.inWaiting()
-                read_serial += self._my_serial.read(byte_at_port).decode(Constants.app_encoding)
-                # VER 0.1.5 wait for longer time
-                sleep(0.4)
-                
-                # VER 0.1.5 if byte_at_port is null send a warning message 
-                if (byte_at_port == 0):
-                    # send a warning message 
-                    # VER 0.1.5 popup a warning  
-                    upgrade_firmware_startup = PopUp.warning_exec(self, "FIRMWARE UPDATE", "Unable to check the firmware version. Please press info in menu bar to get firmware information")
-                    print ("Warning: Unable to check the firmware version. Please press info in menu bar to get firmware information")
-                
-                # close the serial 
-                self._my_serial.close()
-            
-                # firmare version from serial read strip new line char 
+                # query firmware version over the persistent connection
+                read_serial += self._serial_query(b'F\n')
+
+                # firmare version from serial read strip new line char
                 firmware_version_current = read_serial.rstrip('\r\n')
-                
-                # no firmware information 
-                if (firmware_version_current == ""): 
+
+                # no firmware information
+                if (firmware_version_current == ""):
                     # print ("No firmware information. Please upgrade firmware to the version ", Constants.FW_VERSION)
-                    # VER 0.1.4 popup a warning 
-                    upgrade_firmware = PopUp.warning_exec(self, "FIRMWARE UPDATE", "Please update firmware version " + str(Constants.FW_VERSION) + 
+                    # VER 0.1.4 popup a warning
+                    upgrade_firmware = PopUp.warning_exec(self, "FIRMWARE UPDATE", "Please update firmware version " + str(Constants.FW_VERSION) +
                                                           ". Press Yes button to continue the firmware update procedure")
-                   
-                    if (upgrade_firmware == True): 
+
+                    if (upgrade_firmware == True):
                         # run the firmware the updater application
                         self._run_firmware_updater()
-                    
-                    elif (upgrade_firmware == False): 
-                        # pop a critical 
-                        upgrade_firmware_critical = PopUp.critical_exec(self, "FIRMWARE UPDATE", 
-                                                                        "Failure to update the firmware may result in a software crash or malfunction." + "\n\r" + 
-                                                                        "Please update firmware version " + str(Constants.FW_VERSION) + 
+
+                    elif (upgrade_firmware == False):
+                        # pop a critical
+                        upgrade_firmware_critical = PopUp.critical_exec(self, "FIRMWARE UPDATE",
+                                                                        "Failure to update the firmware may result in a software crash or malfunction." + "\n\r" +
+                                                                        "Please update firmware version " + str(Constants.FW_VERSION) +
                                                                         ". Press Yes button to continue the firmware update procedure")
-                        if (upgrade_firmware_critical == True): 
+                        if (upgrade_firmware_critical == True):
                             # run the firmware the updater application
                             self._run_firmware_updater()
-                
+
                 # previous old firmware installed
                 elif (firmware_version_current != Constants.FW_VERSION):
                     # VER 0.1.4 popup a warning  
@@ -1132,22 +1257,10 @@ class MainWindow(QtGui.QMainWindow):
         # VER 0.1.5 if the worker is not running get firmware info and eventually launch the firmware updater application                             
         elif ((self.worker.is_running() == False) and (autoMode == False)):
             try:
-                # open serial port
-                self._my_serial.open()
-                # send firmware version  
-                cmd = 'F' + '\n'
-                self._my_serial.write(cmd.encode())
-                # VER 0.1.5 wait for longer time
-                sleep(0.4)  
-                # serial read answer from the device 
-                byte_at_port = self._my_serial.inWaiting()
-                read_serial += self._my_serial.read(byte_at_port).decode(Constants.app_encoding)
-                # VER 0.1.5 wait for longer time
-                sleep(0.4)  
-                # close the serial 
-                self._my_serial.close()
-            
-                # firmare version from serial read strip new line char 
+                # query firmware version over the persistent connection
+                read_serial += self._serial_query(b'F\n')
+
+                # firmare version from serial read strip new line char
                 firmware_version_current = read_serial.rstrip('\r\n')
                 
                 # no firmware information 
@@ -1285,29 +1398,38 @@ class MainWindow(QtGui.QMainWindow):
     ###########################################################################
     # Overrides the QTCloseEvent,is connected to the close button of the window
     ###########################################################################
+    # VER 0.1.6 added a confirmation dialog when closing the application
     def closeEvent(self, evnt):
-
-        #:param evnt: QT evnt.
-        if self.worker.is_running():
-          print(TAG, 'Window closed without stopping the capture, application will stop...')
-          Log.i(TAG, "Window closed without stopping the capture, application will stop...")
-          self.stop()
-          #self.ControlsWin.close()
-          #self.PlotsWin.close()
-          #self.InfoWin.close()
-          #evnt.accept()
-
-        # QtGui.QApplication.quit()
-
-# =============================================================================
-#         res = PopUp.question(self, Constants.app_title, "Are you sure you want to quit openQCM application now?")
-#         if res:
-#            # self.close()
-#            # evnt.accept()
-#            QtGui.QApplication.quit()
-#         else:
-#            evnt.ignore()
-# =============================================================================
+        """
+        Overrides the QTCloseEvent, is connected to the close button of the window
+        :param evnt: QT evnt.
+        """
+        # Check if we're already handling a close event
+        if self._closing:
+            evnt.accept()
+            return
+            
+        # Set the closing flag
+        self._closing = True
+        
+        # Show confirmation popup before closing
+        res = PopUp.question(self, "Exit Application", "Are you sure you want to quit the application?")
+        
+        if res:
+            # If user confirms, handle closing process as before
+            if self.worker.is_running():
+                print(TAG, 'Window closed without stopping the capture, application will stop...')
+                Log.i(TAG, "Window closed without stopping the capture, application will stop...")
+                self.stop()
+            
+            # Restore stdout/stderr before the window is destroyed
+            self._restore_system_log()
+            # Accept the close event
+            evnt.accept()
+        else:
+            # If user cancels, reset the closing flag and ignore the event
+            self._closing = False
+            evnt.ignore()
 
 
     ###########################################################################
@@ -1316,7 +1438,8 @@ class MainWindow(QtGui.QMainWindow):
     def _enable_ui(self, enabled):
 
         #:param enabled: The value to be set for the UI elements :type enabled: bool
-        self.ui.cBox_Port.setEnabled(enabled)
+        # VER 0.1.6b keep the port combo disabled while a connection is active
+        self.ui.cBox_Port.setEnabled(enabled and not self._serial_connected)
         
         # VER 0.1.6 not enable the combo box in calibration peak detection mode  
         if ( self._get_source() == SourceType.calibration):
@@ -1325,7 +1448,24 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.cBox_Speed.setEnabled(not enabled)
             
         # self.ui.cBox_Speed.setEnabled(enabled)
-        self.ui.pButton_Start.setEnabled(enabled)
+
+        # Phase 3b: serial quick-select buttons are idle-only (multiscan keeps
+        # them live during acquisition as a purely-visual curve filter)
+        if self._get_source() == SourceType.serial:
+            for b in getattr(self, "_overtone_buttons", []):
+                b.setEnabled(enabled)
+
+        # VER 0.1.6b Start requires an active serial connection
+        # Phase 3a: pButton_Start is a single Start/Stop toggle — keep it usable
+        # while running (to act as Stop); gate only on the active connection.
+        self.ui.pButton_Start.setEnabled(self._serial_connected)
+        # reflect the running state on the toggle (enabled True == idle)
+        _running = not enabled
+        # minimalist outline glyphs: ▷ play (start), □ square (stop)
+        self.ui.pButton_Start.setText("□  Stop" if _running else "▷  Start")
+        self.ui.pButton_Start.setProperty("running", _running)
+        self.ui.pButton_Start.style().unpolish(self.ui.pButton_Start)
+        self.ui.pButton_Start.style().polish(self.ui.pButton_Start)
 
         # TODO delete or implement export txt file
         # self.ui.chBox_export.setEnabled(enabled)
@@ -1338,6 +1478,7 @@ class MainWindow(QtGui.QMainWindow):
 
         self.ui.pButton_Clear.setEnabled(not enabled)
         self.ui.pButton_Reference.setEnabled(not enabled)
+        self.ui.pButton_Autoscale.setEnabled(not enabled)
         self.ui.pButton_Reference_Not.setEnabled(not enabled)
         
         # VER 0.1.4
@@ -1358,6 +1499,268 @@ class MainWindow(QtGui.QMainWindow):
 #         self.ui.pButton_Tswitch_ON.setEnabled(enabled)
 # =============================================================================
 
+
+    ###########################################################################
+    # VER 0.1.6 Theme system (GUI redesign Phase 0)
+    ###########################################################################
+    def _setup_theme_menu(self):
+        """Add a View > Theme submenu with an exclusive Light/Dark choice."""
+        # R1: the programmatic UI provides the View menu in the menu skeleton
+        menu_view = getattr(self.ui, "menuView", None)
+        if menu_view is None:
+            menu_view = self.menuBar().addMenu("View")
+        theme_menu = menu_view.addMenu("Theme")
+        group = QtGui.QActionGroup(self)
+        group.setExclusive(True)
+        self._act_theme_light = QtGui.QAction("Light", self)
+        self._act_theme_light.setCheckable(True)
+        self._act_theme_dark = QtGui.QAction("Dark", self)
+        self._act_theme_dark.setCheckable(True)
+        group.addAction(self._act_theme_light)
+        group.addAction(self._act_theme_dark)
+        theme_menu.addAction(self._act_theme_light)
+        theme_menu.addAction(self._act_theme_dark)
+        self._act_theme_light.triggered.connect(lambda: self._apply_theme("light"))
+        self._act_theme_dark.triggered.connect(lambda: self._apply_theme("dark"))
+        # R2: menu-bar corner quick toggle (mockup top-right)
+        _btn = getattr(self.ui, "themeToggleButton", None)
+        if _btn is not None:
+            _btn.clicked.connect(lambda: self._apply_theme(
+                "dark" if self._theme == "light" else "light"))
+        # Phase 4: View > Δ Cursors (frequency / dissipation panels)
+        menu_view.addSeparator()
+        self._act_cursors = QtGui.QAction("Δ Cursors (F / D)", self)
+        self._act_cursors.setCheckable(True)
+        self._act_cursors.toggled.connect(self._toggle_all_cursors)
+        menu_view.addAction(self._act_cursors)
+        # Fase 5: View > panel visibility toggles (Sidebar, Status bar)
+        menu_view.addSeparator()
+        self._act_view_sidebar = QtGui.QAction("Sidebar", self)
+        self._act_view_sidebar.setCheckable(True)
+        self._act_view_sidebar.setChecked(True)
+        self._act_view_sidebar.toggled.connect(self._toggle_sidebar)
+        menu_view.addAction(self._act_view_sidebar)
+        self._act_view_statusbar = QtGui.QAction("Status bar", self)
+        self._act_view_statusbar.setCheckable(True)
+        self._act_view_statusbar.setChecked(True)
+        self._act_view_statusbar.toggled.connect(self._toggle_statusbar)
+        menu_view.addAction(self._act_view_statusbar)
+
+    ###########################################################################
+    # VER 0.1.6 Fase 5 — Help / View menu handlers
+    ###########################################################################
+    def _open_help_website(self):
+        """Open the openQCM NEXT software page in the default browser."""
+        import webbrowser
+        try:
+            webbrowser.open("https://openqcm.com/openqcm-next-software/")
+        except Exception as e:
+            print(TAG, "Could not open help URL: {}".format(str(e)))
+
+    def _show_about(self):
+        """About dialog: name, version, one-line description, website link."""
+        msg = ("<b>openQCM NEXT</b> &mdash; version {}<br><br>"
+               "Real-time acquisition and analysis software for the openQCM NEXT "
+               "Quartz Crystal Microbalance.<br><br>"
+               "<a href='https://openqcm.com/openqcm-next-software/'>"
+               "openQCM NEXT software webpage</a>").format(Constants.app_version)
+        PopUp.info_not_blocking_rtf(self, "About openQCM NEXT", msg)
+
+    def _toggle_sidebar(self, checked):
+        """Show/hide the left sidebar (mainSplitter pane 0)."""
+        scroll = getattr(self.ui, "sidebarScroll", None)
+        if scroll is not None:
+            scroll.setVisible(checked)
+
+    def _toggle_statusbar(self, checked):
+        """Show/hide the bottom status bar."""
+        bar = getattr(self.ui, "statusBarFrame", None)
+        if bar is not None:
+            bar.setVisible(checked)
+
+    # Phase 3c: status pill state colors (background). Text stays dark on the
+    # bright state colors; 'standby' is built from the active theme palette.
+    _STATUS_PILL_BG = {"warn": "#ffff00", "err": "#ff0000", "ok": "#00ff72"}
+
+    def _status_pill(self, key):
+        """Stylesheet for the infostatus pill; remembers the state so a theme
+        switch can re-apply it (standby follows the theme)."""
+        self._status_key = key
+        if key == "standby":
+            p = getattr(self, "_theme_palette", theme.LIGHT)
+            return ("background: {}; color: {}; padding: 1px 6px; "
+                    "border: 1px solid {}; border-radius: 3px").format(
+                        p["panel"], p["text"], p["border"])
+        return ("background: {}; color: #202020; padding: 1px 6px; "
+                "border: 1px solid transparent; border-radius: 3px").format(
+                    self._STATUS_PILL_BG[key])
+
+    # R2 polish: TEC state banner (softened colors, rounded; 'off' follows the
+    # theme). Keys: off / warn (getting setpoint) / active / err.
+    _TEC_PILL_BG = {"warn": ("#ffd54f", "#4a3f00"),
+                    "active": ("rgba(0, 142, 192, 0.35)", None),
+                    "err": ("#ef5350", "#ffffff")}
+
+    def _tec_state_pill(self, key):
+        """Stylesheet for label_Temperature_state; remembers the state so a
+        theme switch can re-apply it."""
+        self._tec_state_key = key
+        if key == "off":
+            p = getattr(self, "_theme_palette", theme.LIGHT)
+            return ("background-color: {}; color: {}; border: 1px solid {}; "
+                    "border-radius: 6px; padding: 3px 6px;").format(
+                        p["field_bg"], p["text"], p["border"])
+        bg, fg = self._TEC_PILL_BG[key]
+        fg_css = "color: {};".format(fg) if fg else ""
+        return ("background-color: {}; {} border: 1px solid transparent; "
+                "border-radius: 6px; padding: 3px 6px;").format(bg, fg_css)
+
+    def _set_indicator_temperature(self, value):
+        """Sidebar temperature readout + bottom-bar mirror (R2)."""
+        self.ui.indicator_temperature.setText(str(value))
+        self.ui.statusTempValue.setText("T: {}".format(value))
+
+    def _reset_status_readings(self):
+        """Reset the bottom-bar compact readings to placeholders (R2)."""
+        for lbl, tag in ((self.ui.statusFreqValue, "F"),
+                         (self.ui.statusDissValue, "D"),
+                         (self.ui.statusTempValue, "T"),
+                         (self.ui.statusSampValue, "S")):
+            lbl.setText("{}: --".format(tag))
+
+    def _apply_theme(self, name):
+        """Apply the light/dark theme: window QSS + pyqtgraph repaint + persist."""
+        name = "dark" if name == "dark" else "light"
+        self._theme = name
+        self._theme_palette = theme.palette(name)
+        # window-wide Qt Style Sheet
+        self.setStyleSheet(theme.qss(self._theme_palette))
+        # Phase 3c: re-apply the status pill so 'standby' follows the theme
+        self.ui.infostatus.setStyleSheet(
+            self._status_pill(getattr(self, "_status_key", "standby")))
+        # R2: corner toggle shows the theme it switches to
+        _btn = getattr(self.ui, "themeToggleButton", None)
+        if _btn is not None:
+            _btn.setText("☾ dark" if name == "light" else "☀ light")
+        # R2 polish: re-apply the TEC state banner so 'off' follows the theme
+        self.ui.label_Temperature_state.setStyleSheet(
+            self._tec_state_pill(getattr(self, "_tec_state_key", "off")))
+        # pyqtgraph plots (background / axes / titles)
+        self._apply_plot_theme(theme.PLOT[name])
+        # keep the menu checkmarks in sync
+        try:
+            self._act_theme_light.setChecked(name == "light")
+            self._act_theme_dark.setChecked(name == "dark")
+        except Exception:
+            pass
+        # persist the choice for the next launch
+        try:
+            QtCore.QSettings("openQCM", "NEXT").setValue("theme", name)
+        except Exception:
+            pass
+
+    def _apply_plot_theme(self, pt):
+        """Repaint pyqtgraph backgrounds, axes and titles for the active theme."""
+        # GraphicsLayoutWidget backgrounds
+        for w in (getattr(self.ui, "plt", None),
+                  getattr(self.ui, "pltB", None),
+                  getattr(self.ui, "pltD", None)):
+            if w is not None:
+                try:
+                    w.setBackground(pt["bg"])
+                except Exception:
+                    pass
+        # per-plot axes + title (guarded: some refs are ViewBoxes or None)
+        for plot in (self._plt0, self._plt1, self._plt2, self._pltD, self._plt4):
+            if plot is None:
+                continue
+            for side in ("left", "bottom", "right", "top"):
+                try:
+                    ax = plot.getAxis(side)
+                except Exception:
+                    continue
+                if ax is None:
+                    continue
+                try:
+                    ax.setPen(pg.mkPen(color=pt["axis"]))
+                except Exception:
+                    pass
+                try:
+                    ax.setTextPen(pg.mkPen(color=pt["axis"]))
+                except Exception:
+                    pass
+                if side in ("left", "bottom"):
+                    try:
+                        ax.setLabel(**{"color": pt["axis"]})
+                    except Exception:
+                        pass
+            # recolor the plot title if it has one
+            try:
+                title_item = getattr(plot, "titleLabel", None)
+                if title_item is not None and title_item.text:
+                    plot.setTitle(title_item.text, color=pt["title"])
+            except Exception:
+                pass
+        # VER 0.1.7 recolor the theme-dependent single curves: the amplitude
+        # sweep (Constants.plot_colors[0]) and temperature (plot_color_temperature)
+        # are white and vanish on the light theme's white plot background — give
+        # them the theme foreground curve color.
+        curve = pt.get("curve", pt["axis"])
+        for line in (getattr(self, "_plt0_line", None),
+                     getattr(self, "_plt4_line", None)):
+            if line is not None:
+                try:
+                    line.setPen(pg.mkPen(color=curve))
+                except Exception:
+                    pass
+
+    def _curve_color(self):
+        """Foreground curve color for the active theme (amplitude sweep and
+        temperature; their hardcoded white pen is invisible on the light
+        theme's white plot background)."""
+        return theme.PLOT[self._theme].get("curve", "#333333")
+
+    ###########################################################################
+    # VER 0.1.6 GUI redesign Phase 1 — single-window splitter shell
+    ###########################################################################
+    def _install_system_log(self):
+        """Redirect stdout/stderr into the System Log tab, keeping the original
+        streams (terminal / file logging unaffected). Reversed in closeEvent."""
+        self.systemLog = self.ui.systemLog   # created by the UI builder
+        self._stdout_orig = sys.stdout
+        self._stderr_orig = sys.stderr
+        sys.stdout = LogStream(self.systemLog, self._stdout_orig)
+        sys.stderr = LogStream(self.systemLog, self._stderr_orig)
+        print(TAG, "System Log ready.")
+
+    def _restore_system_log(self):
+        """Restore the original stdout/stderr (called when the window closes)."""
+        if getattr(self, "_stdout_orig", None) is not None:
+            sys.stdout = self._stdout_orig
+        if getattr(self, "_stderr_orig", None) is not None:
+            sys.stderr = self._stderr_orig
+
+    def _setup_log_filename_label(self):
+        """Phase 3d: datalog-filename label (created by the UI builder in the
+        sidebar status area, hidden while idle — calibration writes no log)."""
+        self._window_title_base = self.windowTitle()
+        self.lblLogFile = self.ui.lblLogFile
+
+    def _show_log_filename(self, filename):
+        """Show/clear the datalog filename in the sidebar and window title."""
+        if filename:
+            metrics = QtGui.QFontMetrics(self.lblLogFile.font())
+            width = max(140, self.lblLogFile.width() - 8)
+            self.lblLogFile.setText(metrics.elidedText(
+                "Log: " + filename, QtCore.Qt.ElideMiddle, width))
+            self.lblLogFile.setToolTip(filename)
+            self.lblLogFile.show()
+            self.setWindowTitle("{} — {}".format(self._window_title_base, filename))
+        else:
+            self.lblLogFile.clear()
+            self.lblLogFile.setToolTip("")
+            self.lblLogFile.hide()
+            self.setWindowTitle(self._window_title_base)
 
     ###########################################################################
     # Configures specific elements of the PyQtGraph plots.
@@ -1404,7 +1807,8 @@ class MainWindow(QtGui.QMainWindow):
         '''
         # Configures elements of the PyQtGraph plots: phase
         self._plt1 = self.u2.plt.addPlot(row=1, col=1, title= "Real-Time Plot: Phase", **{'font-size':'12pt'})
-        self._plt1.showGrid(x=True, y=True)
+        # Phase 4: grids default OFF everywhere (toggle via right-click menu)
+        self._plt1.showGrid(x=False, y=False)
         self._plt1.setLabel('bottom', 'Samples', units='n')
         self._plt1.setLabel('left', 'Phase', units='deg')
         '''
@@ -1606,20 +2010,226 @@ class MainWindow(QtGui.QMainWindow):
     def _configure_timers(self):
 
         self._timer_plot = QtCore.QTimer(self)
-        #self._timer_plot.timeout.connect(self._update_plot) # moved to start method
-        
-        # VER 0.1.6 DEBUG 
-        # self._timer_plot.timeout.connect(self._update_plot) 
+        # moved to start method
+        #self._timer_plot.timeout.connect(self._update_plot) 
+
+    ###########################################################################
+    # Serial connection managed as a separate feature (Connect/Disconnect)
+    # VER 0.1.6b - Step 1: explicit, port-locked connection decoupled from the
+    # operation mode. The persistent exclusive handle (_serial_lock) plus the
+    # migration of GUI queries and acquisition hand-off are a later step.
+    ###########################################################################
+    def _setup_serial_connection_ui(self):
+        # Serial connection state
+        self._serial_connected = False
+        self._connected_port = None
+        self._lock_file = None
+
+        # R1: Connect / Refresh are created by the UI builder inside the
+        # connection card (bottom row); here we only wire their signals.
+        self.ui.pButton_Refresh.clicked.connect(self._refresh_ports)
+        self.ui.pButton_Connect.clicked.connect(self._toggle_serial_connection)
+
+        # Initial connection status
+        self.ui.label_COM_status.setText("Disconnected")
+
+    def _refresh_ports(self):
+        # Rescan connected devices (serial ports) and repopulate the port combo.
+        # Disabled while connected (no rescan on a held port).
+        if self._serial_connected:
+            return
+        source = self._get_source()
+        ports = self.worker.get_source_ports(source)
+        self.ui.cBox_Port.clear()
+        if ports is not None:
+            self.ui.cBox_Port.addItems(ports)
+        n = len(ports) if ports is not None else 0
+        self.ui.label_COM_status.setText("Disconnected - {} port(s) found".format(n))
+        print(TAG, "Serial ports refreshed: {} found".format(n))
+        Log.i(TAG, "Serial ports refreshed: {} found".format(n))
+
+    def _get_lock_file_path(self, port):
+        # Build a filesystem-safe lock-file path for the given port
+        safe_port_name = re.sub(r'[^A-Za-z0-9_.-]', '_', port)
+        lock_dir = os.path.join(tempfile.gettempdir(), 'openqcm_locks')
+        os.makedirs(lock_dir, exist_ok=True)
+        return os.path.join(lock_dir, safe_port_name + '.lock')
+
+    def _acquire_port_lock(self, port):
+        # Level-1 lock (multi-instance protection). Windows COM ports are
+        # natively exclusive, so the file lock is only needed on Unix.
+        if sys.platform == 'win32':
+            return True
+        import fcntl
+        lock_path = self._get_lock_file_path(port)
+        try:
+            self._lock_file = open(lock_path, 'w')
+            fcntl.flock(self._lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self._lock_file.write(str(os.getpid()))
+            self._lock_file.flush()
+            return True
+        except (IOError, OSError):
+            if self._lock_file:
+                self._lock_file.close()
+                self._lock_file = None
+            return False
+
+    def _release_port_lock(self):
+        if sys.platform == 'win32':
+            return
+        if self._lock_file:
+            try:
+                import fcntl
+                fcntl.flock(self._lock_file.fileno(), fcntl.LOCK_UN)
+                self._lock_file.close()
+            except Exception as e:
+                print(TAG, "Warning: error releasing port lock: {}".format(str(e)))
+            self._lock_file = None
+
+    def _toggle_serial_connection(self):
+        # Connect or disconnect the serial port as an explicit action,
+        # independent from the selected operation mode.
+        if not self._serial_connected:
+            # ---- CONNECT ----
+            port = self.ui.cBox_Port.currentText()
+            if not port:
+                PopUp.warning(self, Constants.app_title, "No serial port selected!")
+                return
+            # Level 1: multi-instance lock file
+            if not self._acquire_port_lock(port):
+                PopUp.warning(self, Constants.app_title,
+                              "Port [{}] is already in use by another openQCM instance!".format(port))
+                return
+            # Open the persistent, exclusive serial handle (held in Standby)
+            try:
+                self._open_serial_lock(port)
+            except Exception as e:
+                self._release_port_lock()
+                self._serial_lock = None
+                PopUp.warning(self, Constants.app_title,
+                              "Unable to open port [{}]:\n{}".format(port, str(e)))
+                print(TAG, "Connection failed: {}".format(str(e)))
+                return
+            # Connected (Standby)
+            self._serial_connected = True
+            self._connected_port = port
+            self.ui.pButton_Connect.setText("Disconnect")
+            self.ui.pButton_Connect.setProperty("connected", True)
+            self.ui.pButton_Connect.style().unpolish(self.ui.pButton_Connect)
+            self.ui.pButton_Connect.style().polish(self.ui.pButton_Connect)
+            self.ui.cBox_Port.setEnabled(False)
+            self.ui.pButton_Refresh.setEnabled(False)
+            self.ui.pButton_Start.setEnabled(True)
+            self.ui.pButton_Tswitch_ON.setEnabled(True)
+            self.ui.label_COM_status.setText("Connected: {}".format(port))
+            self.ui.label_COM_status.setToolTip("Connected: {}".format(port))
+            print(TAG, "Connected to serial port {}".format(port))
+            Log.i(TAG, "Connected to serial port {}".format(port))
+            # Firmware version check on connection (moved here from app startup)
+            self.get_firmware_version(True)
+        else:
+            # ---- DISCONNECT ----
+            if self._serial_lock is not None:
+                try:
+                    self._serial_lock.close()
+                except Exception:
+                    pass
+                self._serial_lock = None
+            self._release_port_lock()
+            self._serial_connected = False
+            self._connected_port = None
+            self.ui.pButton_Connect.setText("Connect")
+            self.ui.pButton_Connect.setProperty("connected", False)
+            self.ui.pButton_Connect.style().unpolish(self.ui.pButton_Connect)
+            self.ui.pButton_Connect.style().polish(self.ui.pButton_Connect)
+            self.ui.cBox_Port.setEnabled(True)
+            self.ui.pButton_Refresh.setEnabled(True)
+            self.ui.pButton_Start.setEnabled(False)
+            self.ui.pButton_Tswitch_ON.setEnabled(False)
+            self.ui.label_COM_status.setText("Disconnected")
+            print(TAG, "Disconnected from serial port")
+            Log.i(TAG, "Disconnected from serial port")
+
+    def _open_serial_lock(self, port):
+        # Open the persistent, exclusive serial handle held by the GUI while
+        # connected and idle (Standby). Configuration matches the former
+        # per-query setup.
+        self._serial_lock = serial.Serial()
+        self._serial_lock.port = port
+        self._serial_lock.baudrate = Constants.serial_default_speed
+        self._serial_lock.stopbits = serial.STOPBITS_ONE
+        self._serial_lock.bytesize = serial.EIGHTBITS
+        self._serial_lock.timeout = Constants.serial_timeout_ms
+        self._serial_lock.writetimeout = Constants.serial_writetimeout_ms
+        try:
+            self._serial_lock.exclusive = True
+        except Exception:
+            pass
+        self._serial_lock.open()
+
+    def _reacquire_serial_lock(self):
+        # Re-open the persistent handle after the acquisition process released
+        # the port (called on stop). No-op if not connected or already open.
+        if not self._serial_connected:
+            return
+        if self._serial_lock is not None and self._serial_lock.isOpen():
+            return
+        try:
+            self._open_serial_lock(self._connected_port)
+        except Exception as e:
+            print(TAG, "Warning: could not re-acquire serial port: {}".format(str(e)))
+            Log.w(TAG, "Could not re-acquire serial port: {}".format(str(e)))
+
+    def _serial_write(self, payload):
+        # Write a command on the persistent connection. Requires an active
+        # connection and no running acquisition (the child owns the port then).
+        if not self._serial_connected or self._serial_lock is None:
+            print(TAG, "Serial write skipped: not connected")
+            return False
+        if self.worker.is_running():
+            print(TAG, "Serial write skipped: acquisition running")
+            return False
+        try:
+            self._serial_lock.write(payload)
+            return True
+        except Exception as e:
+            print(TAG, "Serial write error: {}".format(str(e)))
+            Log.e(TAG, "Serial write error: {}".format(str(e)))
+            return False
+
+    def _serial_query(self, payload, wait=0.4):
+        # Write a command on the persistent connection and read the reply.
+        if not self._serial_connected or self._serial_lock is None:
+            return ""
+        try:
+            self._serial_lock.reset_input_buffer()
+            self._serial_lock.write(payload)
+            sleep(wait)
+            n = self._serial_lock.inWaiting()
+            data = self._serial_lock.read(n).decode(Constants.app_encoding)
+            sleep(wait)
+            return data
+        except Exception as e:
+            print(TAG, "Serial query error: {}".format(str(e)))
+            Log.e(TAG, "Serial query error: {}".format(str(e)))
+            return ""
 
     ###########################################################################
     # Configures the connections between signals and UI elements
     ###########################################################################
     def _configure_signals(self):
 
-        self.ui.pButton_Start.clicked.connect(self.start)
-        self.ui.pButton_Stop.clicked.connect(self.stop)
+        # VER 0.1.6b set up the serial connection feature (button + state)
+        self._setup_serial_connection_ui()
+
+        # Phase 3a: single Start/Stop toggle — pButton_Start drives both; Stop hidden.
+        self.ui.pButton_Start.setStyleSheet("")   # drop inline style so theme QSS (#pButton_Start) applies
+        self.ui.pButton_Start.clicked.connect(self._toggle_start_stop)
+        self.ui.pButton_Stop.hide()
         self.ui.pButton_Clear.clicked.connect(self.clear)
-        self.ui.pButton_Reference.clicked.connect(self.reference)
+        self.ui.pButton_Autoscale.clicked.connect(self.autoscale)
+        # single Set/Clear Reference toggle (pButton_Reference_Not is hidden)
+        self.ui.pButton_Reference.clicked.connect(self._toggle_reference)
         self.ui.pButton_Reference_Not.clicked.connect(self.reference_not)
 
         # TODO delete sample box
@@ -1636,8 +2246,13 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.cBox_sampling_time.currentIndexChanged.connect(self._datalog_sampling_time_changed)
 
         # Temperature control button
-        self.ui.pButton_Tswitch_ON.clicked.connect(self.Temperature_Control_ON)
-        self.ui.pButton_Tswitch_OFF.clicked.connect(self.Temperature_Control_OFF)
+        # GUI: single Temperature control ON/OFF toggle. pButton_Tswitch_ON is
+        # repurposed as the toggle; the separate OFF button is hidden.
+        self.ui.pButton_Tswitch_ON.clicked.connect(self._toggle_temperature_control)
+        self.ui.pButton_Tswitch_OFF.hide()
+        self._update_tec_toggle()
+        # gated on the serial connection: disabled/grey until connected
+        self.ui.pButton_Tswitch_ON.setEnabled(self._serial_connected)
         
         
         # VER 0.1.4
@@ -1661,6 +2276,9 @@ class MainWindow(QtGui.QMainWindow):
         
         '''
         
+        '''
+        # Buttons removed. Action moved in the menu bar
+
         # DEV RAWDATA
         self.ui.rawData_btn.clicked.connect(self._raw_data_plot)
         
@@ -1669,10 +2287,7 @@ class MainWindow(QtGui.QMainWindow):
         
         # VER 0.1.6 push button for TEC current data plot secondary window 
         self.ui.pButtonSecondWindow.clicked.connect(self.open_second_window)
-        
-        # DEV G CONDUCTANCE RAW DATA VIEW 
-        self.ui.conductanceData_btn.clicked.connect(self._conductance_data_plot)
-        
+        '''
     
     # VER 0.1.4
     # add-on view sweep raw data plot
@@ -1776,8 +2391,10 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
         time_value = float("{0:.1f}".format(self.worker.get_time_elapsed()))        
         self.ui.time_indicator.setText(str(time_value))
+        # R2: bottom-bar sampling/elapsed-time mirror
+        self.ui.statusSampValue.setText("S: {} s".format(time_value))
 
-        #### SINGLE Start 
+        #### SINGLE check 
         # --------------------------------------------------------------------
         if  self._get_source() == SourceType.serial:
             vector1 = self.worker.get_d1_buffer()
@@ -1813,18 +2430,18 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
                        # set the start time 
                        # self._xaxis.start_time = self.start_time with a litle help of my friends -1e6
+                       
                        self.start_time = time_arr[0]/1e6
                        self._xaxis.start_time = time_arr[0]/1e6
                        self._xaxisD.start_time = time_arr[0]/1e6
                        self._xaxisT.start_time = time_arr[0]/1e6
-                   
-
+                       
                if str(vector1[0])=='nan' and not self._ser_error1 and not self._ser_error2:
                   label1 = 'processing...'
                   label2 = 'processing...'
                   label3 = 'processing...'
                   labelstatus = 'Processing'
-                  self.ui.infostatus.setStyleSheet('background: #ffff00; padding: 1px; border: 1px solid #cccccc') #ff8000
+                  self.ui.infostatus.setStyleSheet(self._status_pill("warn")) #ff8000
 
                   color_err = '#000000'
                   labelbar = 'Please wait, processing early data...'
@@ -1837,7 +2454,7 @@ class MainWindow(QtGui.QMainWindow):
                         labelstatus = 'Warning'
                         color_err = '#ff0000'
                         labelbar = 'Warning: unable to apply half-power bandwidth method, lower and upper cut-off frequency not found'
-                        self.ui.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
+                        self.ui.infostatus.setStyleSheet(self._status_pill("err"))
 
                       elif self._ser_error1:
                         label1= ""
@@ -1846,7 +2463,7 @@ class MainWindow(QtGui.QMainWindow):
                         labelstatus = 'Warning'
                         color_err = '#ff0000'
                         labelbar = 'Warning: unable to apply half-power bandwidth method, lower cut-off frequency (left side) not found'
-                        # self.ControlsWin.ui1.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
+                        # self.ControlsWin.ui1.infostatus.setStyleSheet(self._status_pill("err"))
                       elif self._ser_error2:
                         label1= ""
                         label2= ""
@@ -1854,7 +2471,7 @@ class MainWindow(QtGui.QMainWindow):
                         labelstatus = 'Warning'
                         color_err = '#ff0000'
                         labelbar = 'Warning: unable to apply half-power bandwidth method, upper cut-off frequency (right side) not found'
-                        self.ui.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
+                        self.ui.infostatus.setStyleSheet(self._status_pill("err"))
                else:
                   if not self._ser_error1 and not self._ser_error2:
                       if not self._reference_flag:
@@ -1873,7 +2490,7 @@ class MainWindow(QtGui.QMainWindow):
                       labelstatus = 'Monitoring'
                       color_err = '#000000'
                       labelbar = 'Monitoring!'
-                      self.ui.infostatus.setStyleSheet('background: #00ff72; padding: 1px; border: 1px solid #cccccc')
+                      self.ui.infostatus.setStyleSheet(self._status_pill("ok"))
 
                   else:
                       if self._ser_error1 and self._ser_error2:
@@ -1883,7 +2500,7 @@ class MainWindow(QtGui.QMainWindow):
                         labelstatus = 'Warning'
                         color_err = '#ff0000'
                         labelbar = 'Warning: unable to apply half-power bandwidth method, lower and upper cut-off frequency not found'
-                        self.ui.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
+                        self.ui.infostatus.setStyleSheet(self._status_pill("err"))
 
                       elif self._ser_error1:
                         label1= "-"
@@ -1892,7 +2509,7 @@ class MainWindow(QtGui.QMainWindow):
                         labelstatus = 'Warning'
                         color_err = '#ff0000'
                         labelbar = 'Warning: unable to apply half-power bandwidth method, lower cut-off frequency (left side) not found'
-                        self.ui.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
+                        self.ui.infostatus.setStyleSheet(self._status_pill("err"))
 
                       elif self._ser_error2:
                         label1= "-"
@@ -1901,10 +2518,10 @@ class MainWindow(QtGui.QMainWindow):
                         labelstatus = 'Warning'
                         color_err = '#ff0000'
                         labelbar = 'Warning: unable to apply half-power bandwidth method, upper cut-off frequency (right side) not found'
-                        self.ui.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
+                        self.ui.infostatus.setStyleSheet(self._status_pill("err"))
                
-               self.ui.infostatus.setText("<font color=#000000 > Program Status </font>" + labelstatus)
-               self.ui.infobar.setText("<font color=#0000ff> Infobar </font><font color={}>{}</font>".format(color_err,labelbar))
+               self.ui.infostatus.setText("● Program Status:" + labelstatus)
+               self.ui.infobar.setText("Infobar <font color={}>{}</font>".format(color_err, labelbar))
                # progressbar
                self.ui.progressBar.setValue(self._completed)
 
@@ -1920,7 +2537,7 @@ class MainWindow(QtGui.QMainWindow):
                 # print(f"An error occurred: {e}")
                 pass
 
-        #### CALIBRATION Start
+        #### CALIBRATION check
         # ---------------------------------------------------------------------
     
         elif self._get_source() == SourceType.calibration:
@@ -1929,8 +2546,15 @@ class MainWindow(QtGui.QMainWindow):
             # VER 0.1.6 DEBUG check the stop flag variable 
             pre_stop_flag = stop_flag
             
-            # disable stop button             
-            self.ui.pButton_Stop.setEnabled(False)
+            # VER 0.1.6 user cancellation (ported from openQCM Q-1 v3.0): if the
+            # user pressed Stop mid-sweep, CalibrationProcess emitted the -1
+            # sentinel and the worker latched it — tear down cleanly, once.
+            # The Stop button is intentionally left ENABLED during peak detection
+            # (it used to be disabled here) so the procedure can be cancelled.
+            if self.worker.is_calibration_cancelled():
+                if self._timer_plot.isActive():   # guard: run the teardown once
+                    self.stop()
+                return
 
             # get additional error flag 
             vector1 = self.worker.get_value1_buffer()
@@ -1947,7 +2571,7 @@ class MainWindow(QtGui.QMainWindow):
             color_err = '#000000'
             labelbar = 'The operation might take just over a minute to complete... please wait...'
 
-            self.ui.infostatus.setStyleSheet('background: #ffff00; padding: 1px; border: 1px solid #cccccc')
+            self.ui.infostatus.setStyleSheet(self._status_pill("warn"))
 
             # request the error data from Worker.py
             error1, error2, error3, self._ser_control, self._overtone_number = self.worker.get_ser_error()
@@ -1972,7 +2596,7 @@ class MainWindow(QtGui.QMainWindow):
               label3 = 'not available'
               color_err = '#ff0000'
               labelstatus = 'Calibration Warning'
-              self.ui.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
+              self.ui.infostatus.setStyleSheet(self._status_pill("err"))
               labelbar = 'Calibration Warning: empty buffer! Please, repeat the Calibration after disconnecting/reconnecting Device!'
               # set stop flag True
               stop_flag = 1
@@ -1984,7 +2608,7 @@ class MainWindow(QtGui.QMainWindow):
               label3 = 'not available'
               color_err = '#ff0000'
               labelstatus = 'Calibration Warning'
-              self.ui.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
+              self.ui.infostatus.setStyleSheet(self._status_pill("err"))
               labelbar = 'Calibration Warning: empty buffer/ValueError! Please, repeat the Calibration after disconnecting/reconnecting Device!'
               # set stop flag True
               stop_flag=1
@@ -2003,20 +2627,17 @@ class MainWindow(QtGui.QMainWindow):
               # ---------------------------------------------------------------
               if vector2[0] == 0 and vector3[0] == 0:
                  labelstatus = 'Calibration Success'
-                 self.ui.infostatus.setStyleSheet('background: #00ff72; padding: 1px; border: 1px solid #cccccc')
+                 self.ui.infostatus.setStyleSheet(self._status_pill("ok"))
                  color_err = '#000000'
                  labelbar = 'Calibration Success for baseline correction!'
                  
                  # Set the boolean stop flag True to stop the loop                   
                  stop_flag = 1
                  
-                 # VER 0.1.6 DEBUG Check how many times you pass through here.
-                 # print ("VER 0.1.6 DEBUG: passing through calibration success ")
-                 
               elif vector2[0] == 1 or vector3[0] == 1:
                  color_err = '#ff0000'
                  labelstatus = 'Calibration Warning'
-                 self.ui.infostatus.setStyleSheet('background: #ff0000; padding: 1px; border: 1px solid #cccccc')
+                 self.ui.infostatus.setStyleSheet(self._status_pill("err"))
 
                  if vector2[0]== 1:
                    labelbar = 'Calibration Warning: ValueError or generic error during signal acquisition. Please, repeat the Calibration'
@@ -2028,17 +2649,11 @@ class MainWindow(QtGui.QMainWindow):
                    labelbar = 'Calibration Warning: unable to identify fundamental peak or apply peak detection algorithm. Please, repeat the Calibration!'
                    stop_flag=1 ##
             
-            self.ui.infostatus.setText("<font color=#000000> Program Status </font>" + labelstatus)
-            self.ui.infobar.setText("<font color=#0000ff> Infobar </font><font color={}>{}</font>".format(color_err,labelbar))
+            self.ui.infostatus.setText("● Program Status:" + labelstatus)
+            self.ui.infobar.setText("Infobar <font color={}>{}</font>".format(color_err, labelbar))
             
             # progressbar -------------
             self.ui.progressBar.setValue(self._completed + 10)
-            
-            # VER 0.1.6 DEBUG print stop_flag boolean 
-            # if pre_stop_flag != stop_flag:
-            #     print ("VER 0.1.6 DEBUG: stop_flag = ", stop_flag)
-            # pre_stop_flag = stop_flag
-            # print ("VER 0.1.6 DEBUG: stop_flag = ", stop_flag)
             
             # terminate the  calibration (simulate clicked stop)
             if stop_flag == 1:
@@ -2081,7 +2696,7 @@ class MainWindow(QtGui.QMainWindow):
                # reset stop flag 
                stop_flag = 0
                
-        #### MULTISCAN Start
+        #### MULTISCAN check
         # ---------------------------------------------------------------------
         elif self._get_source() == SourceType.multiscan:
             vector1 = self.worker.get_d1_buffer()
@@ -2117,14 +2732,15 @@ class MainWindow(QtGui.QMainWindow):
                   labelstatus = 'Processing'
                   color_err = '#000000'
                   labelbar = 'Please wait, processing early data...'
-                  self.ui.infostatus.setText("<font color=#000000> Program Status </font>" + labelstatus)
-                  self.ui.infobar.setText("<font color=#0000ff> Infobar </font><font color={}>{}</font>".format(color_err,labelbar))
+                  self.ui.infostatus.setText("● Program Status:" + labelstatus)
+                  self.ui.infobar.setText("Infobar <font color={}>{}</font>".format(color_err, labelbar))
 
                # progressbar
                self.ui.progressBar.setValue(self._completed)
                
             if self._ser_control == Constants.environment:
-                # VER 0.1.6 TODO set te strat time using the time axis buffer 
+                
+                # VER 0.1.6 TODO set the start time using the time axis buffer 
                 
                 # 1 option 
 # =============================================================================
@@ -2149,20 +2765,9 @@ class MainWindow(QtGui.QMainWindow):
                     if buffer.size > 0 and not np.isnan(buffer[0]): 
                         # Assuming the buffer is a list-like structure and you want the first element
                         self._time_axis_new[idx] = buffer[0]
-                        
-# =============================================================================
-#                 # DEBUG 
-#                 print ("DEBUG: time axis new a list of first times = ", self._time_axis_new)
-# =============================================================================
-                
+                    
                 # Set start_time to the smallest value in time_axis_new
                 self.start_time = np.nanmin(self._time_axis_new)
-                
-# =============================================================================
-#                 print ("DEBUG: start time = ", self.start_time)
-# =============================================================================
-                
-                
                 
                 # VER 0.1.6 clear plt reset buffer at the end of processing early data
                 # TODO not necessary to clear here ?
@@ -2174,15 +2779,35 @@ class MainWindow(QtGui.QMainWindow):
                 self._xaxis.start_time = self.start_time/1e6
                 self._xaxisD.start_time = self.start_time/1e6
                 self._xaxisT.start_time = self.start_time/1e6
-
+                
                 # VER 0.1.2
                 # Optimize and update infobar and infostatus in multiscan mode
                 labelstatus = 'Monitoring'
                 color_err = '#000000'
                 labelbar = 'Monitoring multiscan frequency and dissipation '
-                self.ui.infostatus.setText("<font color=#000000> Program Status </font>" + labelstatus)
-                self.ui.infobar.setText("<font color=#0000ff> Infobar </font><font color={}>{}</font>".format(color_err,labelbar))
-
+                self.ui.infostatus.setText("● Program Status:" + labelstatus)
+                self.ui.infobar.setText("Infobar <font color={}>{}</font>".format(color_err, labelbar))
+            
+            # VER 0.1.6 check bandwidth error 
+            if self._ser_control > Constants.environment:
+               
+                if (self._ser_error1 or self._ser_error2):
+                  labelstatus = 'Warning'
+                  color_err = '#ff0000'
+                  # labelbar = f'Warning: Unable to process raw data to get bandwidth measurement on {self._overtone_number}'
+                  labelbar = f'Warning: Unable to process raw data to get bandwidth measurement on {2*self._overtone_number + 1} overtone'
+                  self.ui.infostatus.setText("● Program Status:" + labelstatus)
+                  self.ui.infobar.setText("Infobar <font color={}>{}</font>".format(color_err, labelbar))
+                
+                else: 
+                    # VER 0.1.2
+                    # Optimize and update infobar and infostatus in multiscan mode
+                    labelstatus = 'Monitoring'
+                    color_err = '#000000'
+                    labelbar = 'Monitoring multiscan frequency and dissipation '
+                    self.ui.infostatus.setText("● Program Status:" + labelstatus)
+                    self.ui.infobar.setText("Infobar <font color={}>{}</font>".format(color_err, labelbar))
+                    
 
         #### REFERENCE SET
         # ---------------------------------------------------------------------
@@ -2220,7 +2845,7 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
 #                 self._plt0_line.setData(x = self._readFREQ, y = self.worker.get_value1_buffer(), pen=Constants.plot_colors[0])
 # =============================================================================
-                self._plt0_line.setData(x = x_sweep_reduced, y = y_sweep_reduced, pen=Constants.plot_colors[0])
+                self._plt0_line.setData(x = x_sweep_reduced, y = y_sweep_reduced, pen=self._curve_color())
         
                 
                 
@@ -2328,8 +2953,8 @@ class MainWindow(QtGui.QMainWindow):
                     y_d_min = y_diss_single_min - y_d_range
                   
                     # set y range axis 
-                    self._plt2.setYRange(y_f_min, y_f_max)
-                    self._pltD.setYRange(y_d_min, y_d_max)
+                    self._set_yrange_forced(self._plt2, y_f_min, y_f_max)
+                    self._set_yrange_forced(self._pltD, y_d_min, y_d_max)
 # =============================================================================
 #                
 # =============================================================================
@@ -2386,14 +3011,14 @@ class MainWindow(QtGui.QMainWindow):
                     y_t_range = 1
                     y_t_min = y_temperature_min - y_t_range
                     y_t_max = y_temperature_max + y_t_range
-                    self._plt4.setYRange(y_t_min, y_t_max)
+                    self._set_yrange_forced(self._plt4, y_t_min, y_t_max)
 # =============================================================================
 # 
 # =============================================================================
                 
                 # VER 0.1.6 round to 1 decimal
                 label_indicator_temperature = float("{0:.1f}".format(y_temperature[0]))
-                self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+                self._set_indicator_temperature(label_indicator_temperature)
                 
 # =============================================================================
 #                 self._plt4.clear()
@@ -2411,14 +3036,19 @@ class MainWindow(QtGui.QMainWindow):
 # 
 #                 # set temperature current value
 #                 label_indicator_temperature = float("{0:.2f}".format(y_temperature[0]))
-#                 self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+#                 self._set_indicator_temperature(label_indicator_temperature)
 # =============================================================================
 
                 # VER 0.1.6 TEC CURRENT update plot
                 # -------------------------------------------------------------
                 try:
-                    #self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
-                    self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+                    # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
+                    # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+                    self.second_window.update_plot(
+                        self.worker.get_t3_buffer(),
+                        self.worker.get_data_current_tec_buffer(),
+                        start_time = self.start_time
+                    )
                 except AttributeError:
                     pass
  
@@ -2627,10 +3257,8 @@ class MainWindow(QtGui.QMainWindow):
                             y_d_min = y_diss_min - y_d_range
                             
                             # set y range axis 
-                            # VER 0.1.6G DEBUG
-                            if not Constants.plot_autoscale_yaxis:
-                                self._plt2.setYRange(y_f_min, y_f_max)
-                                self._pltD.setYRange(y_d_min, y_d_max)
+                            self._set_yrange_forced(self._plt2, y_f_min, y_f_max)
+                            self._set_yrange_forced(self._pltD, y_d_min, y_d_max)
 
                     else:
                         dummy = [0]
@@ -2677,7 +3305,7 @@ class MainWindow(QtGui.QMainWindow):
                 
                 # VER 0.1.6 round to 1 decimal
                 label_indicator_temperature = float("{0:.1f}".format(y_temperature[0]))
-                self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+                self._set_indicator_temperature(label_indicator_temperature)
                 
                 
                 # VER 0.1.6 TODO set y range temperature 
@@ -2690,9 +3318,7 @@ class MainWindow(QtGui.QMainWindow):
                     y_t_range = 1
                     y_t_min = y_temperature_min - y_t_range
                     y_t_max = y_temperature_max + y_t_range
-                    # VER 0.1.6G DEBUG
-                    if not Constants.plot_autoscale_yaxis:
-                        self._plt4.setYRange(y_t_min, y_t_max)
+                    self._set_yrange_forced(self._plt4, y_t_min, y_t_max)
                     
                     
 # =============================================================================
@@ -2711,14 +3337,20 @@ class MainWindow(QtGui.QMainWindow):
 # 
 #                 # set temperature current value
 #                 label_indicator_temperature = float("{0:.2f}".format(y_temperature[0]))
-#                 self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+#                 self._set_indicator_temperature(label_indicator_temperature)
 # =============================================================================
 
                 # VER 0.1.6 TEC CURRENT update plot
+                # VER 0.1.6 TODO start time set to zero in multi mode
                 # -------------------------------------------------------------
                 try:
-                    #self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
-                    self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+                    # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
+                    # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+                    self.second_window.update_plot(
+                        self.worker.get_t3_buffer(),
+                        self.worker.get_data_current_tec_buffer(),
+                        start_time = self.start_time/1e6
+                    )
                 except AttributeError:
                     pass
 
@@ -2777,7 +3409,7 @@ class MainWindow(QtGui.QMainWindow):
                
                # VER 0.1.6 the calibration curve white color
                calibration_readFREQ  = np.arange(len(self.worker.get_value1_buffer())) * (Constants.calib_fStep) + Constants.calibration_frequency_start
-               self._plt0.plot(x=calibration_readFREQ, y=self.worker.get_value1_buffer(), pen=Constants.plot_colors[0])
+               self._plt0.plot(x=calibration_readFREQ, y=self.worker.get_value1_buffer(), pen=self._curve_color())
                
                # VER 0.1.6 remove reference to phase signal
 # =============================================================================
@@ -2807,7 +3439,7 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
 #                 self._plt0_line.setData(x = self._readFREQ, y = self.worker.get_value1_buffer(), pen=Constants.plot_colors[0])
 # =============================================================================
-               self._plt0_line.setData(x = x_sweep_reduced, y = y_sweep_reduced, pen=Constants.plot_colors[0])
+               self._plt0_line.setData(x = x_sweep_reduced, y = y_sweep_reduced, pen=self._curve_color())
 
 # =============================================================================
 #                self._plt0.clear()
@@ -2893,10 +3525,8 @@ class MainWindow(QtGui.QMainWindow):
                    y_d_min = y_diss_single_min - y_d_range
                  
                    # set y range axis 
-                   # VER 0.1.6G DEBUG
-                   if not Constants.plot_autoscale_yaxis:
-                       self._plt2.setYRange(y_f_min, y_f_max)
-                       self._pltD.setYRange(y_d_min, y_d_max)
+                   self._set_yrange_forced(self._plt2, y_f_min, y_f_max)
+                   self._set_yrange_forced(self._pltD, y_d_min, y_d_max)
 # =============================================================================
 #                
 # =============================================================================
@@ -2939,16 +3569,14 @@ class MainWindow(QtGui.QMainWindow):
                    y_t_range = 1
                    y_t_min = y_temperature_min - y_t_range
                    y_t_max = y_temperature_max + y_t_range
-                   # VER 0.1.6G DEBUG
-                   if not Constants.plot_autoscale_yaxis:
-                       self._plt4.setYRange(y_t_min, y_t_max)
+                   self._set_yrange_forced(self._plt4, y_t_min, y_t_max)
 # =============================================================================
 # 
 # =============================================================================               
                
                # VER 0.1.6 temprature round to 1 decimal
                label_indicator_temperature = float("{0:.1f}".format(y_temperature[0]))
-               self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+               self._set_indicator_temperature(label_indicator_temperature)
                
 # =============================================================================
 # 
@@ -2966,14 +3594,19 @@ class MainWindow(QtGui.QMainWindow):
 # 
 #                # set temperature current value
 #                label_indicator_temperature = float("{0:.2f}".format(y_temperature[0]))
-#                self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+#                self._set_indicator_temperature(label_indicator_temperature)
 # =============================================================================
 
                # VER 0.1.6 TEC CURRENT update plot
                # -------------------------------------------------------------
                try:
-                   #self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
-                   self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+                   # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
+                   # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+                   self.second_window.update_plot(
+                       self.worker.get_t3_buffer(),
+                       self.worker.get_data_current_tec_buffer(),
+                       start_time = self.start_time
+                   )
                except AttributeError:
                    pass
 
@@ -3177,13 +3810,11 @@ class MainWindow(QtGui.QMainWindow):
                    y_t_range = 1
                    y_t_min = y_temperature_min - y_t_range
                    y_t_max = y_temperature_max + y_t_range
-                   # VER 0.1.6G DEBUG
-                   if not Constants.plot_autoscale_yaxis:
-                       self._plt4.setYRange(y_t_min, y_t_max)
+                   self._set_yrange_forced(self._plt4, y_t_min, y_t_max)
                
                # VER 0.1.6  round to 1 decimal  
                label_indicator_temperature = float("{0:.1f}".format(y_temperature[0]))
-               self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+               self._set_indicator_temperature(label_indicator_temperature)
 # =============================================================================
 #                self._plt4.clear()
 #                # do not autoscale y
@@ -3199,24 +3830,29 @@ class MainWindow(QtGui.QMainWindow):
 # 
 #                # set temperature current value
 #                label_indicator_temperature = float("{0:.2f}".format(y_temperature[0]))
-#                self.ui.indicator_temperature.setText(str(label_indicator_temperature))
+#                self._set_indicator_temperature(label_indicator_temperature)
 # =============================================================================
 
-               # VER 0.1.5b TEC CURRENT update plot
+               # VER 0.1.6 TEC CURRENT update plot
                # -------------------------------------------------------------
                try:
-                   #self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
-                   self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+                  # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
+                  # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
+                  self.second_window.update_plot(
+                      self.worker.get_t3_buffer(),
+                      self.worker.get_data_current_tec_buffer(),
+                      start_time = self.start_time/1e6
+                  )
                except AttributeError:
-                   pass
+                  pass
                
     # VER 0.1.4
     # update TEC status label 
     def _update_TEC_status(self, value): 
         # temperature control active, temperature is out of range, electric current is null ERROR
         if value == Constants.STATUS_CONTROL_ACTIVE_LOW_CURRENT_NULL: 
-            self.ui.label_Temperature_state.setStyleSheet("background-color: red; color: white; border: 1px solid gray; border-radius: 2px;  padding: 2 px;")
-            self.ui.label_Temperature_state.setText("Temperature Control: Error, please reset the TEC controller ")
+            self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("err"))
+            self.ui.label_Temperature_state.setText("Error, please reset the TEC controller ")
             self.ui.pButton_TEC_Reset.setEnabled(True)
             
             if value != self._old_value:
@@ -3229,22 +3865,29 @@ class MainWindow(QtGui.QMainWindow):
             
         # temperature control NOT active     
         if value == Constants.STATUS_CONTROL_NOT_ACTIVE: 
-            self.ui.label_Temperature_state.setStyleSheet("background-color: white; color: black; border: 1px solid gray; border-radius:2px; padding: 2 px;")
+            self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("off"))
             self.ui.label_Temperature_state.setText("Temperature Control: Not active ")
             self.ui.pButton_TEC_Reset.setEnabled(False)
             
         # temperature control active, temperature is out of range, electric current is NOT null    
         if value == Constants.STATUS_CONTROL_ACTIVE_LOW_CURRENT_NOT_NULL:
-            self.ui.label_Temperature_state.setStyleSheet("background-color: yellow; color: black; border: 1px solid gray; border-radius:2px; padding: 2 px;")
+            self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("warn"))
             self.ui.label_Temperature_state.setText("Temperature Control: Active getting setpoint ")
             self.ui.pButton_TEC_Reset.setEnabled(False)
             
-        # temperature control active and temperature in range    
+        # temperature control active and temperature in range
         if value == Constants.STATUS_CONTROL_ACTIVE_HIGH:
-            self.ui.label_Temperature_state.setStyleSheet("background-color: rgba(0, 142, 192, 0.4); color: black; border: 1px solid gray; border-radius: 2px;  padding: 2 px;")
+            self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("active"))
             self.ui.label_Temperature_state.setText("Temperature Control: Status in range ")
             self.ui.pButton_TEC_Reset.setEnabled(False)
-        
+
+        # GUI: keep the single toggle in sync with the firmware-reported state
+        # (any active state = will turn OFF/brown; not-active = will turn ON).
+        _active = (value != Constants.STATUS_CONTROL_NOT_ACTIVE)
+        if _active != self._tec_on:
+            self._tec_on = _active
+            self._update_tec_toggle()
+
         self._old_value = value
             
     def _TEC_Reset_button(self):
@@ -3299,6 +3942,10 @@ class MainWindow(QtGui.QMainWindow):
             else:
                 self.ui.F9.setText("nan")
 
+        # R2: mirror the fundamental on the bottom status bar
+        if index == 0:
+            self.ui.statusFreqValue.setText("F: {}".format(label))
+
     def _update_indicator_F_single (self, index, value):
 
         label = float("{0:.1f}".format(value[0]))
@@ -3327,6 +3974,9 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.F9.setText(str(label))
         else:
             self.ui.F9.setText("nan")
+
+        # R2: mirror the measured overtone on the bottom status bar
+        self.ui.statusFreqValue.setText("F: {}".format(label))
 
     def _update_indicator_D (self, index, value):
         value_multiplied = value[0] * 1e6
@@ -3360,6 +4010,10 @@ class MainWindow(QtGui.QMainWindow):
             else:
                 self.ui.D9.setText("nan")
 
+        # R2: mirror the fundamental on the bottom status bar
+        if index == 0:
+            self.ui.statusDissValue.setText("D: {}".format(label))
+
     def _update_indicator_D_single (self, index, value):
         value_multiplied = value[0] * 1e6
         
@@ -3390,6 +4044,9 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.D9.setText(str(label))
         else:
             self.ui.D9.setText("nan")
+
+        # R2: mirror the measured overtone on the bottom status bar
+        self.ui.statusDissValue.setText("D: {}".format(label))
 
 
     def _update_scan_selector(self):
@@ -3462,6 +4119,10 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
 
     # VER 0.1.6 autoscale all plot 
+    def autoscale(self):
+        """Plot Controls > Autoscale: re-enable X+Y autorange on all plots."""
+        self._autoscale_plot_all(True)
+
     def _autoscale_plot_all (self, boolean):
        
        # amplitude sweep 
@@ -3470,8 +4131,152 @@ class MainWindow(QtGui.QMainWindow):
        self._plt2.enableAutoRange(enable=boolean)
        # dissipation 
        self._pltD.enableAutoRange(enable=boolean)
-       # temperature 
+       # temperature
        self._plt4.enableAutoRange(enable=boolean)
+
+    # VER 0.1.6 apply the forced (padded) Y-range only when enabled; otherwise
+    # leave the plot in autorange (see Constants.plot_force_yrange). Development
+    # builds run with the flag False (tight autorange); set True and tune the
+    # paddings for distribution.
+    # ------------------------------------------------------------------
+    # Phase 4: plot interactions — custom right-click menu, grid toggle,
+    # Δ cursors on the frequency and dissipation panels. Adapted from
+    # openQCM Q-1 v3.0; NEXT keeps F and D in two separate panels.
+    # ------------------------------------------------------------------
+    def _setup_plot_interactions(self):
+        # per-plot grid state (grids default OFF)
+        self._grid_on = {}
+        self._plot_menu_targets = [self._plt0, self._plt4, self._plt2, self._pltD]
+        # one handler per GraphicsLayoutWidget scene (ui.plt hosts _plt0 + _plt4)
+        for canvas in (self.ui.plt, self.ui.pltB, self.ui.pltD):
+            canvas.scene().sigMouseClicked.connect(self._on_scene_mouse_clicked)
+        # Δ cursors: two movable time cursors + delta readout per panel. The
+        # items are parented to the ViewBox (ignoreBounds) so they survive
+        # PlotItem.clear() and never drive the autorange.
+        self._plot_cursors = {}
+        for plot, kind in ((self._plt2, "F"), (self._pltD, "D")):
+            c1 = pg.InfiniteLine(angle=90, movable=True,
+                                 pen=pg.mkPen("#f4b400", width=2))
+            c2 = pg.InfiniteLine(angle=90, movable=True,
+                                 pen=pg.mkPen("#2e9e5b", width=2))
+            txt = pg.TextItem("", anchor=(0, 0), color="#888888")
+            vb = plot.getViewBox()
+            for item in (c1, c2, txt):
+                item.setVisible(False)
+                vb.addItem(item, ignoreBounds=True)
+            c1.sigPositionChanged.connect(
+                lambda _l, p=plot: self._update_cursor_delta(p))
+            c2.sigPositionChanged.connect(
+                lambda _l, p=plot: self._update_cursor_delta(p))
+            self._plot_cursors[plot] = {"c1": c1, "c2": c2,
+                                        "text": txt, "kind": kind}
+
+    def _on_scene_mouse_clicked(self, ev):
+        if ev.button() != QtCore.Qt.RightButton:
+            return
+        for plot in self._plot_menu_targets:
+            vb = plot.getViewBox()
+            if vb is not None and vb.sceneBoundingRect().contains(ev.scenePos()):
+                ev.accept()
+                self._show_plot_menu(plot, ev.screenPos().toPoint())
+                return
+
+    def _show_plot_menu(self, plot, screen_pos):
+        menu = QtGui.QMenu(self)
+        menu.addAction("Auto-scale", lambda: plot.enableAutoRange())
+        menu.addAction("Reset zoom", lambda: plot.autoRange())
+        vb = plot.getViewBox()
+        if vb.state.get("mouseMode") == pg.ViewBox.RectMode:
+            menu.addAction("Mouse: pan mode",
+                           lambda: vb.setMouseMode(pg.ViewBox.PanMode))
+        else:
+            menu.addAction("Mouse: select/zoom mode",
+                           lambda: vb.setMouseMode(pg.ViewBox.RectMode))
+        menu.addSeparator()
+        menu.addAction("Hide grid" if self._grid_on.get(plot, False)
+                       else "Show grid", lambda: self._toggle_grid(plot))
+        if plot in self._plot_cursors:
+            visible = self._plot_cursors[plot]["c1"].isVisible()
+            menu.addSeparator()
+            menu.addAction("Hide Δ cursors" if visible else "Show Δ cursors",
+                           lambda: self._toggle_cursors_for(plot))
+        menu.exec_(screen_pos)
+
+    def _toggle_grid(self, plot):
+        on = not self._grid_on.get(plot, False)
+        self._grid_on[plot] = on
+        plot.showGrid(x=on, y=on, alpha=0.3)
+        # the phase twin overlays the amplitude plot: keep the grids together
+        if plot is self._plt0:
+            self._plt1.showGrid(x=on, y=on, alpha=0.3)
+
+    def _toggle_cursors_for(self, plot, on=None):
+        info = self._plot_cursors[plot]
+        show = (not info["c1"].isVisible()) if on is None else on
+        if show:
+            x0, x1 = plot.getViewBox().viewRange()[0]
+            info["c1"].setValue(x0 + 0.30 * (x1 - x0))
+            info["c2"].setValue(x0 + 0.70 * (x1 - x0))
+        for item in (info["c1"], info["c2"], info["text"]):
+            item.setVisible(show)
+        if show:
+            self._update_cursor_delta(plot)
+        # keep the View > Δ Cursors checkbox in sync (checked = any visible)
+        act = getattr(self, "_act_cursors", None)
+        if act is not None:
+            any_on = any(i["c1"].isVisible()
+                         for i in self._plot_cursors.values())
+            act.blockSignals(True)
+            act.setChecked(any_on)
+            act.blockSignals(False)
+
+    def _toggle_all_cursors(self, checked):
+        for plot in self._plot_cursors:
+            self._toggle_cursors_for(plot, on=checked)
+
+    def _cursor_series(self, kind):
+        # Data behind the cursor Δy: multiscan → fundamental buffers (same
+        # convention as the status bar); single mode → the measured overtone.
+        if self._get_source() == SourceType.multiscan:
+            t = self.worker.get_time_values_buffer(0)
+            y = (self.worker.get_F_values_buffer(0) if kind == "F"
+                 else self.worker.get_D_values_buffer(0))
+        else:
+            t = (self.worker.get_t1_buffer() if kind == "F"
+                 else self.worker.get_t2_buffer())
+            y = (self.worker.get_d1_buffer() if kind == "F"
+                 else self.worker.get_d2_buffer())
+        return np.asarray(t, dtype=float), np.asarray(y, dtype=float)
+
+    def _update_cursor_delta(self, plot):
+        info = self._plot_cursors.get(plot)
+        if info is None or not info["c1"].isVisible():
+            return
+        x1, x2 = sorted((info["c1"].value(), info["c2"].value()))
+        # the time axis carries epoch microseconds (see Constants.DateAxis)
+        text = "Δt: {:.1f} s".format((x2 - x1) / 1e6)
+        try:
+            t, y = self._cursor_series(info["kind"])
+            ok = np.isfinite(t) & np.isfinite(y)
+            t, y = t[ok], y[ok]
+            if t.size:
+                y1 = y[np.argmin(np.abs(t - x1))]
+                y2 = y[np.argmin(np.abs(t - x2))]
+                if info["kind"] == "F":
+                    text += "   ΔF: {:+.1f} Hz".format(y2 - y1)
+                else:
+                    text += "   ΔD: {:+.2f} ppm".format((y2 - y1) * 1e6)
+        except Exception:
+            pass
+        xr, yr = plot.getViewBox().viewRange()
+        info["text"].setPos(xr[0] + 0.02 * (xr[1] - xr[0]), yr[1])
+        info["text"].setText(text)
+
+    def _set_yrange_forced(self, plot, y_min, y_max):
+        if Constants.plot_force_yrange:
+            plot.setYRange(y_min, y_max)
+        else:
+            plot.enableAutoRange(axis='y', enable=True)
         
 
 
@@ -3493,8 +4298,13 @@ class MainWindow(QtGui.QMainWindow):
            # VER 0.1.4 disable datalog sampling time 
            self.ui.cBox_sampling_time.setEnabled(False)
            
-           # VER 0.1.6 enable frequency selector inly in single mode 
+           # VER 0.1.6 enable frequency selector inly in single mode
            self.ui.cBox_Speed.setEnabled(True)
+           # frequency dropdown is only meaningful in Single Measurement
+           self.ui.cBox_Speed.setVisible(True)
+
+           # Phase 3b: reflect the current combo selection on the quick-select row
+           self._sync_overtone_buttons_from_speed()
 
         # calibration
         elif self._get_source() == SourceType.calibration:
@@ -3507,8 +4317,10 @@ class MainWindow(QtGui.QMainWindow):
            # VER 0.1.4 disable datalog sampling time 
            self.ui.cBox_sampling_time.setEnabled(False)
            
-           # VER 0.1.6 NOT enable frequency selector in peak detection  
+           # VER 0.1.6 NOT enable frequency selector in peak detection
            self.ui.cBox_Speed.setEnabled(False)
+           # hidden outside Single Measurement
+           self.ui.cBox_Speed.setVisible(False)
 
 
         # multi frequency measurement
@@ -3529,10 +4341,14 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.radioBtn_F5.setChecked(True)
             self.ui.radioBtn_F7.setChecked(True)
             self.ui.radioBtn_F9.setChecked(True)
-            
-            
+
+            # Phase 3b: mirror the all-checked default on the quick-select row
+            self._sync_overtone_buttons_from_radios()
+
             # VER 0.1.6_TEST NOT enable frequency selector in multi
             self.ui.cBox_Speed.setEnabled(False)
+            # hidden outside Single Measurement
+            self.ui.cBox_Speed.setVisible(False)
             
             # VER 0.1.6 do not update scan selector here 
 # =============================================================================
@@ -3642,7 +4458,7 @@ class MainWindow(QtGui.QMainWindow):
                                                                      width = Constants.plot_line_width))
                 
                     # VER 0.1.6 after clear the plt create the reference to the ampli lines again 
-                    self._plt0_line = self._plt0.plot(pen=Constants.plot_colors[0], width = Constants.plot_line_width)
+                    self._plt0_line = self._plt0.plot(pen=self._curve_color(), width = Constants.plot_line_width)
                 
                 # VER 0.1.6 after clear the plt create the reference to the lines again 
                 elif self._get_source() == SourceType.multiscan:
@@ -3666,7 +4482,7 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
                 # VER 0.1.6 reference to the line object temperature                 
                 # 
-                self._plt4_line = self._plt4.plot(pen=Constants.plot_color_temperature)
+                self._plt4_line = self._plt4.plot(pen=self._curve_color())
                 
                 # VER 0.1.6 do not autoscale here 
                 # enable autoragne here 
@@ -3729,6 +4545,19 @@ class MainWindow(QtGui.QMainWindow):
     ###########################################################################
     # Set reference
     ###########################################################################
+    def _toggle_reference(self):
+        # Single Set/Clear Reference toggle. reference() may decline to set (no
+        # valid data yet), so reflect the actual _reference_flag on the label.
+        if self._reference_flag:
+            self.reference_not()
+        else:
+            self.reference()
+        self._update_reference_button()
+
+    def _update_reference_button(self):
+        self.ui.pButton_Reference.setText(
+            "UNSET REF" if self._reference_flag else "SET REF")
+
     def reference(self):
         import numpy as np
 
@@ -3974,8 +4803,11 @@ class MainWindow(QtGui.QMainWindow):
     def dummy(self): 
         print ("THIS IS DUMMY")
 
-    # VER 0.1.6 open a second window    
+    # VER 0.1.6 open a second window for TEC current monitoring   
     def open_second_window(self):
+        """
+        Create and show the second window for TEC current monitoring
+        """
         # This function will be called when the button is clicked
         self.second_window = SecondWindow()
         self.second_window.show()

@@ -43,7 +43,7 @@ class Constants:
     
     # VER 0.1.5 Firmware version compatible with the current application
     # check for more information the arduino source code attached
-    FW_VERSION = '0.1.5'
+    FW_VERSION = '0.1.5a'
     
     ###################
     # PLOT parameters #
@@ -67,16 +67,21 @@ class Constants:
     # VER 0.1.6_TEST TODO check the update clock to 50 msec
     # decrease update plot to 50 msec 
     plot_update_ms = 50 # 50
+
+    # VER 0.1.6 development: keep the observable plots (frequency, dissipation,
+    # temperature) in autorange. When False, the per-update forced (padded)
+    # Y-range is skipped so PyQtGraph autoscales tight to the data; set True and
+    # tune the paddings (y_f_range / y_d_range / y_t_range in ui/mainWindow.py)
+    # for distribution builds, where a wider fixed range avoids over-emphasising
+    # small signal variations.
+    plot_force_yrange = False
     
     # VER 0.1.6 set the color to white (unused)
     # plot_colors = ['#ff0000', '#0072bd', '#00ffff', '#edb120', '#000000', '#77ac30', '#4dbeee', '#a2142f'] 
     plot_colors = [(255, 255, 255)]
     
     plot_max_lines = len(plot_colors)
-    
-    # VER 0.1.6G DEBUG
-    plot_autoscale_yaxis = True
-    
+
 # =============================================================================
 #     plot_line_width = 1.2
 # =============================================================================
@@ -109,10 +114,18 @@ class Constants:
     
     # plot_color_multi = [(0, 0, 255), (70, 130, 255), (135, 206, 250), (173, 216, 230), (240, 248, 255)]
     
-    plot_color_multi = [(0, 0, 255), (70, 99, 255), (122, 160, 255), (173, 182, 255), (255, 228, 255)]
-    
+    # plot_color_multi = [(0, 0, 255), (70, 99, 255), (122, 160, 255), (173, 182, 255), (255, 228, 255)]
+
+    plot_color_multi = [
+    (0, 0, 255),      # Blu puro
+    (0, 127, 255),    # Blu medio-azzurro
+    (0, 191, 255),    # Azzurro brillante
+    (127, 223, 255),  # Azzurro chiaro
+    (191, 255, 255)   # Azzurro molto chiaro/ciano chiaro
+    ]
+
+    # VER 0.1.6G hex palette for the conductance plots (matplotlib, not pyqtgraph)
     plot_color_multi_g =  ['#0000FF', '#4663FF', '#7AA0FF', '#ADB6FF', '#FFE4FF']
-    
                          
     name_legend = ["0th", "3rd", "5th", "7th", "9th"]                        
     
@@ -133,9 +146,8 @@ class Constants:
 #     environment = 50
 # =============================================================================
     
-    # VER 0.1.6 temporary 4 samples for saving time in dev mode  
-    # VER 0.1.6G DEBUG
-    environment = 4 # 10 # 4 samples in developemtn mode just for saving time chenage
+    # VER 0.1.6 temporary 4 samples for saving time in dev mode
+    environment = 10 # 4 samples in developemtn mode just for saving time chenage
     
     # VER 0.1.6 reduce the real-time chart history length to 8192 samples 
     ring_buffer_samples = 8192 # 16384
@@ -692,6 +704,12 @@ class Constants:
    
     SG_order_environment = 1
     SG_window_environment = 3
+
+    # VER 0.1.6 anti-outlier robust averaging of the raw circular buffer.
+    # scipy.stats.trim_mean drops the lowest/highest int(proportiontocut * N)
+    # samples per tail before averaging (N=10 -> 1 per tail). Replaces the old
+    # Savitzky-Golay + np.average, a linear filter with no outlier rejection.
+    trim_mean_proportiontocut = 0.10
     
     ###################
     class SocketClient: #unused
