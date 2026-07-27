@@ -3,6 +3,52 @@
 Reconstruction of the openQCM NEXT development history. Format inspired by
 Conventional Commits. Versions are marked by Git tags.
 
+## [Unreleased] — `impedance-analysis`
+
+### Changed
+- **Aligned with `main`** (merge of `main` @ 52a42a9, 47 commits; pre-merge state
+  tagged `v0.1.6G-pre-merge`). The branch now carries the whole `main` line —
+  `run.py` entry point, serial connection Steps 1–2, `requirements.txt` /
+  `environment.yml`, the GUI redesign (programmatic UI builder + dark/light theme),
+  robust trimmed-mean averaging, responsive calibration cancellation, firmware
+  `0.1.5a` and `docs/DATA_FORMAT_sweep_data.md` — on top of the conductance feature.
+- ⚠️ **Logged values will shift**: main's `trim_mean` replaces the
+  Savitzky-Golay + `np.average` on the acquisition ring buffer, and now averages the
+  **conductance-derived** frequency and dissipation. By design, not a regression —
+  but a pre-merge and a post-merge `logged_data/*_multi_.csv` are not directly
+  comparable.
+- **G DATA VIEW moved to the menu bar**: **Tools → Conductance Data**
+  (`actionConductance_Data`). The old sidebar button is gone — main's redesign
+  removed that whole family of buttons in favour of the menu. The handler
+  `_conductance_data_plot` is unchanged.
+- **DEBUG state removed** (roadmap item, closed by the merge): `environment` back to
+  `10`; `plot_autoscale_yaxis` dropped in favour of main's `plot_force_yrange`,
+  which gates the same forced Y-range with inverted polarity.
+- `Calibration_{5,10}MHz.txt` and `PeakFrequencies{,RT}.txt` now hold the **5 MHz**
+  sensor module currently mounted (they previously described a 10 MHz crystal).
+  These are runtime output, rewritten by `Calibration.py` on every calibration run.
+
+### Added
+- **`g<n>.txt` documented** in `software/docs/DATA_FORMAT_sweep_data.md`: the second
+  sweep family written by this branch — same layout as `<n>.txt`, but columns 2–3 are
+  the **raw AD8302 voltages** V_MAG / V_PHS instead of dB / degrees. Includes the ADC→V
+  conversion, the divider inversion it feeds, and the two traps (never baseline-correct
+  V_MAG before the exact inversion; column 3 is `|phase|`, sign folded).
+- Example `g<n>.txt` sweeps versioned alongside main's `<n>.txt`, for the same reason
+  main versions those: the Conductance Data view needs input on a fresh clone.
+
+### Removed
+- The three dead Qt-Designer UI files (`res/mainWindow_new.ui`,
+  `res/mainWindow_new_ui.py`, `ui/mainWindow_new_ui.py`). Nothing has imported them
+  since the GUI redesign; they only generated merge conflicts.
+
+### Verified
+- Offline path **byte-identical** across the merge (`plot_conductance.py`,
+  `fileStorage.py`), and offline results identical to the pre-merge baseline to the
+  last digit. `py_compile` clean across the package.
+- ⏳ **Not yet verified**: on-device smoke test (acquisition, Tools → Conductance Data)
+  and the logged-value comparison.
+
 ## [Unreleased] — `main`
 
 ### Added

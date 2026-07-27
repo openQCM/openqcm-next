@@ -62,6 +62,56 @@ phase_degrees  = ( adc_phase * ADCtoVolt / 1.5 - 0.9 ) / 0.01
 A reader does **not** need these formulas (values in the file are already dB/°);
 they only explain the units.
 
+## The `g<n>.txt` variant — raw AD8302 voltages (`impedance-analysis` branch)
+On the `impedance-analysis` branch `Multiscan.py` writes a **second family** of
+files next to the ones above, `g1.txt … g9.txt`, in the same directory and on the
+same acquisition cycle (same `FileStorage.TXT_sweeps_save` call site). They are the
+input of the conductance / impedance analysis (**Tools → Conductance Data**,
+`sweep_data/plot_conductance.py`).
+
+Identical in every structural respect — plain text, no header, whitespace-delimited,
+`%.18e`, 18001 rows, same 1 Hz frequency grid — with **one difference: columns 2 and
+3 are the raw AD8302 output voltages, not dB and degrees.**
+
+| # | Column    | Unit | Description                                                     |
+|---|-----------|------|-----------------------------------------------------------------|
+| 1 | Frequency | Hz   | identical to `<n>.txt` — same sweep, same points                |
+| 2 | V_MAG     | V    | AD8302 magnitude output, **absolute** divider level             |
+| 3 | V_PHS     | V    | AD8302 phase output                                             |
+
+```
+ADCtoVolt = 3.3 / 4096
+V_MAG     = adc_mag   * ADCtoVolt / 2.0 - 0.6   # /2 op-amp gain; -0.6 V divider offset
+V_PHS     = adc_phase * ADCtoVolt / 1.5         # /1.5 op-amp gain
+```
+
+The `-0.6 V` term compensates the INPB ×10 input attenuation (one decade at
+600 mV/decade), so column 2 is at the correct **absolute** level for inverting the
+measuring divider:
+
+```
+M = |Z_q + R17| = R17 * 10**((0.9 - V_MAG) / 0.6)        # R17 = 52.3 ohm
+phi                = (1.8 - V_PHS) / 0.01                # degrees, magnitude only
+```
+
+⚠️ Two traps, both found the hard way:
+- **Do not baseline-correct V_MAG before this inversion.** Subtracting the
+  calibration polynomial turns column 2 into a *relative* level and scales `M` by
+  `10**(V_baseline/0.6)`, which drives `M(resonance)` below `R17` and yields negative
+  resistance everywhere. The relative level is correct only for the *approximate*
+  `G = cos(phi)/|Z|`.
+- **Column 3 is |phase|.** The AD8302 has no sign output: the true phase is folded at
+  its zero crossing. Recovering the signed phase needs an unfold, and the unfold is
+  only valid when the phase actually crosses zero (air / low damping) — see
+  `_phase_signed()` in `plot_conductance.py` and
+  `docs/impedance-analysis/conductance-calculation.md`.
+
+Real first line of `g1.txt`:
+```
+4.986928000000000000e+06 -1.354903564453125431e-01 9.438354492187498446e-01
+```
+→ frequency = 4 986 928 Hz, V_MAG = −0.1355 V, V_PHS = 0.9438 V.
+
 ## Real example (first line of `1.txt`)
 ```
 4.986788000000000000e+06 -1.378842773437500391e+01 1.203842773437498970e+01
