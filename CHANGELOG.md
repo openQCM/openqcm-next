@@ -5,6 +5,38 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Added
+- **Live impedance panel** — a right-hand dock in the main window with two
+  real-time views, both computed with the **exact** complex-divider inversion:
+  - **Conductance G(f)**, all overtones overlaid, x plotted as the offset from
+    the detected peak so every overtone shares one axis;
+  - **Admittance circle B vs G**, all overtones overlaid, aspect-locked so a
+    circle looks like a circle.
+
+  Per-overtone colours match the frequency/dissipation plots, the scan selector
+  is honoured (deselected overtones disappear here too), and both views join the
+  existing right-click menu (grid, autoscale, reset zoom) and the light/dark
+  theme. The panel is collapsible, and the two plots sit in their own vertical
+  splitter so either can take the whole height.
+
+  ⚠️ **Display only — no measured value changes.** The exact formula
+  (`_phase_signed` / `_RX_exact` / `_G_exact` / `_B_exact`, ported verbatim from
+  `sweep_data/plot_conductance.py`) runs in `elaborate_multi` on a new RAW
+  absolute `V_MAG` chain, in a block that feeds nothing but the panel.
+  `parameters_finder_impedance()` still publishes the logged frequency and
+  dissipation from the approximate formula, unchanged. Verified: offline results
+  on the frozen regression fixture are identical to the last digit.
+
+  Data path mirrors the existing `A_multi` channel: `Multiscan` →
+  `Parser.add_GB_multi` → `Worker.consume_queue_GB_multi` →
+  `get_G_exact_buffer` / `get_B_exact_buffer` / `get_F_G_values_buffer` → GUI.
+  The queue argument is optional, so an older `ParserProcess` call signature
+  still works and `add_GB_multi` degrades to a no-op. The whole computation and
+  the panel refresh are wrapped in try/except: a diagnostic view must never take
+  down an acquisition.
+- `Constants.FOLD_THRESHOLD_DEG_G` (5.0) — the air/liquid discriminator for the
+  conditional phase unfold, previously hard-coded in the offline script.
+
 ### Changed
 - **Aligned with `main`** (merge of `main` @ 52a42a9, 47 commits; pre-merge state
   tagged `v0.1.6G-pre-merge`). The branch now carries the whole `main` line —

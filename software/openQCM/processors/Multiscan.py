@@ -367,6 +367,73 @@ class MultiscanProcess(multiprocessing.Process):
         phase_rad = np.deg2rad(phase)
         B = np.sin(phase_rad)/Zabs
         return B
+
+    # ------------------------------------------------------------------------
+    # VER 0.1.6G EXACT complex-divider inversion — DISPLAY ONLY
+    # ------------------------------------------------------------------------
+    # Ported verbatim from sweep_data/plot_conductance.py, where it was validated
+    # on-device in air (2026-07-23). It feeds the live impedance panel and NOTHING
+    # else: parameters_finder_impedance() above still publishes the logged
+    # frequency and dissipation from the approximate formula, so these methods
+    # cannot change a measured value.
+    #
+    # The AD8302 measures the divider transfer function H = R17/(Z_q + R17):
+    #   |Z_q + R17| = M = R17 * 10**((V_CP - V_MAG)/0.6)
+    #   angle(Z_q + R17) = -phi        (phi = SIGNED transfer-function phase)
+    # so  Z_q = M*exp(-j*phi) - R17  and  Y_q = 1/Z_q exactly.
+    #
+    # Two inputs are critical and easy to get wrong:
+    #  - V_MAG must be the RAW ABSOLUTE level. The baseline-corrected one is a
+    #    relative level: subtracting the calibration polynomial scales M by
+    #    10**(V_baseline/0.6), which drops M below R17 at resonance and yields
+    #    negative resistance everywhere.
+    #  - phi must be SIGNED. The AD8302 outputs |phase| only, folded at its zero
+    #    crossing; see _phase_signed().
+    R17_EXACT = 52.3   # series resistor of the measuring divider (ohm)
+    V_CP_EXACT = 0.9   # AD8302 center point (V)
+
+    # VER 0.1.6G signed phase from V_phase — CONDITIONAL unfold (air vs liquid)
+    def _phase_signed(self, Vph_var, fold_threshold_deg = None):
+        """
+        Signed transfer-function phase from the raw AD8302 V_PHS voltage.
+
+        Two regimes:
+        - LOW damping (air): the true phase crosses zero at resonance, so the
+          measured |phase| is FOLDED (a V touching ~0). Detected by
+          min(phase) < fold_threshold_deg -> unfold: snap the minimum to 0 and
+          flip the sign of the branch after it.
+        - HIGH damping (liquid): C0/strays dominate, the phase never crosses
+          zero and its minimum stays tens of degrees above it. There is NO fold
+          — the raw phase already IS the signed phase. Unfolding there would
+          subtract a large real offset and invert half the sweep, distorting the
+          admittance locus into an "S" (observed on-device in liquid).
+        """
+        if fold_threshold_deg is None:
+            fold_threshold_deg = Constants.FOLD_THRESHOLD_DEG_G
+        phase = (1.8 - Vph_var) / 0.01
+        im_min = np.nanargmin(phase)
+        if phase[im_min] < fold_threshold_deg:
+            phase = phase - phase[im_min]
+            phase[im_min:] = -phase[im_min:]
+        return phase
+
+    # VER 0.1.6G crystal resistance and reactance from the exact inversion
+    def _RX_exact(self, V_mag, phase_signed_deg):
+        M = self.R17_EXACT * np.power(10.0, (self.V_CP_EXACT - V_mag) / 0.6)
+        phi = np.deg2rad(phase_signed_deg)
+        R_q = M * np.cos(phi) - self.R17_EXACT
+        X_q = -M * np.sin(phi)
+        return R_q, X_q
+
+    # VER 0.1.6G exact conductance
+    def _G_exact(self, R_q, X_q):
+        den = np.maximum(R_q**2 + X_q**2, 1e-12)
+        return R_q / den
+
+    # VER 0.1.6G exact susceptance
+    def _B_exact(self, R_q, X_q):
+        den = np.maximum(R_q**2 + X_q**2, 1e-12)
+        return -X_q / den
     
     # VER 0.1.6G calculate resonance frequency 
     def _Freq_G (self, G_conductance, F_sweep): 
@@ -714,8 +781,15 @@ class MultiscanProcess(multiprocessing.Process):
         s_Vphase = UnivariateSpline(xrange, V_phase_filt, s = Constants.SPLINE_FACTOR_G)
         xs_Vphase = np.linspace(0, len(V_phase_filt) - 1, points)
         Vphase_result_fit = s_Vphase(xs_Vphase)
-        
-        
+
+        # VER 0.1.6G RAW (absolute) V_MAG on the same grid — required by the EXACT
+        # inversion below. Same SG + spline as Vmag_result_fit above, but WITHOUT
+        # the baseline subtraction: the exact formula needs the absolute divider
+        # level, the approximate one needs the relative level. Display only.
+        Vmag_raw_filt = self.savitzky_golay(Vmag, window_size = SG_window_size, order = Constants.SG_order)
+        s_Vmag_raw = UnivariateSpline(xrange, Vmag_raw_filt, s = Constants.SPLINE_FACTOR_G)
+        Vmag_raw_result_fit = s_Vmag_raw(xs_Vmag)
+
         # PARAMETERS FINDER
 # =============================================================================
 #         (index_peak_fit, max_peak_fit, bandwidth_fit, index_f1_fit, index_f2_fit, Qfac_fit) = self.parameters_finder(freq_range, mag_result_fit, percent = 0.707)
@@ -731,9 +805,36 @@ class MultiscanProcess(multiprocessing.Process):
         (index_peak_fit, max_peak_fit, bandwidth_fit, 
          index_f1_fit, index_f2_fit, Qfac_fit, frequency_resonance) = self.parameters_finder(freq_range, mag_result_fit, overtone_number, Constants.THRESHOLD_DB)
         
-        # VER 0.1.5a_G_DEV parameter finder impedance 
+        # VER 0.1.5a_G_DEV parameter finder impedance
         (index_peak_fit_G, frequency_resonance_G, half_bandwidth) = self.parameters_finder_impedance(freq_range, Vmag_result_fit, Vphase_result_fit, overtone_number)
-       
+
+        # VER 0.1.6G EXACT-FORMULA SPECTRA FOR THE LIVE IMPEDANCE PANEL
+        # ---------------------------------------------------------------------
+        # Display only: nothing below this block feeds _my_list_f / _my_list_d,
+        # so the logged frequency and dissipation are untouched. Inputs are the
+        # RAW absolute V_MAG and the SIGNED phase, exactly as validated offline.
+        try:
+            phase_signed = self._phase_signed(Vphase_result_fit)
+            R_q, X_q = self._RX_exact(Vmag_raw_result_fit, phase_signed)
+            G_exact = self._G_exact(R_q, X_q) * 1000.0   # mS
+            B_exact = self._B_exact(R_q, X_q) * 1000.0   # mS
+            # Remove the static baseline so the locus closes into the admittance
+            # circle, as in the offline script (mean of the first 100 samples).
+            n_base = min(100, len(G_exact))
+            G_exact = G_exact - np.average(G_exact[:n_base])
+            B_exact = B_exact - np.average(B_exact[:n_base])
+
+            self._my_list_freq_G[overtone_number] = freq_range.tolist()
+            self._my_list_G_exact[overtone_number] = G_exact.tolist()
+            self._my_list_B_exact[overtone_number] = B_exact.tolist()
+            self._parser_GB_multi.add_GB_multi([self._my_list_freq_G,
+                                                self._my_list_G_exact,
+                                                self._my_list_B_exact])
+        except Exception as e:
+            # The panel is a diagnostic view: never let it break an acquisition.
+            print("Warning: exact G/B for the impedance panel failed:", e)
+
+
         # self._my_list_f[overtone_number].append( freq_range[int(index_peak_fit)] )
         # VER 0.1.4
         # change the dissipation calculation as the inverse of the bandwidth defined above in parameter finder 
@@ -921,10 +1022,12 @@ class MultiscanProcess(multiprocessing.Process):
         self._parser_F_multi = parser_process
         # Dissipation 
         self._parser_D_multi = parser_process
-        # Amplitude 
+        # Amplitude
         self._parser_A_multi = parser_process
-        # Phase 
+        # Phase
         self._parser_P_multi = parser_process
+        # VER 0.1.6G exact conductance / susceptance, for the live impedance panel
+        self._parser_GB_multi = parser_process
 
         # serial process 
         self._serial = serial.Serial()
@@ -1000,6 +1103,13 @@ class MultiscanProcess(multiprocessing.Process):
         self._my_list_amp = [ self._amp_sweep_0 ,  self._amp_sweep_1 ,  self._amp_sweep_2,  self._amp_sweep_3,  self._amp_sweep_4 ]
         self._my_list_phase = [ self._phase_sweep_0, self._phase_sweep_1 , self._phase_sweep_2 , self._phase_sweep_3 , self._phase_sweep_4]
         self._my_list_freq = [ self._freq_sweep_0, self._freq_sweep_1 , self._freq_sweep_2 , self._freq_sweep_3 , self._freq_sweep_4]
+
+        # VER 0.1.6G exact-formula conductance / susceptance per overtone, for the
+        # live impedance panel. Same shape as the lists above: one spectrum per
+        # overtone, replaced on every sweep. Display only — never logged.
+        self._my_list_G_exact = [None, None, None, None, None]
+        self._my_list_B_exact = [None, None, None, None, None]
+        self._my_list_freq_G = [None, None, None, None, None]
         
         # DEBUG_0.1.1a
         # byte available at port
@@ -1125,6 +1235,10 @@ class MultiscanProcess(multiprocessing.Process):
             self._my_list_amp[nn] = self._zerolistmaker(Constants.SAMPLES)
             self._my_list_phase[nn] = self._zerolistmaker(Constants.SAMPLES)
             self._my_list_freq[nn] = self._zerolistmaker(Constants.SAMPLES)
+            # VER 0.1.6G exact G/B for the live impedance panel
+            self._my_list_G_exact[nn] = self._zerolistmaker(Constants.SAMPLES)
+            self._my_list_B_exact[nn] = self._zerolistmaker(Constants.SAMPLES)
+            self._my_list_freq_G[nn] = self._zerolistmaker(Constants.SAMPLES)
         
         # Checks if the serial port is currently connected
         if self._is_port_available(self._serial.port):

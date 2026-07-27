@@ -67,6 +67,8 @@ class Worker:
         self._queue_A_multi = Queue()
         self._queue_P_multi = Queue()
         self._queue_F_SWEEP_multi = Queue()
+        # VER 0.1.6G exact conductance / susceptance spectra (impedance panel)
+        self._queue_GB_multi = Queue()
         
         # TODO AMPLI init the list of array for amplitude sweep
         self._A_multi = None 
@@ -81,6 +83,11 @@ class Worker:
         
         self._A_multi_buffer = None
         self._F_Sweep_multi_buffer = None
+
+        # VER 0.1.6G latest exact G/B spectrum per overtone (impedance panel)
+        self._G_exact_buffer = None
+        self._B_exact_buffer = None
+        self._F_G_multi_buffer = None
         
         # data buffers
         self._data1_buffer = None # amplitude 
@@ -209,7 +216,8 @@ class Worker:
 #                                              self._queue_F_multi, self._queue_D_multi, self._queue_A_multi, self._queue_P_multi)
 # =============================================================================
         self._parser_process = ParserProcess(self._queue1, self._queue2, self._queue3, self._queue4, self._queue5, self._queueCurrentTec, self._queue6, 
-                                             self._queue_F_multi, self._queue_D_multi, self._queue_A_multi, self._queue_P_multi)
+                                             self._queue_F_multi, self._queue_D_multi, self._queue_A_multi, self._queue_P_multi,
+                                             self._queue_GB_multi)
         
         
         # GET and SET SOURCE TYPE 
@@ -328,6 +336,7 @@ class Worker:
         self.consume_queue_F_multi()
         self.consume_queue_D_multi()
         self.consume_queue_A_multi()
+        self.consume_queue_GB_multi()
         
         # VER 0.1.2
 # =============================================================================
@@ -536,6 +545,32 @@ class Worker:
         
         return self._F_Sweep_multi_buffer[idx]
         # print (self._F_Sweep_multi_buffer[idx])
+
+    # VER 0.1.6G exact conductance / susceptance spectra for the impedance panel.
+    # Mirrors the A_multi channel: the queue carries [freq, G, B] lists (one
+    # spectrum per overtone) and each drain replaces the stored spectrum. These
+    # are display-only values computed with the exact complex-divider inversion;
+    # the logged frequency/dissipation come from the F_multi / D_multi channels
+    # and are unaffected.
+    def consume_queue_GB_multi(self):
+        while not self._queue_GB_multi.empty():
+            self._queue_data_GB_multi(self._queue_GB_multi.get(False))
+
+    def _queue_data_GB_multi(self, data):
+        freq_list, G_list, B_list = data[0], data[1], data[2]
+        for idx in range(len(G_list)):
+            self._F_G_multi_buffer[idx] = freq_list[idx]
+            self._G_exact_buffer[idx] = G_list[idx]
+            self._B_exact_buffer[idx] = B_list[idx]
+
+    def get_G_exact_buffer(self, idx = 0):
+        return self._G_exact_buffer[idx]
+
+    def get_B_exact_buffer(self, idx = 0):
+        return self._B_exact_buffer[idx]
+
+    def get_F_G_values_buffer(self, idx = 0):
+        return self._F_G_multi_buffer[idx]
        
        
     ###########################################################################
@@ -1002,6 +1037,11 @@ class Worker:
 
         self._A_multi_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
         self._F_Sweep_multi_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
+
+        # VER 0.1.6G impedance panel spectra
+        self._G_exact_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
+        self._B_exact_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
+        self._F_G_multi_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
         
         # INIT self._F_store and self._D_store list 
         # TODO IMPORTANT self._F_store and self._D_store same legth of self._F_multi_buffer and self._D_multi_buffer

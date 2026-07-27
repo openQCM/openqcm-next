@@ -284,8 +284,16 @@ class Constants:
     # Savitzky-Golay window size definition 
     SG_WINDOW_SIZE = 51
     
-    # VER 0.1.6G reduce the  Savitzky-Golay window sizefor voltage output 
-    SG_WINDOW_SIZE_G = 51 
+    # VER 0.1.6G reduce the  Savitzky-Golay window sizefor voltage output
+    SG_WINDOW_SIZE_G = 51
+
+    # VER 0.1.6G threshold (deg) that discriminates the two phase regimes for the
+    # exact-formula unfold. The AD8302 outputs |phase|: in air the true phase
+    # crosses zero at resonance and the output is folded (minimum ~0-2 deg, must
+    # be unfolded); in liquid it never crosses zero (minimum stays ~10-40 deg)
+    # and the raw phase already is the signed one. See
+    # MultiscanProcess._phase_signed and sweep_data/plot_conductance.py.
+    FOLD_THRESHOLD_DEG_G = 5.0
     
 # =============================================================================
 #     #--------------

@@ -201,6 +201,13 @@ class MainWindow(QtGui.QMainWindow):
         # VER 0.1.6 init a reference to the line object amplitude sweep in multiscan mode
         self._plt0_multiline = [None, None, None, None, None]
 
+        # VER 0.1.6G live impedance panel (exact formula): conductance spectrum
+        # and admittance locus, one curve per overtone in each.
+        self._pltG = None
+        self._pltGB = None
+        self._pltG_multiline = [None, None, None, None, None]
+        self._pltGB_multiline = [None, None, None, None, None]
+
         # VER 0.1.6 number of overtone lines/legend items; set per-run in start()
         # for serial/multiscan. Default 0 so stop()'s legend-removal loop is a
         # no-op in calibration/peak-detection mode (which never populates a legend)
@@ -692,7 +699,17 @@ class MainWindow(QtGui.QMainWindow):
                 # VER 0.1.6 create the reference to the sweep aplitude multi lines for real time plot
                 for idx in range(self._overtones_number_all):
                     self._plt0_multiline[idx] = self._plt0.plot(pen = Constants.plot_color_multi[idx])
-            
+
+                # VER 0.1.6G impedance panel: one conductance curve and one
+                # admittance-locus curve per overtone, same colours as above
+                for idx in range(self._overtones_number_all):
+                    self._pltG_multiline[idx] = self._pltG.plot(
+                        pen = pg.mkPen(color = Constants.plot_color_multi[idx],
+                                       width = Constants.plot_line_width))
+                    self._pltGB_multiline[idx] = self._pltGB.plot(
+                        pen = pg.mkPen(color = Constants.plot_color_multi[idx],
+                                       width = Constants.plot_line_width))
+
 # =============================================================================
 #                 # VER 0.1.6 reference to the line object temperature 
 #                 self._plt4_line = self._plt4.plot(pen=Constants.plot_colors[4])    
@@ -1664,14 +1681,17 @@ class MainWindow(QtGui.QMainWindow):
         # GraphicsLayoutWidget backgrounds
         for w in (getattr(self.ui, "plt", None),
                   getattr(self.ui, "pltB", None),
-                  getattr(self.ui, "pltD", None)):
+                  getattr(self.ui, "pltD", None),
+                  getattr(self.ui, "pltG", None),
+                  getattr(self.ui, "pltGB", None)):
             if w is not None:
                 try:
                     w.setBackground(pt["bg"])
                 except Exception:
                     pass
         # per-plot axes + title (guarded: some refs are ViewBoxes or None)
-        for plot in (self._plt0, self._plt1, self._plt2, self._pltD, self._plt4):
+        for plot in (self._plt0, self._plt1, self._plt2, self._pltD, self._plt4,
+                     self._pltG, self._pltGB):
             if plot is None:
                 continue
             for side in ("left", "bottom", "right", "top"):
@@ -1775,6 +1795,9 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.pltB.setBackground(background=Constants.plot_background_color)
         # DISSIPATION PLOT
         self.ui.pltD.setBackground(background=Constants.plot_background_color)
+        # VER 0.1.6G IMPEDANCE PANEL
+        self.ui.pltG.setBackground(background=Constants.plot_background_color)
+        self.ui.pltGB.setBackground(background=Constants.plot_background_color)
         #----------------------------------------------------------------------
 
         # defines the graph title
@@ -1826,6 +1849,41 @@ class MainWindow(QtGui.QMainWindow):
 #         self._plt1.enableAutoRange(axis= 'y', enable = True)
 #         self._plt0.setLabel('right', 'Phase', units='deg', color = Constants.plot_title_color, **{'font-size':'10pt'})
 # =============================================================================
+
+        '''
+        -----------------------------------------------------------------------
+        VER 0.1.6G LIVE IMPEDANCE PANEL (exact complex-divider formula)
+        -----------------------------------------------------------------------
+        Two views, all overtones overlaid, same per-overtone colours as the
+        frequency/dissipation plots. Display only: these spectra never reach the
+        datalog, which still carries the approximate-formula values.
+        '''
+        self.ui.pltG.setAntialiasing(True)
+        self.ui.pltGB.setAntialiasing(True)
+
+        self._xaxis_G = NonScientificAxis(orientation='bottom')
+        self._xaxis_G.enableAutoSIPrefix(False)
+
+        # conductance spectrum G(f) — x is the offset from the detected peak,
+        # like the amplitude sweep plot, so all overtones share one axis
+        self._pltG = self.ui.pltG.addPlot(row=0, col=0,
+                                          title="Conductance G (exact)",
+                                          **{'font-size': '10pt'},
+                                          axisItems={"bottom": self._xaxis_G})
+        self._pltG.setLabel('bottom', 'Frequency offset', units='Hz')
+        self._pltG.setLabel('left', 'G', units='mS')
+        self._pltG.ctrlMenu = None
+        self._pltG.scene().contextMenu = None
+
+        # admittance locus B vs G — 1:1 aspect so a circle looks like a circle
+        self._pltGB = self.ui.pltGB.addPlot(row=0, col=0,
+                                            title="Admittance circle B vs G",
+                                            **{'font-size': '10pt'})
+        self._pltGB.setLabel('bottom', 'G', units='mS')
+        self._pltGB.setLabel('left', 'B', units='mS')
+        self._pltGB.setAspectLocked(True)
+        self._pltGB.ctrlMenu = None
+        self._pltGB.scene().contextMenu = None
 
         # VER 0.1.2
         # editing pyqtgraph context menu
@@ -2335,8 +2393,59 @@ class MainWindow(QtGui.QMainWindow):
                    print ("Warning: unable to plot raw data in single mode ")
                    print(f"error occurred: {e}")
             
+    # VER 0.1.6G live impedance panel update (exact complex-divider formula)
+    def _update_impedance_panel(self, peaks_mag):
+        """Refresh the two right-panel views from the exact G/B spectra.
+
+        Left/top: conductance G(f), x plotted as the offset from the detected
+        peak so every overtone shares one axis. Bottom: the admittance locus
+        B vs G, aspect-locked. One curve per overtone, colours matching the
+        frequency/dissipation plots, and the scan selector is honoured so
+        deselected overtones disappear here too.
+
+        Display only: these come from the exact inversion, while the logged
+        values still come from the approximate formula. Wrapped in try/except —
+        a diagnostic view must never take down the acquisition loop.
+        """
+        if self._pltG is None or self._pltGB is None:
+            return
+        try:
+            for idx in range(self._overtones_number_all):
+                if self._pltG_multiline[idx] is None:
+                    continue
+                g_axis = self.worker.get_G_exact_buffer(idx)
+                b_axis = self.worker.get_B_exact_buffer(idx)
+                f_axis = self.worker.get_F_G_values_buffer(idx)
+
+                ok = (self.scan_selector[idx] == True
+                      and isinstance(g_axis, (list, np.ndarray))
+                      and isinstance(f_axis, (list, np.ndarray))
+                      and len(g_axis) > 1 and len(f_axis) == len(g_axis))
+
+                if not ok:
+                    self._pltG_multiline[idx].setData(x = self._numpy_nan_sweep,
+                                                      y = self._numpy_nan_sweep)
+                    self._pltGB_multiline[idx].setData(x = self._numpy_nan_sweep,
+                                                       y = self._numpy_nan_sweep)
+                    continue
+
+                g_np = np.asarray(g_axis, dtype=float)
+                b_np = np.asarray(b_axis, dtype=float)
+                f_np = np.asarray(f_axis, dtype=float) - peaks_mag[idx]
+
+                # same decimation as the amplitude sweep, to keep the 50 ms
+                # refresh cheap
+                step = Constants.FREQ_STEP_PLOT
+                self._pltG_multiline[idx].setData(x = f_np[1::step],
+                                                  y = g_np[1::step])
+                self._pltGB_multiline[idx].setData(x = g_np[1::step],
+                                                   y = b_np[1::step])
+        except Exception as e:
+            print("Warning: unable to update the impedance panel")
+            print(f"error occurred: {e}")
+
     # VER 0.1.4
-    # add-on view data log and make some processing 
+    # add-on view data log and make some processing
     def _log_data_plot(self):
         # print ("THIS IS LOG DATA")
         
@@ -2382,9 +2491,12 @@ class MainWindow(QtGui.QMainWindow):
         self.worker.consume_queue_D_multi()
 
         self.worker.consume_queue_A_multi()
-        
-        
-        # VER 0.1.4 get time elapsed 
+
+        # VER 0.1.6G exact G/B spectra for the live impedance panel
+        self.worker.consume_queue_GB_multi()
+
+
+        # VER 0.1.4 get time elapsed
 # =============================================================================
 #         print ("THE TIMER IS NOW ")
 #         print (self.worker.get_time_elapsed())
@@ -3167,6 +3279,9 @@ class MainWindow(QtGui.QMainWindow):
                         else: 
                             # VER 0.1.6 set the current data to nan 
                             self._plt0_multiline[idx].setData(x = self._numpy_nan_sweep, y = self._numpy_nan_sweep)
+
+                    # VER 0.1.6G refresh the live impedance panel (exact formula)
+                    self._update_impedance_panel(peaks_mag)
                 
                 
 
@@ -3724,9 +3839,12 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
 #                            print ("DEBUG: Warning sweep data set to NAN  ")
 # =============================================================================
-                           # VER 0.1.6 set data to nan 
+                           # VER 0.1.6 set data to nan
                            self._plt0_multiline[idx].setData(x = self._numpy_nan_sweep, y = self._numpy_nan_sweep)
-                
+
+                    # VER 0.1.6G refresh the live impedance panel (exact formula)
+                    self._update_impedance_panel(peaks_mag)
+
 
                # FREQUENCY and DISSIPATION
                # --------------------------------------------------------------
@@ -4146,9 +4264,13 @@ class MainWindow(QtGui.QMainWindow):
     def _setup_plot_interactions(self):
         # per-plot grid state (grids default OFF)
         self._grid_on = {}
-        self._plot_menu_targets = [self._plt0, self._plt4, self._plt2, self._pltD]
+        # VER 0.1.6G the two impedance views join the same interaction set, so
+        # grid / autoscale / reset zoom behave identically across the window
+        self._plot_menu_targets = [self._plt0, self._plt4, self._plt2, self._pltD,
+                                   self._pltG, self._pltGB]
         # one handler per GraphicsLayoutWidget scene (ui.plt hosts _plt0 + _plt4)
-        for canvas in (self.ui.plt, self.ui.pltB, self.ui.pltD):
+        for canvas in (self.ui.plt, self.ui.pltB, self.ui.pltD,
+                       self.ui.pltG, self.ui.pltGB):
             canvas.scene().sigMouseClicked.connect(self._on_scene_mouse_clicked)
         # Δ cursors: two movable time cursors + delta readout per panel. The
         # items are parented to the ViewBox (ignoreBounds) so they survive
@@ -4475,7 +4597,22 @@ class MainWindow(QtGui.QMainWindow):
                         
                         # amplitude plot replot multiline
                         self._plt0_multiline[idx] = self._plt0.plot(pen = Constants.plot_color_multi[idx])
-                        
+
+                    # VER 0.1.6G impedance panel: clear and rebuild its curves
+                    # together with the others, so Clear leaves the whole GUI in
+                    # one consistent state instead of freezing the right panel
+                    # on the last sweep.
+                    if self._pltG is not None and self._pltGB is not None:
+                        self._pltG.clear()
+                        self._pltGB.clear()
+                        for idx in range(self._overtones_number_all):
+                            self._pltG_multiline[idx] = self._pltG.plot(
+                                pen = pg.mkPen(color = Constants.plot_color_multi[idx],
+                                               width = Constants.plot_line_width))
+                            self._pltGB_multiline[idx] = self._pltGB.plot(
+                                pen = pg.mkPen(color = Constants.plot_color_multi[idx],
+                                               width = Constants.plot_line_width))
+
 # =============================================================================
 #                 # reference to the line object temperature 
 #                 self._plt4_line = self._plt4.plot(pen=Constants.plot_colors[4])
