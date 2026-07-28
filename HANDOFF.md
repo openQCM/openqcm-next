@@ -145,6 +145,41 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
 > `connect()`, objectName and overrides, so nothing gets deleted without grepping
 > its name as a string across all of `software/`.
 
+### Runtime files: the application must survive their absence
+
+Deciding what is versioned turned out to be the easy half. On 2026-07-28 the runtime
+data was untracked (`Calibration_*MHz.txt`, `PeakFrequencies*.txt`,
+`sweep_data/*.txt`) and the PeakFrequencies part had to be reverted the same evening,
+because the application **does not start** without them and the tool that writes them
+lives inside the window that will not open. Two work items, in order:
+
+1. **Make the reading side tolerant, and its errors actionable.** ~30 call sites read
+   runtime files with a bare `loadtxt`, which today produces a traceback in whichever
+   process happens to hit it first:
+
+   | file | `loadtxt` call sites | read from |
+   |---|---|---|
+   | `PeakFrequencies.txt` | 11 | `mainWindow`, `worker`, `Multiscan`, `Serial` |
+   | `PeakFrequenciesRT.txt` | 2 | `Multiscan`, `Serial` |
+   | `Calibration_*MHz.txt` | ~4, through a `filename` variable | `Multiscan`, `Serial` |
+   | `config.txt` | 14 | `mainWindow`, `Multiscan`, `Serial` |
+
+   One helper rather than thirty try/except: `FileStorage.load_runtime(path, what,
+   remedy)` raising a `MissingRuntimeFile` that carries the remedy. Then two
+   behaviours, and the distinction is the point — **start-up paths degrade**
+   (`load_frequencies_file()` returns `None`, the legend draws defaults, the status
+   bar says what is missing, Peak Detection stays reachable), while **paths inside a
+   running measurement raise and stop cleanly**, because there the file must exist and
+   carrying on would publish meaningless numbers.
+   Verification: rename the files, start the GUI, check it comes up and shows the
+   message instead of dying.
+2. **Then `config.txt` can follow.** It is the last tracked runtime file, read at
+   start-up by both `MultiscanProcess` and `SerialProcess`, and it is the reason every
+   pull needs a stash. Once item 1 is in, untrack it — and only then.
+
+⚠️ Whoever does item 1: do not untrack `PeakFrequencies*.txt` before it is finished
+and tested. The `.gitignore` says so too, next to those two lines.
+
 Done (raw-data robustness — see CHANGELOG):
 - **`trim_mean` anti-outlier averaging**: replaced Savitzky-Golay + `np.average` with
   `scipy.stats.trim_mean(0.10)` on the 10-sample circular buffer for frequency and dissipation
