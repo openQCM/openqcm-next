@@ -41,7 +41,12 @@ import time
 
 import numpy as np
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+# Same fallback as mainWindow: this module is imported at module level there, so a
+# hard PyQt5 import would take the whole application down on a PySide2 install.
+try:
+    from PyQt5 import QtCore, QtGui, QtWidgets
+except ImportError:                                      # pragma: no cover
+    from PySide2 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 
 from openQCM.core.constants import Constants

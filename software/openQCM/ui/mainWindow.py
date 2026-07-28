@@ -24,7 +24,12 @@ from openQCM.core.worker import Worker
 from openQCM.processors.Serial import SerialProcess
 from openQCM.core.constants import Constants, SourceType, DateAxis, NonScientificAxis
 from openQCM.ui.popUp import PopUp
-from openQCM.ui.impedanceFitWindow import ImpedanceFitWindow
+# A diagnostic view must never stop the application from starting.
+try:
+    from openQCM.ui.impedanceFitWindow import ImpedanceFitWindow
+except Exception as _e:
+    ImpedanceFitWindow = None
+    print("Warning: impedance fit window unavailable:", _e)
 from openQCM.ui import theme
 from openQCM.common.logger import Logger as Log
 from openQCM.common.architecture import Architecture,OSType
@@ -2421,6 +2426,10 @@ class MainWindow(QtGui.QMainWindow):
             if self._window_fit is not None and self._window_fit.overtones != n:
                 self._window_fit.close()
                 self._window_fit = None
+            if ImpedanceFitWindow is None:
+                print("Warning: the impedance fit window failed to import; "
+                      "see the message at start-up")
+                return
             if self._window_fit is None:
                 self._window_fit = ImpedanceFitWindow(self.worker, n)
             self._window_fit.worker = self.worker
