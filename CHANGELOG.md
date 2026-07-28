@@ -59,7 +59,11 @@ Conventional Commits. Versions are marked by Git tags.
   attempt produced.
 - **Known limit — δ is only weakly identifiable on some overtones.** On sensor S2
   (the partially recovered module) the reported δ oscillated between consecutive
-  sweeps: the fundamental alternated 17.0° / 15.4° / 16.9°, the 3rd 15.8° / 16.7°.
+  sweeps, alternating over 15.4-17.0° across seven consecutive log lines. Those
+  lines are all the FUNDAMENTAL re-logging, not different overtones: an offline
+  re-estimate on the same raw sweeps puts δ at 15.8-17.6° on the fundamental
+  (depending on smoothing) but at 7.6/9.5/11.8/13.0° on the 3rd/5th/7th/9th, and
+  no logged value is anywhere near those.
   This is not noise in the data but the shape of the objective: the
   residual-vs-δ valley is **1.25–1.75° wide** where the crystal is clean, and
   **3.5–6.5° wide** where the residual floor is high (S2's F0 floor is 2.4 % of
@@ -70,6 +74,29 @@ Conventional Commits. Versions are marked by Git tags.
   to **0.007–0.32 ppm**. Averaging δ across sweeps would remove the jitter and is
   recorded as a roadmap item, not applied: it introduces cross-sweep state and
   shifts published values, so it needs a decision.
+
+### Added — `sweep_data/fit_admittance.py` draws the data it fits (2026-07-28)
+- One row of three panels per overtone: the **raw** detector voltages as
+  acquired (with the mask floor and the fit band marked), **G(f) with the FIT 2
+  Lorentzian** on top, and the **admittance plane with the FIT 1 circle** —
+  including the centre and the point the arc regression calls f_s, which makes
+  the fitted rotation visible. `--save` writes it, `--no-plot` skips it. The
+  frequency axis is detuning in kHz: at 1 Hz resolution on a 45 MHz carrier an
+  absolute axis is all offset notation and no information.
+- **The figure immediately showed the script was behind the pipeline**: a radial
+  spur stuck out of the locus at f_r on every overtone, the signature of the
+  uncorrected global phase offset. The offline path applied only the old
+  conditional fold flip and relied on the arc-fit rotation to absorb the rest —
+  which it cannot, because the offset rotates `(Z_q + R17)` about `-R17`, not the
+  admittance locus. `phase_offset_deg()` is now a port of the pipeline's
+  estimator; `--no-offset` reproduces the old behaviour for comparison. Circle
+  residual on the 2026-07-28 air run: **3.9-7.7 % → 0.68-2.28 %** of the radius,
+  and FIT 1 vs FIT 2 agreement on f_s tightens from 23-129 Hz to 2-52 Hz.
+- One subtlety, found by measurement: the flip inside the estimator must be
+  **unconditional**. Making it conditional on the corrected phase reaching zero
+  puts a discontinuity inside the search and manufactures a false optimum — on
+  the fundamental it returns +10.0° at 2.01 % residual instead of the true
+  +15.8° at 1.17 %.
 
 ### Fixed — ⚠️ MEASURED VALUES (verification round, 2026-07-27)
 - **Attenuator compensation was 0.600 V instead of 0.61069 V.** The ADC→V

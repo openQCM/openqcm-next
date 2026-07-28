@@ -29,9 +29,15 @@ numbers with the live pipeline:
 
 Usage:
     python fit_admittance.py [sweep_dir] [--json out.json] [--no-mask]
+                             [--band N] [--no-plot] [--save fig.png]
 
 Reads g<n>.txt (frequency [Hz], V_MAG [V], V_PHS [V]) — see
 software/docs/DATA_FORMAT_sweep_data.md.
+
+Besides the numbers it draws one row of three panels per overtone: the raw
+detector voltages as acquired, G(f) with the FIT 2 curve on top, and the
+admittance plane with the FIT 1 circle. Look at the figure before trusting a
+number: a bad fit here is visible long before it is obvious in the table.
 """
 
 import argparse
@@ -49,6 +55,12 @@ V_CP = 0.9            # AD8302 center point (V)
 MAG_SLOPE = 0.030     # V per dB
 OVERTONES = (1, 3, 5, 7, 9)
 
+# NOTE on the /0.6 below: that is the AD8302's own decade (20 * 30 mV/dB), NOT
+# the INPB attenuator. The attenuator compensation (Constants.V_MAG_DECADE_OFFSET
+# = 0.61069 V) is applied by the acquisition, so V_MAG as stored in g<n>.txt is
+# already at the correct absolute level. g<n>.txt written before 2026-07-28 sits
+# 10.7 mV high and will read R1 up to 22 % low.
+
 # Samples acquired below this divider ratio are outside the AD8302's usable
 # window (specified +-30 dB) and are excluded from the fits. On a damped load
 # they are the ones that pull the locus out of round.
@@ -56,34 +68,120 @@ RATIO_DB_FLOOR = -28.0
 
 
 # ------------------------------------------------------- measured admittance
-def signed_phase(V_PHS, fold_threshold_deg=5.0):
-    """Signed transfer-function phase from the AD8302 |phase| output.
-
-    The detector emits the magnitude of the phase only. When the true phase
-    crosses zero (low damping) the output is folded and the branch after the
-    minimum must be negated. When it never crosses zero (heavy damping) the raw
-    reading already IS the signed phase.
-
-    Unlike MultiscanProcess._phase_signed this does NOT subtract the minimum
-    before flipping. That subtraction is an undeclared phase-offset correction:
-    it leaves G (even in phi) altered, which is exactly what it must not do.
-    Here the flip is applied alone, so G is bit-identical to the folded-phase
-    result and only B picks up the sign it needs.
-    """
-    phase = (1.8 - np.asarray(V_PHS, dtype=float)) / 0.01
-    i_min = int(np.nanargmin(phase))
-    if phase[i_min] < fold_threshold_deg:
-        phase = phase.copy()
-        phase[i_min:] = -phase[i_min:]
-    return phase
+# Search range and acceptance threshold for the global phase offset. Mirrors
+# Constants.PHASE_OFFSET_{MIN,MAX}_DEG / _MAX_RMS.
+PHASE_OFFSET_MIN_DEG = -5.0
+PHASE_OFFSET_MAX_DEG = 30.0
+PHASE_OFFSET_MAX_RMS = 0.05
+FOLD_THRESHOLD_DEG = 5.0
 
 
-def admittance(V_MAG, V_PHS):
-    """Exact complex-divider inversion: Z_q = M*exp(-j*phi) - R17, Y = 1/Z_q."""
+def folded_phase(V_PHS):
+    """The detector reading in degrees, as it comes out: |phase| minus a global
+    offset. (1.8 - V_PHS)/0.01 is (V_CP - V_PHS)/0.01 + 90."""
+    return (1.8 - np.asarray(V_PHS, dtype=float)) / 0.01
+
+
+def RX(V_MAG, phase_deg):
+    """Exact complex-divider inversion: Z_q = M*exp(-j*phi) - R17."""
     M = R17 * np.power(10.0, (V_CP - np.asarray(V_MAG, float)) / 0.6)
-    phi = np.deg2rad(signed_phase(V_PHS))
-    Z = M * np.exp(-1j * phi) - R17
-    return 1.0 / Z
+    Z = M * np.exp(-1j * np.deg2rad(np.asarray(phase_deg, float))) - R17
+    return Z.real, Z.imag
+
+
+def _Y(R, X):
+    d = R * R + X * X
+    return (R - 1j * X) / np.maximum(d, 1e-30)
+
+
+def phase_offset_deg(f, V_MAG, ph_folded):
+    """The global phase offset delta, measured by requiring the locus to be a
+    circle. Port of MultiscanProcess._phase_offset_deg — keep the two in step.
+
+    The detector reads r(f) = |phi_true(f)| - delta, with delta the board+cable+
+    detector phase (7...17 deg on this instrument). Note this is NOT a rotation
+    of the admittance locus, so the rotation theta that _fs_gamma_from_arc fits
+    cannot absorb it: the error rotates (Z_q + R17) about -R17, which in the
+    admittance plane is a radial distortion near resonance - the spur that used
+    to stick out of the circle at f_r.
+    """
+    R0, X0 = RX(V_MAG, ph_folded)
+    G0 = _Y(R0, X0).real
+    i0 = int(np.nanargmax(G0 - np.average(G0[:min(100, len(G0))])))
+    _, hw = _seed(f, G0, np.ones_like(f, bool))
+    band = np.abs(f - f[i0]) <= max(3.0 * hw, 60.0)
+    if band.sum() < 40:
+        return 0.0, np.nan
+    idx = np.where(band)[0]
+    idx = idx[::max(1, len(idx) // 150)]
+    f_b, Vm_b, ph_b = f[idx], V_MAG[idx], ph_folded[idx]
+
+    def residual(delta):
+        ps = _flip(ph_b + delta, always=True)
+        Y = _Y(*RX(Vm_b, ps)) * 1e3
+        try:
+            xc, yc, r = taubin_circle(Y.real, Y.imag)
+        except RuntimeError:
+            return np.inf
+        if not np.isfinite(r) or r <= 0:
+            return np.inf
+        d = np.hypot(Y.real - xc, Y.imag - yc) - r
+        return float(np.sqrt(np.mean(d * d)) / r)
+
+    grid = np.arange(PHASE_OFFSET_MIN_DEG, PHASE_OFFSET_MAX_DEG + 0.01, 1.0)
+    costs = [residual(d) for d in grid]
+    k = int(np.nanargmin(costs))
+    if not np.isfinite(costs[k]):
+        return 0.0, np.nan
+    fine = np.arange(grid[k] - 1.0, grid[k] + 1.001, 0.1)
+    cf = [residual(d) for d in fine]
+    kf = int(np.nanargmin(cf))
+    best = float(fine[kf])
+    at_bound = (best <= PHASE_OFFSET_MIN_DEG + 0.5 or
+                best >= PHASE_OFFSET_MAX_DEG - 0.5)
+    if not np.isfinite(cf[kf]) or at_bound or cf[kf] > PHASE_OFFSET_MAX_RMS:
+        return 0.0, float(cf[kf]) if np.isfinite(cf[kf]) else np.nan
+    return best, float(cf[kf])
+
+
+def _flip(phase_deg, always=True):
+    """Undo the detector's folding: negate the branch past the minimum of |phase|.
+
+    `always` matters, and not in the way it looks. Making the flip conditional on
+    the corrected phase actually reaching zero (`always=False`) sounds safer, but
+    it puts a discontinuity INSIDE the delta search: past delta ~ 10 deg the
+    corrected minimum clears the threshold, the flip switches off, and the
+    residual jumps. That manufactures a false local minimum - on g1.txt of the
+    2026-07-28 air run it lands at delta = +10.0 deg with a 2.01 % residual while
+    the true optimum is +16.0 deg at 1.17 %, and the false one is what the search
+    returns. So the estimator flips unconditionally, exactly like the live
+    pipeline.
+
+    The conditional form is kept for the fallback: when delta is REJECTED (damped
+    load, no identifiable optimum) there is no zero crossing to anchor to, and
+    flipping would invent a sign change that never happened. That is the
+    behaviour validated on the isopropanol run.
+    """
+    p = np.array(phase_deg, dtype=float, copy=True)
+    j = int(np.nanargmin(np.abs(p)))
+    if always or abs(p[j]) < FOLD_THRESHOLD_DEG:
+        p[j:] = -p[j:]
+    return p
+
+
+def admittance(f, V_MAG, V_PHS, use_offset=True):
+    """Y(f) from the raw detector voltages. Returns (Y, delta, delta_rms).
+
+    G is computed from the offset-corrected phase WITHOUT the sign flip and B
+    with it: G is even in the sign of phi, so the flip cannot touch it - but it
+    is not even in the OFFSET, which is why delta matters to G at all.
+    """
+    ph = folded_phase(V_PHS)
+    delta, rms = (phase_offset_deg(f, V_MAG, ph) if use_offset else (0.0, np.nan))
+    ph_corr = ph + delta
+    G = _Y(*RX(V_MAG, ph_corr)).real
+    B = _Y(*RX(V_MAG, _flip(ph_corr, always=bool(delta)))).imag
+    return G + 1j * B, delta, rms
 
 
 def ratio_dB(V_MAG):
@@ -294,7 +392,7 @@ def _seed(f, G, mask):
     return float(f[i0]), max((fh - fl) / 2.0, 1.0)
 
 
-def analyse(sweep_dir, use_mask=True, band=3.0):
+def analyse(sweep_dir, use_mask=True, band=3.0, use_offset=True):
     out = []
     for n in OVERTONES:
         path = os.path.join(sweep_dir, "g%d.txt" % n)
@@ -302,7 +400,7 @@ def analyse(sweep_dir, use_mask=True, band=3.0):
             continue
         d = loadtxt(path)
         f, V_MAG, V_PHS = d[:, 0], d[:, 1], d[:, 2]
-        Y = admittance(V_MAG, V_PHS)
+        Y, delta, delta_rms = admittance(f, V_MAG, V_PHS, use_offset=use_offset)
         dB = ratio_dB(V_MAG)
         mask = (dB > RATIO_DB_FLOOR) if use_mask else np.ones_like(f, bool)
         if mask.sum() < 100:                    # nothing usable: take it all
@@ -327,10 +425,148 @@ def analyse(sweep_dir, use_mask=True, band=3.0):
         f2 = fit2_lorentzian(f, Y.real, band_mask, fs_seed, 2.0 * hw_seed)
         out.append(dict(n=n, n_total=int(len(f)), n_masked=int(mask.sum()),
                         n_band=int(band_mask.sum()), band=band,
+                        delta=float(delta), delta_rms=float(delta_rms),
                         fs_seed=fs_seed, hw_seed=hw_seed,
                         dB_span=[float(dB.max()), float(dB.min())],
-                        fit1=f1, fit1_allpoints=f1_all, fit2=f2))
+                        fit1=f1, fit1_allpoints=f1_all, fit2=f2,
+                        # the arrays, for the figure. Underscore-prefixed keys are
+                        # stripped before the JSON dump - 18001 points per
+                        # overtone have no business in a results file.
+                        _f=f, _V_MAG=V_MAG, _V_PHS=V_PHS, _Y=Y,
+                        _mask=mask, _band_mask=band_mask))
     return out
+
+
+# -------------------------------------------------------------------- figures
+def fit2_curve(f, r):
+    """The fitted Lorentzian evaluated on an arbitrary frequency axis."""
+    a2 = r["fit2"]
+    x = (f * f - a2["fs"] ** 2) / (f * a2["gamma"])
+    return a2["Gmax"] / (1.0 + x * x) + a2["a"] + a2["b"] * (f - r["fs_seed"])
+
+
+def plot(res, sweep_dir, save=None, show=True):
+    """One row of three panels per overtone: raw voltages, G(f) + FIT 2,
+    admittance plane + FIT 1."""
+    import matplotlib
+    if not show:
+        matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    nrow = len(res)
+    fig, axes = plt.subplots(nrow, 3, figsize=(15.5, 3.3 * nrow),
+                             constrained_layout=True, squeeze=False)
+    fig.suptitle("openQCM NEXT admittance fits — %s" % os.path.abspath(sweep_dir),
+                 fontsize=11)
+    v_floor = V_CP + RATIO_DB_FLOOR * MAG_SLOPE      # V_MAG at the mask threshold
+
+    for row, r in enumerate(res):
+        f, Y = r["_f"], r["_Y"]
+        mask, band = r["_mask"], r["_band_mask"]
+        a1, a2 = r["fit1"], r["fit2"]
+        # kHz of detuning, not absolute MHz: at 1 Hz resolution on a 45 MHz
+        # carrier an absolute axis is all offset notation and no information.
+        dkHz = (f - a2["fs"]) / 1e3
+        col = plt.get_cmap("viridis")(row / max(nrow - 1, 1) * 0.8)
+
+        # --- raw detector voltages, exactly as acquired -----------------------
+        ax = axes[row][0]
+        ax.plot(dkHz, r["_V_MAG"], lw=0.8, color="tab:blue")
+        ax.axhline(v_floor, ls=":", lw=0.8, color="tab:blue")
+        ax.set_ylabel("n = %d\nV_MAG [V]" % r["n"], color="tab:blue")
+        ax.tick_params(axis="y", labelcolor="tab:blue")
+        ax.locator_params = None
+        axp = ax.twinx()
+        axp.plot(dkHz, r["_V_PHS"], lw=0.8, color="tab:red")
+        axp.set_ylabel("V_PHS [V]", color="tab:red")
+        axp.tick_params(axis="y", labelcolor="tab:red")
+        if band.sum() and band.sum() < len(f):
+            ax.axvspan(dkHz[band].min(), dkHz[band].max(), color="gold",
+                       alpha=0.18, zorder=0)
+        excl = ~mask
+        if excl.any():
+            ax.plot(dkHz[excl], r["_V_MAG"][excl], ".", ms=1.2,
+                    color="0.6", zorder=1)
+        ax.text(0.02, 0.04, "f_s = %.0f Hz\ndelta = %s"
+                % (a2["fs"],
+                   ("%+.1f deg" % r["delta"]) if r["delta"] else "rejected"),
+                transform=ax.transAxes, va="bottom", ha="left", fontsize=7.5,
+                family="monospace")
+        if row == 0:
+            ax.set_title("raw detector voltages   (blue V_MAG, red V_PHS;\n"
+                         "dotted = mask floor, shaded = fit band)", fontsize=9)
+
+        # --- conductance and the Lorentzian ----------------------------------
+        ax = axes[row][1]
+        ax.plot(dkHz[mask], Y.real[mask] * 1e3, lw=0.7, color="0.65",
+                label="G, masked")
+        ax.plot(dkHz[band], Y.real[band] * 1e3, lw=1.1, color=col,
+                label="G, in band")
+        ff = np.linspace(f[band].min(), f[band].max(), 800) if band.sum() > 2 else f
+        ax.plot((ff - a2["fs"]) / 1e3, fit2_curve(ff, r) * 1e3, lw=1.2, ls="--",
+                color="crimson", label="FIT 2")
+        ax.axvline(0.0, lw=0.7, ls=":", color="crimson")
+        if band.sum() > 2:
+            ax.set_xlim(dkHz[band].min(), dkHz[band].max())
+        ax.set_ylabel("G [mS]")
+        ax.legend(fontsize=7, loc="upper right", framealpha=0.9)
+        ax.text(0.02, 0.95,
+                "FIT 2  f_s   = %.1f Hz\n       Gamma = %.1f Hz (FWHM)\n"
+                "       D     = %.2f ppm\n       rms   = %.2f %% of Gmax"
+                % (a2["fs"], a2["gamma"], a2["D"] * 1e6, 100 * a2["rms_rel"]),
+                transform=ax.transAxes, va="top", ha="left", fontsize=7.5,
+                family="monospace")
+        if row == 0:
+            ax.set_title("conductance G(f) and FIT 2", fontsize=9)
+
+        # --- admittance plane and the circle ---------------------------------
+        ax = axes[row][2]
+        ax.axhline(0.0, lw=0.5, color="0.85")
+        out_of_band = mask & ~band
+        if out_of_band.any():
+            ax.plot(Y.real[out_of_band] * 1e3, Y.imag[out_of_band] * 1e3, ".",
+                    ms=1.0, color="0.75", label="masked, out of band")
+        ax.plot(Y.real[band] * 1e3, Y.imag[band] * 1e3, ".", ms=1.6, color=col,
+                label="in band (fitted)")
+        th = np.linspace(0, 2 * np.pi, 400)
+        ax.plot((a1["xc"] + a1["r"] * np.cos(th)) * 1e3,
+                (a1["yc"] + a1["r"] * np.sin(th)) * 1e3,
+                lw=1.1, ls="--", color="crimson", label="FIT 1 circle")
+        ax.plot(a1["xc"] * 1e3, a1["yc"] * 1e3, "x", color="crimson", ms=6)
+        # the arc angle psi = 0 is the fitted resonance; where it lands shows the
+        # rotation theta the fit had to absorb
+        ax.plot((a1["xc"] + a1["r"] * np.cos(a1["theta"])) * 1e3,
+                (a1["yc"] + a1["r"] * np.sin(a1["theta"])) * 1e3,
+                "o", mfc="none", mec="crimson", ms=8, label="f_s on the arc")
+        ax.set_aspect("equal", adjustable="datalim")
+        ax.set_xlabel("G [mS]")
+        ax.set_ylabel("B [mS]")
+        ax.legend(fontsize=7, loc="lower right", framealpha=0.9)
+        ax.text(0.02, 0.95,
+                "FIT 1  f_s = %.1f Hz\n       Gamma = %.1f Hz\n"
+                "       R1 = %.2f ohm\n       rms = %.2f %% of r\n"
+                "       theta = %+.1f deg"
+                % (a1["fs"], a1["gamma"], a1["R1"], 100 * a1["rms_rel"],
+                   np.rad2deg(a1["theta"])),
+                transform=ax.transAxes, va="top", ha="left", fontsize=7.5,
+                family="monospace")
+        if row == 0:
+            ax.set_title("admittance plane and FIT 1", fontsize=9)
+
+    for row in range(nrow):
+        for c in range(2):
+            axes[row][c].xaxis.set_major_locator(
+                matplotlib.ticker.MaxNLocator(5))
+    for c in range(3):
+        axes[-1][c].set_xlabel(["f - f_s [kHz]", "f - f_s [kHz]", "G [mS]"][c])
+
+    if save:
+        fig.savefig(save, dpi=130)
+        print("\nwritten %s" % save)
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
 def main():
@@ -342,15 +578,33 @@ def main():
     ap.add_argument("--band", type=float, default=3.0,
                     help="fit window half-width in units of the HALF bandwidth; "
                          "pass inf to use every masked point")
+    ap.add_argument("--no-offset", action="store_true",
+                    help="skip the global phase-offset correction (shows what the "
+                         "distortion at f_r costs)")
+    ap.add_argument("--no-plot", action="store_true",
+                    help="numbers only, do not open the figure")
+    ap.add_argument("--save", default=None,
+                    help="also write the figure to this path (png/pdf/svg)")
     a = ap.parse_args()
 
-    res = analyse(a.sweep_dir, use_mask=not a.no_mask, band=a.band)
+    res = analyse(a.sweep_dir, use_mask=not a.no_mask, band=a.band,
+                  use_offset=not a.no_offset)
     if not res:
         print("no g<n>.txt found in %s" % a.sweep_dir)
         return 1
 
     print("Gamma below is the FULL width at half maximum (FWHM).")
     print("The live pipeline reports the HALF width; D is the same in both.\n")
+    if a.no_offset:
+        print("phase offset NOT corrected (--no-offset)\n")
+    else:
+        print("global phase offset delta, measured per overtone "
+              "(circle residual at the optimum):")
+        print("  " + "   ".join(
+            "n=%d %s" % (r["n"], ("%+.1f deg (%.2f %%)" % (r["delta"],
+                                  100 * r["delta_rms"])) if r["delta"]
+                         else "rejected")
+            for r in res) + "\n")
     hdr = ("%2s | %-34s | %-34s | %-17s" %
            ("n", "FIT 1  BVD circle", "FIT 2  Lorentzian on G", "difference"))
     print(hdr)
@@ -393,8 +647,16 @@ def main():
 
     if a.json:
         with open(a.json, "w") as fh:
-            json.dump(res, fh, indent=2)
+            json.dump([{k: v for k, v in r.items() if not k.startswith("_")}
+                       for r in res], fh, indent=2)
         print("\nwritten %s" % a.json)
+
+    if not a.no_plot or a.save:
+        try:
+            plot(res, a.sweep_dir, save=a.save, show=not a.no_plot)
+        except ImportError:
+            print("\nmatplotlib not available: numbers only "
+                  "(pass --no-plot to silence this)")
     return 0
 
 
