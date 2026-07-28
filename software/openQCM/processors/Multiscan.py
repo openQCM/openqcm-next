@@ -488,7 +488,8 @@ class MultiscanProcess(multiprocessing.Process):
     # The reading is r(f) = |phi(f) + phi_b| - delta. Where the argument crosses
     # zero the reading reaches its minimum, and there r = -delta: so delta is
     # MEASURED by the minimum, it is not a free parameter. min(r) < 0 on this
-    # instrument, which is the signature of the offset.
+    # instrument, which is the signature of the offset - but delta of either sign
+    # is legitimate: it is whatever brings the vertex of the V to zero.
     #
     # Why this replaced the circular-locus estimator (_phase_offset_deg below,
     # kept for reference and used by the offline script's --offset circle):

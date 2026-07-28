@@ -160,7 +160,8 @@ def fold_offset_deg(ph_folded):
     The reading is r(f) = |phi(f) + phi_b| - delta. Where the argument crosses
     zero, r reaches its minimum and equals -delta. So a fold determines delta
     exactly; there is no freedom left for a fit. min(r) < 0 on this instrument -
-    that is the signature of the offset, not an impossible measurement.
+    that is the signature of the offset, not an impossible measurement - but delta
+    of either sign is legitimate: it is whatever brings the vertex of the V to zero.
 
     Returns (delta, has_fold). No fold (min(r) at or above the threshold) means a
     damped load whose phase never crosses zero: the reading already IS the signed

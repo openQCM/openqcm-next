@@ -125,10 +125,30 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
                                                  style=QtCore.Qt.DashLine),
                                     name="FIT 2")
 
-        # Side by side, not stacked: pC is aspect-locked (a circle has to look
-        # like one), so in a wide, short box Qt dilates the G axis and the circle
-        # ends up a dot in the middle. Two roughly square boxes avoid that.
-        self.pC = self.graph.addPlot(row=0, col=1,
+        # B against frequency, under G and sharing its x axis: the two channels
+        # are read together, and a defect that is invisible in G (which is EVEN in
+        # the phase) shows up here. The reverted roundness-fitted offset was
+        # exactly that case - a step of up to 77 % of B's range that left G and the
+        # fitted circle looking fine.
+        self.pB = self.graph.addPlot(row=1, col=0,
+                                     title="susceptance B(f) — FIT 1")
+        self.pB.showGrid(x=True, y=True, alpha=0.2)
+        self.pB.setLabel('bottom', 'f - f_s', units='Hz')
+        self.pB.setLabel('left', 'B', units='mS')
+        self.pB.setXLink(self.pG)
+        self.pB.addLegend(offset=(-10, 10))
+        self.zeroB = self.pB.plot(pen=pg.mkPen('#888888', width=1,
+                                               style=QtCore.Qt.DotLine))
+        self.curveBf = self.pB.plot(pen=pg.mkPen('#2ca02c', width=1),
+                                    name="measured")
+        self.curveBfit = self.pB.plot(pen=pg.mkPen('#d62728', width=1,
+                                                   style=QtCore.Qt.DashLine),
+                                      name="FIT 1")
+
+        # The locus spans both rows on the right: it is aspect-locked (a circle has
+        # to look like one), so a wide, short box would dilate the G axis and leave
+        # the circle a dot in the middle. A roughly square box avoids that.
+        self.pC = self.graph.addPlot(row=0, col=1, rowspan=2,
                                      title="admittance plane — FIT 1")
         self.pC.showGrid(x=True, y=True, alpha=0.2)
         self.pC.setLabel('bottom', 'G', units='mS')
@@ -342,6 +362,25 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         self.pG.setTitle("FIT 2 &nbsp;|&nbsp; f_s = %.1f Hz &nbsp;|&nbsp; "
                          "Gamma = %.1f Hz (FWHM) &nbsp;|&nbsp; D = %.2f ppm"
                          % (a2["fs"], a2["gamma"], a2["D"] * 1e6))
+
+        # B(f), with what FIT 1 predicts for it. The model comes from the circle's
+        # own geometry - psi = -2*arctan(x) is the position on the arc - so the
+        # dashed line is the same fit shown in the locus, read in the B channel.
+        self.curveBf.setData(x=f - a2["fs"], y=Y.imag * 1e3)
+        x_det = (ff * ff - a1["fs"] ** 2) / (ff * max(a1["gamma"], 1e-9))
+        psi = -2.0 * np.arctan(x_det)
+        Bm = (a1["yc"] + a1["r"] * np.sin(psi + a1["theta"])) * 1e3
+        self.curveBfit.setData(x=ff - a2["fs"], y=Bm)
+        self.zeroB.setData(x=[f[0] - a2["fs"], f[-1] - a2["fs"]], y=[0.0, 0.0])
+        # B is where a broken reconstruction shows up: report the largest step
+        # between adjacent samples as a fraction of B's own range. A continuous
+        # trajectory keeps this at a few per cent.
+        Bmea = Y.imag * 1e3
+        span = float(np.ptp(Bmea)) or 1.0
+        jump = 100.0 * float(np.max(np.abs(np.diff(Bmea)))) / span
+        self.pB.setTitle("FIT 1 &nbsp;|&nbsp; B span = %.3f mS &nbsp;|&nbsp; "
+                         "largest step between samples = %.1f %% of span"
+                         % (span, jump))
 
         # the locus and the fitted circle
         self.curveB.setData(x=Y.real * 1e3, y=Y.imag * 1e3)
