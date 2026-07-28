@@ -226,6 +226,7 @@ def qss(p):
     /* R2: the sidebar container and the scroll-area viewport must follow the
        theme too (they defaulted to the platform palette on the dark theme) */
     QWidget#sidebarContainer {{ background: {window}; }}
+    QWidget#sidebarPane,
     QScrollArea#sidebarScroll, QScrollArea#sidebarScroll > QWidget > QWidget {{
         background: {window}; }}
 
