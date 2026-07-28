@@ -143,7 +143,7 @@ class Ui_MainWindow(object):
     # ------------------------------------------------------------------ #
     def _build_statusbar(self):
         """Full-width bottom status bar: state pill + message on the left,
-        compact live readings (F/D/T/S) and the progress bar on the right."""
+        compact live readings (T/S) and the progress bar on the right."""
         self.statusBarFrame = QtWidgets.QFrame(self.centralwidget)
         self.statusBarFrame.setObjectName("statusBarFrame")
         self.statusBarFrame.setFixedHeight(36)
@@ -154,9 +154,11 @@ class Ui_MainWindow(object):
         bar.addWidget(self.infostatus)
         self._label(self.statusBarFrame, "infobar", "Infobar")
         bar.addWidget(self.infobar, 1)
-        for name, text in (("statusFreqValue", "F: --"),
-                           ("statusDissValue", "D: --"),
-                           ("statusTempValue", "T: --"),
+        # Only temperature and sampling time. The per-overtone frequency and
+        # dissipation readouts that used to sit here are a Q-1 inheritance: on NEXT
+        # every overtone is measured at once, so a single F/D pair in a status bar
+        # can only ever show one of them and invites reading it as "the" value.
+        for name, text in (("statusTempValue", "T: --"),
                            ("statusSampValue", "S: --")):
             bar.addWidget(self._label(self.statusBarFrame, name, text))
         self.progressBar = QtWidgets.QProgressBar(self.statusBarFrame)
