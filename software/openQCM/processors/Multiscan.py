@@ -1129,22 +1129,23 @@ class MultiscanProcess(multiprocessing.Process):
             # Report the dropped fraction once per overtone, and again only on a
             # move of more than 10 points: it is the honest measure of how much of
             # this sweep the detector could not see, and silently dropping half a
-            # band would read as "clean data".
-            if not hasattr(self, "_mask_logged"):
-                self._mask_logged = {}
+            # band would read as "clean data". Silent while the mask is off.
             frac = 100.0 * n_dropped / max(int(keep.sum()) + n_dropped, 1)
-            _prevf = self._mask_logged.get(overtone_number)
-            if _prevf is None or abs(frac - _prevf) > 10.0:
-                self._mask_logged[overtone_number] = frac
-                if n_dropped:
-                    print("Saturation mask (overtone %d): %d of %d samples below "
-                          "%.0f dB dropped (%.0f %% of the band)"
-                          % (overtone_number, n_dropped,
-                             int(keep.sum()) + n_dropped,
-                             Constants.RATIO_DB_FLOOR, frac))
-                else:
-                    print("Saturation mask (overtone %d): nothing dropped"
-                          % overtone_number)
+            if Constants.IMPEDANCE_PANEL_MASK_SATURATED:
+                if not hasattr(self, "_mask_logged"):
+                    self._mask_logged = {}
+                _prevf = self._mask_logged.get(overtone_number)
+                if _prevf is None or abs(frac - _prevf) > 10.0:
+                    self._mask_logged[overtone_number] = frac
+                    if n_dropped:
+                        print("Saturation mask (overtone %d): %d of %d samples "
+                              "below %.0f dB dropped (%.0f %% of the band)"
+                              % (overtone_number, n_dropped,
+                                 int(keep.sum()) + n_dropped,
+                                 Constants.RATIO_DB_FLOOR, frac))
+                    else:
+                        print("Saturation mask (overtone %d): nothing dropped"
+                              % overtone_number)
 
             # Ship ONE overtone per message. elaborate_multi runs once per
             # overtone, so re-sending all five lists every time (the pattern the

@@ -75,7 +75,21 @@ Conventional Commits. Versions are marked by Git tags.
   recorded as a roadmap item, not applied: it introduces cross-sweep state and
   shifts published values, so it needs a decision.
 
-### Added — saturation mask on the spectra shipped for display and fitting (2026-07-28)
+### Added, then DISABLED — saturation mask on the spectra shipped for display and fitting (2026-07-28)
+> **Ships off** (`IMPEDANCE_PANEL_MASK_SATURATED = False`). At the floor below it
+> removes 35–63 % of the band in water and 20 % on the 9th overtone in air, and
+> throwing away half the signal to make the circle rounder is the wrong trade.
+> The code, the constants and the measurements stay in place so the study can
+> resume from here; with the flag off the behaviour is bit-identical to before
+> (water residuals back to 4.1/18.1/9.9/6.4/5.5 %).
+>
+> Two directions the data suggests, for when it is revisited: **weight** the
+> samples by their expected error instead of dropping them, and mask **only the
+> circle fit** — which needs a clean arc — while leaving the Lorentzian the tails
+> that pin its background. Fixing the root cause is better still: `R17 = 52.3 Ω`
+> is far too small a reference for a liquid load, and a switchable reference
+> resistor would put the whole sweep back inside the detector's window.
+
 - **What it fixes.** On a liquid load the whole sweep sits in the AD8302's
   dynamic-range corner: against `R17 = 52.3 Ω` a water-loaded crystal reads
   `R1` = 0.6–3 kΩ, so the divider ratio is **−23 to −36 dB** with a resonance

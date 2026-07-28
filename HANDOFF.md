@@ -236,7 +236,19 @@ the 2026-07-28 investigation report for the full evidence and the three options 
    through the then-current pipeline.
 4. Widen the sweep window for liquid work, and revisit `SG_WINDOW_SIZE_G` for the low overtones
    in air (both move Γ, hence D).
-5. **The liquid baseline is taken ON the resonance — biases the published Γ.**
+5. **How to apply a saturation mask without throwing away the band.** Implemented
+   and measured on 2026-07-28, then **disabled** by decision: at a −28 dB floor it
+   drops 35–63 % of the band in water and 20 % on the 9th overtone in air. It does
+   fix the shape where the shape is broken (water 3rd overtone: circle residual
+   18.1 % → 4.7 %, and the two Γ estimators from −5.5 % to −0.6 % apart), but the
+   cost is not acceptable as a default. Directions: (a) **weight** samples by their
+   expected error rather than dropping them; (b) mask **only the circle fit**,
+   leaving the Lorentzian the tails that pin its background; (c) set the floor from
+   the measured noise on the ratio instead of a fixed number; (d) the real fix is
+   hardware — `R17 = 52.3 Ω` is far too small for a liquid load, and a switchable
+   reference would put the sweep back inside the detector's window.
+   `Constants.IMPEDANCE_PANEL_MASK_SATURATED` turns it back on for experiments.
+6. **The liquid baseline is taken ON the resonance — biases the published Γ.**
    The sweep window is fixed at −12 kHz/+6 kHz (sized for air) while in water
    Γ_FWHM is 1.9–5.0 kHz, so `G − average(G[:100])` subtracts 13 % of the peak on
    the 3rd overtone and **66 % on the 9th**. The circle fit does not care
@@ -245,16 +257,16 @@ the 2026-07-28 investigation report for the full evidence and the three options 
    taking the width from a Lorentzian with a free background, or by scaling the
    sweep window with the measured Γ. Changes published values, so it needs a
    decision.
-6. **Decide on averaging δ across sweeps** (see the identifiability note above): removes the
+7. **Decide on averaging δ across sweeps** (see the identifiability note above): removes the
    residual jitter from D and R_m on overtones with a shallow residual valley, at the cost of
    cross-sweep state and a small shift in published values. Needs two consecutive datalog CSVs
    from one run to size the benefit against the intrinsic scatter.
-7. **Port FIT 1 (Taubin circle + arc-based Γ, saturation/core-masked) into the
+8. **Port FIT 1 (Taubin circle + arc-based Γ, saturation/core-masked) into the
    pipeline** for Γ and R_m: on deep fold-overshoot boards (body 3) the literal
    half-height/G_max readings measure the artifact, and the circle fit on the
    flanks is the only unbiased estimator (~ms per overtone per sweep). The
    offline reference is `sweep_data/fit_admittance.py`.
-8. **Fit tooling** (`sweep_data/fit_admittance.py`, offline; the same module is
+9. **Fit tooling** (`sweep_data/fit_admittance.py`, offline; the same module is
    imported by the live window at Tools > *Impedance Fit*): FIT 1 = BVD
    circle with rotation + weighted arc regression, FIT 2 = Levenberg–Marquardt Lorentzian on
    G. In clean air the two agree to 1.4–5.4 ppm on f_s and 2.5–6.4 % on Γ, both with sub-Hz

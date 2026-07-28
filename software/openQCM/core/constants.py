@@ -398,7 +398,15 @@ class Constants:
     # DIAGNOSTIC numbers only - hence the masked-percentage column in the fit
     # window, coloured to warn past 20 %.
     RATIO_DB_FLOOR = -28.0
-    IMPEDANCE_PANEL_MASK_SATURATED = True
+    # ⚠️ OFF since 2026-07-28, by decision: at this floor the mask removes 35-63 %
+    # of the band in water and 20 % on the 9th overtone in air. Throwing away half
+    # the signal to make the circle rounder is the wrong trade, and how to select
+    # the untrustworthy samples without that cost is an open question - the two
+    # ideas the data suggests are (a) WEIGHT the samples by their expected error
+    # instead of dropping them, and (b) mask only the circle fit, which needs a
+    # clean arc, while leaving the Lorentzian the tails that pin its background.
+    # The code and the measurements are kept so the study can resume from here.
+    IMPEDANCE_PANEL_MASK_SATURATED = False
     # never ship fewer than this many samples: a degenerate curve is worse than a
     # distorted one
     IMPEDANCE_PANEL_MIN_POINTS = 64
