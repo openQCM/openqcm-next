@@ -58,6 +58,12 @@ A **Quartz Crystal Microbalance (QCM)** measures mass changes and material prope
 5. Run **Peak Detection** — the QCM type (5/10 MHz) is auto-detected.
 6. Select the desired overtone (F0, F3, F5, F7, or F9) and click **Start** (enabled once connected).
 
+> **Note on `software/openQCM/config.txt`.** The application rewrites it, and its contents are
+> per-machine, so it shows up as a local modification on every working copy. It is tracked on
+> purpose — it is read with `loadtxt` at start-up, so a clone without it will not run — which means
+> `git pull` refuses until the change is put aside: `git stash push software/openQCM/config.txt`,
+> pull, then `git stash pop`.
+
 ---
 
 ## Features
