@@ -5,6 +5,49 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Fixed — ⚠️ MEASURED VALUES (verification round, 2026-07-27)
+- **Attenuator compensation was 0.600 V instead of 0.61069 V.** The ADC→V
+  conversion has to undo the INPB R11/R19 attenuator, and that is **not** one
+  clean decade: k = (47.0 + 4.99)/4.99 = 10.4188 = 20.3564 dB, which at
+  30 mV/dB is 0.61069 V. The hardcoded 0.600 undid exactly 20.000 dB and left
+  0.3564 dB uncompensated, underestimating M = |Z_q + R17| by **4.02 %**. The
+  inversion amplifies that by (1 + R17/R_m), because `R_q = M·cosφ − R17` is a
+  difference of close numbers at resonance: up to **−22 %** on R_m at the
+  fundamental in air. Now derived from the schematic values in
+  `Constants.V_MAG_DECADE_OFFSET` instead of hardcoded, and applied at **both**
+  conversion sites — `_Vmag_bit_mag` (the published path) and the one inside
+  `run()` that writes `g<n>.txt` (the offline reference), which had drifted apart.
+  Confirmed by a synthetic THRU (Z_q = 0.001 Ω through the full forward model):
+  M read **50.199 Ω** before and **52.301 Ω** after, against a true 52.30 Ω.
+- **The conductance is no longer routed through the phase unfold.** G is *even*
+  in φ, so it must be computed from the phase exactly as the AD8302 emits it —
+  folded. `_phase_signed` does more than flip the sign: it also **shifts** the
+  phase by its minimum, and that shift is not sign-symmetric. Sending G through
+  it biased the published dissipation by **+6 to +20 %** in air while doing
+  nothing about a sign ambiguity G is already immune to. B keeps the signed
+  phase, which is the only quantity that genuinely needs it.
+
+  **Combined effect on the published values**, measured on the frozen datasets.
+  The two fixes push D the same way, they do not cancel:
+
+  | n | D air before → after | D isopropanol before → after |
+  |---|---|---|
+  | 1 | 25.08 → 29.74 ppm | 387.1 → 380.1 ppm |
+  | 3 | 5.58 → 6.89 ppm | 194.4 → 194.7 ppm |
+  | 5 | 5.42 → 6.71 ppm | 146.1 → 146.3 ppm |
+  | 7 | 4.86 → 5.65 ppm | 123.8 → 123.9 ppm |
+  | 9 | 5.61 → 6.04 ppm | 112.6 → 112.7 ppm |
+
+  `f_r` moves ≤ 13 Hz. R_m rises 7–11 % in air (the direction the underestimated
+  M predicted). In liquid the unfold does not fire for n ≥ 3, so only the
+  constant contributes there.
+
+  Verification harness: synthetic BVD through the reference forward model
+  (attenuator k, Z2_eff, AD8302 transfer functions, ×2/×1.5 buffers, 12-bit ADC)
+  into the real `MultiscanProcess` methods. Isolating the formulas, air now gives
+  **f_r 0.00 Hz, D −0.34 %, G_max −1.43 %** against analytic truth; the residual
+  G_max offset is the R17-vs-Z2_eff item, still open.
+
 ### Changed — ⚠️ MEASURED VALUES
 - **The published resonance frequency and dissipation now come from the EXACT
   complex-divider inversion.** `elaborate_multi` computes `Y_q = 1/(M·e^{-jφ} −

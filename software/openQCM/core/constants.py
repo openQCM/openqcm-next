@@ -295,6 +295,26 @@ class Constants:
     # MultiscanProcess._phase_signed and sweep_data/plot_conductance.py.
     FOLD_THRESHOLD_DEG_G = 5.0
 
+    # VER 0.1.6G INPB attenuator R11/R19 (from the schematic). The ADC->V
+    # conversion has to undo it, and the amount is NOT one clean decade:
+    #   k = (R11 + R19)/R19 = 10.418838 = 20.3564 dB
+    #   at the AD8302's 30 mV/dB that is 0.61069 V
+    # The code used a hardcoded 0.600 V, which undoes exactly 20.000 dB = x10.000
+    # and leaves 0.3564 dB uncompensated. That residue underestimates
+    # M = |Z_q + R17| by 4.02 %, and the inversion amplifies the error by
+    # (1 + R17/R_m) because R_q = M*cos(phi) - R17 is a difference of close
+    # numbers at resonance: up to -22 % on R_m at the fundamental in air.
+    #
+    # Verified by a synthetic THRU (Z_q = 0.001 ohm through the full forward
+    # model): M reads 50.199 ohm with 0.600 and 52.301 ohm with the value below,
+    # against a true 52.30 ohm.
+    #
+    # Derived rather than hardcoded so the schematic values stay visible.
+    R11_ATT = 47.0
+    R19_ATT = 4.99
+    K_ATT = (R11_ATT + R19_ATT) / R19_ATT               # 10.418838
+    V_MAG_DECADE_OFFSET = 20.0 * np.log10(K_ATT) * 0.030   # 0.61069 V
+
     # VER 0.1.6G live impedance panel: half-width of the plotted window, in units
     # of the half-bandwidth Gamma of the resonance being displayed.
     #

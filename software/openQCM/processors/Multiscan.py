@@ -558,9 +558,10 @@ class MultiscanProcess(multiprocessing.Process):
         ADCtoVolt = vmax / bitmax
         # volage calculation divide by factor 2 because of the opamp  
         Vmag = bit_mag * ADCtoVolt / 2
-        # because of the voltage divider Zehra
-        Vmag = Vmag - 0.6 
-        
+        # undo the INPB R11/R19 attenuator: 20.3564 dB at 30 mV/dB, NOT one clean
+        # decade. See Constants.V_MAG_DECADE_OFFSET for why 0.600 was wrong.
+        Vmag = Vmag - Constants.V_MAG_DECADE_OFFSET
+
         return Vmag
     
     # VER 0.1.5a_G_DEV 
@@ -877,9 +878,21 @@ class MultiscanProcess(multiprocessing.Process):
         #
         # The same spectra feed the live impedance panel below, so the panel and
         # the datalog can never disagree.
+        # G is EVEN in phi: R_q = M*cos(phi) - R17 and X_q^2 = M^2*sin^2(phi) are
+        # both sign-symmetric, so the conductance must be computed from the phase
+        # exactly as the AD8302 emits it — folded. _phase_signed does more than
+        # flip the sign: it also SHIFTS the phase by its minimum, and that shift
+        # is not sign-symmetric. Routing G through it biased the published
+        # dissipation by +6 to +20 % in air (measured on the 2026-07-27 datasets)
+        # while doing nothing for the sign ambiguity G is already immune to.
+        phase_folded = self._phase_raw_V_phase(Vphase_result_fit)
+        R_q_G, X_q_G = self._RX_exact(Vmag_raw_result_fit, phase_folded)
+        G_exact_S = self._G_exact(R_q_G, X_q_G)
+
+        # B is ODD in phi and genuinely needs the signed phase — and it is the
+        # only quantity that does. Same for the admittance circle it draws.
         phase_signed = self._phase_signed(Vphase_result_fit)
         R_q, X_q = self._RX_exact(Vmag_raw_result_fit, phase_signed)
-        G_exact_S = self._G_exact(R_q, X_q)
         B_exact_S = self._B_exact(R_q, X_q)
 
         (index_peak_fit_G, frequency_resonance_G, half_bandwidth) = \
@@ -1591,8 +1604,9 @@ class MultiscanProcess(multiprocessing.Process):
                                             # VER 0.1.5a_G_DEV define V mag and V phase of AD8302
                                             # V mag conversion from adc bit to Volt and ratio /2 by opamp
                                             V_mag[i] = float(strs[i][0]) * ADCtoVolt / 2
-                                            # because of the voltage divider Zehra
-                                            V_mag[i] = V_mag[i] - 0.6
+                                            # same attenuator compensation as
+                                            # _Vmag_bit_mag - this feeds g<n>.txt
+                                            V_mag[i] = V_mag[i] - Constants.V_MAG_DECADE_OFFSET
                                             # V phase conversion from adc bit to Volt and ratio /1.5 by opamp
                                             V_ph[i] = float(strs[i][1]) * ADCtoVolt / 1.5
                                             
