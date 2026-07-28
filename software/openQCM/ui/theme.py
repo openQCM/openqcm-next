@@ -231,7 +231,6 @@ def qss(p):
 
     /* Bottom status bar (R2) */
     QFrame#statusBarFrame {{ background: {panel}; border-top: 1px solid {border}; }}
-    QLabel#statusFreqValue, QLabel#statusDissValue,
     QLabel#statusTempValue, QLabel#statusSampValue {{
         color: {text}; font-weight: bold; padding: 0 4px; }}
     QLabel#infobar {{ color: {muted}; }}

@@ -1624,9 +1624,7 @@ class MainWindow(QtGui.QMainWindow):
 
     def _reset_status_readings(self):
         """Reset the bottom-bar compact readings to placeholders (R2)."""
-        for lbl, tag in ((self.ui.statusFreqValue, "F"),
-                         (self.ui.statusDissValue, "D"),
-                         (self.ui.statusTempValue, "T"),
+        for lbl, tag in ((self.ui.statusTempValue, "T"),
                          (self.ui.statusSampValue, "S")):
             lbl.setText("{}: --".format(tag))
 
@@ -3923,9 +3921,6 @@ class MainWindow(QtGui.QMainWindow):
             else:
                 self.ui.F9.setText("nan")
 
-        # R2: mirror the fundamental on the bottom status bar
-        if index == 0:
-            self.ui.statusFreqValue.setText("F: {}".format(label))
 
     def _update_indicator_F_single (self, index, value):
 
@@ -3956,8 +3951,6 @@ class MainWindow(QtGui.QMainWindow):
         else:
             self.ui.F9.setText("nan")
 
-        # R2: mirror the measured overtone on the bottom status bar
-        self.ui.statusFreqValue.setText("F: {}".format(label))
 
     def _update_indicator_D (self, index, value):
         value_multiplied = value[0] * 1e6
@@ -3991,9 +3984,6 @@ class MainWindow(QtGui.QMainWindow):
             else:
                 self.ui.D9.setText("nan")
 
-        # R2: mirror the fundamental on the bottom status bar
-        if index == 0:
-            self.ui.statusDissValue.setText("D: {}".format(label))
 
     def _update_indicator_D_single (self, index, value):
         value_multiplied = value[0] * 1e6
@@ -4026,8 +4016,6 @@ class MainWindow(QtGui.QMainWindow):
         else:
             self.ui.D9.setText("nan")
 
-        # R2: mirror the measured overtone on the bottom status bar
-        self.ui.statusDissValue.setText("D: {}".format(label))
 
 
     def _update_scan_selector(self):
