@@ -1523,8 +1523,14 @@ class MainWindow(QtGui.QMainWindow):
         if _btn is not None:
             _btn.clicked.connect(lambda: self._apply_theme(
                 "dark" if self._theme == "light" else "light"))
-        # Phase 4: View > Δ Cursors (frequency / dissipation panels)
+        # Phase 4: View > Grid, Δ Cursors (frequency / dissipation panels).
+        # Grid lives here because pyqtgraph's own right-click menu has no grid
+        # entry, and the custom right-click menu that used to carry it is gone.
         menu_view.addSeparator()
+        self._act_grid = QtGui.QAction("Grid", self)
+        self._act_grid.setCheckable(True)
+        self._act_grid.toggled.connect(self._toggle_all_grids)
+        menu_view.addAction(self._act_grid)
         self._act_cursors = QtGui.QAction("Δ Cursors (F / D)", self)
         self._act_cursors.setCheckable(True)
         self._act_cursors.toggled.connect(self._toggle_all_cursors)
@@ -4122,9 +4128,6 @@ class MainWindow(QtGui.QMainWindow):
         # per-plot grid state (grids default OFF)
         self._grid_on = {}
         self._plot_menu_targets = [self._plt0, self._plt4, self._plt2, self._pltD]
-        # one handler per GraphicsLayoutWidget scene (ui.plt hosts _plt0 + _plt4)
-        for canvas in (self.ui.plt, self.ui.pltB, self.ui.pltD):
-            canvas.scene().sigMouseClicked.connect(self._on_scene_mouse_clicked)
         # Δ cursors: two movable time cursors + delta readout per panel. The
         # items are parented to the ViewBox (ignoreBounds) so they survive
         # PlotItem.clear() and never drive the autorange.
@@ -4146,43 +4149,17 @@ class MainWindow(QtGui.QMainWindow):
             self._plot_cursors[plot] = {"c1": c1, "c2": c2,
                                         "text": txt, "kind": kind}
 
-    def _on_scene_mouse_clicked(self, ev):
-        if ev.button() != QtCore.Qt.RightButton:
-            return
-        for plot in self._plot_menu_targets:
-            vb = plot.getViewBox()
-            if vb is not None and vb.sceneBoundingRect().contains(ev.scenePos()):
-                ev.accept()
-                self._show_plot_menu(plot, ev.screenPos().toPoint())
-                return
+    def _toggle_all_grids(self, on):
+        """View > Grid: same state on every plot panel."""
+        for plot in getattr(self, "_plot_menu_targets", []):
+            if plot is not None:
+                self._set_grid(plot, on)
 
-    def _show_plot_menu(self, plot, screen_pos):
-        menu = QtGui.QMenu(self)
-        menu.addAction("Auto-scale", lambda: plot.enableAutoRange())
-        menu.addAction("Reset zoom", lambda: plot.autoRange())
-        vb = plot.getViewBox()
-        if vb.state.get("mouseMode") == pg.ViewBox.RectMode:
-            menu.addAction("Mouse: pan mode",
-                           lambda: vb.setMouseMode(pg.ViewBox.PanMode))
-        else:
-            menu.addAction("Mouse: select/zoom mode",
-                           lambda: vb.setMouseMode(pg.ViewBox.RectMode))
-        menu.addSeparator()
-        menu.addAction("Hide grid" if self._grid_on.get(plot, False)
-                       else "Show grid", lambda: self._toggle_grid(plot))
-        if plot in self._plot_cursors:
-            visible = self._plot_cursors[plot]["c1"].isVisible()
-            menu.addSeparator()
-            menu.addAction("Hide Δ cursors" if visible else "Show Δ cursors",
-                           lambda: self._toggle_cursors_for(plot))
-        menu.exec_(screen_pos)
-
-    def _toggle_grid(self, plot):
-        on = not self._grid_on.get(plot, False)
+    def _set_grid(self, plot, on):
         self._grid_on[plot] = on
         plot.showGrid(x=on, y=on, alpha=0.3)
         # the phase twin overlays the amplitude plot: keep the grids together
-        if plot is self._plt0:
+        if plot is self._plt0 and getattr(self, "_plt1", None) is not None:
             self._plt1.showGrid(x=on, y=on, alpha=0.3)
 
     def _toggle_cursors_for(self, plot, on=None):
