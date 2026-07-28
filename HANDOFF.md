@@ -284,7 +284,7 @@ does guarantee the locus is a circle, so the idea is sound. The implementation i
 `_phase_signed` behaviour, plus the independently verified attenuator constant. Measured across
 11 datasets:
 
-| | continuity (max |ΔB| between adjacent samples, % of B range) | circle residual, air | circle residual, water |
+| | continuity: max step of B between adjacent samples, % of B range | circle residual, air | circle residual, water |
 |---|---|---|---|
 | δ from the circle fit | **20–86 %** | 0.8–2.5 % | 3.1–11.1 % (meaningless) |
 | **δ from the fold** | **0.5–7.5 %** | 1.2–7.9 % | 3.8–19.8 % |

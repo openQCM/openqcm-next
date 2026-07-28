@@ -179,7 +179,7 @@ Conventional Commits. Versions are marked by Git tags.
   the original `_phase_signed` behaviour, which was right.
 - **Measured across 11 datasets, 55 overtones:**
 
-  | | continuity: max ΔB between adjacent samples, % of B range | circle residual, air | water |
+  | | continuity: max step of B between adjacent samples, % of B range | circle residual, air | water |
   |---|---|---|---|
   | δ from the roundness fit | 20–86 % | 0.8–2.5 % | 3.1–11.1 % (meaningless) |
   | **δ from the fold** | **0.5–7.5 %** | 1.2–7.9 % | 3.8–19.8 % |
