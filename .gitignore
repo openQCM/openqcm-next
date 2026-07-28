@@ -23,22 +23,10 @@ logged_data/
 *_multi_.csv
 
 # === Raw sweep test datasets (peak-detection prototypes only) ===
+# NB: functional data stays versioned — the calibration lookup tables
+#     (software/openQCM/Calibration_5MHz.txt / Calibration_10MHz.txt) and the
+#     sweep_data/*.txt files read by the Raw Data view.
 research/peak-detection/**/*.txt
-
-# === Calibration lookup tables: runtime output, NOT versioned ===
-# Calibration.py rewrites these on every peak-detection run and they are
-# per-device (100001 lines each), so versioning them buried every diff under
-# ~400k lines of churn that says nothing about the code. main still tracks them;
-# this branch does not, so expect a .gitignore conflict on the next merge.
-#
-# ⚠️ Consequence: a fresh clone has no calibration table. Run Peak Detection once
-#    before Single / Multiscan / Raw Data — those paths loadtxt() the file with no
-#    fallback and will raise if it is missing.
-#
-# Still versioned: PeakFrequencies{,RT}.txt (a handful of lines, no churn) and
-# sweep_data/*.txt (example spectra the Raw Data and Conductance views read).
-software/openQCM/Calibration_5MHz.txt
-software/openQCM/Calibration_10MHz.txt
 
 # === Backups / working copies / dead code ===
 backup/

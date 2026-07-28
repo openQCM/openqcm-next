@@ -22,9 +22,8 @@ class ParserProcess(multiprocessing.Process):
                        data_queue6,
                        data_queue_F_multi,
                        data_queue_D_multi,
-                       data_queue_A_multi,
+                       data_queue_A_multi, 
                        data_queue_P_multi,
-                       data_queue_GB_multi = None,
                        ):
         """
         :param data_queue{i}: References to queue where processed data will be put.
@@ -51,9 +50,7 @@ class ParserProcess(multiprocessing.Process):
         # ampli out queue
         self._out_queue_A_multi = data_queue_A_multi 
         # phase out queue
-        self._out_queue_P_multi = data_queue_P_multi
-        # VER 0.1.6G exact conductance / susceptance out queue (impedance panel)
-        self._out_queue_GB_multi = data_queue_GB_multi
+        self._out_queue_P_multi = data_queue_P_multi 
 
         #print(TAG, 'Process ready')
         #Log.d(TAG, "Process ready")
@@ -127,14 +124,7 @@ class ParserProcess(multiprocessing.Process):
     
     def add_P_multi (self, data):
         self._out_queue_P_multi.put(data)
-
-    # VER 0.1.6G exact conductance / susceptance spectra for the impedance panel.
-    # data = [freq_list, G_list, B_list], one entry per overtone. Display only.
-    def add_GB_multi (self, data):
-        if self._out_queue_GB_multi is not None:
-            self._out_queue_GB_multi.put(data)
-
-
+        
     def stop(self):
         """
         Signals the process to stop parsing data.
