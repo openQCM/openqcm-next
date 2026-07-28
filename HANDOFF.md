@@ -77,6 +77,20 @@ Add a line here whenever you decide to skip one, so the next person can tell "ch
 | main commit | why it stays on `main` |
 |---|---|
 | `7f80f82` | `main`'s own HANDOFF §2 rewrite. This branch documents the same rules in this very section. |
+| `d23333e` | removes the three dead Qt-Designer UI files — this branch never had them. |
+| `439fc9e` | untracks `Calibration_*MHz.txt` — already untracked and ignored here. |
+
+⚠️ **`git cherry` also keeps showing `+` for a commit that was ported but needed conflict
+resolution**, because it compares patch-ids and the resolved patch is not the original one. On
+2026-07-28 `273c6a9` and `a165b40` were both carried over and both still list as `+`; only
+`b19f987`, which applied cleanly, flipped to `-`. So `+` means one of three things — not ported, or
+ported with a resolved conflict, or genuinely forgotten — and the table above is what separates the
+first from the third. Note the second when it happens:
+
+| ported with conflict resolution | what had to be reconciled |
+|---|---|
+| `273c6a9` | `_plot_menu_targets` — kept this branch's six-plot list (so View > Grid covers the two impedance views) and dropped the right-click handler loop. |
+| `a165b40` | sidebar pane wrapping, against the three-pane splitter of this branch. |
 
 #### Why not `git merge main`
 
