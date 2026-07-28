@@ -2,7 +2,7 @@
 
 > Technical starting point to continue development of the software and of the
 > `impedance-analysis` branch. Working language: Italian in chat, English in the repo.
-> Last updated: 2026-07-21.
+> Last updated: 2026-07-28.
 
 ---
 
@@ -27,13 +27,47 @@ Package `software/openQCM/`:
 
 - **`main`**: development line. Reconstructed history (`v0.1.5` → `v0.1.6-dev` → `v0.1.6-dev-073`)
   plus all current development (entry point, serial connection, dependencies, README, fixes).
-- **`impedance-analysis`** (tag `v0.1.6G-test`): experimental conductance-based impedance feature.
-- ⚠️ **The impedance branch is behind `main`**: it was branched from `v0.1.6-dev` and only carries
-  the conductance feature; it does **not** have the later work on `main` (run.py, serial connection
-  Steps 1–2, requirements/environment, new README, Raw Data fix). To align it, run `git merge main`
-  **from** the impedance branch and resolve conflicts (mainly in `ui/mainWindow.py` and
-  `processors/Multiscan.py`, touched by both lines). The two branches stay separate until a merge
-  `impedance-analysis → main` is decided.
+- **`impedance-analysis`** (tag `v0.1.6G-test`): conductance-based impedance analysis. It is *ahead*
+  of `main` on that feature and aligned with `main` on everything else.
+
+### ⚠️ Moving work between `main` and `impedance-analysis` (updated 2026-07-28)
+
+`main` **does not carry the impedance analysis.** It was merged in twice (PRs #1 and #2) and then
+reverted by `1b3fe81`, which restored `main` byte-for-byte to `52a42a9`. A merge
+`impedance-analysis → main` is planned for the future but is Marco's decision, not a routine step.
+
+That revert leaves a trap in **both** directions, because the merge base between the two branches is
+`c83a820` — a commit that *had* the impedance code. Git therefore reads `main` as "deleted the
+impedance code" and propagates that deletion. So:
+
+- **`main` → branch: cherry-pick, never `git merge main`.**
+
+      git fetch origin
+      git --no-pager log --oneline 1b3fe81..origin/main   # what is new on main
+      git cherry-pick 1b3fe81..origin/main
+
+  A plain `git merge main` conflicts on nine files and, where there is no textual conflict,
+  **silently** deletes `sweep_data/plot_conductance.py` from the branch, restores the three dead
+  Qt-Designer UI files and re-tracks `Calibration_5MHz.txt`. Verified with
+  `git merge-tree --write-tree`.
+
+- **branch → `main`: revert the revert FIRST**, then merge:
+
+      git checkout main && git revert --no-edit 1b3fe81
+
+  Resolving a direct merge by hand instead keeps `main`'s deletions wherever there is no textual
+  conflict, leaving a hybrid that compiles and measures wrong.
+
+- **Keep commits on `main` small and single-topic**: cherry-pick operates per commit, so one commit
+  mixing three unrelated changes forces all three conflicts to be resolved at once.
+  `processors/Multiscan.py` is where the two lines of work actually meet.
+
+Full reasoning, measurements and the file-by-file list: `HANDOFF.md` on the `impedance-analysis`
+branch, section "Working with `main`".
+
+⚠️ Note the instruction that stood here before 2026-07-28 — "to align the impedance branch, run
+`git merge main` from it" — is now **wrong**: it is precisely the operation that silently deletes the
+branch's work.
 
 ## 3. Current state on `main`
 
