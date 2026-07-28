@@ -167,6 +167,10 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
 - The DEBUG state is gone (2026-07-27 merge): `environment` back to `10`,
   `plot_autoscale_yaxis` dropped for main's `Constants.plot_force_yrange`.
 
+> 📌 **The step-by-step algorithm — every constant, every guard, a worked numerical example and
+> the traps — is in [`docs/impedance-analysis/ALGORITHM.md`](docs/impedance-analysis/ALGORITHM.md).
+> That is the document to read first, and the one that must never be lost.**
+
 ### The phase-channel offset δ — what it is and how it was found
 
 The detector emits `|Δφ|` only, and its output carries a **global per-overtone offset**:

@@ -5,6 +5,23 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Added — `docs/impedance-analysis/ALGORITHM.md`, the reference for the whole measurement (2026-07-28)
+- Every step from ADC counts to the logged frequency and bandwidth, with the code path, the derived
+  constants, the reason each guard exists, and a **worked numerical example** on a committed
+  `g<n>.txt` that a reimplementation can be checked against sample by sample.
+- Preceded by a **verified** account of what this branch changes with respect to `main`: three lines
+  in `elaborate_multi()` switch the published frequency and bandwidth from the magnitude channel to
+  the conductance, plus one line that switches the sweep re-centring. `constants.py`, `worker.py`,
+  `Parser.py` and `mainWindow_ui.py` are purely additive; `mainWindow.py` changes four lines, all
+  adding the new plots to existing collections. The magnitude signal feeding `main`'s legacy
+  measurement is **bit-identical** on both branches — proven over the whole ADC range, max deviation
+  0.000e+00 — so that measurement still runs here unchanged, alongside the new one.
+- Two real differences that are *not* the measurement, both documented: the phase channel conversion
+  is mirrored (`main` reports `90 − |φ|`, this branch `|φ|`, which is the physical quantity), and
+  this branch writes `g<n>.txt` on every sweep.
+- ⚠️ Records that the CSV column named `Dissipation_n` is **not** a dissipation: it is
+  `half_bandwidth/1e6`, a HALF width in MHz. `D = 2·half_bandwidth/f_r`.
+
 ### Fixed — ⚠️ MEASURED VALUES: global phase offset of the AD8302 phase channel (2026-07-28)
 - **Root cause of the distorted admittance circles, and it is not what the first
   attempt said it was.** The detector's phase output carries a **global
