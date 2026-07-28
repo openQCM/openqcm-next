@@ -5,43 +5,59 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
-### Fixed — f_r no longer reads the AD8302 fold-overshoot horn (2026-07-28)
-- **Root cause found for the distorted admittance circles** (first seen on
-  body 3 / sensor S3, present on every body): near the |phase| fold the AD8302
-  phase output **overshoots its 1.8 V zero-phase rail** by up to ~140 mV —
-  readings down to **−14°**, impossible for a |Δφ| detector — in a ~200 Hz zone
-  that lags the true crossing by 40–70 Hz. The magnitude channel is clean at the
-  same samples; on ideal synthetic data the minimum stays at ~0°. Near resonance
-  `G = R_q/(R_q²+X_q²)` amplifies those degrees: the reading crosses zero twice,
-  the conductance peak splits into **two horns up to 3× the true maximum**, and
-  the published f_r locked onto a horn (**+61…+88 Hz** on body 3, ±10–30 Hz on
-  body 2). This one defect also explains the historical "radial bulge at f_r",
-  the never-explained negative phase minima on every dataset, and the 6–20 %
-  folded-vs-shifted D discrepancy (the old `_phase_signed` shift subtracted
-  vertex+spike, the folded path subtracts nothing — neither was right).
-- **Repair: sub-zero trigger, excision, PCHIP bridge**
-  (`MultiscanProcess._phase_repair`, constants `PHASE_REPAIR_TRIGGER_DEG = −1°`,
-  `PHASE_REPAIR_CUT_DEG = 2°`, `PHASE_REPAIR_GUARD_HZ = 25`). Fires **only** on
-  sub-zero readings — unambiguous hardware overshoot — so healthy seams, damped
-  resonances, liquid sweeps and ideal data pass through untouched (verified).
-  Role separation, validated against the offline circle/Lorentzian fits:
-  **f_r** comes from the repaired conductance (single stable maximum,
-  **0.5–4 ppm** from the fitted f_s on body 3, was +61…+88 Hz off);
-  **Γ and G_max stay on the raw conductance** (their half-height crossings sit
-  outside the excised core; on body 2 today's D already matches the circle fit
-  — post-patch D change measured ≤ 0.0003 %, the f_r denominator only). The
-  repaired phase, sign-flipped at the bridge minimum, feeds **B and the panel
-  locus**, which removes the dent from the displayed circle. A deep overshoot
-  (>10°) logs a warning — that board's phase channel should be flagged.
-- **Declared limit**: where the overshoot is deep, literal Γ/G_max readings
-  measure the artifact walls (body 3's D agrees with FIT 1 only by accident) and
-  the bridge cannot restore the true amplitude. The unbiased estimator there is
-  the **circle fit on the flanks** (rotation-invariant): on setG it gives
-  D = 14.4/4.0/4.4/4.8/5.1 ppm, R1 = 18.7/18.7/46.7/93.6/156.5 Ω — sensor S3 is
-  healthy (1.04–1.26× the S1 reference). Porting FIT 1 into the pipeline is the
-  structural next step (roadmap).
+### Fixed — ⚠️ MEASURED VALUES: global phase offset of the AD8302 phase channel (2026-07-28)
+- **Root cause of the distorted admittance circles, and it is not what the first
+  attempt said it was.** The detector's phase output carries a **global
+  per-overtone offset** δ ≈ 7…17° (board + cable phase + detector offset):
+  it reads `r(f) = |φ_true(f)| − δ`. Where the true phase crosses zero (air, low
+  damping) the reading therefore **dives below zero**, down to −12°. That
+  "impossible" negative reading is not a local overshoot — it is
+  `min(r) = −δ`, the *signature* of the offset.
+- **Two of my own earlier changes were wrong and are reverted.** The morning's
+  "G from the folded phase" removed a real and necessary offset correction (the
+  old `_phase_signed` shift by `−min(r)` was a crude but broadly correct
+  estimator of δ). The afternoon's "fold-overshoot repair" (excision + PCHIP
+  bridge) treated the *symptom* of a global offset as a local defect and, by
+  pairing a raw G with a repaired B, made the displayed locus worse than before:
+  circle residual 10–18 % of the radius against 1.6–3.1 % for the untouched old
+  code. `_phase_repair` and the `PHASE_REPAIR_*` constants are gone.
+- **The fix: estimate δ by requiring the locus to be a circle.** The
+  Butterworth–Van Dyke model guarantees the admittance locus *is* a circle, so δ
+  is simply the offset that makes it one — a coarse+fine search over closed-form
+  Taubin fits on a decimated slice of the resonance band
+  (`_phase_offset_deg`, ~3 ms per overtone against a multi-second sweep).
+  This subsumes the old shift, its conditional fold threshold, and the offline
+  reference fit's "rotation" parameter — which turned out to be the same physical
+  quantity, found independently.
 
-### Fixed — ⚠️ MEASURED VALUES (verification round, 2026-07-27)
+  Circle residual, as a fraction of the fitted radius, over five datasets:
+
+  | strategy | air (4 datasets) | isopropanol |
+  |---|---|---|
+  | no correction (the reverted morning patch) | 4.1–14.6 % | 2.7–10.6 % |
+  | `−min(r)` (the old shift) | 1.2–6.6 % | 4.5–17.6 % |
+  | **δ from the circle fit** | **0.75–2.1 %** | **1.7–7.7 %** |
+
+- **Guards, so the correction only applies where it is identifiable**: rejected if
+  the best residual still exceeds `PHASE_OFFSET_MAX_RMS` (5 % of the radius) or
+  if the optimum is pinned to a search bound. On the damped isopropanol overtones
+  both fire, so those keep exactly their previously validated values; the
+  fundamental there is corrected (δ = +7.5°, residual 1.8 %).
+- **Validation.** On ideal synthetic data the estimator returns **−0.00°** and
+  leaves accuracy untouched (err D −0.33 %, unchanged). With a **+12° offset
+  injected** into the synthetic phase it recovers **+12.00°** and restores full
+  accuracy (err f_r +0.0 Hz, err D −0.33 %); without the correction the same data
+  gives err f_r −28 Hz and **err D +102 %**. Reproducibility across two
+  independent acquisitions of the same hardware: δ within **0.5°**, f_r within
+  **7 Hz**, R_m within **2.4 %**.
+- **Effect on published values** (air, sensor S3): f_r moves −20…+2 Hz versus the
+  broken intermediate state and now agrees with the offline Lorentzian fit to
+  1–15 Hz; D = 9.3/2.8/3.6/4.3/5.0 ppm. Sensor S3 measures **0.89–1.07×** the S1
+  reference R_m — a healthy crystal; the anomaly was entirely the phase channel.
+- Diagnostics: the offset is printed once per overtone and again only on a drift
+  above 1°, instead of the per-sweep flood the first attempt produced.
+
+### Fixed — ⚠️ MEASURED VALUES (verification round, 2026-07-27)### Fixed — ⚠️ MEASURED VALUES (verification round, 2026-07-27)
 - **Attenuator compensation was 0.600 V instead of 0.61069 V.** The ADC→V
   conversion has to undo the INPB R11/R19 attenuator, and that is **not** one
   clean decade: k = (47.0 + 4.99)/4.99 = 10.4188 = 20.3564 dB, which at

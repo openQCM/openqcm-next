@@ -113,13 +113,16 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
 - `elaborate_conductance_multi()` is **dead code** (UNUSED).
 - The DEBUG state is gone (2026-07-27 merge): `environment` back to `10`,
   `plot_autoscale_yaxis` dropped for main's `Constants.plot_force_yrange`.
-- ⚠️ **AD8302 fold-overshoot, discovered 2026-07-28**: near the |phase| fold the
-  detector's phase output overshoots the 1.8 V rail (readings to −14° on body 3,
-  −4…−9° on body 2; ~200 Hz zone lagging the crossing). Repaired in
-  `_phase_repair()` (sub-zero trigger → excision → PCHIP bridge): **f_r** from
-  the repaired G, **Γ/G_max on the raw G**, panel locus from the repaired phase.
-  On deep-overshoot boards literal Γ/G_max remain artifact-contaminated — the
-  circle fit on the flanks is the unbiased estimator (see roadmap).
+- ⚠️ **Global phase offset of the AD8302 phase channel (2026-07-28)**: the
+  detector reads `r = |φ_true| − δ` with δ ≈ 7…17° per overtone (board + cable +
+  detector). Where the true phase crosses zero the reading goes **negative**
+  (to −12°) — that is `min(r) = −δ`, not a local overshoot. Estimated at runtime
+  in `_phase_offset_deg()` by requiring the admittance locus to be a circle
+  (Taubin, ~3 ms/overtone), with guards that reject an unidentifiable estimate
+  (residual > 5 % of the radius, or optimum pinned to a bound) — on damped
+  liquid overtones the guards fire and those values stay as previously validated.
+  Circle residual in air: **0.75–2.1 %** of the radius, against 4.1–14.6 % with
+  no correction. Same quantity as the offline fit's "rotation" parameter.
 
 **What the offline campaign established** (2026-07-27; datasets at
 `~/claude_code/openqcm-next-impedance-datasets/2026-07-27/`, five configurations A–E):
