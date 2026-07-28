@@ -19,24 +19,87 @@ the impedance code" and propagates that deletion.
 
 ### Bringing `main`'s changes INTO this branch — cherry-pick, never `git merge main`
 
+Rehearsed end to end on 2026-07-28 with commit `251599d`; these are the commands that were actually
+run, not a sketch.
+
+**1. See what is new on `main`.** Use `git cherry`, not `git log`: it compares *contents*, so a
+commit already carried over shows as `-` and one still missing shows as `+`. That keeps the list
+honest even though cherry-pick gives every commit a new SHA.
+
 ```bash
 git fetch origin
-git --no-pager log --oneline 1b3fe81..origin/main    # what is new on main
-git cherry-pick 1b3fe81..origin/main                 # bring only those commits
+git --no-pager cherry -v HEAD origin/main 1b3fe81
 ```
 
-A plain `git merge main` conflicts on CHANGELOG.md, HANDOFF.md, README.md,
-conductance-calculation.md, constants.py, Multiscan.py, worker.py, mainWindow.py and the
-PeakFrequencies files — and, where there is no textual conflict, **silently** deletes
-`sweep_data/plot_conductance.py`, restores the three dead Qt-Designer UI files and re-tracks
-`Calibration_5MHz.txt`. Verified with `git merge-tree --write-tree`.
+**2. Decide what should travel.** This step is yours, not the command's.
 
-Cherry-pick conflicts are the real ones only: where work on `main` touches the same lines as the
-impedance work. `processors/Multiscan.py` is where the two lines of work actually meet.
+- **Travels:** code, and documentation that describes something both branches share.
+- **Does not travel:** documentation about one branch only. `7f80f82` is `main`'s own HANDOFF fix and
+  this branch has its own equivalent section — cherry-picking it gives `UU HANDOFF.md` for nothing.
+
+**3. Bring only what you chose**, one SHA at a time rather than a range, so a commit that should be
+skipped cannot stop the whole run:
+
+```bash
+git cherry-pick 251599d
+```
+
+**4. Verify.** `status` empty, the commit on top, this branch's own content still there, and the
+commit now marked `-`:
+
+```bash
+git status --short
+git --no-pager log --oneline -2
+git --no-pager cherry -v HEAD origin/main 1b3fe81
+```
+
+**5. Push.** `git push origin impedance-analysis`.
+
+#### If a cherry-pick conflicts
+
+```bash
+git status --short                 # files marked UU need resolving
+# edit the file, keep both sides where both are wanted, delete the <<<<<<< ======= >>>>>>> markers
+git add <file>
+git cherry-pick --continue
+```
+
+`git cherry-pick --skip` drops this commit and continues with the rest; **`git cherry-pick --abort`
+is always safe** — it returns everything to the state before the attempt. If the conflict is not
+obvious, abort rather than guess.
+
+#### Deliberately NOT ported from `main`
+
+`git cherry` will keep listing these with `+` forever, which is correct but looks like an oversight.
+Add a line here whenever you decide to skip one, so the next person can tell "chosen not to" from
+"forgotten".
+
+| main commit | why it stays on `main` |
+|---|---|
+| `7f80f82` | `main`'s own HANDOFF §2 rewrite. This branch documents the same rules in this very section. |
+
+#### Why not `git merge main`
+
+It conflicts on CHANGELOG.md, HANDOFF.md, README.md, conductance-calculation.md, constants.py,
+Multiscan.py, worker.py, mainWindow.py and the PeakFrequencies files — and, where there is no
+textual conflict, it **silently** deletes `sweep_data/plot_conductance.py`, restores the three dead
+Qt-Designer UI files and re-tracks `Calibration_5MHz.txt`. Verified with
+`git merge-tree --write-tree`.
+
+Cherry-pick conflicts, by contrast, are the real ones only: where work on `main` touches the same
+lines as the impedance work. `processors/Multiscan.py` is where the two lines of work actually meet.
 
 **Corollary for whoever works on `main`: small, single-topic commits.** Cherry-pick operates per
 commit, so one commit mixing three unrelated changes forces all three conflicts to be resolved at
 once.
+
+⚠️ **And one trap that has nothing to do with the two branches: untracking a file DELETES it on
+every other clone.** `git rm --cached` leaves the file on the machine where you ran it, but the
+commit records a deletion, so every checkout that pulls it removes the file — `.gitignore` does not
+protect it. It already happened once with `data_test/`. It is also why
+`software/openQCM/config.txt` is still tracked even though it is per-machine noise: it is read with
+`loadtxt` at start-up by both `MultiscanProcess` and `SerialProcess`, so a clone without it does not
+run. Before untracking anything, ask what reads it.
 
 ### Merging this branch into `main`, when the day comes
 
