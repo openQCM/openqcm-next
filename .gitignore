@@ -22,10 +22,17 @@ logged_data/
 *.log
 *_multi_.csv
 
+# === Calibration lookup tables: regenerated, not versioned ===
+# 7.6 MB each, rewritten by Peak Detection (Calibration.py, via
+# FileStorage.TXT_sweeps_save) and specific to the crystal actually mounted, so
+# versioning them only produced 200 000 lines of churn per acquisition. A fresh
+# clone gets them by running Peak Detection - step 5 of the Quick Start - which is
+# required anyway before any measurement.
+software/openQCM/Calibration_5MHz.txt
+software/openQCM/Calibration_10MHz.txt
+
 # === Raw sweep test datasets (peak-detection prototypes only) ===
-# NB: functional data stays versioned — the calibration lookup tables
-#     (software/openQCM/Calibration_5MHz.txt / Calibration_10MHz.txt) and the
-#     sweep_data/*.txt files read by the Raw Data view.
+# NB: the sweep_data/*.txt files read by the Raw Data view stay versioned.
 research/peak-detection/**/*.txt
 
 # === Backups / working copies / dead code ===
