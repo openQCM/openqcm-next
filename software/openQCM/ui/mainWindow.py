@@ -1610,9 +1610,12 @@ class MainWindow(QtGui.QMainWindow):
 
     def _toggle_sidebar(self, checked):
         """Show/hide the left sidebar (mainSplitter pane 0)."""
-        scroll = getattr(self.ui, "sidebarScroll", None)
-        if scroll is not None:
-            scroll.setVisible(checked)
+        # the pane wraps the scroll area AND the pinned Start/Stop button, so it
+        # is the pane that has to be hidden
+        pane = getattr(self.ui, "sidebarPane", None) \
+            or getattr(self.ui, "sidebarScroll", None)
+        if pane is not None:
+            pane.setVisible(checked)
 
     def _toggle_statusbar(self, checked):
         """Show/hide the bottom status bar."""

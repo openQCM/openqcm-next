@@ -10,7 +10,7 @@ created at runtime (Connect/Refresh buttons, overtone quick-select buttons,
 System Log, datalog-filename label) and the single-window structure that
 ``_build_shell()`` used to obtain by re-parenting the Designer grid:
 
-    QSplitter [ scrollable sidebar | center tabs (Plots | System Log) ]
+    QSplitter [ sidebar pane (scrollable cards + fixed Start/Stop) | center tabs ]
     + File / View / Tools / Help menu skeleton
 
 The controller keeps all behaviour: it only wires signals to these widgets.
@@ -76,7 +76,7 @@ class Ui_MainWindow(object):
         self.mainSplitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal,
                                                 self.centralwidget)
         self.mainSplitter.setObjectName("mainSplitter")
-        self.mainSplitter.addWidget(self.sidebarScroll)
+        self.mainSplitter.addWidget(self.sidebarPane)
         self.mainSplitter.addWidget(self.centerTabs)
         self.mainSplitter.addWidget(self.impedancePanel)
         self.mainSplitter.setCollapsible(0, True)
@@ -450,18 +450,6 @@ class Ui_MainWindow(object):
         self.pButton_Stop.setObjectName("pButton_Stop")
         self.pButton_Stop.hide()
 
-        # --- datalog filename + Start/Stop toggle (3a/3d/3e, R2) --------- #
-        self.verticalLayout = QtWidgets.QVBoxLayout()
-        self.verticalLayout.setObjectName("verticalLayout")
-        self.lblLogFile = QtWidgets.QLabel(self.sidebarContainer)
-        self.lblLogFile.setObjectName("lblLogFile")
-        self.lblLogFile.hide()
-        self.verticalLayout.addWidget(self.lblLogFile)
-        sb.addLayout(self.verticalLayout)
-        self.pButton_Start = QtWidgets.QPushButton("▷  Start", self.sidebarContainer)
-        self.pButton_Start.setObjectName("pButton_Start")
-        self.pButton_Start.setMinimumHeight(40)
-        sb.addWidget(self.pButton_Start)
 
         # Card titles must be bold. Qt ignores font-weight on QGroupBox::title,
         # so set the bold weight on the groupbox widget font (the native title
@@ -479,14 +467,39 @@ class Ui_MainWindow(object):
         self.sidebarScroll.setObjectName("sidebarScroll")
         self.sidebarScroll.setWidgetResizable(True)
         self.sidebarScroll.setWidget(self.sidebarContainer)
+        self.sidebarScroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.sidebarScroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+
+        # --- datalog filename + Start/Stop toggle (3a/3d/3e, R2) --------- #
+        # OUTSIDE the scroll area, pinned under it: Start/Stop must stay reachable
+        # however short the window gets. Inside the scrolling content it was the
+        # last widget, so shrinking the window vertically pushed it out of sight
+        # and starting an acquisition needed a scroll first.
+        self.sidebarPane = QtWidgets.QWidget()
+        self.sidebarPane.setObjectName("sidebarPane")
+        pane = QtWidgets.QVBoxLayout(self.sidebarPane)
+        pane.setContentsMargins(0, 0, 0, 0)
+        pane.setSpacing(6)
+        pane.addWidget(self.sidebarScroll, 1)      # only this scrolls
+
+        self.verticalLayout = QtWidgets.QVBoxLayout()
+        self.verticalLayout.setObjectName("verticalLayout")
+        self.lblLogFile = QtWidgets.QLabel(self.sidebarPane)
+        self.lblLogFile.setObjectName("lblLogFile")
+        self.lblLogFile.hide()
+        self.verticalLayout.addWidget(self.lblLogFile)
+        pane.addLayout(self.verticalLayout)
+        self.pButton_Start = QtWidgets.QPushButton("▷  Start", self.sidebarPane)
+        self.pButton_Start.setObjectName("pButton_Start")
+        self.pButton_Start.setMinimumHeight(40)
+        pane.addWidget(self.pButton_Start)
+
         # Default width 300 px (set on the splitter below): shows the whole
         # sidebar content without clipping. Kept resizable — min/max instead of
         # a fixed width — so the splitter handle can smoothly drag it, not just
-        # snap open/closed.
-        self.sidebarScroll.setMinimumWidth(260)
-        self.sidebarScroll.setMaximumWidth(400)
-        self.sidebarScroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.sidebarScroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+        # snap open/closed. On the pane now, since that is what the splitter holds.
+        self.sidebarPane.setMinimumWidth(260)
+        self.sidebarPane.setMaximumWidth(400)
 
     # ------------------------------------------------------------------ #
     # Temperature control card                                           #
