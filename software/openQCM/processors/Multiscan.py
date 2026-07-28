@@ -1065,13 +1065,16 @@ class MultiscanProcess(multiprocessing.Process):
             # older A_multi channel uses) put five times the spectra on the
             # queue and five times the pickling cost for no new information.
             # f_r and Gamma travel along: the panel needs them to restrict the
-            # circle fit to the core of the resonance.
+            # circle fit to the core of the resonance. The measured phase offset
+            # travels too, so the live fit window can show it without the user
+            # having to read the console.
             self._parser_GB_multi.add_GB_multi([int(overtone_number),
                                                 freq_range[keep].tolist(),
                                                 G_exact[keep].tolist(),
                                                 B_exact[keep].tolist(),
                                                 float(f_res),
-                                                float(abs(half_bandwidth))])
+                                                float(abs(half_bandwidth)),
+                                                float(phase_offset)])
         except Exception as e:
             # The panel is a diagnostic view: never let it break an acquisition.
             print("Warning: exact G/B for the impedance panel failed:", e)

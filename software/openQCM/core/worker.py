@@ -90,6 +90,7 @@ class Worker:
         self._F_G_multi_buffer = None
         self._fr_G_buffer = None
         self._gam_G_buffer = None
+        self._delta_G_buffer = None
         self._GB_seq = None
         
         # data buffers
@@ -560,7 +561,7 @@ class Worker:
             self._queue_data_GB_multi(self._queue_GB_multi.get(False))
 
     def _queue_data_GB_multi(self, data):
-        # One overtone per message: [idx, freq, G, B, f_r, Gamma].
+        # One overtone per message: [idx, freq, G, B, f_r, Gamma, delta].
         # Convert to numpy HERE, once per new sweep, instead of in the GUI
         # repaint: the panel is refreshed every plot_update_ms (50 ms) but the
         # spectra only change once per sweep, so converting on the consumer side
@@ -573,6 +574,9 @@ class Worker:
         self._B_exact_buffer[idx] = np.asarray(data[3], dtype=float)
         self._fr_G_buffer[idx] = float(data[4])
         self._gam_G_buffer[idx] = float(data[5])
+        # delta is optional: len() guard so an older producer still works
+        if len(data) > 6:
+            self._delta_G_buffer[idx] = float(data[6])
         # bump the per-overtone revision so the GUI can skip untouched curves
         self._GB_seq[idx] += 1
 
@@ -581,6 +585,11 @@ class Worker:
 
     def get_gamma_G_buffer(self, idx = 0):
         return self._gam_G_buffer[idx]
+
+    def get_delta_G_buffer(self, idx = 0):
+        # global phase offset measured on the last sweep of this overtone [deg];
+        # 0.0 means the estimate was rejected
+        return self._delta_G_buffer[idx]
 
     def get_GB_seq(self, idx = 0):
         # revision counter of the exact G/B spectrum of one overtone; the panel
@@ -1068,6 +1077,7 @@ class Worker:
         self._F_G_multi_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
         self._fr_G_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
         self._gam_G_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
+        self._delta_G_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
         self._GB_seq = self._zerolistmaker(len(Constants.overtone_dummy))
         
         # INIT self._F_store and self._D_store list 

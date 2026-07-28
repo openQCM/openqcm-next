@@ -24,6 +24,7 @@ from openQCM.core.worker import Worker
 from openQCM.processors.Serial import SerialProcess
 from openQCM.core.constants import Constants, SourceType, DateAxis, NonScientificAxis
 from openQCM.ui.popUp import PopUp
+from openQCM.ui.impedanceFitWindow import ImpedanceFitWindow
 from openQCM.ui import theme
 from openQCM.common.logger import Logger as Log
 from openQCM.common.architecture import Architecture,OSType
@@ -203,6 +204,8 @@ class MainWindow(QtGui.QMainWindow):
 
         # VER 0.1.6G live impedance panel (exact formula): conductance spectrum
         # and admittance locus, one curve per overtone in each.
+        # VER 0.1.6G live admittance-fit window, created on first use
+        self._window_fit = None
         self._pltG = None
         self._pltGB = None
         self._pltG_multiline = [None, None, None, None, None]
@@ -405,6 +408,7 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.actionRaw_Data.triggered.connect(self._raw_data_plot)
         # VER 0.1.6G conductance / impedance offline view
         self.ui.actionConductance_Data.triggered.connect(self._conductance_data_plot)
+        self.ui.actionImpedance_Fit.triggered.connect(self._impedance_fit_plot)
         
         # VER 0.1.6 init the null numpy array
         self._numpy_nan_signal = np.empty(Constants.ring_buffer_samples, dtype=float)
@@ -2403,6 +2407,30 @@ class MainWindow(QtGui.QMainWindow):
                    print ("Warning: unable to plot raw data in single mode ")
                    print(f"error occurred: {e}")
             
+    # VER 0.1.6G live admittance-fit window (Tools > Impedance Fit)
+    def _impedance_fit_plot(self):
+        """Show the live BVD-circle / Lorentzian fit window.
+
+        Built on first use rather than at start-up, and rebuilt if the number of
+        overtones changed: the Worker is recreated when an acquisition starts, so
+        the count is not known when the main window is constructed. The current
+        worker is re-attached on every activation for the same reason.
+        """
+        try:
+            n = self._overtones_number_all or len(Constants.overtone_dummy)
+            if self._window_fit is not None and self._window_fit.overtones != n:
+                self._window_fit.close()
+                self._window_fit = None
+            if self._window_fit is None:
+                self._window_fit = ImpedanceFitWindow(self.worker, n)
+            self._window_fit.worker = self.worker
+            self._window_fit.show()
+            self._window_fit.raise_()
+            self._window_fit.activateWindow()
+        except Exception as e:
+            print("Warning: unable to open the impedance fit window")
+            print(f"error occurred: {e}")
+
     # VER 0.1.6G algebraic circle fit for the impedance panel overlay.
     # Taubin estimate (closed form, a handful of numpy reductions - cheap enough
     # for the 50 ms refresh) followed by one round of outlier trimming, so the

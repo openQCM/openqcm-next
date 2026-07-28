@@ -205,8 +205,12 @@ class Ui_MainWindow(object):
         # VER 0.1.6G conductance / impedance offline view (branch impedance-analysis)
         self.actionConductance_Data = QtWidgets.QAction("Conductance Data", MainWindow)
         self.actionConductance_Data.setObjectName("actionConductance_Data")
+        # VER 0.1.6G live BVD circle + Lorentzian fit window
+        self.actionImpedance_Fit = QtWidgets.QAction("Impedance Fit (live)", MainWindow)
+        self.actionImpedance_Fit.setObjectName("actionImpedance_Fit")
         self.menuTools.addAction(self.actionRaw_Data)
         self.menuTools.addAction(self.actionConductance_Data)
+        self.menuTools.addAction(self.actionImpedance_Fit)
         self.menuTools.addAction(self.actionLog_Data)
         self.menuTools.addAction(self.actionTEC_current)
 

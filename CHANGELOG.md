@@ -75,6 +75,35 @@ Conventional Commits. Versions are marked by Git tags.
   recorded as a roadmap item, not applied: it introduces cross-sweep state and
   shifts published values, so it needs a decision.
 
+### Added — live admittance-fit window, Tools > "Impedance Fit (live)" (2026-07-28)
+- Runs **FIT 1** (BVD circle, f_s and Γ off the arc geometry) and **FIT 2**
+  (Levenberg–Marquardt Lorentzian on G) on every completed sweep, per overtone,
+  and shows: the two plots for the selected overtone, and a table for all of them
+  with δ, f_s, Γ, D, R₁, L₁, the circle residual, and — the point of having two
+  estimators — **FIT 2 minus FIT 1** on both f_s and Γ. Their disagreement is an
+  honest error bar in a way a single fit's covariance is not.
+- It imports `sweep_data/fit_admittance.py` **by file path** instead of
+  reimplementing it. The offline script has to stay standalone (it is run straight
+  from a directory of archived `g<n>.txt`), and importing the same file is what
+  makes it impossible for the live and offline numbers to drift apart. Verified:
+  the window reproduces the offline table to the 8th significant digit.
+- Cost, measured on five overtones of a real air sweep: **123 ms** for the first
+  fit, **13 ms** for every one after it, against a sweep that takes seconds; a
+  timer tick with no new sweep costs 2 µs, and a closed window costs nothing (the
+  timer stops on hide). Two things buy that: refitting only when the per-overtone
+  revision counter moves, and reusing the previous sweep's rotation angle as a
+  bracket instead of re-running the 181-point grid — with the golden search cut
+  from 40 iterations to 14, since 40 on a 12° bracket resolves 0.007°, digits that
+  do not exist.
+- The measured phase offset δ now travels on the existing G/B channel, so the
+  window shows it per overtone instead of the user reading the console. `0.00`
+  means the estimate was rejected on that sweep.
+- **C0 is deliberately not shown.** The published spectra have a constant baseline
+  removed before shipping, which *translates* the admittance circle — and
+  translating it is precisely what C0 does, so the fitted offset is no longer
+  ω·C0. f_s, Γ, D and R₁ are unaffected. Run the offline script on `g<n>.txt` when
+  C0 is what you need.
+
 ### Added — `sweep_data/fit_admittance.py` draws the data it fits (2026-07-28)
 - One row of three panels per overtone: the **raw** detector voltages as
   acquired (with the mask floor and the fit band marked), **G(f) with the FIT 2

@@ -234,7 +234,8 @@ if the intrinsic sweep-to-sweep scatter on D already exceeds ~2.5 %, smoothing �
    half-height/G_max readings measure the artifact, and the circle fit on the
    flanks is the only unbiased estimator (~ms per overtone per sweep). The
    offline reference is `sweep_data/fit_admittance.py`.
-7. **Offline fit tooling** (`sweep_data/fit_admittance.py`, not yet committed): FIT 1 = BVD
+7. **Fit tooling** (`sweep_data/fit_admittance.py`, offline; the same module is
+   imported by the live window at Tools > *Impedance Fit*): FIT 1 = BVD
    circle with rotation + weighted arc regression, FIT 2 = Levenberg–Marquardt Lorentzian on
    G. In clean air the two agree to 1.4–5.4 ppm on f_s and 2.5–6.4 % on Γ, both with sub-Hz
    covariance on f_s. Note their premise that all 18 001 points can be used does **not** hold

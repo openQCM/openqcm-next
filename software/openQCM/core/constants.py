@@ -319,6 +319,15 @@ class Constants:
     # ordinary estimation noise as drift and flooded the console.
     PHASE_OFFSET_LOG_DEG = 3.0
 
+    # VER 0.1.6G live admittance-fit window (Tools > Impedance Fit).
+    # Refresh period: the fits only re-run when a sweep actually completed, so
+    # this is just how promptly the window notices - not how often it works.
+    IMPEDANCE_FIT_UPDATE_MS = 500
+    # Samples the fits run on, per overtone, after decimation. 250 keeps the two
+    # fits at a few ms each; the estimators are not sample-starved well below it
+    # (the covariance on f_s stays sub-hertz at 150).
+    IMPEDANCE_FIT_POINTS = 250
+
     # VER 0.1.6G INPB attenuator R11/R19 (from the schematic). The ADC->V
     # conversion has to undo it, and the amount is NOT one clean decade:
     #   k = (R11 + R19)/R19 = 10.418838 = 20.3564 dB

@@ -284,14 +284,31 @@ def _fs_gamma_from_arc(f, Y, centre, theta=0.0):
                 cost=float(np.sqrt(s2)))
 
 
-def _best_rotation(f, Y, centre):
+def _best_rotation(f, Y, centre, theta0=None, span_deg=6.0):
     """Grid + golden refinement of the rotation that makes the arc consistent
-    with a single (f_s, Gamma). Cheap: the inner problem is linear."""
-    grid = np.linspace(-np.pi / 2, np.pi / 2, 181)
-    costs = [ _fs_gamma_from_arc(f, Y, centre, t)["cost"] for t in grid ]
-    t0 = float(grid[int(np.argmin(costs))])
-    lo, hi = t0 - np.pi / 180, t0 + np.pi / 180
-    for _ in range(40):
+    with a single (f_s, Gamma). Cheap: the inner problem is linear.
+
+    theta0 skips the coarse grid and searches +-span_deg around it instead. The
+    grid is 181 linear solves and dominates the cost, which matters only for the
+    live window: there theta moves by a fraction of a degree between consecutive
+    sweeps, so the previous value is a good bracket. Measured on five overtones of
+    a real air sweep, decimated to 250 points: 123 ms for the full grid against
+    13 ms from a cached bracket. Offline, leave it None.
+    """
+    if theta0 is None:
+        grid = np.linspace(-np.pi / 2, np.pi / 2, 181)
+        costs = [ _fs_gamma_from_arc(f, Y, centre, t)["cost"] for t in grid ]
+        t0 = float(grid[int(np.argmin(costs))])
+        lo, hi = t0 - np.pi / 180, t0 + np.pi / 180
+        n_iter = 40
+    else:
+        lo, hi = theta0 - np.deg2rad(span_deg), theta0 + np.deg2rad(span_deg)
+        # 14 thirds-bisections take a 12 deg bracket down to 0.007 deg, which is
+        # far below the sweep-to-sweep movement of theta. 40 (the offline value,
+        # on a 2 deg bracket) would be three quarters of the live fit's cost
+        # spent on digits that do not exist.
+        n_iter = 14
+    for _ in range(n_iter):
         m1, m2 = lo + (hi - lo) / 3, hi - (hi - lo) / 3
         if _fs_gamma_from_arc(f, Y, centre, m1)["cost"] < \
            _fs_gamma_from_arc(f, Y, centre, m2)["cost"]:
@@ -301,7 +318,7 @@ def _best_rotation(f, Y, centre):
     return (lo + hi) / 2
 
 
-def fit1_circle(f, Y, mask):
+def fit1_circle(f, Y, mask, theta0=None):
     """BVD circle fit -> R1, C0, f_s, Gamma, L1, C1, D."""
     G, B = Y.real[mask], Y.imag[mask]
     p0 = taubin_circle(G, B)
@@ -309,7 +326,7 @@ def fit1_circle(f, Y, mask):
     xc, yc, r = float(p[0]), float(p[1]), abs(float(p[2]))
     sd = np.sqrt(np.clip(np.diag(cov), 0, None))
 
-    theta = _best_rotation(f[mask], Y[mask], complex(xc, yc))
+    theta = _best_rotation(f[mask], Y[mask], complex(xc, yc), theta0=theta0)
     arc = _fs_gamma_from_arc(f[mask], Y[mask], complex(xc, yc), theta)
 
     R1 = 1.0 / (2.0 * r)
