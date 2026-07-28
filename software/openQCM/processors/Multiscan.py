@@ -10,6 +10,7 @@ from serial.tools import list_ports
 import numpy as np
 from numpy import loadtxt
 from scipy.interpolate import UnivariateSpline
+from scipy.interpolate import PchipInterpolator
 from scipy.stats import trim_mean
 
 from progressbar import Bar, Percentage, ProgressBar, RotatingMarker,Timer
@@ -436,6 +437,53 @@ class MultiscanProcess(multiprocessing.Process):
     def _B_exact(self, R_q, X_q):
         den = np.maximum(R_q**2 + X_q**2, 1e-12)
         return -X_q / den
+
+
+    # VER 0.1.6G repair of the AD8302 phase-fold overshoot (see the
+    # PHASE_REPAIR_* constants for the physics). Excises the contiguous zone
+    # where the folded-phase reading dives below PHASE_REPAIR_CUT_DEG around
+    # its minimum (plus a guard), and bridges the hole with a monotone PCHIP
+    # of the surviving samples. Fires ONLY on sub-zero readings - unambiguous
+    # hardware overshoot - so ideal seams, damped resonances and liquid sweeps
+    # pass through untouched.
+    #
+    # Role separation, validated against the offline circle/Lorentzian fits:
+    # the REPAIRED conductance restores the peak topology (one stable maximum,
+    # 0.5-4 ppm from the fitted f_s) and is used for f_r only; Gamma and G_max
+    # stay on the RAW conductance, whose half-height crossings sit outside the
+    # excised core (on body 2 today's D already matches the circle fit and
+    # must not move). The repaired phase, sign-flipped at the bridge minimum,
+    # also feeds B and the panel locus, which removes the dent from the
+    # admittance circle.
+    def _phase_repair(self, freq, phase):
+        i0 = int(np.nanargmin(phase))
+        if phase[i0] >= Constants.PHASE_REPAIR_TRIGGER_DEG:
+            return phase, None
+        n = len(phase)
+        df = float(freq[1] - freq[0]) if n > 1 else 1.0
+        guard = max(1, int(round(Constants.PHASE_REPAIR_GUARD_HZ / max(df, 1e-9))))
+        cut = Constants.PHASE_REPAIR_CUT_DEG
+        lo = i0
+        while lo > 0 and phase[lo] < cut:
+            lo -= 1
+        hi = i0
+        while hi < n - 1 and phase[hi] < cut:
+            hi += 1
+        lo = max(lo - guard, 1)
+        hi = min(hi + guard, n - 2)
+        # degenerate cases: hole covering (almost) everything -> do not repair
+        if hi <= lo or (n - (hi - lo + 1)) < 16:
+            return phase, None
+        keep = np.ones(n, dtype=bool)
+        keep[lo:hi + 1] = False
+        repaired = np.array(phase, dtype=float, copy=True)
+        repaired[lo:hi + 1] = PchipInterpolator(freq[keep], phase[keep])(freq[lo:hi + 1])
+        if phase[i0] < -10.0:
+            # deep overshoot: worth flagging, this board's phase channel is
+            # far outside its linear behaviour at the fold
+            print("Warning: AD8302 phase-fold overshoot %.1f deg below zero "
+                  "(repaired %d samples)" % (-phase[i0], hi - lo + 1))
+        return repaired, (lo, hi)
 
     # VER 0.1.6G resonance frequency and half-bandwidth from the EXACT
     # conductance. This is what the pipeline publishes now.
@@ -889,14 +937,38 @@ class MultiscanProcess(multiprocessing.Process):
         R_q_G, X_q_G = self._RX_exact(Vmag_raw_result_fit, phase_folded)
         G_exact_S = self._G_exact(R_q_G, X_q_G)
 
+        # VER 0.1.6G AD8302 fold-overshoot repair (see _phase_repair). Fires
+        # only when the folded phase reads below zero — unambiguous hardware
+        # overshoot at the fold.
+        phase_rep, repair_bounds = self._phase_repair(freq_range, phase_folded)
+
+        if repair_bounds is not None:
+            # f_r from the REPAIRED conductance: the overshoot splits the raw
+            # G peak into two horns and argmax locks onto a horn (+61..+88 Hz
+            # measured on body 3); the repaired peak is single and lands
+            # 0.5-4 ppm from the fitted f_s. Gamma and G_max stay on the RAW
+            # conductance: its half-height crossings sit outside the excised
+            # core, and the bridge would depress G_max instead.
+            R_q_rep, X_q_rep = self._RX_exact(Vmag_raw_result_fit, phase_rep)
+            G_rep_S = self._G_exact(R_q_rep, X_q_rep)
+            index_peak_fit_G, frequency_resonance_G = self._Freq_G(G_rep_S, freq_range)
+            half_bandwidth = self._half_bandwidth_G_exact(G_exact_S, freq_range)
+            # B (and the panel locus) from the repaired phase, sign flipped at
+            # the bridge minimum — this is what removes the dent from the
+            # displayed admittance circle.
+            phase_signed = np.array(phase_rep, dtype=float, copy=True)
+            i_flip = int(np.nanargmin(phase_rep))
+            phase_signed[i_flip:] = -phase_signed[i_flip:]
+        else:
+            # healthy seam / damped resonance / liquid: exactly as before
+            (index_peak_fit_G, frequency_resonance_G, half_bandwidth) = \
+                self.parameters_finder_impedance_exact(freq_range, G_exact_S)
+            phase_signed = self._phase_signed(Vphase_result_fit)
+
         # B is ODD in phi and genuinely needs the signed phase — and it is the
         # only quantity that does. Same for the admittance circle it draws.
-        phase_signed = self._phase_signed(Vphase_result_fit)
         R_q, X_q = self._RX_exact(Vmag_raw_result_fit, phase_signed)
         B_exact_S = self._B_exact(R_q, X_q)
-
-        (index_peak_fit_G, frequency_resonance_G, half_bandwidth) = \
-            self.parameters_finder_impedance_exact(freq_range, G_exact_S)
 
         # VER 0.1.6G spectra for the live impedance panel
         try:

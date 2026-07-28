@@ -113,6 +113,13 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
 - `elaborate_conductance_multi()` is **dead code** (UNUSED).
 - The DEBUG state is gone (2026-07-27 merge): `environment` back to `10`,
   `plot_autoscale_yaxis` dropped for main's `Constants.plot_force_yrange`.
+- ⚠️ **AD8302 fold-overshoot, discovered 2026-07-28**: near the |phase| fold the
+  detector's phase output overshoots the 1.8 V rail (readings to −14° on body 3,
+  −4…−9° on body 2; ~200 Hz zone lagging the crossing). Repaired in
+  `_phase_repair()` (sub-zero trigger → excision → PCHIP bridge): **f_r** from
+  the repaired G, **Γ/G_max on the raw G**, panel locus from the repaired phase.
+  On deep-overshoot boards literal Γ/G_max remain artifact-contaminated — the
+  circle fit on the flanks is the unbiased estimator (see roadmap).
 
 **What the offline campaign established** (2026-07-27; datasets at
 `~/claude_code/openqcm-next-impedance-datasets/2026-07-27/`, five configurations A–E):
@@ -155,7 +162,11 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
    phase, and settle the 2–6 mV V_MAG systematic at resonance.
 4. Widen the sweep window for liquid work, and revisit `SG_WINDOW_SIZE_G` for the low overtones
    in air (both move Γ, hence D).
-5. Consider publishing `R_m` from the **circle-fit diameter** rather than from `G_max`.
+5. **Port FIT 1 (Taubin circle + arc-based Γ, saturation/core-masked) into the
+   pipeline** for Γ and R_m: on deep fold-overshoot boards (body 3) the literal
+   half-height/G_max readings measure the artifact, and the circle fit on the
+   flanks is the only unbiased estimator (~ms per overtone per sweep). The
+   offline reference is `sweep_data/fit_admittance.py`.
 
 ## 5. Planned technical tasks (on `main`)
 

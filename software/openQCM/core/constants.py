@@ -295,6 +295,27 @@ class Constants:
     # MultiscanProcess._phase_signed and sweep_data/plot_conductance.py.
     FOLD_THRESHOLD_DEG_G = 5.0
 
+    # VER 0.1.6G repair of the AD8302 phase-fold overshoot. Near the |phase|
+    # fold the detector's phase output overshoots its 1.8 V zero-phase rail by
+    # up to ~140 mV (readings down to -14 deg), in a ~200 Hz zone lagging the
+    # true crossing by 40-70 Hz. Board-dependent depth (body 3 worst, body 2
+    # 4-9 deg); absent on damped (liquid) resonances and on ideal data. Near
+    # resonance G = R_q/(R_q^2+X_q^2) amplifies those degrees into a crater:
+    # the conductance peak splits into two horns up to 3x the true maximum and
+    # the published f_r locks onto a horn (+61..+88 Hz measured on body 3).
+    #
+    # TRIGGER: a |phase| detector can never legitimately read below zero, so
+    # the repair fires only when min(phase) < PHASE_REPAIR_TRIGGER_DEG.
+    # Healthy seams (ideal data bottom at ~0 deg), damped resonances and
+    # liquid sweeps are untouched by construction.
+    PHASE_REPAIR_TRIGGER_DEG = -1.0
+    # excise the contiguous zone where the reading is below this (the sub-zero
+    # pit plus its walls) ...
+    PHASE_REPAIR_CUT_DEG = 2.0
+    # ... plus this guard on each side (the smearing radius of the SG-51
+    # smoothing), rescaled to the actual grid step at runtime
+    PHASE_REPAIR_GUARD_HZ = 25.0
+
     # VER 0.1.6G INPB attenuator R11/R19 (from the schematic). The ADC->V
     # conversion has to undo it, and the amount is NOT one clean decade:
     #   k = (R11 + R19)/R19 = 10.418838 = 20.3564 dB
