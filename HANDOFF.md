@@ -135,6 +135,16 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
 
 ## 5. Planned technical tasks (on `main`)
 
+
+> 📌 **Source-code cleanup**: a full plan already exists in
+> [`CLEANUP_PLAN.md`](CLEANUP_PLAN.md) — produced by a read-only audit on
+> 2026-07-20 (baseline `main` @ `630e898`), not yet executed. Dead code, unused
+> structures, redundancies, with a per-item confidence tag and a verification
+> protocol. Read its §0 before touching anything: PyQt5 5.9.2 with the classic
+> `QtGui` namespace must not be "modernised", and Qt reaches methods through
+> `connect()`, objectName and overrides, so nothing gets deleted without grepping
+> its name as a string across all of `software/`.
+
 Done (raw-data robustness — see CHANGELOG):
 - **`trim_mean` anti-outlier averaging**: replaced Savitzky-Golay + `np.average` with
   `scipy.stats.trim_mean(0.10)` on the 10-sample circular buffer for frequency and dissipation
