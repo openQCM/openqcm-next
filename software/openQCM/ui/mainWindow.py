@@ -1834,7 +1834,10 @@ class MainWindow(QtGui.QMainWindow):
         # editing pyqtgraph context menu
         # https://groups.google.com/g/pyqtgraph/c/h-dyr0l6yZU/m/NpMQxh-jf5cJ
         # get rid of 'Plot Options'
-        self._plt0.ctrlMenu = None
+        # setMenuEnabled(False) silences the PlotItem menu AND the ViewBox one;
+        # `ctrlMenu = None` only removed the former, which is why the default menu
+        # kept appearing under the custom one.
+        self._plt0.setMenuEnabled(False)
         
         # VER 0.1.6 remove reference to phase signal
 # =============================================================================
@@ -1908,7 +1911,10 @@ class MainWindow(QtGui.QMainWindow):
         # editing pyqtgraph context menu
         # https://groups.google.com/g/pyqtgraph/c/h-dyr0l6yZU/m/NpMQxh-jf5cJ
         # get rid of 'Plot Options'
-        self._plt2.ctrlMenu = None
+        # setMenuEnabled(False) silences the PlotItem menu AND the ViewBox one;
+        # `ctrlMenu = None` only removed the former, which is why the default menu
+        # kept appearing under the custom one.
+        self._plt2.setMenuEnabled(False)
         # get rid of 'Export'
         self._plt2.scene().contextMenu = None
 
@@ -1942,7 +1948,10 @@ class MainWindow(QtGui.QMainWindow):
         # editing pyqtgraph context menu
         # https://groups.google.com/g/pyqtgraph/c/h-dyr0l6yZU/m/NpMQxh-jf5cJ
         # get rid of 'Plot Options'
-        self._pltD.ctrlMenu = None
+        # setMenuEnabled(False) silences the PlotItem menu AND the ViewBox one;
+        # `ctrlMenu = None` only removed the former, which is why the default menu
+        # kept appearing under the custom one.
+        self._pltD.setMenuEnabled(False)
         # get rid of 'Export'
         self._pltD.scene().contextMenu = None
 
@@ -1990,7 +1999,10 @@ class MainWindow(QtGui.QMainWindow):
         # editing pyqtgraph context menu
         # https://groups.google.com/g/pyqtgraph/c/h-dyr0l6yZU/m/NpMQxh-jf5cJ
         # get rid of 'Plot Options'
-        self._plt4.ctrlMenu = None
+        # setMenuEnabled(False) silences the PlotItem menu AND the ViewBox one;
+        # `ctrlMenu = None` only removed the former, which is why the default menu
+        # kept appearing under the custom one.
+        self._plt4.setMenuEnabled(False)
         # get rid of 'Export'
         self._plt4.scene().contextMenu = None
         
@@ -4119,6 +4131,9 @@ class MainWindow(QtGui.QMainWindow):
         # per-plot grid state (grids default OFF)
         self._grid_on = {}
         self._plot_menu_targets = [self._plt0, self._plt4, self._plt2, self._pltD]
+        # one handler per GraphicsLayoutWidget scene (ui.plt hosts _plt0 + _plt4)
+        for canvas in (self.ui.plt, self.ui.pltB, self.ui.pltD):
+            canvas.scene().sigMouseClicked.connect(self._on_scene_mouse_clicked)
         # Δ cursors: two movable time cursors + delta readout per panel. The
         # items are parented to the ViewBox (ignoreBounds) so they survive
         # PlotItem.clear() and never drive the autorange.
@@ -4139,6 +4154,43 @@ class MainWindow(QtGui.QMainWindow):
                 lambda _l, p=plot: self._update_cursor_delta(p))
             self._plot_cursors[plot] = {"c1": c1, "c2": c2,
                                         "text": txt, "kind": kind}
+
+    def _on_scene_mouse_clicked(self, ev):
+        """Right-click inside a plot: show OUR menu and nothing else. The default
+        pyqtgraph menu is switched off per-plot with setMenuEnabled(False)."""
+        if ev.button() != QtCore.Qt.RightButton:
+            return
+        for plot in self._plot_menu_targets:
+            vb = plot.getViewBox()
+            if vb is not None and vb.sceneBoundingRect().contains(ev.scenePos()):
+                ev.accept()
+                self._show_plot_menu(plot, ev.screenPos().toPoint())
+                return
+
+    def _show_plot_menu(self, plot, screen_pos):
+        menu = QtGui.QMenu(self)
+        menu.addAction("Auto-scale", lambda: plot.enableAutoRange())
+        menu.addAction("Reset zoom", lambda: plot.autoRange())
+        vb = plot.getViewBox()
+        if vb.state.get("mouseMode") == pg.ViewBox.RectMode:
+            menu.addAction("Mouse: pan mode",
+                           lambda: vb.setMouseMode(pg.ViewBox.PanMode))
+        else:
+            menu.addAction("Mouse: select/zoom mode",
+                           lambda: vb.setMouseMode(pg.ViewBox.RectMode))
+        menu.addSeparator()
+        menu.addAction("Hide grid" if self._grid_on.get(plot, False)
+                       else "Show grid",
+                       lambda: self._set_grid(plot,
+                                              not self._grid_on.get(plot, False)))
+        if plot in self._plot_cursors:
+            visible = self._plot_cursors[plot]["c1"].isVisible()
+            menu.addAction("Hide Δ cursors" if visible else "Show Δ cursors",
+                           lambda: self._toggle_cursors_for(plot))
+        # Export lived in pyqtgraph's scene menu, which is off now: keep it reachable
+        menu.addSeparator()
+        menu.addAction("Export…", lambda: plot.scene().showExportDialog())
+        menu.exec_(screen_pos)
 
     def _toggle_all_grids(self, on):
         """View > Grid: same state on every plot panel."""
