@@ -29,8 +29,6 @@ logged_data/
 # Quick Start) and one acquisition - both required before any measurement anyway.
 #   Calibration_*MHz.txt  7.6 MB each, written by Peak Detection (Calibration.py
 #                         via FileStorage.TXT_sweeps_save)
-#   PeakFrequencies*.txt  written by Peak Detection; read at start-up by
-#                         load_frequencies_file(), so run Peak Detection first
 #   sweep_data/*.txt      one spectrum per overtone, rewritten every sweep - on
 #                         this branch that covers the g<n>.txt raw-voltage files
 #                         too; the Raw Data view has nothing to show until you
@@ -38,10 +36,17 @@ logged_data/
 #                         docs/impedance-analysis/reference-sweep/ for the worked
 #                         example in ALGORITHM.md §11.
 # The .py files in sweep_data/ are source and stay versioned - hence *.txt only.
+#
+# ⚠️ PeakFrequencies.txt and PeakFrequenciesRT.txt are runtime output too, and they
+# were untracked here for a few hours on 2026-07-28. That broke the application:
+# load_frequencies_file() is called while the main window is still being built
+# (_configure_plot -> _update_legend), so a missing file kills the process with an
+# OSError before anything is on screen - and the only thing that writes it, Peak
+# Detection, is a button inside that window. Chicken and egg. They stay versioned
+# until the code tolerates their absence and starts anyway; see the CLEANUP /
+# runtime-file work item in HANDOFF. Do not untrack them before that.
 software/openQCM/Calibration_5MHz.txt
 software/openQCM/Calibration_10MHz.txt
-software/openQCM/PeakFrequencies.txt
-software/openQCM/PeakFrequenciesRT.txt
 software/openQCM/sweep_data/*.txt
 
 # === Raw sweep test datasets (peak-detection prototypes only) ===
