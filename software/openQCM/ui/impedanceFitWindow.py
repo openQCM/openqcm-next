@@ -68,8 +68,8 @@ except Exception as e:                                   # pragma: no cover
     print(TAG, "Warning: offline fit module not available:", e)
 
 
-COLUMNS = ("n", "delta [deg]", "f_s FIT1 [Hz]", "Gamma [Hz]", "D [ppm]",
-           "R1 [ohm]", "L1 [mH]", "rms [%r]", "f_s FIT2 [Hz]",
+COLUMNS = ("n", "delta [deg]", "masked [%]", "f_s FIT1 [Hz]", "Gamma [Hz]",
+           "D [ppm]", "R1 [ohm]", "L1 [mH]", "rms [%r]", "f_s FIT2 [Hz]",
            "dGamma [%]", "df_s [Hz]")
 
 
@@ -196,6 +196,12 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
             "honest error bar.  delta is the phase offset measured from the fold; "
             "\"no fold\" means the phase never crosses zero (damped load), so the "
             "reading is already the signed phase and no correction applies.  "
+            "\"masked\" is how much of the band the AD8302 could not measure "
+            "(below its usable ratio). It is the warning, not the rms: past ~20 % "
+            "the surviving arc no longer pins FIT 2's background nor FIT 1's "
+            "rotation, and the two Gamma estimates diverge while the circle "
+            "residual still looks fine. The logged frequency and dissipation are "
+            "computed BEFORE the mask, so they are unaffected either way.  "
             "C0 is not shown: the "
             "published spectra have a constant baseline removed, which is exactly "
             "what C0 does.")
@@ -312,18 +318,23 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
             delta = float(self.worker.get_delta_G_buffer(idx))
         except Exception:
             delta = float('nan')
+        try:
+            masked = float(self.worker.get_masked_G_buffer(idx))
+        except Exception:
+            masked = 0.0
 
         # fs_seed travels with the result: fit2's linear background is written
         # relative to it, so evaluating the curve against anything else shifts it
         self._last[idx] = dict(f=fb, Y=Y, a1=a1, a2=a2, delta=delta,
-                               fs_seed=float(fs0))
-        self._update_row(idx, a1, a2, delta)
+                               masked=masked, fs_seed=float(fs0))
+        self._update_row(idx, a1, a2, delta, masked)
         return True
 
     # ------------------------------------------------------------------- view
-    def _update_row(self, idx, a1, a2, delta):
+    def _update_row(self, idx, a1, a2, delta, masked):
         vals = ("%d" % (2 * idx + 1),
                 "no fold" if delta == 0.0 else "%+.2f" % delta,
+                "-" if not masked else "%.0f" % masked,
                 "%.2f" % a1["fs"],
                 "%.2f" % a1["gamma"],
                 "%.2f" % (a1["D"] * 1e6),
@@ -342,7 +353,16 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         rms = 100.0 * a1["rms_rel"]
         colour = ("#2e7d32" if rms < 2.0 else
                   "#ef6c00" if rms < 5.0 else "#c62828")
-        self.table.item(idx, 7).setForeground(QtGui.QColor(colour))
+        self.table.item(idx, 8).setForeground(QtGui.QColor(colour))
+        # and the masked fraction. Thresholds from measurement, not taste: at 20 %
+        # dropped the two Gamma estimators already disagree by 20 % (air, 9th
+        # overtone, 2026-07-28) because the surviving arc no longer pins FIT 2's
+        # background nor FIT 1's rotation. The circle residual keeps looking fine
+        # while that happens, so this column is the warning, not the rms.
+        mcol = ("#888888" if not masked else
+                "#2e7d32" if masked < 10.0 else
+                "#ef6c00" if masked < 20.0 else "#c62828")
+        self.table.item(idx, 2).setForeground(QtGui.QColor(mcol))
 
     def _draw_selected(self):
         idx = self.cboOvertone.currentData()

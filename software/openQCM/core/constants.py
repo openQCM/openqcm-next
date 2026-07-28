@@ -365,6 +365,49 @@ class Constants:
     # (1.5-2) to trade coverage for robustness on heavily damped loads.
     IMPEDANCE_PANEL_BAND_GAMMA = 3.0
 
+    # VER 0.1.6G saturation mask. The AD8302 is specified over +-30 dB of input
+    # ratio; below that the magnitude output compresses and the phase output
+    # degrades with it, and both channels fail together. Samples acquired past
+    # this floor are dropped from the spectra shipped to the impedance panel and
+    # to the live fit window.
+    #
+    # It matters in liquid and almost nowhere else. Against R17 = 52.3 Ohm a
+    # water-loaded crystal reads R1 = 0.6-3 kOhm, which puts the WHOLE sweep at
+    # -23 to -36 dB with a resonance contrast of about 6 dB. On the 2026-07-28
+    # water run 82 % of the 3rd overtone's sweep sits below this floor, and those
+    # samples are the straight tail that pulls the locus out of round: the circle
+    # residual goes 18.2 % -> 4.8 % of the radius when they are dropped. In air
+    # the mask removes nothing below the 7th overtone.
+    #
+    # NOTE this is display/fit only. The logged resonance frequency and
+    # half-bandwidth still come from the unmasked spectrum, because masking would
+    # remove exactly the off-resonance samples that _half_bandwidth_G_exact uses
+    # as its baseline - which is a separate defect, tracked in HANDOFF.
+    #
+    # -28 rather than the AD8302's nominal -30 because no single floor is good
+    # everywhere and this is the one that fixes the case it was introduced for.
+    # Measured circle residual / disagreement between the two Gamma estimators:
+    #
+    #   water, 3rd overtone   no mask 18.1 % / -5.5 %   -30 dB 10.3 % / -4.5 %
+    #                         -28 dB   4.7 % / -0.6 %   -32 dB 13.4 % / +22.7 %
+    #   air, 9th overtone     no mask  7.9 % / -2.9 %   -28 dB  5.8 % / +20.6 %
+    #
+    # So it costs something in air on the 9th overtone: 20 % of that band goes,
+    # and with the tails gone FIT 2's background and FIT 1's rotation are less
+    # constrained even though the residual improves. That cost falls on the
+    # DIAGNOSTIC numbers only - hence the masked-percentage column in the fit
+    # window, coloured to warn past 20 %.
+    RATIO_DB_FLOOR = -28.0
+    IMPEDANCE_PANEL_MASK_SATURATED = True
+    # never ship fewer than this many samples: a degenerate curve is worse than a
+    # distorted one
+    IMPEDANCE_PANEL_MIN_POINTS = 64
+    # majority-filter length for the mask. The threshold test flickers where the
+    # ratio grazes the floor (up to 12 fragments with 1-4 sample holes on the
+    # water run), and the mask is then applied as the interval between the
+    # outermost survivors - the usable region is contiguous by physics.
+    IMPEDANCE_PANEL_MASK_SMOOTH = 5
+
     # VER 0.1.6G draw the fitted circle on top of the measured locus. The fit is
     # a Taubin algebraic estimate with one round of outlier trimming, so it
     # follows the well-measured core and ignores the degraded wings — where the

@@ -236,16 +236,25 @@ the 2026-07-28 investigation report for the full evidence and the three options 
    through the then-current pipeline.
 4. Widen the sweep window for liquid work, and revisit `SG_WINDOW_SIZE_G` for the low overtones
    in air (both move Γ, hence D).
-5. **Decide on averaging δ across sweeps** (see the identifiability note above): removes the
+5. **The liquid baseline is taken ON the resonance — biases the published Γ.**
+   The sweep window is fixed at −12 kHz/+6 kHz (sized for air) while in water
+   Γ_FWHM is 1.9–5.0 kHz, so `G − average(G[:100])` subtracts 13 % of the peak on
+   the 3rd overtone and **66 % on the 9th**. The circle fit does not care
+   (translation-invariant) but `_half_bandwidth_G_exact` does: measured against the
+   Lorentzian, Γ is low by −2.5 % to **−13.9 %**, growing with overtone. Fix by
+   taking the width from a Lorentzian with a free background, or by scaling the
+   sweep window with the measured Γ. Changes published values, so it needs a
+   decision.
+6. **Decide on averaging δ across sweeps** (see the identifiability note above): removes the
    residual jitter from D and R_m on overtones with a shallow residual valley, at the cost of
    cross-sweep state and a small shift in published values. Needs two consecutive datalog CSVs
    from one run to size the benefit against the intrinsic scatter.
-6. **Port FIT 1 (Taubin circle + arc-based Γ, saturation/core-masked) into the
+7. **Port FIT 1 (Taubin circle + arc-based Γ, saturation/core-masked) into the
    pipeline** for Γ and R_m: on deep fold-overshoot boards (body 3) the literal
    half-height/G_max readings measure the artifact, and the circle fit on the
    flanks is the only unbiased estimator (~ms per overtone per sweep). The
    offline reference is `sweep_data/fit_admittance.py`.
-7. **Fit tooling** (`sweep_data/fit_admittance.py`, offline; the same module is
+8. **Fit tooling** (`sweep_data/fit_admittance.py`, offline; the same module is
    imported by the live window at Tools > *Impedance Fit*): FIT 1 = BVD
    circle with rotation + weighted arc regression, FIT 2 = Levenberg–Marquardt Lorentzian on
    G. In clean air the two agree to 1.4–5.4 ppm on f_s and 2.5–6.4 % on Γ, both with sub-Hz

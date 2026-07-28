@@ -75,6 +75,57 @@ Conventional Commits. Versions are marked by Git tags.
   recorded as a roadmap item, not applied: it introduces cross-sweep state and
   shifts published values, so it needs a decision.
 
+### Added — saturation mask on the spectra shipped for display and fitting (2026-07-28)
+- **What it fixes.** On a liquid load the whole sweep sits in the AD8302's
+  dynamic-range corner: against `R17 = 52.3 Ω` a water-loaded crystal reads
+  `R1` = 0.6–3 kΩ, so the divider ratio is **−23 to −36 dB** with a resonance
+  contrast of about 6 dB. On the 2026-07-28 water run **82 %** of the 3rd
+  overtone's sweep is below `RATIO_DB_FLOOR`, and those samples are the straight
+  tail that pulls the locus out of round. Dropping them takes the circle residual
+  from **18.1 % to 4.7 %** of the radius and brings the two independent Γ
+  estimators from −5.5 % to **−0.6 %** apart.
+- Applied as a **contiguous interval**, not sample by sample. The divider ratio
+  falls monotonically away from resonance so the usable region is one interval by
+  construction, but the threshold test flickers where the ratio grazes the floor —
+  up to 12 fragments with 1–4 sample holes on that run, which would zigzag the
+  panel's line plots. A 5-sample majority filter kills the flicker, then the
+  outermost survivors set the interval.
+- **Display and fitting only.** The logged resonance frequency and half-bandwidth
+  are computed *before* the mask, deliberately: masking removes exactly the
+  off-resonance samples that `_half_bandwidth_G_exact` uses as its baseline, which
+  is a separate defect (see below). So **no published value changes**.
+- **The floor is −28 dB, not the nominal −30, and it is a compromise.** No single
+  value is good everywhere; this is the one that fixes the case it was introduced
+  for. Circle residual / disagreement between the two Γ estimators:
+
+  | | no mask | −28 dB | −30 dB | −32 dB |
+  |---|---|---|---|---|
+  | water, 3rd | 18.1 % / −5.5 % | **4.7 % / −0.6 %** | 10.3 % / −4.5 % | 13.4 % / +22.7 % |
+  | air, 9th | 7.9 % / −2.9 % | 5.8 % / +20.6 % | 6.6 % / +13.5 % | 7.9 % / −2.9 % |
+
+  So it costs something in air on the 9th overtone: 20 % of that band goes, and
+  with the tails gone FIT 2's background and FIT 1's rotation are less constrained
+  even though the residual improves. That cost falls on diagnostic numbers only.
+- The fit window gains a **`masked [%]` column**, coloured green below 10 %, orange
+  below 20 %, red above — because the circle residual keeps looking fine while the
+  arc gets too short to pin either fit. The dropped fraction is also printed once
+  per overtone and again on a move of more than 10 points.
+
+### Known — the liquid baseline is taken ON the resonance (2026-07-28)
+- The sweep window is fixed and sized for air (**−12 kHz / +6 kHz**), while in
+  water Γ_FWHM is 1.9–5.0 kHz. So the sweep starts only 2.4–6.3 half-widths below
+  resonance and `G − average(G[:100])` subtracts a "baseline" that is **13 % of the
+  peak on the 3rd overtone and 66 % on the 9th**.
+- It does **not** distort the circle (subtracting a constant translates it, and the
+  fit is translation-invariant: 18.2 % either way), but it biases the **published**
+  half-bandwidth, because `_half_bandwidth_G_exact` looks for the half-height on
+  that translated curve. Against the Lorentzian, which has a free background and is
+  immune: Γ is low by **−2.5 % (n=1), −4.3 %, −4.3 %, −7.4 %, −13.9 % (n=9)**.
+  D in liquid is therefore underestimated, and the error grows with overtone.
+- Not fixed here — it changes published values. Options: take the width from a
+  Lorentzian with a free background instead of a half-height crossing, or scale the
+  sweep window with the measured Γ.
+
 ### Fixed — ⚠️ MEASURED VALUES: δ comes from the fold, not from a roundness fit (2026-07-28, later)
 - **Reverts the circular-locus estimator of the same day.** Prompted by the user
   recalling that the published version behaved better, and confirmed by

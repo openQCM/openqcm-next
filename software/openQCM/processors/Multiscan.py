@@ -1093,6 +1093,59 @@ class MultiscanProcess(multiprocessing.Process):
             if keep.sum() < 16:          # pathological: fall back to everything
                 keep = np.ones_like(freq_range, dtype=bool)
 
+            # SATURATION MASK. Drop the samples the AD8302 cannot measure: below
+            # Constants.RATIO_DB_FLOOR of divider ratio both of its outputs
+            # compress, and on a liquid load those samples are the straight tail
+            # that pulls the locus out of round (2026-07-28 water run, 3rd
+            # overtone: 82 % of the sweep below the floor, circle residual
+            # 18.2 % -> 4.8 % of the radius when they go). Only applies to what is
+            # shipped for display and fitting - see the note on
+            # Constants.RATIO_DB_FLOOR for why the logged values stay unmasked.
+            n_dropped = 0
+            if Constants.IMPEDANCE_PANEL_MASK_SATURATED:
+                ratio_dB = ((np.asarray(Vmag_raw_result_fit, dtype=float)
+                             - self.V_CP_EXACT) / 0.030)
+                usable = ratio_dB > Constants.RATIO_DB_FLOOR
+                # Applied as a contiguous INTERVAL, not sample by sample. The
+                # divider ratio falls monotonically away from resonance, so the
+                # usable region is one interval by construction; the raw test
+                # flickers across the threshold and produced up to 12 fragments
+                # with 1-4 sample holes on the 2026-07-28 water run, which would
+                # zigzag the panel's line plots. A short majority filter kills the
+                # flicker, then the outermost survivors set the interval.
+                k = Constants.IMPEDANCE_PANEL_MASK_SMOOTH
+                if k > 1:
+                    usable = (np.convolve(usable.astype(float),
+                                          np.ones(k) / k, mode="same") > 0.6)
+                idx_ok = np.where(usable & keep)[0]
+                if len(idx_ok) >= Constants.IMPEDANCE_PANEL_MIN_POINTS:
+                    interval = np.zeros_like(keep)
+                    interval[idx_ok.min():idx_ok.max() + 1] = True
+                    keep_masked = keep & interval
+                    if keep_masked.sum() >= Constants.IMPEDANCE_PANEL_MIN_POINTS:
+                        n_dropped = int(keep.sum() - keep_masked.sum())
+                        keep = keep_masked
+
+            # Report the dropped fraction once per overtone, and again only on a
+            # move of more than 10 points: it is the honest measure of how much of
+            # this sweep the detector could not see, and silently dropping half a
+            # band would read as "clean data".
+            if not hasattr(self, "_mask_logged"):
+                self._mask_logged = {}
+            frac = 100.0 * n_dropped / max(int(keep.sum()) + n_dropped, 1)
+            _prevf = self._mask_logged.get(overtone_number)
+            if _prevf is None or abs(frac - _prevf) > 10.0:
+                self._mask_logged[overtone_number] = frac
+                if n_dropped:
+                    print("Saturation mask (overtone %d): %d of %d samples below "
+                          "%.0f dB dropped (%.0f %% of the band)"
+                          % (overtone_number, n_dropped,
+                             int(keep.sum()) + n_dropped,
+                             Constants.RATIO_DB_FLOOR, frac))
+                else:
+                    print("Saturation mask (overtone %d): nothing dropped"
+                          % overtone_number)
+
             # Ship ONE overtone per message. elaborate_multi runs once per
             # overtone, so re-sending all five lists every time (the pattern the
             # older A_multi channel uses) put five times the spectra on the
@@ -1107,7 +1160,8 @@ class MultiscanProcess(multiprocessing.Process):
                                                 B_exact[keep].tolist(),
                                                 float(f_res),
                                                 float(abs(half_bandwidth)),
-                                                float(phase_offset)])
+                                                float(phase_offset),
+                                                float(frac)])
         except Exception as e:
             # The panel is a diagnostic view: never let it break an acquisition.
             print("Warning: exact G/B for the impedance panel failed:", e)
