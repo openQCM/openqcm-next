@@ -1,12 +1,12 @@
 # Exact Conductance Calculation for QCM Impedance Analysis
 
-> ## VALIDATION STATUS — VALIDATED in air and in liquid; PUBLISHED path (2026-07-27)
+> ## VALIDATION STATUS — VALIDATED in air and in liquid; PUBLISHED path (2026-07-28)
 >
 > This document is the source of the "exact" formula, implemented twice: offline in
 > `sweep_data/plot_conductance.py` (the reference) and live in
-> `processors/Multiscan.py` (`_RX_exact` / `_G_exact` / `_B_exact` /
-> `_phase_signed`), where it feeds both the published measurement and the
-> impedance panel.
+> `processors/Multiscan.py` (`_RX_exact` / `_G_exact` / `_B_exact`, with the phase
+> offset taken from the fold via `_phase_offset_fold`), where it feeds both the
+> published measurement and the impedance panel.
 >
 > **History of the validation:**
 > - *2026-07-21*: synthetic Butterworth–Van Dyke self-consistency check passed
@@ -26,9 +26,9 @@
 >   *correct* for this method (off-resonance phase is DUT physics, not board
 >   artifact).
 > - The source PDFs confirm the assumed topology (divider `Z_q` + `R17` to ground)
->   and document the **INPB ×10 attenuation** (R11/R19 mod), which is already
->   compensated by the −0.6 V decade offset in the ADC→V conversion — so the raw
->   sweep files are at the correct absolute level for this inversion.
+>   and document the **INPB attenuation** (R11/R19 mod), compensated by the decade
+>   offset in the ADC→V conversion. ⚠️ That offset was **0.600 V and is wrong** —
+>   the attenuation is 20.3564 dB, not 20 dB. Corrected on 2026-07-28, see below.
 >
 > **Quantitative air validation (5 MHz crystal, on-device, 2026-07-23):**
 > physically consistent across all overtones — `R_m` = 10.6/12.1/40.5/76.5/132.6 Ω
@@ -39,11 +39,14 @@
 >
 > - **Isopropanol run.** `D` = 387/194/146/124/113 ppm across the overtones; the
 >   fundamental matches the Kanazawa–Gordon prediction for isopropanol (~400 ppm).
-> - **The conditional unfold threshold (5°) is validated across the air→liquid
->   transition** — the systematic test that had been left open. In isopropanol the
->   fundamental sits at min|φ| = 2.04°, the critical intermediate case, and the rule
->   correctly unfolds it (circle rms 0.52 % vs 33.4 % if left folded); the 3rd–9th
->   (12.1°–43.8°) are correctly left alone.
+> - **The conditional unfold threshold (5°) behaves correctly across the air→liquid
+>   transition.** In isopropanol the fundamental sits at min|φ| = 2.04°, the critical
+>   intermediate case, and the rule handles it (circle rms 0.52 % vs 33.4 % if left
+>   folded); the 3rd–9th (12.1°–43.8°) are correctly left alone. ⚠️ *Reinterpreted
+>   2026-07-28*: that "unfold" was really a crude estimate of the phase offset δ
+>   (`δ ≈ −min(r)`), and the threshold was the guard for when that estimate is
+>   invalid — in liquid there is no zero crossing. Both are now superseded by
+>   measuring δ directly; see below.
 > - **The live pipeline now uses this formula.** `elaborate_multi()` computes the
 >   exact spectra once and reads the logged resonance frequency and half-bandwidth
 >   off them, via `parameters_finder_impedance_exact()`. The old approximate
@@ -52,11 +55,42 @@
 >   (`_half_bandwidth_G_exact`). Measured effect: `f_r` moves ≤ 1.6 ppm, while `D`
 >   drops 2–4× in air (to a textbook ~5 ppm on the overtones) and 15–20 % in liquid.
 >
-> **Still open (metrological refinement):** second-order systematics — board/cable
-> **phase offsets** (no fold to re-anchor the phase in liquid), a **2–6 mV** V_MAG
-> error at resonance that produces a radial bulge in the locus (see below),
-> residual `ωC0` beyond the constant baseline. Refine via **known reference
-> impedances / RLC standards** vs a calibrated impedance analyzer.
+> **Update — 2026-07-28: two measurement bugs upstream of this formula.**
+>
+> - **Attenuator compensation.** The ADC→V conversion must undo the INPB R11/R19 attenuator, and
+>   that is *not* one clean decade: k = (47.0+4.99)/4.99 = 10.4188 = 20.3564 dB, i.e. **0.61069 V**
+>   at 30 mV/dB, not the 0.600 that was hardcoded. The 0.3564 dB residue underestimated
+>   `M = |Z_q + R17|` by 4.02 %, which this inversion amplifies by (1 + R17/R_m) because
+>   `R_q = M·cosφ − R17` is a difference of close numbers at resonance: up to **−22 %** on `R_m` at
+>   the fundamental in air. A synthetic THRU (Z_q = 0.001 Ω) reads M = 50.199 Ω with 0.600 and
+>   52.301 Ω with the correct value, against a true 52.30 Ω.
+> - **The phase channel carries a global per-overtone offset** δ ≈ 2…14°: it reads
+>   `r(f) = |φ(f) + φ_b| − δ`. Where the argument crosses zero the reading goes **negative**
+>   (to −14°) — that is `min(r) = −δ`, not a detector overshoot. So **a fold measures δ exactly**;
+>   it is not a free parameter, and the published path takes it from the minimum
+>   (`_phase_offset_fold`). Where there is **no fold** (damped load, the phase never crosses zero)
+>   there is no offset to remove and no sign to restore: the reading already *is* the signed phase.
+>   G being *even* in φ means the **sign** is irrelevant to it — but the **offset** is not.
+>
+>   ⚠️ An intermediate version fitted δ by minimising the out-of-roundness of the locus. It is
+>   reverted: the objective is computed on the point cloud with the sign flip inside it, so it
+>   bought roundness by pushing δ until the flip landed on the antipode — leaving B discontinuous
+>   by up to 77 % of its own range, and in liquid splitting the locus in two. Roundness is a
+>   diagnostic here, never an objective.
+>
+> **Still open (metrological refinement), and this is now the main item:** with δ
+> pinned by the fold the locus is still **1.2–7.9 %** out of round in air, and the
+> residual is systematic and reproducible. A **board phase φ_b inside the absolute
+> value** (`r = |φ + φ_b| − δ`) explains both channels 4–5× better and comes out
+> reproducible to 0.2–0.4° across acquisitions (φ_b = −12…−20°), but applying it as
+> a post-unfold rotation does not recover roundness — so it is not yet the whole
+> story. Also open: residual `ωC0` beyond the constant baseline. Refine via **known
+> reference impedances / RLC standards** vs a calibrated impedance analyzer, which
+> is the only way to tell whether the two-parameter model is *right* or merely
+> *better*.
+> *Note*: the "**2–6 mV** V_MAG error at resonance producing a radial bulge",
+> reported on 2026-07-27, is now understood to be this same phase offset seen
+> through the then-current pipeline — not a magnitude-channel defect.
 >
 > **Dynamic-range caveat, important for liquid work.** `R17 = 52.3 Ω` against a
 > liquid load of 0.8–3.4 kΩ puts the entire sweep at **−23 to −36 dB** of divider

@@ -5,6 +5,290 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Fixed — ⚠️ MEASURED VALUES: global phase offset of the AD8302 phase channel (2026-07-28)
+- **Root cause of the distorted admittance circles, and it is not what the first
+  attempt said it was.** The detector's phase output carries a **global
+  per-overtone offset** δ ≈ 7…17° (board + cable phase + detector offset):
+  it reads `r(f) = |φ_true(f)| − δ`. Where the true phase crosses zero (air, low
+  damping) the reading therefore **dives below zero**, down to −12°. That
+  "impossible" negative reading is not a local overshoot — it is
+  `min(r) = −δ`, the *signature* of the offset.
+- **Two of my own earlier changes were wrong and are reverted.** The morning's
+  "G from the folded phase" removed a real and necessary offset correction (the
+  old `_phase_signed` shift by `−min(r)` was a crude but broadly correct
+  estimator of δ). The afternoon's "fold-overshoot repair" (excision + PCHIP
+  bridge) treated the *symptom* of a global offset as a local defect and, by
+  pairing a raw G with a repaired B, made the displayed locus worse than before:
+  circle residual 10–18 % of the radius against 1.6–3.1 % for the untouched old
+  code. `_phase_repair` and the `PHASE_REPAIR_*` constants are gone.
+- **The fix: estimate δ by requiring the locus to be a circle.** The
+  Butterworth–Van Dyke model guarantees the admittance locus *is* a circle, so δ
+  is simply the offset that makes it one — a coarse+fine search over closed-form
+  Taubin fits on a decimated slice of the resonance band
+  (`_phase_offset_deg`, ~3 ms per overtone against a multi-second sweep).
+  This subsumes the old shift, its conditional fold threshold, and the offline
+  reference fit's "rotation" parameter — which turned out to be the same physical
+  quantity, found independently.
+
+  Circle residual, as a fraction of the fitted radius, over five datasets:
+
+  | strategy | air (4 datasets) | isopropanol |
+  |---|---|---|
+  | no correction (the reverted morning patch) | 4.1–14.6 % | 2.7–10.6 % |
+  | `−min(r)` (the old shift) | 1.2–6.6 % | 4.5–17.6 % |
+  | **δ from the circle fit** | **0.75–2.1 %** | **1.7–7.7 %** |
+
+- **Guards, so the correction only applies where it is identifiable**: rejected if
+  the best residual still exceeds `PHASE_OFFSET_MAX_RMS` (5 % of the radius) or
+  if the optimum is pinned to a search bound. On the damped isopropanol overtones
+  both fire, so those keep exactly their previously validated values; the
+  fundamental there is corrected (δ = +7.5°, residual 1.8 %).
+- **Validation.** On ideal synthetic data the estimator returns **−0.00°** and
+  leaves accuracy untouched (err D −0.33 %, unchanged). With a **+12° offset
+  injected** into the synthetic phase it recovers **+12.00°** and restores full
+  accuracy (err f_r +0.0 Hz, err D −0.33 %); without the correction the same data
+  gives err f_r −28 Hz and **err D +102 %**. Reproducibility across two
+  independent acquisitions of the same hardware: δ within **0.5°**, f_r within
+  **7 Hz**, R_m within **2.4 %**.
+- **Effect on published values** (air, sensor S3): f_r moves −20…+2 Hz versus the
+  broken intermediate state and now agrees with the offline Lorentzian fit to
+  1–15 Hz; D = 9.3/2.8/3.6/4.3/5.0 ppm. Sensor S3 measures **0.89–1.07×** the S1
+  reference R_m — a healthy crystal; the anomaly was entirely the phase channel.
+- Diagnostics: the offset is printed once per overtone and again only on a drift
+  above `PHASE_OFFSET_LOG_DEG` (3°), instead of the per-sweep flood the first
+  attempt produced.
+- **Known limit — δ is only weakly identifiable on some overtones.** On sensor S2
+  (the partially recovered module) the reported δ oscillated between consecutive
+  sweeps, alternating over 15.4-17.0° across seven consecutive log lines. Those
+  lines are all the FUNDAMENTAL re-logging, not different overtones: an offline
+  re-estimate on the same raw sweeps puts δ at 15.8-17.6° on the fundamental
+  (depending on smoothing) but at 7.6/9.5/11.8/13.0° on the 3rd/5th/7th/9th, and
+  no logged value is anywhere near those.
+  This is not noise in the data but the shape of the objective: the
+  residual-vs-δ valley is **1.25–1.75° wide** where the crystal is clean, and
+  **3.5–6.5° wide** where the residual floor is high (S2's F0 floor is 2.4 % of
+  the radius against 0.8 % on S1), so ±0.8° of sweep-to-sweep noise moves the
+  minimum without meaningfully changing the fit. Consequences on published values
+  over the observed 1.6° wander are small — **1 Hz** on `f_r`, **−2.5 %** on `D`,
+  **+4.7 %** on `R_m` — and `f_r` still agrees with an independent Lorentzian fit
+  to **0.007–0.32 ppm**. Averaging δ across sweeps would remove the jitter and is
+  recorded as a roadmap item, not applied: it introduces cross-sweep state and
+  shifts published values, so it needs a decision.
+
+### Added, then DISABLED — saturation mask on the spectra shipped for display and fitting (2026-07-28)
+> **Ships off** (`IMPEDANCE_PANEL_MASK_SATURATED = False`). At the floor below it
+> removes 35–63 % of the band in water and 20 % on the 9th overtone in air, and
+> throwing away half the signal to make the circle rounder is the wrong trade.
+> The code, the constants and the measurements stay in place so the study can
+> resume from here; with the flag off the behaviour is bit-identical to before
+> (water residuals back to 4.1/18.1/9.9/6.4/5.5 %).
+>
+> Two directions the data suggests, for when it is revisited: **weight** the
+> samples by their expected error instead of dropping them, and mask **only the
+> circle fit** — which needs a clean arc — while leaving the Lorentzian the tails
+> that pin its background. Fixing the root cause is better still: `R17 = 52.3 Ω`
+> is far too small a reference for a liquid load, and a switchable reference
+> resistor would put the whole sweep back inside the detector's window.
+
+- **What it fixes.** On a liquid load the whole sweep sits in the AD8302's
+  dynamic-range corner: against `R17 = 52.3 Ω` a water-loaded crystal reads
+  `R1` = 0.6–3 kΩ, so the divider ratio is **−23 to −36 dB** with a resonance
+  contrast of about 6 dB. On the 2026-07-28 water run **82 %** of the 3rd
+  overtone's sweep is below `RATIO_DB_FLOOR`, and those samples are the straight
+  tail that pulls the locus out of round. Dropping them takes the circle residual
+  from **18.1 % to 4.7 %** of the radius and brings the two independent Γ
+  estimators from −5.5 % to **−0.6 %** apart.
+- Applied as a **contiguous interval**, not sample by sample. The divider ratio
+  falls monotonically away from resonance so the usable region is one interval by
+  construction, but the threshold test flickers where the ratio grazes the floor —
+  up to 12 fragments with 1–4 sample holes on that run, which would zigzag the
+  panel's line plots. A 5-sample majority filter kills the flicker, then the
+  outermost survivors set the interval.
+- **Display and fitting only.** The logged resonance frequency and half-bandwidth
+  are computed *before* the mask, deliberately: masking removes exactly the
+  off-resonance samples that `_half_bandwidth_G_exact` uses as its baseline, which
+  is a separate defect (see below). So **no published value changes**.
+- **The floor is −28 dB, not the nominal −30, and it is a compromise.** No single
+  value is good everywhere; this is the one that fixes the case it was introduced
+  for. Circle residual / disagreement between the two Γ estimators:
+
+  | | no mask | −28 dB | −30 dB | −32 dB |
+  |---|---|---|---|---|
+  | water, 3rd | 18.1 % / −5.5 % | **4.7 % / −0.6 %** | 10.3 % / −4.5 % | 13.4 % / +22.7 % |
+  | air, 9th | 7.9 % / −2.9 % | 5.8 % / +20.6 % | 6.6 % / +13.5 % | 7.9 % / −2.9 % |
+
+  So it costs something in air on the 9th overtone: 20 % of that band goes, and
+  with the tails gone FIT 2's background and FIT 1's rotation are less constrained
+  even though the residual improves. That cost falls on diagnostic numbers only.
+- The fit window gains a **`masked [%]` column**, coloured green below 10 %, orange
+  below 20 %, red above — because the circle residual keeps looking fine while the
+  arc gets too short to pin either fit. The dropped fraction is also printed once
+  per overtone and again on a move of more than 10 points.
+
+### Known — the liquid baseline is taken ON the resonance (2026-07-28)
+- The sweep window is fixed and sized for air (**−12 kHz / +6 kHz**), while in
+  water Γ_FWHM is 1.9–5.0 kHz. So the sweep starts only 2.4–6.3 half-widths below
+  resonance and `G − average(G[:100])` subtracts a "baseline" that is **13 % of the
+  peak on the 3rd overtone and 66 % on the 9th**.
+- It does **not** distort the circle (subtracting a constant translates it, and the
+  fit is translation-invariant: 18.2 % either way), but it biases the **published**
+  half-bandwidth, because `_half_bandwidth_G_exact` looks for the half-height on
+  that translated curve. Against the Lorentzian, which has a free background and is
+  immune: Γ is low by **−2.5 % (n=1), −4.3 %, −4.3 %, −7.4 %, −13.9 % (n=9)**.
+  D in liquid is therefore underestimated, and the error grows with overtone.
+- Not fixed here — it changes published values. Options: take the width from a
+  Lorentzian with a free background instead of a half-height crossing, or scale the
+  sweep window with the measured Γ.
+
+### Fixed — ⚠️ MEASURED VALUES: δ comes from the fold, not from a roundness fit (2026-07-28, later)
+- **Reverts the circular-locus estimator of the same day.** Prompted by the user
+  recalling that the published version behaved better, and confirmed by
+  reproducing `c83a820`'s reconstruction on all 11 archived datasets.
+- **Why it was wrong.** `_phase_offset_deg` minimised the out-of-roundness of the
+  admittance point cloud, and applied the sign flip *inside* its own objective. So
+  it could buy roundness by pushing δ past the value where the corrected phase
+  reaches zero, until the flip landed on the antipode of the circle. It did:
+  δ came out up to 12° beyond `−min(r)`, the corrected phase sat at +12° where it
+  should be 0, and the flip made **B jump by up to 77 % of its own range**. In air
+  that jump is a chord along the circle, so the cloud stayed round while B(f) was
+  discontinuous; in water the flip fired with no fold at all and **split the locus
+  into two disconnected arcs**, with a fitted circle four times too large.
+- **The rms metric was misleading in both directions.** It reported the water
+  fragmentation as an improvement (11.1 % against 19.8 %) — a circle through two
+  disconnected arcs can have a small radial residual and no physical meaning.
+- **δ is not a free parameter.** The reading is `r(f) = |φ(f) + φ_b| − δ`; where the
+  argument crosses zero, `min(r) = −δ` exactly. `_phase_offset_fold` takes it from
+  the minimum, and when there is **no fold** applies neither an offset nor a flip —
+  the original `_phase_signed` behaviour, which was right.
+- **Measured across 11 datasets, 55 overtones:**
+
+  | | continuity: max ΔB between adjacent samples, % of B range | circle residual, air | water |
+  |---|---|---|---|
+  | δ from the roundness fit | 20–86 % | 0.8–2.5 % | 3.1–11.1 % (meaningless) |
+  | **δ from the fold** | **0.5–7.5 %** | 1.2–7.9 % | 3.8–19.8 % |
+
+- **Independent check that does not involve circularity**: disagreement between the
+  two Γ estimators (FIT 1 circle vs FIT 2 Lorentzian, which share nothing). Median
+  over 55 overtones **3.78 %** from the fold against **5.03 %** from the roundness
+  fit; on the fundamentals the roundness fit is catastrophic (0.37 % against
+  37.6 %).
+- Effect on published values versus the reverted state: Γ moves by −0.5…+16 %
+  depending on the overtone. The attenuator correction, which is verified
+  independently by a synthetic THRU, is **kept**.
+- `--offset fold|circle|none` in `sweep_data/fit_admittance.py`; `phase_offset_deg`
+  and `_phase_offset_deg` are retained, documented as superseded, because *how*
+  they fail is the useful part.
+- **Still open:** with δ pinned by the fold the air locus is 1.2–7.9 % out of round,
+  systematically. A board phase φ_b inside the absolute value fits both channels
+  4–5× better and reproduces to 0.2–0.4° across acquisitions, but applied as a
+  post-unfold rotation it restores continuity without recovering roundness. See the
+  2026-07-28 investigation report.
+
+### Added — live admittance-fit window, Tools > "Impedance Fit (live)" (2026-07-28)
+- Runs **FIT 1** (BVD circle, f_s and Γ off the arc geometry) and **FIT 2**
+  (Levenberg–Marquardt Lorentzian on G) on every completed sweep, per overtone,
+  and shows: **three views** for the selected overtone — G(f) with FIT 2, **B(f)**
+  with FIT 1 under it and x-linked, and the B–G locus spanning both rows — plus a
+  table for all of them
+  with δ, f_s, Γ, D, R₁, L₁, the circle residual, and — the point of having two
+  estimators — **FIT 2 minus FIT 1** on both f_s and Γ. Their disagreement is an
+  honest error bar in a way a single fit's covariance is not.
+- It imports `sweep_data/fit_admittance.py` **by file path** instead of
+  reimplementing it. The offline script has to stay standalone (it is run straight
+  from a directory of archived `g<n>.txt`), and importing the same file is what
+  makes it impossible for the live and offline numbers to drift apart. Verified:
+  the window reproduces the offline table to the 8th significant digit.
+- Cost, measured on five overtones of a real air sweep: **123 ms** for the first
+  fit, **13 ms** for every one after it, against a sweep that takes seconds; a
+  timer tick with no new sweep costs 2 µs, and a closed window costs nothing (the
+  timer stops on hide). Two things buy that: refitting only when the per-overtone
+  revision counter moves, and reusing the previous sweep's rotation angle as a
+  bracket instead of re-running the 181-point grid — with the golden search cut
+  from 40 iterations to 14, since 40 on a 12° bracket resolves 0.007°, digits that
+  do not exist.
+- The measured phase offset δ now travels on the existing G/B channel, so the
+  window shows it per overtone instead of the user reading the console. `0.00`
+  means the estimate was rejected on that sweep.
+- **B(f) matters more than it looks.** G is *even* in the phase, so a broken
+  reconstruction can leave G and the fitted circle looking perfect while B is
+  discontinuous — exactly what the reverted roundness-fitted offset did, stepping
+  by up to 77 % of B's range. The B panel therefore reports that step explicitly
+  (largest difference between adjacent samples, as a fraction of B's span); a
+  continuous trajectory keeps it at a few per cent. The dashed FIT 1 line there
+  comes from the circle's own geometry, so where it diverges from the measurement
+  is where the circle model fails.
+- **C0 is deliberately not shown.** The published spectra have a constant baseline
+  removed before shipping, which *translates* the admittance circle — and
+  translating it is precisely what C0 does, so the fitted offset is no longer
+  ω·C0. f_s, Γ, D and R₁ are unaffected. Run the offline script on `g<n>.txt` when
+  C0 is what you need.
+
+### Added — `sweep_data/fit_admittance.py` draws the data it fits (2026-07-28)
+- One row of three panels per overtone: the **raw** detector voltages as
+  acquired (with the mask floor and the fit band marked), **G(f) with the FIT 2
+  Lorentzian** on top, and the **admittance plane with the FIT 1 circle** —
+  including the centre and the point the arc regression calls f_s, which makes
+  the fitted rotation visible. `--save` writes it, `--no-plot` skips it. The
+  frequency axis is detuning in kHz: at 1 Hz resolution on a 45 MHz carrier an
+  absolute axis is all offset notation and no information.
+- **The figure immediately showed the script was behind the pipeline**: a radial
+  spur stuck out of the locus at f_r on every overtone, the signature of the
+  uncorrected global phase offset. The offline path applied only the old
+  conditional fold flip and relied on the arc-fit rotation to absorb the rest —
+  which it cannot, because the offset rotates `(Z_q + R17)` about `-R17`, not the
+  admittance locus. `phase_offset_deg()` is now a port of the pipeline's
+  estimator; `--no-offset` reproduces the old behaviour for comparison. Circle
+  residual on the 2026-07-28 air run: **3.9-7.7 % → 0.68-2.28 %** of the radius,
+  and FIT 1 vs FIT 2 agreement on f_s tightens from 23-129 Hz to 2-52 Hz.
+- One subtlety, found by measurement: the flip inside the estimator must be
+  **unconditional**. Making it conditional on the corrected phase reaching zero
+  puts a discontinuity inside the search and manufactures a false optimum — on
+  the fundamental it returns +10.0° at 2.01 % residual instead of the true
+  +15.8° at 1.17 %.
+
+### Fixed — ⚠️ MEASURED VALUES (verification round, 2026-07-27)
+- **Attenuator compensation was 0.600 V instead of 0.61069 V.** The ADC→V
+  conversion has to undo the INPB R11/R19 attenuator, and that is **not** one
+  clean decade: k = (47.0 + 4.99)/4.99 = 10.4188 = 20.3564 dB, which at
+  30 mV/dB is 0.61069 V. The hardcoded 0.600 undid exactly 20.000 dB and left
+  0.3564 dB uncompensated, underestimating M = |Z_q + R17| by **4.02 %**. The
+  inversion amplifies that by (1 + R17/R_m), because `R_q = M·cosφ − R17` is a
+  difference of close numbers at resonance: up to **−22 %** on R_m at the
+  fundamental in air. Now derived from the schematic values in
+  `Constants.V_MAG_DECADE_OFFSET` instead of hardcoded, and applied at **both**
+  conversion sites — `_Vmag_bit_mag` (the published path) and the one inside
+  `run()` that writes `g<n>.txt` (the offline reference), which had drifted apart.
+  Confirmed by a synthetic THRU (Z_q = 0.001 Ω through the full forward model):
+  M read **50.199 Ω** before and **52.301 Ω** after, against a true 52.30 Ω.
+- **The conductance is no longer routed through the phase unfold.** G is *even*
+  in φ, so it must be computed from the phase exactly as the AD8302 emits it —
+  folded. `_phase_signed` does more than flip the sign: it also **shifts** the
+  phase by its minimum, and that shift is not sign-symmetric. Sending G through
+  it biased the published dissipation by **+6 to +20 %** in air while doing
+  nothing about a sign ambiguity G is already immune to. B keeps the signed
+  phase, which is the only quantity that genuinely needs it.
+
+  **Combined effect on the published values**, measured on the frozen datasets.
+  The two fixes push D the same way, they do not cancel:
+
+  | n | D air before → after | D isopropanol before → after |
+  |---|---|---|
+  | 1 | 25.08 → 29.74 ppm | 387.1 → 380.1 ppm |
+  | 3 | 5.58 → 6.89 ppm | 194.4 → 194.7 ppm |
+  | 5 | 5.42 → 6.71 ppm | 146.1 → 146.3 ppm |
+  | 7 | 4.86 → 5.65 ppm | 123.8 → 123.9 ppm |
+  | 9 | 5.61 → 6.04 ppm | 112.6 → 112.7 ppm |
+
+  `f_r` moves ≤ 13 Hz. R_m rises 7–11 % in air (the direction the underestimated
+  M predicted). In liquid the unfold does not fire for n ≥ 3, so only the
+  constant contributes there.
+
+  Verification harness: synthetic BVD through the reference forward model
+  (attenuator k, Z2_eff, AD8302 transfer functions, ×2/×1.5 buffers, 12-bit ADC)
+  into the real `MultiscanProcess` methods. Isolating the formulas, air now gives
+  **f_r 0.00 Hz, D −0.34 %, G_max −1.43 %** against analytic truth; the residual
+  G_max offset is the R17-vs-Z2_eff item, still open.
+
 ### Changed — ⚠️ MEASURED VALUES
 - **The published resonance frequency and dissipation now come from the EXACT
   complex-divider inversion.** `elaborate_multi` computes `Y_q = 1/(M·e^{-jφ} −

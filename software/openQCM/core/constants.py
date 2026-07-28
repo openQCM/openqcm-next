@@ -295,6 +295,59 @@ class Constants:
     # MultiscanProcess._phase_signed and sweep_data/plot_conductance.py.
     FOLD_THRESHOLD_DEG_G = 5.0
 
+    # VER 0.1.6G global phase offset of the AD8302 phase channel. The detector
+    # reads r(f) = |phi_true(f)| - delta with delta a per-overtone constant of
+    # ~7-25 deg on this instrument (board + cable phase + detector offset). It is
+    # estimated at runtime by requiring the admittance locus to be a circle,
+    # which the Butterworth-Van Dyke model guarantees it is - see
+    # MultiscanProcess._phase_offset_deg. These bounds bracket the search; the
+    # rms guard rejects an estimate whose best circle is still too poor to trust,
+    # in which case no correction is applied.
+    PHASE_OFFSET_MIN_DEG = -5.0
+    PHASE_OFFSET_MAX_DEG = 30.0
+    # accept the estimate only when the corrected locus really is a circle:
+    # 5 % of the radius passes every air dataset (0.75-2.1 % measured) and
+    # rejects the damped-liquid overtones where the search saturates and the
+    # residual stays at 7-8 %. On rejection no correction is applied, which
+    # leaves the previously validated liquid behaviour untouched.
+    PHASE_OFFSET_MAX_RMS = 0.05
+    # Re-log the offset only past this drift. It must be LOOSER than the
+    # estimator's own precision, which depends on how sharply the circle
+    # residual bottoms out: measured valley width (within +10 % of the minimum)
+    # is 1.25-1.75 deg where the locus is clean but 3.5-6.5 deg on overtones
+    # whose residual floor is higher. A 1 deg threshold therefore reported
+    # ordinary estimation noise as drift and flooded the console.
+    PHASE_OFFSET_LOG_DEG = 3.0
+
+    # VER 0.1.6G live admittance-fit window (Tools > Impedance Fit).
+    # Refresh period: the fits only re-run when a sweep actually completed, so
+    # this is just how promptly the window notices - not how often it works.
+    IMPEDANCE_FIT_UPDATE_MS = 500
+    # Samples the fits run on, per overtone, after decimation. 250 keeps the two
+    # fits at a few ms each; the estimators are not sample-starved well below it
+    # (the covariance on f_s stays sub-hertz at 150).
+    IMPEDANCE_FIT_POINTS = 250
+
+    # VER 0.1.6G INPB attenuator R11/R19 (from the schematic). The ADC->V
+    # conversion has to undo it, and the amount is NOT one clean decade:
+    #   k = (R11 + R19)/R19 = 10.418838 = 20.3564 dB
+    #   at the AD8302's 30 mV/dB that is 0.61069 V
+    # The code used a hardcoded 0.600 V, which undoes exactly 20.000 dB = x10.000
+    # and leaves 0.3564 dB uncompensated. That residue underestimates
+    # M = |Z_q + R17| by 4.02 %, and the inversion amplifies the error by
+    # (1 + R17/R_m) because R_q = M*cos(phi) - R17 is a difference of close
+    # numbers at resonance: up to -22 % on R_m at the fundamental in air.
+    #
+    # Verified by a synthetic THRU (Z_q = 0.001 ohm through the full forward
+    # model): M reads 50.199 ohm with 0.600 and 52.301 ohm with the value below,
+    # against a true 52.30 ohm.
+    #
+    # Derived rather than hardcoded so the schematic values stay visible.
+    R11_ATT = 47.0
+    R19_ATT = 4.99
+    K_ATT = (R11_ATT + R19_ATT) / R19_ATT               # 10.418838
+    V_MAG_DECADE_OFFSET = 20.0 * np.log10(K_ATT) * 0.030   # 0.61069 V
+
     # VER 0.1.6G live impedance panel: half-width of the plotted window, in units
     # of the half-bandwidth Gamma of the resonance being displayed.
     #
@@ -311,6 +364,57 @@ class Constants:
     # 3.0 keeps roughly 300 deg of the locus for an ideal resonance. Lower it
     # (1.5-2) to trade coverage for robustness on heavily damped loads.
     IMPEDANCE_PANEL_BAND_GAMMA = 3.0
+
+    # VER 0.1.6G saturation mask. The AD8302 is specified over +-30 dB of input
+    # ratio; below that the magnitude output compresses and the phase output
+    # degrades with it, and both channels fail together. Samples acquired past
+    # this floor are dropped from the spectra shipped to the impedance panel and
+    # to the live fit window.
+    #
+    # It matters in liquid and almost nowhere else. Against R17 = 52.3 Ohm a
+    # water-loaded crystal reads R1 = 0.6-3 kOhm, which puts the WHOLE sweep at
+    # -23 to -36 dB with a resonance contrast of about 6 dB. On the 2026-07-28
+    # water run 82 % of the 3rd overtone's sweep sits below this floor, and those
+    # samples are the straight tail that pulls the locus out of round: the circle
+    # residual goes 18.2 % -> 4.8 % of the radius when they are dropped. In air
+    # the mask removes nothing below the 7th overtone.
+    #
+    # NOTE this is display/fit only. The logged resonance frequency and
+    # half-bandwidth still come from the unmasked spectrum, because masking would
+    # remove exactly the off-resonance samples that _half_bandwidth_G_exact uses
+    # as its baseline - which is a separate defect, tracked in HANDOFF.
+    #
+    # -28 rather than the AD8302's nominal -30 because no single floor is good
+    # everywhere and this is the one that fixes the case it was introduced for.
+    # Measured circle residual / disagreement between the two Gamma estimators:
+    #
+    #   water, 3rd overtone   no mask 18.1 % / -5.5 %   -30 dB 10.3 % / -4.5 %
+    #                         -28 dB   4.7 % / -0.6 %   -32 dB 13.4 % / +22.7 %
+    #   air, 9th overtone     no mask  7.9 % / -2.9 %   -28 dB  5.8 % / +20.6 %
+    #
+    # So it costs something in air on the 9th overtone: 20 % of that band goes,
+    # and with the tails gone FIT 2's background and FIT 1's rotation are less
+    # constrained even though the residual improves. That cost falls on the
+    # DIAGNOSTIC numbers only - hence the masked-percentage column in the fit
+    # window, coloured to warn past 20 %.
+    RATIO_DB_FLOOR = -28.0
+    # ⚠️ OFF since 2026-07-28, by decision: at this floor the mask removes 35-63 %
+    # of the band in water and 20 % on the 9th overtone in air. Throwing away half
+    # the signal to make the circle rounder is the wrong trade, and how to select
+    # the untrustworthy samples without that cost is an open question - the two
+    # ideas the data suggests are (a) WEIGHT the samples by their expected error
+    # instead of dropping them, and (b) mask only the circle fit, which needs a
+    # clean arc, while leaving the Lorentzian the tails that pin its background.
+    # The code and the measurements are kept so the study can resume from here.
+    IMPEDANCE_PANEL_MASK_SATURATED = False
+    # never ship fewer than this many samples: a degenerate curve is worse than a
+    # distorted one
+    IMPEDANCE_PANEL_MIN_POINTS = 64
+    # majority-filter length for the mask. The threshold test flickers where the
+    # ratio grazes the floor (up to 12 fragments with 1-4 sample holes on the
+    # water run), and the mask is then applied as the interval between the
+    # outermost survivors - the usable region is contiguous by physics.
+    IMPEDANCE_PANEL_MASK_SMOOTH = 5
 
     # VER 0.1.6G draw the fitted circle on top of the measured locus. The fit is
     # a Taubin algebraic estimate with one round of outlier trimming, so it

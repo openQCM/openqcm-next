@@ -10,6 +10,7 @@ from serial.tools import list_ports
 import numpy as np
 from numpy import loadtxt
 from scipy.interpolate import UnivariateSpline
+from scipy.interpolate import PchipInterpolator
 from scipy.stats import trim_mean
 
 from progressbar import Bar, Percentage, ProgressBar, RotatingMarker,Timer
@@ -437,6 +438,147 @@ class MultiscanProcess(multiprocessing.Process):
         den = np.maximum(R_q**2 + X_q**2, 1e-12)
         return -X_q / den
 
+
+    # VER 0.1.6G GLOBAL PHASE OFFSET of the AD8302 phase channel.
+    #
+    # The detector reads r(f) = |phi_true(f)| - delta, with delta a per-overtone
+    # constant of ~7-25 deg on this instrument (board + cable phase + detector
+    # offset). Two consequences that had us chasing our tail:
+    #  - where the true phase crosses zero (air, low damping) the READING dives
+    #    below zero, down to -12 deg. That "impossible" negative reading is not a
+    #    local overshoot: it is min(r) = -delta, the signature of the offset.
+    #  - the old _phase_signed estimated delta as -min(r), which is right only
+    #    when a true crossing exists. In liquid there is none (C0 dominates, the
+    #    total susceptance never reaches zero) and -min(r) is then badly wrong -
+    #    hence the conditional fold threshold that guarded it.
+    #
+    # The robust estimator drops both special cases: the Butterworth-Van Dyke
+    # model guarantees the admittance locus is a CIRCLE, so delta is simply the
+    # offset that makes it one. Measured over five datasets spanning clean air to
+    # isopropanol, minimising the circle residual gives 0.8-2.1 % of the radius
+    # in air and 1.7-7.7 % in liquid, against 4.1-14.6 % / 2.7-10.6 % with no
+    # correction and 1.2-6.6 % / 4.5-17.6 % with -min(r). It is also the same
+    # quantity the offline reference fit needs as its "rotation" parameter
+    # (sweep_data/fit_admittance.py), found independently.
+    @staticmethod
+    def _taubin_circle(x, y):
+        """Algebraic circle fit, closed form. Returns (xc, yc, r) or None."""
+        n = len(x)
+        if n < 8:
+            return None
+        mx, my = x.mean(), y.mean()
+        u, v = x - mx, y - my
+        z = u * u + v * v
+        Muu, Mvv, Muv = (u * u).mean(), (v * v).mean(), (u * v).mean()
+        Muz, Mvz = (u * z).mean(), (v * z).mean()
+        Mz = Muu + Mvv
+        cov = Muu * Mvv - Muv * Muv
+        if abs(cov) < 1e-30:
+            return None
+        xc = (Muz * Mvv - Mvz * Muv) / cov / 2.0
+        yc = (Mvz * Muu - Muz * Muv) / cov / 2.0
+        r2 = xc * xc + yc * yc + Mz
+        if not np.isfinite(r2) or r2 <= 0:
+            return None
+        return xc + mx, yc + my, np.sqrt(r2)
+
+    # VER 0.1.6G global phase offset of the detector's phase channel, taken from
+    # the fold.
+    #
+    # The reading is r(f) = |phi(f) + phi_b| - delta. Where the argument crosses
+    # zero the reading reaches its minimum, and there r = -delta: so delta is
+    # MEASURED by the minimum, it is not a free parameter. min(r) < 0 on this
+    # instrument, which is the signature of the offset - but delta of either sign
+    # is legitimate: it is whatever brings the vertex of the V to zero.
+    #
+    # Why this replaced the circular-locus estimator (_phase_offset_deg below,
+    # kept for reference and used by the offline script's --offset circle):
+    # that estimator minimises the out-of-roundness of the point CLOUD, and it
+    # applies the sign flip inside its own objective - so it can buy roundness
+    # by pushing delta until the flip lands on the antipode of the circle. It
+    # did exactly that: it returned delta up to 12 deg beyond -min(r), which
+    # left the corrected phase at +12 deg where it should be 0, and the flip
+    # then made B jump by up to 77 % of its own range. The locus looked rounder
+    # (1.4 % of the radius against 4.5 %) while the trajectory was broken. A
+    # continuous trajectory is not negotiable; roundness is a diagnostic.
+    #
+    # Returns (delta, has_fold). No fold means the true phase never crosses zero
+    # (damped load): the reading is already the signed phase, so no offset and no
+    # flip - the behaviour validated in isopropanol.
+    def _phase_offset_fold(self, phase_folded):
+        try:
+            p_min = float(np.nanmin(phase_folded))
+        except Exception:
+            return 0.0, False
+        if not np.isfinite(p_min) or p_min >= Constants.FOLD_THRESHOLD_DEG_G:
+            return 0.0, False
+        return -p_min, True
+
+    def _phase_offset_deg(self, freq, V_mag, phase_folded):
+        """Global phase offset that makes the admittance locus circular.
+
+        Coarse grid then a fine pass, on a decimated slice of the resonance band:
+        a few dozen closed-form circle fits on ~150 samples, i.e. well under a
+        millisecond per overtone against a sweep measured in seconds.
+        Returns 0.0 if the estimate cannot be trusted, which leaves the caller
+        with the uncorrected phase.
+        """
+        try:
+            # seed the band from the uncorrected conductance
+            R0, X0 = self._RX_exact(V_mag, phase_folded)
+            G0 = self._G_exact(R0, X0)
+            i0 = int(np.nanargmax(G0 - np.average(G0[:min(100, len(G0))])))
+            hw = self._half_bandwidth_G_exact(G0, freq)
+            half = max(3.0 * abs(hw), 60.0)
+            band = np.abs(freq - freq[i0]) <= half
+            if band.sum() < 40:
+                return 0.0
+            idx = np.where(band)[0]
+            step = max(1, len(idx) // 150)
+            idx = idx[::step]
+            f_b, Vm_b, ph_b = freq[idx], V_mag[idx], phase_folded[idx]
+
+            def residual(delta):
+                p = ph_b + delta
+                j = int(np.nanargmin(np.abs(p)))
+                ps = p.copy()
+                ps[j:] = -ps[j:]
+                R, X = self._RX_exact(Vm_b, ps)
+                G = self._G_exact(R, X) * 1000.0
+                B = self._B_exact(R, X) * 1000.0
+                fit = self._taubin_circle(G, B)
+                if fit is None:
+                    return np.inf
+                xc, yc, r = fit
+                if r <= 0:
+                    return np.inf
+                d = np.hypot(G - xc, B - yc) - r
+                return float(np.sqrt(np.mean(d * d)) / r)
+
+            grid = np.arange(Constants.PHASE_OFFSET_MIN_DEG,
+                             Constants.PHASE_OFFSET_MAX_DEG + 0.01, 1.0)
+            costs = [residual(d) for d in grid]
+            k = int(np.nanargmin(costs))
+            if not np.isfinite(costs[k]):
+                return 0.0
+            fine = np.arange(grid[k] - 1.0, grid[k] + 1.001, 0.1)
+            cf = [residual(d) for d in fine]
+            kf = int(np.nanargmin(cf))
+            best = float(fine[kf])
+            # reject a saturated search: an optimum pinned to a bound is not an
+            # optimum, it is the estimator asking for a wider range - which on a
+            # heavily damped load means the locus is not circular enough for this
+            # parameter to be identifiable at all.
+            at_bound = (best <= Constants.PHASE_OFFSET_MIN_DEG + 0.5 or
+                        best >= Constants.PHASE_OFFSET_MAX_DEG - 0.5)
+            if (not np.isfinite(cf[kf]) or at_bound
+                    or cf[kf] > Constants.PHASE_OFFSET_MAX_RMS):
+                return 0.0
+            return best
+        except Exception as e:
+            print("Warning: phase-offset estimation failed:", e)
+            return 0.0
+
     # VER 0.1.6G resonance frequency and half-bandwidth from the EXACT
     # conductance. This is what the pipeline publishes now.
     def parameters_finder_impedance_exact(self, freq, G_conductance):
@@ -558,9 +700,10 @@ class MultiscanProcess(multiprocessing.Process):
         ADCtoVolt = vmax / bitmax
         # volage calculation divide by factor 2 because of the opamp  
         Vmag = bit_mag * ADCtoVolt / 2
-        # because of the voltage divider Zehra
-        Vmag = Vmag - 0.6 
-        
+        # undo the INPB R11/R19 attenuator: 20.3564 dB at 30 mV/dB, NOT one clean
+        # decade. See Constants.V_MAG_DECADE_OFFSET for why 0.600 was wrong.
+        Vmag = Vmag - Constants.V_MAG_DECADE_OFFSET
+
         return Vmag
     
     # VER 0.1.5a_G_DEV 
@@ -877,13 +1020,52 @@ class MultiscanProcess(multiprocessing.Process):
         #
         # The same spectra feed the live impedance panel below, so the panel and
         # the datalog can never disagree.
-        phase_signed = self._phase_signed(Vphase_result_fit)
-        R_q, X_q = self._RX_exact(Vmag_raw_result_fit, phase_signed)
-        G_exact_S = self._G_exact(R_q, X_q)
-        B_exact_S = self._B_exact(R_q, X_q)
+        # VER 0.1.6G The AD8302 phase reading carries a global per-overtone
+        # offset (see _phase_offset_deg): r = |phi_true| - delta. G is EVEN in
+        # phi, so the SIGN of the phase is irrelevant to it - but the OFFSET is
+        # not, and removing it is what makes the admittance locus a circle.
+        # Estimate delta by circular-locus minimisation, then work with the
+        # corrected magnitude of the phase.
+        phase_folded = self._phase_raw_V_phase(Vphase_result_fit)
+        phase_offset, has_fold = self._phase_offset_fold(phase_folded)
+        phase_corr = phase_folded + phase_offset
+
+        # Log the offset once per overtone, and again only on a drift larger than
+        # Constants.PHASE_OFFSET_LOG_DEG. It is useful diagnostics - it
+        # characterises the board's phase channel - but it is recomputed on every
+        # sweep and the vertex of the V moves a little with noise.
+        if not hasattr(self, "_phase_offset_logged"):
+            self._phase_offset_logged = {}
+        _prev = self._phase_offset_logged.get(overtone_number)
+        if _prev is None or abs(phase_offset - _prev) > Constants.PHASE_OFFSET_LOG_DEG:
+            self._phase_offset_logged[overtone_number] = phase_offset
+            if not has_fold:
+                print("Phase offset (overtone %d): no fold (min |phase| = %.1f deg), "
+                      "reading used as the signed phase"
+                      % (overtone_number, float(np.nanmin(phase_folded))))
+            else:
+                print("Phase offset (overtone %d): %+.2f deg"
+                      % (overtone_number, phase_offset))
+
+        R_q_G, X_q_G = self._RX_exact(Vmag_raw_result_fit, phase_corr)
+        G_exact_S = self._G_exact(R_q_G, X_q_G)
 
         (index_peak_fit_G, frequency_resonance_G, half_bandwidth) = \
             self.parameters_finder_impedance_exact(freq_range, G_exact_S)
+
+        # B is ODD in phi and needs the sign, which comes from undoing the fold.
+        # ONLY when there is a fold: on a damped load the true phase never
+        # crosses zero, the reading already IS the signed phase, and flipping
+        # invents a sign change. Measured cost of flipping anyway, on the
+        # 2026-07-28 water run: B jumps by up to 80 % of its whole range at the
+        # flip point and the locus breaks into two disconnected arcs.
+        phase_signed = np.array(phase_corr, dtype=float, copy=True)
+        if has_fold:
+            i_flip = int(np.nanargmin(np.abs(phase_corr)))
+            phase_signed[i_flip:] = -phase_signed[i_flip:]
+
+        R_q, X_q = self._RX_exact(Vmag_raw_result_fit, phase_signed)
+        B_exact_S = self._B_exact(R_q, X_q)
 
         # VER 0.1.6G spectra for the live impedance panel
         try:
@@ -911,18 +1093,76 @@ class MultiscanProcess(multiprocessing.Process):
             if keep.sum() < 16:          # pathological: fall back to everything
                 keep = np.ones_like(freq_range, dtype=bool)
 
+            # SATURATION MASK. Drop the samples the AD8302 cannot measure: below
+            # Constants.RATIO_DB_FLOOR of divider ratio both of its outputs
+            # compress, and on a liquid load those samples are the straight tail
+            # that pulls the locus out of round (2026-07-28 water run, 3rd
+            # overtone: 82 % of the sweep below the floor, circle residual
+            # 18.2 % -> 4.8 % of the radius when they go). Only applies to what is
+            # shipped for display and fitting - see the note on
+            # Constants.RATIO_DB_FLOOR for why the logged values stay unmasked.
+            n_dropped = 0
+            if Constants.IMPEDANCE_PANEL_MASK_SATURATED:
+                ratio_dB = ((np.asarray(Vmag_raw_result_fit, dtype=float)
+                             - self.V_CP_EXACT) / 0.030)
+                usable = ratio_dB > Constants.RATIO_DB_FLOOR
+                # Applied as a contiguous INTERVAL, not sample by sample. The
+                # divider ratio falls monotonically away from resonance, so the
+                # usable region is one interval by construction; the raw test
+                # flickers across the threshold and produced up to 12 fragments
+                # with 1-4 sample holes on the 2026-07-28 water run, which would
+                # zigzag the panel's line plots. A short majority filter kills the
+                # flicker, then the outermost survivors set the interval.
+                k = Constants.IMPEDANCE_PANEL_MASK_SMOOTH
+                if k > 1:
+                    usable = (np.convolve(usable.astype(float),
+                                          np.ones(k) / k, mode="same") > 0.6)
+                idx_ok = np.where(usable & keep)[0]
+                if len(idx_ok) >= Constants.IMPEDANCE_PANEL_MIN_POINTS:
+                    interval = np.zeros_like(keep)
+                    interval[idx_ok.min():idx_ok.max() + 1] = True
+                    keep_masked = keep & interval
+                    if keep_masked.sum() >= Constants.IMPEDANCE_PANEL_MIN_POINTS:
+                        n_dropped = int(keep.sum() - keep_masked.sum())
+                        keep = keep_masked
+
+            # Report the dropped fraction once per overtone, and again only on a
+            # move of more than 10 points: it is the honest measure of how much of
+            # this sweep the detector could not see, and silently dropping half a
+            # band would read as "clean data". Silent while the mask is off.
+            frac = 100.0 * n_dropped / max(int(keep.sum()) + n_dropped, 1)
+            if Constants.IMPEDANCE_PANEL_MASK_SATURATED:
+                if not hasattr(self, "_mask_logged"):
+                    self._mask_logged = {}
+                _prevf = self._mask_logged.get(overtone_number)
+                if _prevf is None or abs(frac - _prevf) > 10.0:
+                    self._mask_logged[overtone_number] = frac
+                    if n_dropped:
+                        print("Saturation mask (overtone %d): %d of %d samples "
+                              "below %.0f dB dropped (%.0f %% of the band)"
+                              % (overtone_number, n_dropped,
+                                 int(keep.sum()) + n_dropped,
+                                 Constants.RATIO_DB_FLOOR, frac))
+                    else:
+                        print("Saturation mask (overtone %d): nothing dropped"
+                              % overtone_number)
+
             # Ship ONE overtone per message. elaborate_multi runs once per
             # overtone, so re-sending all five lists every time (the pattern the
             # older A_multi channel uses) put five times the spectra on the
             # queue and five times the pickling cost for no new information.
             # f_r and Gamma travel along: the panel needs them to restrict the
-            # circle fit to the core of the resonance.
+            # circle fit to the core of the resonance. The measured phase offset
+            # travels too, so the live fit window can show it without the user
+            # having to read the console.
             self._parser_GB_multi.add_GB_multi([int(overtone_number),
                                                 freq_range[keep].tolist(),
                                                 G_exact[keep].tolist(),
                                                 B_exact[keep].tolist(),
                                                 float(f_res),
-                                                float(abs(half_bandwidth))])
+                                                float(abs(half_bandwidth)),
+                                                float(phase_offset),
+                                                float(frac)])
         except Exception as e:
             # The panel is a diagnostic view: never let it break an acquisition.
             print("Warning: exact G/B for the impedance panel failed:", e)
@@ -1591,8 +1831,9 @@ class MultiscanProcess(multiprocessing.Process):
                                             # VER 0.1.5a_G_DEV define V mag and V phase of AD8302
                                             # V mag conversion from adc bit to Volt and ratio /2 by opamp
                                             V_mag[i] = float(strs[i][0]) * ADCtoVolt / 2
-                                            # because of the voltage divider Zehra
-                                            V_mag[i] = V_mag[i] - 0.6
+                                            # same attenuator compensation as
+                                            # _Vmag_bit_mag - this feeds g<n>.txt
+                                            V_mag[i] = V_mag[i] - Constants.V_MAG_DECADE_OFFSET
                                             # V phase conversion from adc bit to Volt and ratio /1.5 by opamp
                                             V_ph[i] = float(strs[i][1]) * ADCtoVolt / 1.5
                                             
