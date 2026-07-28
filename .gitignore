@@ -64,3 +64,10 @@ build/
 *.tar
 *.gz
 *.7z
+
+# VER 0.1.6G scratch data and figures that git add -A kept sweeping up.
+# data_test/ is where raw sweeps get dropped for offline analysis - archived
+# outside the repo, under openqcm-next-impedance-datasets/<date>/.
+data_test/
+# output of `fit_admittance.py --save`
+software/fit.png
