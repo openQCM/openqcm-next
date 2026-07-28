@@ -2,7 +2,7 @@
 
 > Technical starting point to continue development of the software and of the
 > `impedance-analysis` branch. Working language: Italian in chat, English in the repo.
-> Last updated: 2026-07-27.
+> Last updated: 2026-07-28.
 
 ---
 
@@ -97,32 +97,89 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
 - `docs/impedance-analysis/`: method documentation (`conductance-calculation.md`,
   `openQCM_Next_G_Impedance_Analysis.md`, 3 PDFs).
 
-**State (2026-07-27)**:
-- ✅ The **exact** formula is the **published** path. `f_r` and Γ come from
-  `Y_q = 1/(M·e^{-jφ} − R17)` on the raw absolute `V_MAG` and the signed phase. Γ is measured
-  **two-sided** and interpolated sub-sample. The old approximate
-  `parameters_finder_impedance()` and its helpers (`_Zabs_Vmag`, `_G_calc`, `_B_calc`,
-  `_phase_raw_V_phase`) are kept but **no longer called**.
+**State (2026-07-28)**:
+- ✅ The **exact** complex-divider inversion is the **published** path. `f_r` and Γ come from
+  `Y_q = 1/(M·e^{-jφ} − R17)` on the raw absolute `V_MAG`. Γ is measured **two-sided** and
+  interpolated sub-sample. The old approximate `parameters_finder_impedance()` and its helpers
+  (`_Zabs_Vmag`, `_G_calc`, `_B_calc`) are kept but **no longer called**.
+- ✅ **Attenuator compensation fixed**: the ADC→V conversion undoes the INPB R11/R19 attenuator
+  with `Constants.V_MAG_DECADE_OFFSET = 0.61069 V` (= 20.3564 dB × 30 mV/dB), derived from the
+  schematic values, applied at **both** conversion sites — `_Vmag_bit_mag` and the copy inside
+  `run()` that writes `g<n>.txt`. The previous hardcoded `0.600` undid exactly 20 dB and
+  underestimated `M` by 4.02 %, i.e. R_m by up to 22 % at the fundamental. Verified by a synthetic
+  THRU: M reads 52.301 Ω against a true 52.30 (was 50.199).
+- ✅ **Phase-channel offset measured, not guessed** (`_phase_offset_deg`). The AD8302 phase output
+  reads `r(f) = |φ_true(f)| − δ`, δ ≈ 7…17° per overtone. δ is estimated at runtime by requiring
+  the admittance locus to be a circle (closed-form Taubin, ~3 ms/overtone), with guards that
+  reject an unidentifiable estimate. See the dedicated section below — this replaced two wrong
+  attempts and is the single most consequential correction of the 2026-07-28 session.
 - ✅ **Live impedance panel**: G(f) and the B–G admittance circle, all overtones, matching
-  colours, fitted-circle overlay. Tuned for damped loads — see the three
-  `Constants.IMPEDANCE_PANEL_*` knobs.
-- ✅ Validated **in air and in isopropanol**. D in air is now ~5 ppm on the overtones (textbook);
-  in isopropanol 387 ppm at the fundamental, matching Kanazawa–Gordon (~400 ppm). The old
-  approximate values were inflated 2–4× in air.
+  colours, fitted-circle overlay. See the three `Constants.IMPEDANCE_PANEL_*` knobs.
+- ✅ Validated in **air and isopropanol**, on **three central bodies and three sensor modules**.
+  In air `f_r` agrees with the offline Lorentzian fit to **0.007–0.32 ppm**; circle residual
+  **0.75–2.1 %** of the radius.
 - The method is **always on, not selectable** (hard-wired in `elaborate_multi`).
 - `elaborate_conductance_multi()` is **dead code** (UNUSED).
 - The DEBUG state is gone (2026-07-27 merge): `environment` back to `10`,
   `plot_autoscale_yaxis` dropped for main's `Constants.plot_force_yrange`.
-- ⚠️ **Global phase offset of the AD8302 phase channel (2026-07-28)**: the
-  detector reads `r = |φ_true| − δ` with δ ≈ 7…17° per overtone (board + cable +
-  detector). Where the true phase crosses zero the reading goes **negative**
-  (to −12°) — that is `min(r) = −δ`, not a local overshoot. Estimated at runtime
-  in `_phase_offset_deg()` by requiring the admittance locus to be a circle
-  (Taubin, ~3 ms/overtone), with guards that reject an unidentifiable estimate
-  (residual > 5 % of the radius, or optimum pinned to a bound) — on damped
-  liquid overtones the guards fire and those values stay as previously validated.
-  Circle residual in air: **0.75–2.1 %** of the radius, against 4.1–14.6 % with
-  no correction. Same quantity as the offline fit's "rotation" parameter.
+
+### The phase-channel offset δ — what it is and how it was found
+
+The detector emits `|Δφ|` only, and its output carries a **global per-overtone offset**:
+`r(f) = |φ_true(f)| − δ`. Two consequences that cost this session two wrong diagnoses:
+
+- Where the true phase crosses zero (air, low damping) the **reading goes negative**, down to
+  −14°. That is impossible for a magnitude detector, and it is not a local overshoot: it is
+  `min(r) = −δ`, the *signature* of the offset.
+- The original `_phase_signed` estimated δ as `−min(r)` and flipped the sign after the minimum.
+  That is a crude but broadly **correct** estimator when a true crossing exists, and its
+  conditional fold threshold (`FOLD_THRESHOLD_DEG_G = 5°`) was the guard for when it does not —
+  in liquid C0 dominates, the total susceptance never reaches zero, and `−min(r)` is then
+  actively wrong.
+
+⚠️ **Two changes made on 2026-07-28 were wrong and were reverted** — recorded here so nobody
+repeats them:
+1. *"G from the folded phase, because G is even in φ."* True and beside the point: G is even in
+   the **sign**, but the **offset** still has to be removed. Dropping the shift took the circle
+   residual from 1.6–3.1 % to 4.1–14.6 %.
+2. *"Local fold-overshoot repair: excise the sub-zero core, bridge with PCHIP."* Treated the
+   symptom of a global offset as a local defect, and by shipping a **raw** G with a **repaired**
+   B it produced a hybrid locus nobody had validated — 10–18 % residual, worse than doing
+   nothing. `_phase_repair` and the `PHASE_REPAIR_*` constants are gone.
+
+**The estimator that works**: the Butterworth–Van Dyke model guarantees the locus *is* a circle,
+so δ is the offset that makes it one. Coarse+fine search over closed-form Taubin fits on a
+decimated slice of the resonance band. This subsumes the old shift, its conditional threshold,
+and the offline reference fit's "rotation" parameter — the same physical quantity, arrived at
+independently.
+
+| strategy | circle residual, air (4 datasets) | isopropanol |
+|---|---|---|
+| δ = 0 (reverted attempt) | 4.1–14.6 % | 2.7–10.6 % |
+| δ = −min(r) (original) | 1.2–6.6 % | 4.5–17.6 % |
+| **δ from the circle fit** | **0.75–2.1 %** | **1.7–7.7 %** |
+
+**Guards** (`PHASE_OFFSET_MIN_DEG` −5°, `PHASE_OFFSET_MAX_DEG` +30°, `PHASE_OFFSET_MAX_RMS` 5 %):
+the estimate is rejected if the best residual is still too poor or if the optimum is pinned to a
+search bound — an optimum at a bound is the estimator asking for more range, which on a heavily
+damped load means δ is simply not identifiable. On the damped isopropanol overtones both guards
+fire, and those values stay exactly as previously validated against Kanazawa–Gordon.
+
+**Ground truth** (synthetic forward model: attenuator k = 10.4188, Z2_eff, both AD8302 transfer
+functions, ×2/×1.5 buffers, 12-bit ADC): on ideal data the estimator returns **−0.00°** and leaves
+accuracy untouched; with **+12° injected** it recovers **+12.00°** and restores full accuracy,
+where leaving it uncorrected gives err f_r −28 Hz and **err D +102 %**.
+
+**Known limitation — δ identifiability.** δ is the minimum of the residual-vs-δ curve, and that
+curve is not equally sharp everywhere: measured valley width (within +10 % of the minimum) is
+1.25–1.75° where the locus is clean but **3.5–6.5°** where the residual floor is higher. On such
+overtones the argmin wanders ~±0.8° between sweeps. Impact on published values is small
+(measured on the fundamental over a 1.6° wander: `f_r` 1 Hz, D −2.5 %, R_m +4.7 %), and
+`PHASE_OFFSET_LOG_DEG = 3°` keeps that noise out of the console. **Open**: averaging δ across
+sweeps would remove the jitter from D and R_m too — δ is an instrument property and should not
+change sweep to sweep — but it introduces cross-sweep state and shifts published values, so it
+awaits a decision. To size the benefit, two consecutive datalog CSVs from one run are needed:
+if the intrinsic sweep-to-sweep scatter on D already exceeds ~2.5 %, smoothing δ buys nothing.
 
 **What the offline campaign established** (2026-07-27; datasets at
 `~/claude_code/openqcm-next-impedance-datasets/2026-07-27/`, five configurations A–E):
@@ -161,15 +218,29 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
 **Roadmap** (each needs a plan + approval):
 1. Make the measurement **selectable** (classic vs conductance) instead of hard-wired.
 2. Remove the dead `elaborate_conductance_multi()`.
-3. **Reference-load / RLC-standard calibration** for metrological use — de-embed the board
-   phase, and settle the 2–6 mV V_MAG systematic at resonance.
+3. **Reference-load / RLC-standard calibration** for metrological use — characterise δ per
+   frequency on the bench instead of estimating it per sweep, which would turn the runtime
+   estimate into a *check* rather than a correction. Note the "2–6 mV V_MAG systematic at
+   resonance" of the 2026-07-27 analysis is now understood to be this same phase offset seen
+   through the then-current pipeline.
 4. Widen the sweep window for liquid work, and revisit `SG_WINDOW_SIZE_G` for the low overtones
    in air (both move Γ, hence D).
-5. **Port FIT 1 (Taubin circle + arc-based Γ, saturation/core-masked) into the
+5. **Decide on averaging δ across sweeps** (see the identifiability note above): removes the
+   residual jitter from D and R_m on overtones with a shallow residual valley, at the cost of
+   cross-sweep state and a small shift in published values. Needs two consecutive datalog CSVs
+   from one run to size the benefit against the intrinsic scatter.
+6. **Port FIT 1 (Taubin circle + arc-based Γ, saturation/core-masked) into the
    pipeline** for Γ and R_m: on deep fold-overshoot boards (body 3) the literal
    half-height/G_max readings measure the artifact, and the circle fit on the
    flanks is the only unbiased estimator (~ms per overtone per sweep). The
    offline reference is `sweep_data/fit_admittance.py`.
+7. **Offline fit tooling** (`sweep_data/fit_admittance.py`, not yet committed): FIT 1 = BVD
+   circle with rotation + weighted arc regression, FIT 2 = Levenberg–Marquardt Lorentzian on
+   G. In clean air the two agree to 1.4–5.4 ppm on f_s and 2.5–6.4 % on Γ, both with sub-Hz
+   covariance on f_s. Note their premise that all 18 001 points can be used does **not** hold
+   on this hardware: past a few half-widths the locus has collapsed onto the offset point and
+   the samples sit deepest in the AD8302's dynamic-range corner — without band restriction the
+   9th overtone's Γ is wrong by 3–5×.
 
 ## 5. Planned technical tasks (on `main`)
 

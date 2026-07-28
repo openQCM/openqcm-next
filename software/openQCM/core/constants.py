@@ -311,6 +311,13 @@ class Constants:
     # residual stays at 7-8 %. On rejection no correction is applied, which
     # leaves the previously validated liquid behaviour untouched.
     PHASE_OFFSET_MAX_RMS = 0.05
+    # Re-log the offset only past this drift. It must be LOOSER than the
+    # estimator's own precision, which depends on how sharply the circle
+    # residual bottoms out: measured valley width (within +10 % of the minimum)
+    # is 1.25-1.75 deg where the locus is clean but 3.5-6.5 deg on overtones
+    # whose residual floor is higher. A 1 deg threshold therefore reported
+    # ordinary estimation noise as drift and flooded the console.
+    PHASE_OFFSET_LOG_DEG = 3.0
 
     # VER 0.1.6G INPB attenuator R11/R19 (from the schematic). The ADC->V
     # conversion has to undo it, and the amount is NOT one clean decade:

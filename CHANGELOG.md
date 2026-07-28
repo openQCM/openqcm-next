@@ -55,9 +55,23 @@ Conventional Commits. Versions are marked by Git tags.
   1–15 Hz; D = 9.3/2.8/3.6/4.3/5.0 ppm. Sensor S3 measures **0.89–1.07×** the S1
   reference R_m — a healthy crystal; the anomaly was entirely the phase channel.
 - Diagnostics: the offset is printed once per overtone and again only on a drift
-  above 1°, instead of the per-sweep flood the first attempt produced.
+  above `PHASE_OFFSET_LOG_DEG` (3°), instead of the per-sweep flood the first
+  attempt produced.
+- **Known limit — δ is only weakly identifiable on some overtones.** On sensor S2
+  (the partially recovered module) the reported δ oscillated between consecutive
+  sweeps: the fundamental alternated 17.0° / 15.4° / 16.9°, the 3rd 15.8° / 16.7°.
+  This is not noise in the data but the shape of the objective: the
+  residual-vs-δ valley is **1.25–1.75° wide** where the crystal is clean, and
+  **3.5–6.5° wide** where the residual floor is high (S2's F0 floor is 2.4 % of
+  the radius against 0.8 % on S1), so ±0.8° of sweep-to-sweep noise moves the
+  minimum without meaningfully changing the fit. Consequences on published values
+  over the observed 1.6° wander are small — **1 Hz** on `f_r`, **−2.5 %** on `D`,
+  **+4.7 %** on `R_m` — and `f_r` still agrees with an independent Lorentzian fit
+  to **0.007–0.32 ppm**. Averaging δ across sweeps would remove the jitter and is
+  recorded as a roadmap item, not applied: it introduces cross-sweep state and
+  shifts published values, so it needs a decision.
 
-### Fixed — ⚠️ MEASURED VALUES (verification round, 2026-07-27)### Fixed — ⚠️ MEASURED VALUES (verification round, 2026-07-27)
+### Fixed — ⚠️ MEASURED VALUES (verification round, 2026-07-27)
 - **Attenuator compensation was 0.600 V instead of 0.61069 V.** The ADC→V
   conversion has to undo the INPB R11/R19 attenuator, and that is **not** one
   clean decade: k = (47.0 + 4.99)/4.99 = 10.4188 = 20.3564 dB, which at

@@ -999,14 +999,16 @@ class MultiscanProcess(multiprocessing.Process):
                                               phase_folded)
         phase_corr = phase_folded + phase_offset
 
-        # Log the offset once per overtone, and again only if it drifts by more
-        # than a degree: it is useful diagnostics (it characterises the board's
-        # phase channel) but it is computed on every sweep, so printing it
-        # unconditionally floods the console.
+        # Log the offset once per overtone, and again only on a drift larger than
+        # the estimator's own precision (Constants.PHASE_OFFSET_LOG_DEG). It is
+        # useful diagnostics - it characterises the board's phase channel - but it
+        # is recomputed on every sweep, and on a shallow residual valley the
+        # argmin wanders by a degree or so between sweeps without anything being
+        # wrong.
         if not hasattr(self, "_phase_offset_logged"):
             self._phase_offset_logged = {}
         _prev = self._phase_offset_logged.get(overtone_number)
-        if _prev is None or abs(phase_offset - _prev) > 1.0:
+        if _prev is None or abs(phase_offset - _prev) > Constants.PHASE_OFFSET_LOG_DEG:
             self._phase_offset_logged[overtone_number] = phase_offset
             if phase_offset == 0.0:
                 print("Phase offset (overtone %d): estimate rejected, "
