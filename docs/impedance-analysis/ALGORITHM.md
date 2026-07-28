@@ -496,8 +496,11 @@ published arrays:
 
 ## 11. A worked example, end to end
 
-Real numbers, from the `g1.txt` currently committed in `sweep_data/` (water, 17:58 acquisition), at
-the sample where `G` peaks. Recompute these and you have verified your reimplementation.
+Real numbers, from
+[`reference-sweep/g1.txt`](reference-sweep/g1.txt) — a **frozen** copy of one water acquisition
+(2026-07-28 17:58), kept in the repository precisely so this example stays reproducible;
+`software/openQCM/sweep_data/` is runtime output and is overwritten by every sweep. The sample below
+is the one where `G` peaks. Recompute these and you have verified your reimplementation.
 
 | quantity | value |
 |---|---|
