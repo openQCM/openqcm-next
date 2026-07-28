@@ -122,7 +122,9 @@ Conventional Commits. Versions are marked by Git tags.
 ### Added — live admittance-fit window, Tools > "Impedance Fit (live)" (2026-07-28)
 - Runs **FIT 1** (BVD circle, f_s and Γ off the arc geometry) and **FIT 2**
   (Levenberg–Marquardt Lorentzian on G) on every completed sweep, per overtone,
-  and shows: the two plots for the selected overtone, and a table for all of them
+  and shows: **three views** for the selected overtone — G(f) with FIT 2, **B(f)**
+  with FIT 1 under it and x-linked, and the B–G locus spanning both rows — plus a
+  table for all of them
   with δ, f_s, Γ, D, R₁, L₁, the circle residual, and — the point of having two
   estimators — **FIT 2 minus FIT 1** on both f_s and Γ. Their disagreement is an
   honest error bar in a way a single fit's covariance is not.
@@ -142,6 +144,14 @@ Conventional Commits. Versions are marked by Git tags.
 - The measured phase offset δ now travels on the existing G/B channel, so the
   window shows it per overtone instead of the user reading the console. `0.00`
   means the estimate was rejected on that sweep.
+- **B(f) matters more than it looks.** G is *even* in the phase, so a broken
+  reconstruction can leave G and the fitted circle looking perfect while B is
+  discontinuous — exactly what the reverted roundness-fitted offset did, stepping
+  by up to 77 % of B's range. The B panel therefore reports that step explicitly
+  (largest difference between adjacent samples, as a fraction of B's span); a
+  continuous trajectory keeps it at a few per cent. The dashed FIT 1 line there
+  comes from the circle's own geometry, so where it diverges from the measurement
+  is where the circle model fails.
 - **C0 is deliberately not shown.** The published spectra have a constant baseline
   removed before shipping, which *translates* the admittance circle — and
   translating it is precisely what C0 does, so the fitted offset is no longer
