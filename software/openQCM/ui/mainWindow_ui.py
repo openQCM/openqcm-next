@@ -424,17 +424,26 @@ class Ui_MainWindow(object):
         pane.setSpacing(6)
         pane.addWidget(self.sidebarScroll, 1)      # only this scrolls
 
+        # The pinned block gets the SAME horizontal inset as the cards, which are
+        # laid out inside sidebarContainer with 8 px margins. Without it the button
+        # is 16 px wider than every card above it and visibly sticks out. The inset
+        # cannot go on `pane`, or the scroll area would be indented too and the
+        # cards would end up doubly inset.
+        bottom = QtWidgets.QVBoxLayout()
+        bottom.setContentsMargins(8, 0, 8, 8)
+        bottom.setSpacing(6)
         self.verticalLayout = QtWidgets.QVBoxLayout()
         self.verticalLayout.setObjectName("verticalLayout")
         self.lblLogFile = QtWidgets.QLabel(self.sidebarPane)
         self.lblLogFile.setObjectName("lblLogFile")
         self.lblLogFile.hide()
         self.verticalLayout.addWidget(self.lblLogFile)
-        pane.addLayout(self.verticalLayout)
+        bottom.addLayout(self.verticalLayout)
         self.pButton_Start = QtWidgets.QPushButton("▷  Start", self.sidebarPane)
         self.pButton_Start.setObjectName("pButton_Start")
         self.pButton_Start.setMinimumHeight(40)
-        pane.addWidget(self.pButton_Start)
+        bottom.addWidget(self.pButton_Start)
+        pane.addLayout(bottom)
 
         # Default width 300 px (set on the splitter below): shows the whole
         # sidebar content without clipping. Kept resizable — min/max instead of
