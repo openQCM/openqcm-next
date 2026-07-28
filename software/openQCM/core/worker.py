@@ -588,7 +588,7 @@ class Worker:
 
     def get_delta_G_buffer(self, idx = 0):
         # global phase offset measured on the last sweep of this overtone [deg];
-        # 0.0 means the estimate was rejected
+        # 0.0 means no fold was present (damped load), so no correction applies
         return self._delta_G_buffer[idx]
 
     def get_GB_seq(self, idx = 0):

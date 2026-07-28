@@ -482,6 +482,37 @@ class MultiscanProcess(multiprocessing.Process):
             return None
         return xc + mx, yc + my, np.sqrt(r2)
 
+    # VER 0.1.6G global phase offset of the detector's phase channel, taken from
+    # the fold.
+    #
+    # The reading is r(f) = |phi(f) + phi_b| - delta. Where the argument crosses
+    # zero the reading reaches its minimum, and there r = -delta: so delta is
+    # MEASURED by the minimum, it is not a free parameter. min(r) < 0 on this
+    # instrument, which is the signature of the offset.
+    #
+    # Why this replaced the circular-locus estimator (_phase_offset_deg below,
+    # kept for reference and used by the offline script's --offset circle):
+    # that estimator minimises the out-of-roundness of the point CLOUD, and it
+    # applies the sign flip inside its own objective - so it can buy roundness
+    # by pushing delta until the flip lands on the antipode of the circle. It
+    # did exactly that: it returned delta up to 12 deg beyond -min(r), which
+    # left the corrected phase at +12 deg where it should be 0, and the flip
+    # then made B jump by up to 77 % of its own range. The locus looked rounder
+    # (1.4 % of the radius against 4.5 %) while the trajectory was broken. A
+    # continuous trajectory is not negotiable; roundness is a diagnostic.
+    #
+    # Returns (delta, has_fold). No fold means the true phase never crosses zero
+    # (damped load): the reading is already the signed phase, so no offset and no
+    # flip - the behaviour validated in isopropanol.
+    def _phase_offset_fold(self, phase_folded):
+        try:
+            p_min = float(np.nanmin(phase_folded))
+        except Exception:
+            return 0.0, False
+        if not np.isfinite(p_min) or p_min >= Constants.FOLD_THRESHOLD_DEG_G:
+            return 0.0, False
+        return -p_min, True
+
     def _phase_offset_deg(self, freq, V_mag, phase_folded):
         """Global phase offset that makes the admittance locus circular.
 
@@ -995,24 +1026,22 @@ class MultiscanProcess(multiprocessing.Process):
         # Estimate delta by circular-locus minimisation, then work with the
         # corrected magnitude of the phase.
         phase_folded = self._phase_raw_V_phase(Vphase_result_fit)
-        phase_offset = self._phase_offset_deg(freq_range, Vmag_raw_result_fit,
-                                              phase_folded)
+        phase_offset, has_fold = self._phase_offset_fold(phase_folded)
         phase_corr = phase_folded + phase_offset
 
         # Log the offset once per overtone, and again only on a drift larger than
-        # the estimator's own precision (Constants.PHASE_OFFSET_LOG_DEG). It is
-        # useful diagnostics - it characterises the board's phase channel - but it
-        # is recomputed on every sweep, and on a shallow residual valley the
-        # argmin wanders by a degree or so between sweeps without anything being
-        # wrong.
+        # Constants.PHASE_OFFSET_LOG_DEG. It is useful diagnostics - it
+        # characterises the board's phase channel - but it is recomputed on every
+        # sweep and the vertex of the V moves a little with noise.
         if not hasattr(self, "_phase_offset_logged"):
             self._phase_offset_logged = {}
         _prev = self._phase_offset_logged.get(overtone_number)
         if _prev is None or abs(phase_offset - _prev) > Constants.PHASE_OFFSET_LOG_DEG:
             self._phase_offset_logged[overtone_number] = phase_offset
-            if phase_offset == 0.0:
-                print("Phase offset (overtone %d): estimate rejected, "
-                      "no correction applied" % overtone_number)
+            if not has_fold:
+                print("Phase offset (overtone %d): no fold (min |phase| = %.1f deg), "
+                      "reading used as the signed phase"
+                      % (overtone_number, float(np.nanmin(phase_folded))))
             else:
                 print("Phase offset (overtone %d): %+.2f deg"
                       % (overtone_number, phase_offset))
@@ -1023,13 +1052,16 @@ class MultiscanProcess(multiprocessing.Process):
         (index_peak_fit_G, frequency_resonance_G, half_bandwidth) = \
             self.parameters_finder_impedance_exact(freq_range, G_exact_S)
 
-        # B is ODD in phi and needs the sign: flip at the corrected zero
-        # crossing. When the corrected phase never reaches zero (heavily damped
-        # loads) the flip lands at its minimum, which is the closest thing to a
-        # crossing and leaves the locus intact.
+        # B is ODD in phi and needs the sign, which comes from undoing the fold.
+        # ONLY when there is a fold: on a damped load the true phase never
+        # crosses zero, the reading already IS the signed phase, and flipping
+        # invents a sign change. Measured cost of flipping anyway, on the
+        # 2026-07-28 water run: B jumps by up to 80 % of its whole range at the
+        # flip point and the locus breaks into two disconnected arcs.
         phase_signed = np.array(phase_corr, dtype=float, copy=True)
-        i_flip = int(np.nanargmin(np.abs(phase_corr)))
-        phase_signed[i_flip:] = -phase_signed[i_flip:]
+        if has_fold:
+            i_flip = int(np.nanargmin(np.abs(phase_corr)))
+            phase_signed[i_flip:] = -phase_signed[i_flip:]
 
         R_q, X_q = self._RX_exact(Vmag_raw_result_fit, phase_signed)
         B_exact_S = self._B_exact(R_q, X_q)

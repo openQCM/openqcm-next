@@ -173,8 +173,10 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
             "Gamma is the FULL width at half maximum (the main window reports the "
             "half width; D is the same in both).  dGamma / df_s are FIT 2 minus "
             "FIT 1 — two independent estimators, so their disagreement is the "
-            "honest error bar.  delta is the measured phase offset; 0.00 means "
-            "the estimate was rejected on this sweep.  C0 is not shown: the "
+            "honest error bar.  delta is the phase offset measured from the fold; "
+            "\"no fold\" means the phase never crosses zero (damped load), so the "
+            "reading is already the signed phase and no correction applies.  "
+            "C0 is not shown: the "
             "published spectra have a constant baseline removed, which is exactly "
             "what C0 does.")
         note.setWordWrap(True)
@@ -301,7 +303,7 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
     # ------------------------------------------------------------------- view
     def _update_row(self, idx, a1, a2, delta):
         vals = ("%d" % (2 * idx + 1),
-                "rejected" if delta == 0.0 else "%+.2f" % delta,
+                "no fold" if delta == 0.0 else "%+.2f" % delta,
                 "%.2f" % a1["fs"],
                 "%.2f" % a1["gamma"],
                 "%.2f" % (a1["D"] * 1e6),

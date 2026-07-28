@@ -147,39 +147,50 @@ repeats them:
    B it produced a hybrid locus nobody had validated — 10–18 % residual, worse than doing
    nothing. `_phase_repair` and the `PHASE_REPAIR_*` constants are gone.
 
-**The estimator that works**: the Butterworth–Van Dyke model guarantees the locus *is* a circle,
-so δ is the offset that makes it one. Coarse+fine search over closed-form Taubin fits on a
-decimated slice of the resonance band. This subsumes the old shift, its conditional threshold,
-and the offline reference fit's "rotation" parameter — the same physical quantity, arrived at
-independently.
+⚠️ **A third change, on the same day, was also wrong and is reverted** — this one lasted longer
+because it produced a *better-looking* number.
 
-| strategy | circle residual, air (4 datasets) | isopropanol |
-|---|---|---|
-| δ = 0 (reverted attempt) | 4.1–14.6 % | 2.7–10.6 % |
-| δ = −min(r) (original) | 1.2–6.6 % | 4.5–17.6 % |
-| **δ from the circle fit** | **0.75–2.1 %** | **1.7–7.7 %** |
+*"Estimate δ by minimising the out-of-roundness of the locus."* The Butterworth–Van Dyke model
+does guarantee the locus is a circle, so the idea is sound. The implementation is not:
 
-**Guards** (`PHASE_OFFSET_MIN_DEG` −5°, `PHASE_OFFSET_MAX_DEG` +30°, `PHASE_OFFSET_MAX_RMS` 5 %):
-the estimate is rejected if the best residual is still too poor or if the optimum is pinned to a
-search bound — an optimum at a bound is the estimator asking for more range, which on a heavily
-damped load means δ is simply not identifiable. On the damped isopropanol overtones both guards
-fire, and those values stay exactly as previously validated against Kanazawa–Gordon.
+- **The objective is computed on the point CLOUD, and the sign flip happens INSIDE it.** So the
+  search can buy roundness by pushing δ until the flip lands on the *antipode* of the circle.
+  That is exactly what it did — it returned δ up to 12° beyond `−min(r)`.
+- **The consequence is a broken trajectory.** With the corrected phase sitting at +12° where it
+  should be 0, the flip makes **B jump by up to 77 % of its own range** at the flip point. In air
+  the jump is a chord *along* the circle, so the cloud stays round while B(f) is discontinuous.
+  In water the flip fires with no fold at all and the locus **breaks into two disconnected arcs**;
+  the fitted circle then comes out four times too large.
+- **The rms was fooling me both ways.** It said the water fragmentation was an *improvement*
+  (11.1 % against 19.8 %) because a circle through two disconnected arcs can have a small radial
+  residual and no physical meaning. A continuous trajectory is not negotiable; roundness is a
+  diagnostic, not an objective.
+- **δ is not free to begin with.** If a fold exists, the argument of the absolute value is zero
+  there, so `min(r) = −δ` *exactly*. It is measured, not fitted.
 
-**Ground truth** (synthetic forward model: attenuator k = 10.4188, Z2_eff, both AD8302 transfer
-functions, ×2/×1.5 buffers, 12-bit ADC): on ideal data the estimator returns **−0.00°** and leaves
-accuracy untouched; with **+12° injected** it recovers **+12.00°** and restores full accuracy,
-where leaving it uncorrected gives err f_r −28 Hz and **err D +102 %**.
+**What the published path does now** (`_phase_offset_fold`, and `--offset fold` offline):
+δ = `−min(r)` when a fold exists, and **no offset and no flip** when it does not — the original
+`_phase_signed` behaviour, plus the independently verified attenuator constant. Measured across
+11 datasets:
 
-**Known limitation — δ identifiability.** δ is the minimum of the residual-vs-δ curve, and that
-curve is not equally sharp everywhere: measured valley width (within +10 % of the minimum) is
-1.25–1.75° where the locus is clean but **3.5–6.5°** where the residual floor is higher. On such
-overtones the argmin wanders ~±0.8° between sweeps. Impact on published values is small
-(measured on the fundamental over a 1.6° wander: `f_r` 1 Hz, D −2.5 %, R_m +4.7 %), and
-`PHASE_OFFSET_LOG_DEG = 3°` keeps that noise out of the console. **Open**: averaging δ across
-sweeps would remove the jitter from D and R_m too — δ is an instrument property and should not
-change sweep to sweep — but it introduces cross-sweep state and shifts published values, so it
-awaits a decision. To size the benefit, two consecutive datalog CSVs from one run are needed:
-if the intrinsic sweep-to-sweep scatter on D already exceeds ~2.5 %, smoothing δ buys nothing.
+| | continuity (max |ΔB| between adjacent samples, % of B range) | circle residual, air | circle residual, water |
+|---|---|---|---|
+| δ from the circle fit | **20–86 %** | 0.8–2.5 % | 3.1–11.1 % (meaningless) |
+| **δ from the fold** | **0.5–7.5 %** | 1.2–7.9 % | 3.8–19.8 % |
+
+An **independent** check, which does not involve circularity at all: the disagreement between the
+two estimators of Γ (FIT 1 circle vs FIT 2 Lorentzian, which share nothing). Median over 55
+overtones: **3.78 %** with δ from the fold against **5.03 %** from the circle fit, and on the
+fundamentals the circle fit is catastrophic (setK n=1: 0.37 % against 37.6 %).
+
+**What this leaves open, and it is the real question.** With δ pinned by the fold, the locus is
+still **1.2–7.9 %** out of round in air. That residual is systematic and reproducible, not noise,
+and a two-parameter reading model explains it: `r(f) = |φ(f) + φ_b| − δ`, with a board phase φ_b
+*inside* the absolute value. Fitting the forward model to both channels gives φ_b = −12…−20°,
+reproducible to **0.2–0.4°** across two acquisitions 83 minutes apart, and improves both channel
+residuals 4–5×. But applying φ_b as a rotation *after* unfolding restores continuity without
+recovering roundness (4.3 % against 4.5 %) — so φ_b as measured is not yet the whole story. See
+the 2026-07-28 investigation report for the full evidence and the three options on the table.
 
 **What the offline campaign established** (2026-07-27; datasets at
 `~/claude_code/openqcm-next-impedance-datasets/2026-07-27/`, five configurations A–E):

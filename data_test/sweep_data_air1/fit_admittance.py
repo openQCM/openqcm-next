@@ -29,8 +29,7 @@ numbers with the live pipeline:
 
 Usage:
     python fit_admittance.py [sweep_dir] [--json out.json] [--no-mask]
-                             [--band N] [--offset fold|circle|none]
-                             [--no-plot] [--save fig.png]
+                             [--band N] [--no-plot] [--save fig.png]
 
 Reads g<n>.txt (frequency [Hz], V_MAG [V], V_PHS [V]) — see
 software/docs/DATA_FORMAT_sweep_data.md.
@@ -96,17 +95,8 @@ def _Y(R, X):
 
 
 def phase_offset_deg(f, V_MAG, ph_folded):
-    """SUPERSEDED by fold_offset_deg. Kept for `--offset circle` and for the
-    record, because how it fails is instructive.
-
-    delta fitted by minimising the out-of-roundness of the locus. The flaw is
-    that the objective is computed on the point CLOUD and the sign flip happens
-    INSIDE it, so the search can buy roundness by pushing delta until the flip
-    lands on the antipode of the circle - which it did, returning delta up to
-    12 deg beyond -min(r). The cloud came out rounder (1.4 % of the radius
-    against 4.5 %) while B jumped by up to 77 % of its range at the flip point:
-    a round set of points that is not a continuous trajectory. And delta is not
-    free to begin with - a fold measures it exactly (see fold_offset_deg).
+    """The global phase offset delta, measured by requiring the locus to be a
+    circle. Port of MultiscanProcess._phase_offset_deg — keep the two in step.
 
     The detector reads r(f) = |phi_true(f)| - delta, with delta the board+cable+
     detector phase (7...17 deg on this instrument). Note this is NOT a rotation
@@ -154,36 +144,23 @@ def phase_offset_deg(f, V_MAG, ph_folded):
     return best, float(cf[kf])
 
 
-def fold_offset_deg(ph_folded):
-    """delta from the fold, which is where it is MEASURED rather than fitted.
-
-    The reading is r(f) = |phi(f) + phi_b| - delta. Where the argument crosses
-    zero, r reaches its minimum and equals -delta. So a fold determines delta
-    exactly; there is no freedom left for a fit. min(r) < 0 on this instrument -
-    that is the signature of the offset, not an impossible measurement.
-
-    Returns (delta, has_fold). No fold (min(r) at or above the threshold) means a
-    damped load whose phase never crosses zero: the reading already IS the signed
-    phase, so no offset and no flip.
-    """
-    ph = np.asarray(ph_folded, dtype=float)
-    p_min = float(np.nanmin(ph))
-    if not np.isfinite(p_min) or p_min >= FOLD_THRESHOLD_DEG:
-        return 0.0, False
-    return -p_min, True
-
-
 def _flip(phase_deg, always=True):
-    """Undo the fold: negate the branch past the minimum of |phase|.
+    """Undo the detector's folding: negate the branch past the minimum of |phase|.
 
-    Call it ONLY where a fold exists. On a damped load the phase never crosses
-    zero and flipping invents a sign change: measured on the 2026-07-28 water
-    run, B jumps by up to 80 % of its whole range at the flip point and the locus
-    breaks into two disconnected arcs.
+    `always` matters, and not in the way it looks. Making the flip conditional on
+    the corrected phase actually reaching zero (`always=False`) sounds safer, but
+    it puts a discontinuity INSIDE the delta search: past delta ~ 10 deg the
+    corrected minimum clears the threshold, the flip switches off, and the
+    residual jumps. That manufactures a false local minimum - on g1.txt of the
+    2026-07-28 air run it lands at delta = +10.0 deg with a 2.01 % residual while
+    the true optimum is +16.0 deg at 1.17 %, and the false one is what the search
+    returns. So the estimator flips unconditionally, exactly like the live
+    pipeline.
 
-    `always=False` skips the flip unless the corrected phase actually reaches
-    zero. It exists for `--offset circle`, where delta is fitted and can leave
-    the corrected minimum well above zero.
+    The conditional form is kept for the fallback: when delta is REJECTED (damped
+    load, no identifiable optimum) there is no zero crossing to anchor to, and
+    flipping would invent a sign change that never happened. That is the
+    behaviour validated on the isopropanol run.
     """
     p = np.array(phase_deg, dtype=float, copy=True)
     j = int(np.nanargmin(np.abs(p)))
@@ -192,34 +169,18 @@ def _flip(phase_deg, always=True):
     return p
 
 
-def admittance(f, V_MAG, V_PHS, offset="fold"):
+def admittance(f, V_MAG, V_PHS, use_offset=True):
     """Y(f) from the raw detector voltages. Returns (Y, delta, delta_rms).
-
-    offset:
-      "fold"   delta from the fold (the default, and what the live pipeline does)
-      "circle" delta fitted by minimising the out-of-roundness of the locus.
-               SUPERSEDED - see phase_offset_deg for why it flatters itself.
-      "none"   no correction, for comparison
 
     G is computed from the offset-corrected phase WITHOUT the sign flip and B
     with it: G is even in the sign of phi, so the flip cannot touch it - but it
     is not even in the OFFSET, which is why delta matters to G at all.
     """
     ph = folded_phase(V_PHS)
-    if offset == "circle":
-        delta, rms = phase_offset_deg(f, V_MAG, ph)
-        fold = bool(delta)
-    elif offset == "none":
-        delta, rms, fold = 0.0, np.nan, False
-    else:
-        delta, fold = fold_offset_deg(ph)
-        rms = np.nan
+    delta, rms = (phase_offset_deg(f, V_MAG, ph) if use_offset else (0.0, np.nan))
     ph_corr = ph + delta
     G = _Y(*RX(V_MAG, ph_corr)).real
-    # the fold gate already decides whether to flip at all; once we do flip, we
-    # flip at the minimum unconditionally
-    B = (_Y(*RX(V_MAG, _flip(ph_corr, always=True))).imag
-         if fold else _Y(*RX(V_MAG, ph_corr)).imag)
+    B = _Y(*RX(V_MAG, _flip(ph_corr, always=bool(delta)))).imag
     return G + 1j * B, delta, rms
 
 
@@ -448,7 +409,7 @@ def _seed(f, G, mask):
     return float(f[i0]), max((fh - fl) / 2.0, 1.0)
 
 
-def analyse(sweep_dir, use_mask=True, band=3.0, offset="fold"):
+def analyse(sweep_dir, use_mask=True, band=3.0, use_offset=True):
     out = []
     for n in OVERTONES:
         path = os.path.join(sweep_dir, "g%d.txt" % n)
@@ -456,7 +417,7 @@ def analyse(sweep_dir, use_mask=True, band=3.0, offset="fold"):
             continue
         d = loadtxt(path)
         f, V_MAG, V_PHS = d[:, 0], d[:, 1], d[:, 2]
-        Y, delta, delta_rms = admittance(f, V_MAG, V_PHS, offset=offset)
+        Y, delta, delta_rms = admittance(f, V_MAG, V_PHS, use_offset=use_offset)
         dB = ratio_dB(V_MAG)
         mask = (dB > RATIO_DB_FLOOR) if use_mask else np.ones_like(f, bool)
         if mask.sum() < 100:                    # nothing usable: take it all
@@ -634,10 +595,9 @@ def main():
     ap.add_argument("--band", type=float, default=3.0,
                     help="fit window half-width in units of the HALF bandwidth; "
                          "pass inf to use every masked point")
-    ap.add_argument("--offset", choices=("fold", "circle", "none"), default="fold",
-                    help="source of the global phase offset: 'fold' (default, "
-                         "delta = -min(reading), what the pipeline does), 'circle' "
-                         "(fitted on roundness - superseded), 'none'")
+    ap.add_argument("--no-offset", action="store_true",
+                    help="skip the global phase-offset correction (shows what the "
+                         "distortion at f_r costs)")
     ap.add_argument("--no-plot", action="store_true",
                     help="numbers only, do not open the figure")
     ap.add_argument("--save", default=None,
@@ -645,20 +605,22 @@ def main():
     a = ap.parse_args()
 
     res = analyse(a.sweep_dir, use_mask=not a.no_mask, band=a.band,
-                  offset=a.offset)
+                  use_offset=not a.no_offset)
     if not res:
         print("no g<n>.txt found in %s" % a.sweep_dir)
         return 1
 
     print("Gamma below is the FULL width at half maximum (FWHM).")
     print("The live pipeline reports the HALF width; D is the same in both.\n")
-    if a.offset == "none":
-        print("phase offset NOT corrected (--offset none)\n")
+    if a.no_offset:
+        print("phase offset NOT corrected (--no-offset)\n")
     else:
-        print("global phase offset delta per overtone (--offset %s):" % a.offset)
+        print("global phase offset delta, measured per overtone "
+              "(circle residual at the optimum):")
         print("  " + "   ".join(
-            "n=%d %s" % (r["n"], ("%+.1f deg" % r["delta"]) if r["delta"]
-                         else ("no fold" if a.offset == "fold" else "rejected"))
+            "n=%d %s" % (r["n"], ("%+.1f deg (%.2f %%)" % (r["delta"],
+                                  100 * r["delta_rms"])) if r["delta"]
+                         else "rejected")
             for r in res) + "\n")
     hdr = ("%2s | %-34s | %-34s | %-17s" %
            ("n", "FIT 1  BVD circle", "FIT 2  Lorentzian on G", "difference"))

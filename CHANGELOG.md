@@ -75,6 +75,50 @@ Conventional Commits. Versions are marked by Git tags.
   recorded as a roadmap item, not applied: it introduces cross-sweep state and
   shifts published values, so it needs a decision.
 
+### Fixed — ⚠️ MEASURED VALUES: δ comes from the fold, not from a roundness fit (2026-07-28, later)
+- **Reverts the circular-locus estimator of the same day.** Prompted by the user
+  recalling that the published version behaved better, and confirmed by
+  reproducing `c83a820`'s reconstruction on all 11 archived datasets.
+- **Why it was wrong.** `_phase_offset_deg` minimised the out-of-roundness of the
+  admittance point cloud, and applied the sign flip *inside* its own objective. So
+  it could buy roundness by pushing δ past the value where the corrected phase
+  reaches zero, until the flip landed on the antipode of the circle. It did:
+  δ came out up to 12° beyond `−min(r)`, the corrected phase sat at +12° where it
+  should be 0, and the flip made **B jump by up to 77 % of its own range**. In air
+  that jump is a chord along the circle, so the cloud stayed round while B(f) was
+  discontinuous; in water the flip fired with no fold at all and **split the locus
+  into two disconnected arcs**, with a fitted circle four times too large.
+- **The rms metric was misleading in both directions.** It reported the water
+  fragmentation as an improvement (11.1 % against 19.8 %) — a circle through two
+  disconnected arcs can have a small radial residual and no physical meaning.
+- **δ is not a free parameter.** The reading is `r(f) = |φ(f) + φ_b| − δ`; where the
+  argument crosses zero, `min(r) = −δ` exactly. `_phase_offset_fold` takes it from
+  the minimum, and when there is **no fold** applies neither an offset nor a flip —
+  the original `_phase_signed` behaviour, which was right.
+- **Measured across 11 datasets, 55 overtones:**
+
+  | | continuity: max ΔB between adjacent samples, % of B range | circle residual, air | water |
+  |---|---|---|---|
+  | δ from the roundness fit | 20–86 % | 0.8–2.5 % | 3.1–11.1 % (meaningless) |
+  | **δ from the fold** | **0.5–7.5 %** | 1.2–7.9 % | 3.8–19.8 % |
+
+- **Independent check that does not involve circularity**: disagreement between the
+  two Γ estimators (FIT 1 circle vs FIT 2 Lorentzian, which share nothing). Median
+  over 55 overtones **3.78 %** from the fold against **5.03 %** from the roundness
+  fit; on the fundamentals the roundness fit is catastrophic (0.37 % against
+  37.6 %).
+- Effect on published values versus the reverted state: Γ moves by −0.5…+16 %
+  depending on the overtone. The attenuator correction, which is verified
+  independently by a synthetic THRU, is **kept**.
+- `--offset fold|circle|none` in `sweep_data/fit_admittance.py`; `phase_offset_deg`
+  and `_phase_offset_deg` are retained, documented as superseded, because *how*
+  they fail is the useful part.
+- **Still open:** with δ pinned by the fold the air locus is 1.2–7.9 % out of round,
+  systematically. A board phase φ_b inside the absolute value fits both channels
+  4–5× better and reproduces to 0.2–0.4° across acquisitions, but applied as a
+  post-unfold rotation it restores continuity without recovering roundness. See the
+  2026-07-28 investigation report.
+
 ### Added — live admittance-fit window, Tools > "Impedance Fit (live)" (2026-07-28)
 - Runs **FIT 1** (BVD circle, f_s and Γ off the arc geometry) and **FIT 2**
   (Levenberg–Marquardt Lorentzian on G) on every completed sweep, per overtone,

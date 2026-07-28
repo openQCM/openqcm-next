@@ -5,8 +5,8 @@
 > This document is the source of the "exact" formula, implemented twice: offline in
 > `sweep_data/plot_conductance.py` (the reference) and live in
 > `processors/Multiscan.py` (`_RX_exact` / `_G_exact` / `_B_exact`, with the phase
-> offset-corrected via `_phase_offset_deg`), where it feeds both the published
-> measurement and the impedance panel.
+> offset taken from the fold via `_phase_offset_fold`), where it feeds both the
+> published measurement and the impedance panel.
 >
 > **History of the validation:**
 > - *2026-07-21*: synthetic Butterworth–Van Dyke self-consistency check passed
@@ -64,21 +64,30 @@
 >   `R_q = M·cosφ − R17` is a difference of close numbers at resonance: up to **−22 %** on `R_m` at
 >   the fundamental in air. A synthetic THRU (Z_q = 0.001 Ω) reads M = 50.199 Ω with 0.600 and
 >   52.301 Ω with the correct value, against a true 52.30 Ω.
-> - **The phase channel carries a global per-overtone offset** δ ≈ 7…17°: it reads
->   `r(f) = |φ_true(f)| − δ`. Where the true phase crosses zero the reading therefore goes
->   **negative** (to −14°) — that is `min(r) = −δ`, not a detector overshoot. φ must be
->   offset-corrected before this inversion. δ is now measured at runtime by requiring the
->   admittance locus to be a circle, which the BVD model guarantees it is; the residual drops to
->   **0.75–2.1 %** of the radius in air against 4.1–14.6 % uncorrected. G being *even* in φ means
->   the **sign** is irrelevant to it — but the **offset** is not.
+> - **The phase channel carries a global per-overtone offset** δ ≈ 2…14°: it reads
+>   `r(f) = |φ(f) + φ_b| − δ`. Where the argument crosses zero the reading goes **negative**
+>   (to −14°) — that is `min(r) = −δ`, not a detector overshoot. So **a fold measures δ exactly**;
+>   it is not a free parameter, and the published path takes it from the minimum
+>   (`_phase_offset_fold`). Where there is **no fold** (damped load, the phase never crosses zero)
+>   there is no offset to remove and no sign to restore: the reading already *is* the signed phase.
+>   G being *even* in φ means the **sign** is irrelevant to it — but the **offset** is not.
 >
-> **Still open (metrological refinement):** characterising δ per frequency on the
-> bench, so the runtime estimate becomes a *check* rather than a correction;
-> residual `ωC0` beyond the constant baseline; and the δ identifiability limit (the
-> residual-vs-δ valley is 3.5–6.5° wide on overtones whose residual floor is high,
-> so the estimate wanders ~±0.8° between sweeps — small on published values: 1 Hz
-> on f_r, −2.5 % on D, +4.7 % on R_m over a 1.6° wander). Refine via **known
-> reference impedances / RLC standards** vs a calibrated impedance analyzer.
+>   ⚠️ An intermediate version fitted δ by minimising the out-of-roundness of the locus. It is
+>   reverted: the objective is computed on the point cloud with the sign flip inside it, so it
+>   bought roundness by pushing δ until the flip landed on the antipode — leaving B discontinuous
+>   by up to 77 % of its own range, and in liquid splitting the locus in two. Roundness is a
+>   diagnostic here, never an objective.
+>
+> **Still open (metrological refinement), and this is now the main item:** with δ
+> pinned by the fold the locus is still **1.2–7.9 %** out of round in air, and the
+> residual is systematic and reproducible. A **board phase φ_b inside the absolute
+> value** (`r = |φ + φ_b| − δ`) explains both channels 4–5× better and comes out
+> reproducible to 0.2–0.4° across acquisitions (φ_b = −12…−20°), but applying it as
+> a post-unfold rotation does not recover roundness — so it is not yet the whole
+> story. Also open: residual `ωC0` beyond the constant baseline. Refine via **known
+> reference impedances / RLC standards** vs a calibrated impedance analyzer, which
+> is the only way to tell whether the two-parameter model is *right* or merely
+> *better*.
 > *Note*: the "**2–6 mV** V_MAG error at resonance producing a radial bulge",
 > reported on 2026-07-27, is now understood to be this same phase offset seen
 > through the then-current pipeline — not a magnitude-channel defect.
