@@ -81,36 +81,63 @@ Identical in every structural respect — plain text, no header, whitespace-deli
 
 ```
 ADCtoVolt = 3.3 / 4096
-V_MAG     = adc_mag   * ADCtoVolt / 2.0 - 0.6   # /2 op-amp gain; -0.6 V divider offset
-V_PHS     = adc_phase * ADCtoVolt / 1.5         # /1.5 op-amp gain
+V_MAG     = adc_mag   * ADCtoVolt / 2.0 - Constants.V_MAG_DECADE_OFFSET
+V_PHS     = adc_phase * ADCtoVolt / 1.5          # /1.5 op-amp gain
 ```
 
-The `-0.6 V` term compensates the INPB ×10 input attenuation (one decade at
-600 mV/decade), so column 2 is at the correct **absolute** level for inverting the
-measuring divider:
+The `/2` and `/1.5` are the op-amp gains ahead of the ADC. The subtracted term undoes
+the **INPB R11/R19 attenuator**, and its value is not what it looks like:
+
+```
+K_ATT               = (47.0 + 4.99) / 4.99 = 10.418838      # = 20.3564 dB
+V_MAG_DECADE_OFFSET = 20 * log10(K_ATT) * 0.030 = 0.610692 V
+```
+
+⚠️ **It is 0.61069 V, not 0.600.** The attenuator is 20.3564 dB, not one clean decade,
+and until 2026-07-28 the code subtracted a hardcoded `0.6`. The 0.3564 dB residue
+understated `M` by 4.02 %, which the inversion below amplifies by `(1 + R17/R_m)`
+because `R_q = M·cos φ − R17` is a difference of close numbers at resonance: up to
+**−22 % on `R_m`** at the fundamental in air. A synthetic THRU (`Z_q = 0.001 Ω`) reads
+`M` = 50.199 Ω with 0.600 against 52.301 Ω with the correct value, true 52.30 Ω.
+
+Consequence for anyone reading archived data: **`g<n>.txt` written before 2026-07-28
+carries a `V_MAG` that is 10.7 mV too high**, and gives `R_m` up to 22 % low.
+
+With column 2 at the correct **absolute** level, the measuring divider inverts as:
 
 ```
 M = |Z_q + R17| = R17 * 10**((0.9 - V_MAG) / 0.6)        # R17 = 52.3 ohm
-phi                = (1.8 - V_PHS) / 0.01                # degrees, magnitude only
+phi             = (1.8 - V_PHS) / 0.01                   # degrees, magnitude only
 ```
 
-⚠️ Two traps, both found the hard way:
+⚠️ The `0.6` here is a different number that happens to look the same: it is the
+AD8302's own decade (20 × 30 mV/dB), **not** the attenuator, which was already removed
+when the file was written. Do not "unify" the two.
+
+⚠️ Three traps, all found the hard way:
 - **Do not baseline-correct V_MAG before this inversion.** Subtracting the
   calibration polynomial turns column 2 into a *relative* level and scales `M` by
   `10**(V_baseline/0.6)`, which drives `M(resonance)` below `R17` and yields negative
   resistance everywhere. The relative level is correct only for the *approximate*
   `G = cos(phi)/|Z|`.
-- **Column 3 is |phase|.** The AD8302 has no sign output: the true phase is folded at
-  its zero crossing. Recovering the signed phase needs an unfold, and the unfold is
-  only valid when the phase actually crosses zero (air / low damping) — see
-  `_phase_signed()` in `plot_conductance.py` and
-  `docs/impedance-analysis/conductance-calculation.md`.
+- **Column 3 is |phase| minus an offset.** The AD8302 has no sign output, so the true
+  phase is folded at its zero crossing — and the channel also carries a global
+  per-overtone offset, which is why the reading goes *negative* around resonance.
+  Where a fold exists it measures that offset exactly: `delta = -min(reading)`. Where
+  there is none (damped load, phase never crosses zero) there is nothing to unfold and
+  nothing to offset.
+- **G is even in the SIGN of the phase but not in its OFFSET.** Skipping the offset
+  "because G only needs cos φ" is wrong and was tried.
 
-Real first line of `g1.txt`:
+The full chain, step by step with a worked numerical example, is in
+[`../../docs/impedance-analysis/ALGORITHM.md`](../../docs/impedance-analysis/ALGORITHM.md).
+
+Real first line of a `g1.txt` written with the correct constant
+(`docs/impedance-analysis/reference-sweep/g1.txt`):
 ```
-4.986928000000000000e+06 -1.354903564453125431e-01 9.438354492187498446e-01
+4.986001000000000000e+06 -1.518578228517387663e-01 9.625483398437498783e-01
 ```
-→ frequency = 4 986 928 Hz, V_MAG = −0.1355 V, V_PHS = 0.9438 V.
+→ frequency = 4 986 001 Hz, V_MAG = −0.1519 V, V_PHS = 0.9625 V.
 
 ## Real example (first line of `1.txt`)
 ```
