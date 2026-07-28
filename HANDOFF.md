@@ -6,6 +6,50 @@
 
 ---
 
+## Working with `main` — read this before touching either branch
+
+`main` is the production software and **does not carry the impedance analysis**. The two merges that
+put it there (PRs #1 and #2) were reverted by `1b3fe81`, which restored `main` byte-for-byte to
+`52a42a9`. Merging this branch into `main` is planned for the future, when the metrology is settled;
+it is Marco's decision and nobody else's.
+
+That revert leaves a trap in **both** directions, because the merge base between `main` and this
+branch is `c83a820` — a commit that *had* the impedance code. Git therefore reads `main` as "deleted
+the impedance code" and propagates that deletion.
+
+### Bringing `main`'s changes INTO this branch — cherry-pick, never `git merge main`
+
+```bash
+git fetch origin
+git --no-pager log --oneline 1b3fe81..origin/main    # what is new on main
+git cherry-pick 1b3fe81..origin/main                 # bring only those commits
+```
+
+A plain `git merge main` conflicts on CHANGELOG.md, HANDOFF.md, README.md,
+conductance-calculation.md, constants.py, Multiscan.py, worker.py, mainWindow.py and the
+PeakFrequencies files — and, where there is no textual conflict, **silently** deletes
+`sweep_data/plot_conductance.py`, restores the three dead Qt-Designer UI files and re-tracks
+`Calibration_5MHz.txt`. Verified with `git merge-tree --write-tree`.
+
+Cherry-pick conflicts are the real ones only: where work on `main` touches the same lines as the
+impedance work. `processors/Multiscan.py` is where the two lines of work actually meet.
+
+**Corollary for whoever works on `main`: small, single-topic commits.** Cherry-pick operates per
+commit, so one commit mixing three unrelated changes forces all three conflicts to be resolved at
+once.
+
+### Merging this branch into `main`, when the day comes
+
+Revert the revert **first**, then merge:
+
+```bash
+git checkout main && git revert --no-edit 1b3fe81   # puts PR #1/#2 content back
+# then merge the PR, which becomes clean
+```
+
+Resolving a direct merge by hand instead is dangerous: wherever there is no textual conflict git
+keeps `main`'s deletions, leaving a hybrid that compiles and measures wrong.
+
 ## 1. Software architecture
 
 **Multiprocessing** pipeline that keeps acquisition separate from the UI:
