@@ -71,17 +71,49 @@ class ChevronComboBox(_Chevroned, QtWidgets.QComboBox):
 
     _MARGIN = 12        # distance from the right edge; matches the QSS padding
 
+    # popup styling, set from the palette by MainWindow._apply_theme
+    popup_qss = ""
+    popup_background = "#ffffff"
+
     def __init__(self, *args, **kwargs):
         super(ChevronComboBox, self).__init__(*args, **kwargs)
-        # The popup is TWO widgets: the QListView and a QFrame container holding
-        # it. The container is what draws the platform frame -- on macOS a light
-        # rounded border that stayed white on the dark theme -- and a style sheet
-        # rule aimed at the view never reaches it. Take its frame away here, where
-        # the object is in hand, instead of guessing at a selector; the view then
-        # fills the container and the QSS colours are all that is left visible.
-        container = self.view().parentWidget()
+        self._style_popup()
+
+    def showPopup(self):
+        # re-applied on every open: Qt may rebuild the container, and a theme
+        # switch while the list was closed would otherwise not reach it
+        self._style_popup()
+        super(ChevronComboBox, self).showPopup()
+
+    def _style_popup(self):
+        """Style the popup DIRECTLY, on the objects, not through inheritance.
+
+        The popup is two widgets: the QListView and a QFrame container holding it.
+        A rule written as ``QComboBox QAbstractItemView`` in the window's style
+        sheet reaches the list but **not the container** -- the container is a
+        separate top-level window, and on macOS it kept drawing its native light
+        frame, which read as a white border once the theme went dark. Nothing in
+        the dark palette is white, which is what gave it away.
+
+        So the style sheet is set on the two objects, and the palette is set as
+        well: a QPalette applies where a style sheet has not reached, and between
+        the two there is no path left for the platform colour.
+        """
+        view = self.view()
+        container = view.parentWidget() if view is not None else None
+        colour = QtGui.QColor(self.popup_background)
+        for widget in (container, view):
+            if widget is None:
+                continue
+            if self.popup_qss:
+                widget.setStyleSheet(self.popup_qss)
+            palette = widget.palette()
+            palette.setColor(QtGui.QPalette.Window, colour)
+            palette.setColor(QtGui.QPalette.Base, colour)
+            widget.setPalette(palette)
         if isinstance(container, QtWidgets.QFrame):
             container.setFrameShape(QtWidgets.QFrame.NoFrame)
+            container.setAutoFillBackground(True)
 
     def paintEvent(self, event):
         super(ChevronComboBox, self).paintEvent(event)
