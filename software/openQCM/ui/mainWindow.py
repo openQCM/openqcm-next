@@ -2671,6 +2671,9 @@ class MainWindow(QtGui.QMainWindow):
         self.worker.consume_queue_D_multi()
 
         self.worker.consume_queue_A_multi()
+        # The phase sweep has to be drained whether anything draws it or not:
+        # MultiscanProcess fills its queue on every sweep.
+        self.worker.consume_queue_P_multi()
 
         # VER 0.1.6G exact G/B spectra for the live impedance panel
         self.worker.consume_queue_GB_multi()

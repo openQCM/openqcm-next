@@ -82,6 +82,7 @@ class Worker:
 # =============================================================================
         
         self._A_multi_buffer = None
+        self._P_multi_buffer = None
         self._F_Sweep_multi_buffer = None
 
         # VER 0.1.6G latest exact G/B spectrum per overtone (impedance panel)
@@ -342,6 +343,7 @@ class Worker:
         self.consume_queue_D_multi()
         self.consume_queue_A_multi()
         self.consume_queue_GB_multi()
+        self.consume_queue_P_multi()
         
         # VER 0.1.2
 # =============================================================================
@@ -521,11 +523,24 @@ class Worker:
     def consume_queue_A_multi(self):
         while not self._queue_A_multi.empty():
             self._queue_data_A_multi(self._queue_A_multi.get(False))
-    
+
+    # The phase sweep travels on its own queue. Until this existed the queue was
+    # filled by MultiscanProcess on every sweep and drained by nobody, so it
+    # grew without bound for the whole life of the process.
+    def consume_queue_P_multi(self):
+        while not self._queue_P_multi.empty():
+            self._queue_data_P_multi(self._queue_P_multi.get(False))
+
     def _queue_data_A_multi(self, data):
         # Add values
         self._store_signal_values_A (data[1])
         self._store_signal_values_F_sweep (data[0])
+
+    def _queue_data_P_multi(self, data):
+        # data[0] is the same frequency axis the amplitude queue carries, so it
+        # is not stored a second time
+        self._store_signal_values_P (data[1])
+
     
     def _store_signal_values_A (self, values):
         # detect how many data are present 
@@ -534,6 +549,13 @@ class Worker:
         for idx in range(size):
             self._A_multi_buffer[idx] = values[idx]
     
+    def _store_signal_values_P (self, values):
+        # detect how many data are present 
+        size = len(values)
+        # store the data in respective buffers
+        for idx in range(size):
+            self._P_multi_buffer[idx] = values[idx]
+
     def _store_signal_values_F_sweep (self, values):
         # detect how many data are present 
         size = len(values)
@@ -544,6 +566,9 @@ class Worker:
             
     def get_A_values_buffer(self, idx=0): 
         return self._A_multi_buffer[idx]
+
+    def get_P_values_buffer(self, idx=0):
+        return self._P_multi_buffer[idx]
         
     
     def get_F_Sweep_values_buffer(self, idx = 0):
@@ -1060,6 +1085,7 @@ class Worker:
         self._time_buffer = []
         
         self._A_multi_buffer = []
+        self._P_multi_buffer = []
         self._F_Sweep_multi_buffer = []
         
         peaks = self._load_frequencies_file()
@@ -1079,6 +1105,7 @@ class Worker:
 # =============================================================================
 
         self._A_multi_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
+        self._P_multi_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
         self._F_Sweep_multi_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
 
         # VER 0.1.6G impedance panel spectra
