@@ -222,6 +222,21 @@ Conventional Commits. Versions are marked by Git tags.
 - **`core/averaging.py`** (new) — `trim_count(n, proportiontocut)` and `robust_mean(values,
   proportiontocut)`, replacing `scipy.stats.trim_mean` at the six places that average the raw
   frequency, dissipation and temperature buffers. See ### Fixed for why.
+- **`ui/plotMenu.py`** (new) — one implementation of the plot right-click menu (Auto-scale, Reset
+  zoom, pan/select, Show/Hide grid, Export) and of the grid state, which pyqtgraph offers no
+  reliable read-back of. The decision to switch pyqtgraph's own menu off was made once and
+  implemented twice, in `mainWindow.py` and again in `rawDataView.py`; a third panel wanting it
+  would have been a third copy. It also holds the two pyqtgraph facts that cost time to find:
+  `setMenuEnabled(False)` is needed on the `PlotItem` **and** its `ViewBox`, and the plots of one
+  `GraphicsLayoutWidget` share a `QGraphicsScene`, so `sigMouseClicked` is connected once per scene
+  with the plot found by hit test. Two hooks keep it general: `extra_actions` for items only one
+  window has (the main window's Δ cursors) and `apply_grid` for panels where more than one plot must
+  follow (the main window's phase twin). `build_menu()` is separate from `show()` so the items can be
+  asserted without entering a modal loop. `rawDataView` adopts it, verified identical — same seven
+  items in the same order, both default menus off on all ten plots, ten plots across five tabs
+  registered as five scene connections. **`mainWindow` keeps its own copy for now**: its version
+  carries the cursors and four different plot targets, so converting the production window is worth
+  doing on its own.
 
 ### Changed
 - **GUI palette reduction — Start/Stop toggle now blue/brown** — moving toward a two-color palette
