@@ -90,6 +90,13 @@ resolution**, because it compares patch-ids and the resolved patch is not the or
 ported with a resolved conflict, or genuinely forgotten — and the table above is what separates the
 first from the third. Note the second when it happens:
 
+⚠️ **And a fourth case, found on 2026-07-29:** a commit can apply with **no conflict at all** and
+still keep showing `+`. `git cherry` compares patch-ids, which hash the diff *including its context
+lines* — and the context differs here wherever this branch has extra neighbours, such as the two extra
+entries in the Tools menu. `c06963f` (Peak Data View) and `dd5fb37` (Datalog View) both applied
+cleanly and both still list as `+` for that reason alone. So do not read `+` as "needs attention"
+without checking the tables first.
+
 | ported with conflict resolution | what had to be reconciled |
 |---|---|
 | `273c6a9` | `_plot_menu_targets` — kept this branch's six-plot list (so View > Grid covers the two impedance views) and dropped the right-click handler loop. |
