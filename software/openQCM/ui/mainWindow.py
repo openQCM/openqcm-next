@@ -1716,11 +1716,17 @@ class MainWindow(QtGui.QMainWindow):
         # application follows in one step.
         _Chevroned.chevron_colour = self._theme_palette["muted"]
         _Chevroned.chevron_colour_disabled = self._theme_palette["disabled_text"]
+        # the popup needs its own sheet, set on its own widgets: the window's
+        # style sheet does not reach a top-level popup container
+        ChevronComboBox.popup_qss = theme.popup_qss(self._theme_palette)
+        ChevronComboBox.popup_background = self._theme_palette["panel"]
         # the three classes explicitly, rather than QtGui.QWidget: the widgets are
         # only reachable through QtGui here because pyqtgraph injects them, and
         # leaning on that is what broke File > Open Log
         for cls in (ChevronComboBox, ChevronSpinBox, ChevronDoubleSpinBox):
             for widget in self.findChildren(cls):
+                if isinstance(widget, ChevronComboBox):
+                    widget._style_popup()
                 widget.update()
         # Phase 3c: re-apply the status pill so 'standby' follows the theme
         self.ui.statusIndicator.setStyleSheet(

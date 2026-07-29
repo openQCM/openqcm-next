@@ -64,6 +64,26 @@ def palette(name):
     return DARK if name == "dark" else LIGHT
 
 
+def popup_qss(p):
+    """Style sheet for a combo box popup, to be set ON the popup widgets.
+
+    Separate from :func:`qss` because the popup container is a top-level window
+    that the main window's style sheet does not reach: see
+    ChevronComboBox._style_popup. Selectors are unqualified for that reason -- the
+    sheet is applied to the container and the list themselves.
+    """
+    return """
+    QFrame {{ background: {panel}; border: 1px solid {border}; }}
+    QAbstractItemView {{ background: {panel}; color: {text};
+        border: none; padding: 4px; outline: none;
+        selection-background-color: {accent}; selection-color: {accent_text}; }}
+    QAbstractItemView::item {{ min-height: 24px; padding: 3px 8px;
+        border-radius: 5px; }}
+    QAbstractItemView::item:selected {{ background: {accent};
+        color: {accent_text}; }}
+    """.format(**p)
+
+
 def qss(p):
     """Build the application-wide Qt Style Sheet for palette dict ``p``."""
     return """
