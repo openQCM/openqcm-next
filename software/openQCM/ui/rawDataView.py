@@ -22,12 +22,13 @@ decimated, exactly as the main window already does for its sweep panel.
 
 import numpy as np
 import pyqtgraph as pg
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import QtCore, QtWidgets
 
 from openQCM.core.constants import Constants
 from openQCM.core import resonance
 from openQCM.common.logger import Logger as Log
 from openQCM.ui import theme
+from openQCM.ui.plotMenu import PlotMenu
 
 TAG = "[RawDataView]"
 
@@ -131,12 +132,9 @@ class _OvertoneTab(QtWidgets.QWidget):
             for axis in ("left", "bottom"):
                 plot.getAxis(axis).setPen(palette["axis"])
                 plot.getAxis(axis).setTextPen(palette["axis"])
-            # grid off by default, as everywhere else in this GUI
+            # grid off by default, as everywhere else in this GUI. The default
+            # pyqtgraph menus are switched off by PlotMenu.attach().
             plot.showGrid(x=False, y=False)
-            # silences the PlotItem menu AND the ViewBox one; the dialog
-            # installs its own on the scene
-            plot.setMenuEnabled(False)
-            plot.getViewBox().setMenuEnabled(False)
 
         # zoom and pan stay in step between the two panels
         self.plt_phase.setXLink(self.plt_amp)
@@ -221,6 +219,10 @@ class RawDataViewDialog(QtWidgets.QDialog):
         self._tabs = QtWidgets.QTabWidget()
         layout.addWidget(self._tabs)
 
+        # the shared right-click menu: one connection per scene and the grid
+        # state, both handled in ui/plotMenu.py
+        self._menu = PlotMenu(self)
+
         self._panes = []
         for idx in range(len(Constants.overtone_dummy)):
             pane = _OvertoneTab(idx, self._theme)
@@ -228,12 +230,7 @@ class RawDataViewDialog(QtWidgets.QDialog):
                     else "overtone {}".format(2 * idx + 1))
             self._tabs.addTab(pane, name)
             self._panes.append(pane)
-            # one connection per scene, then a hit test to find the plot: the
-            # plots of one GraphicsLayoutWidget share a single QGraphicsScene,
-            # so connecting per plot would fire the menu once per plot
-            pane.canvas.scene().sigMouseClicked.connect(self._on_scene_clicked)
-
-        self._grid_on = {}
+            self._menu.attach(pane.plots())
 
         self._timer = QtCore.QTimer(self)
         self._timer.timeout.connect(self._refresh)
@@ -335,44 +332,6 @@ class RawDataViewDialog(QtWidgets.QDialog):
             "D = {:.9f}  |  {} samples{}".format(
                 band.peak_frequency, band.bandwidth, Constants.THRESHOLD_DB,
                 band.bandwidth / 1e6, freq.size, truncated))
-
-    ###########################################################################
-    # Right-click menu, matching the main window's
-    ###########################################################################
-    def _on_scene_clicked(self, event):
-        if event.button() != QtCore.Qt.RightButton:
-            return
-        for pane in self._panes:
-            for plot in pane.plots():
-                box = plot.getViewBox()
-                if box is not None and box.sceneBoundingRect().contains(
-                        event.scenePos()):
-                    event.accept()
-                    self._show_plot_menu(plot, event.screenPos().toPoint())
-                    return
-
-    def _show_plot_menu(self, plot, screen_pos):
-        menu = QtGui.QMenu(self)
-        menu.addAction("Auto-scale", lambda: plot.enableAutoRange())
-        menu.addAction("Reset zoom", lambda: plot.autoRange())
-        box = plot.getViewBox()
-        if box.state.get("mouseMode") == pg.ViewBox.RectMode:
-            menu.addAction("Mouse: pan mode",
-                           lambda: box.setMouseMode(pg.ViewBox.PanMode))
-        else:
-            menu.addAction("Mouse: select/zoom mode",
-                           lambda: box.setMouseMode(pg.ViewBox.RectMode))
-        menu.addSeparator()
-        on = self._grid_on.get(plot, False)
-        menu.addAction("Hide grid" if on else "Show grid",
-                       lambda: self._set_grid(plot, not on))
-        menu.addSeparator()
-        menu.addAction("Export…", lambda: plot.scene().showExportDialog())
-        menu.exec_(screen_pos)
-
-    def _set_grid(self, plot, on):
-        self._grid_on[plot] = on
-        plot.showGrid(x=on, y=on, alpha=0.3)
 
     ###########################################################################
     def closeEvent(self, event):
