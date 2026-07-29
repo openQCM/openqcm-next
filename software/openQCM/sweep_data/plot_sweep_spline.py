@@ -28,38 +28,19 @@ from matplotlib import pyplot as plt
 
 import tkinter as Tk
 import math
-from math import factorial
 from scipy.interpolate import UnivariateSpline
 from scipy.interpolate import InterpolatedUnivariateSpline
 
 from openQCM.core.constants import Constants
+from openQCM.core import resonance
+
+# SAVITZKY - GOLAY FILTER, and the band walk below it: both come from
+# core/resonance.py, so this viewer draws what the instrument measured.
+savitzky_golay = resonance.savitzky_golay
+
 
 def foo():
     print("HELLO WORLD")
-    
-# SAVITZKY - GOLAY FILTER 
-# -------------------------------------------------------------------------
-def savitzky_golay(y, window_size, order, deriv=0, rate=1):
- 
-    try:
-        window_size = np.abs(np.int(window_size))
-        order = np.abs(np.int(order)) 
-    except ValueError as msg:
-        raise ValueError("WARNING: window size and order have to be of type int!")
-    if window_size % 2 != 1 or window_size < 1:
-        raise TypeError("WARNING: window size must be a positive odd number!")
-    if window_size < order + 2:
-        raise TypeError("WARNING: window size is too small for the polynomials order!")
-    order_range = range(order+1)
-    half_window = (window_size -1) // 2
-    # precompute coefficients
-    b = np.mat([[k**i for i in order_range] for k in range(-half_window, half_window+1)])
-    m = np.linalg.pinv(b).A[deriv] * rate**deriv * factorial(deriv)
-    # pad the signal at the extremes with values taken from the signal itself
-    firstvals = y[0] - np.abs( y[1:half_window+1][::-1] - y[0] )
-    lastvals = y[-1] + np.abs(y[-half_window-1:-1][::-1] - y[-1])
-    y = np.concatenate((firstvals, y, lastvals))
-    return np.convolve( m[::-1], y, mode='valid')
 
 
 # LOAD FREQUENIES FILE 
@@ -118,43 +99,6 @@ def baseline_coeffs():
     return coeffs_all
 
 
-# =============================================================================
-# def get_left_index(signal, amplitude_max, index_max) :
-#     PERCENT_OVERTONE = 0.95
-#     INDEX_OVERTONE_LEFT = index_max
-#     while signal[INDEX_OVERTONE_LEFT] > PERCENT_OVERTONE * amplitude_max:
-#         if INDEX_OVERTONE_LEFT < 1:
-#             print('WARNING: Left value not found in prcessing data ')
-#          
-#             break
-#         INDEX_OVERTONE_LEFT = INDEX_OVERTONE_LEFT - 1   
-#     
-#     return INDEX_OVERTONE_LEFT
-# =============================================================================
-
-def get_left_index(signal, amplitude_max, index_max) :
-    THRESHOLD = Constants.THRESHOLD_DB
-    INDEX_OVERTONE_LEFT = index_max
-    while signal[INDEX_OVERTONE_LEFT] > (amplitude_max -  THRESHOLD):
-        if INDEX_OVERTONE_LEFT < 1:
-            print('WARNING: LEFT value not found in prcessing data ')
-         
-            break
-        INDEX_OVERTONE_LEFT = INDEX_OVERTONE_LEFT - 1   
-    
-    return INDEX_OVERTONE_LEFT
-
-def get_right_index(signal, amplitude_max, index_max) :
-    THRESHOLD = Constants.THRESHOLD_DB
-    INDEX_OVERTONE_RIGHT = index_max
-    while signal[INDEX_OVERTONE_RIGHT] > (amplitude_max -  THRESHOLD):
-        if INDEX_OVERTONE_RIGHT > len(signal-1):
-            print('WARNING: RIGHT value not found in prcessing data ')
-         
-            break
-        INDEX_OVERTONE_RIGHT = INDEX_OVERTONE_RIGHT + 1   
-    
-    return INDEX_OVERTONE_RIGHT
 
 def script():
 
@@ -388,78 +332,30 @@ def script():
     num = [1, 3, 5, 7, 9]
     
     
-    # GET the left point for dissipation 
-    # prototype 
-    # index_left = get_left_index(signal, amplitude_max, index_max)
-    index_left_array_1 = 0
-    index_left_array_3 = 0
-    index_left_array_5 = 0
-    index_left_array_7 = 0
-    index_left_array_9 = 0
-    
-    index_left_array = [index_left_array_1, index_left_array_3, index_left_array_5, index_left_array_7, index_left_array_7]
-    
-    for i in range(len(num)):
-        index_left_array[i] = get_left_index( amp_a_sp[i], amp_a_sp_max[i], np.argmax(amp_a_sp[i], axis = 0) )
-        
-    # print (index_left_array)
+    # GET the two points that delimit the dissipation band, from the same
+    # function the instrument measures with: core/resonance.py.
+    xx_a = [xx_1_a, xx_3_a, xx_5_a, xx_7_a, xx_9_a]
 
+    frq_a_left = [0, 0, 0, 0, 0]
+    frq_a_right = [0, 0, 0, 0, 0]
+    amp_a_sp_left = [0, 0, 0, 0, 0]
+    amp_a_sp_right = [0, 0, 0, 0, 0]
 
-    amp_a_sp_left = [0,0,0,0,0]
-    
     for i in range(len(num)):
-        amp_a_sp_left[i] = amp_a_sp[i][index_left_array[i]]
-        
-# =============================================================================
-#     print (amp_a_sp_left)
-# =============================================================================
-        
-    # get frequency left 
-    frq_1_a_left = xx_1_a[index_left_array[0]]
-    frq_3_a_left = xx_3_a[index_left_array[1]]
-    frq_5_a_left = xx_5_a[index_left_array[2]]
-    frq_7_a_left = xx_7_a[index_left_array[3]]
-    frq_9_a_left = xx_9_a[index_left_array[4]]
-    
-    frq_a_left = [frq_1_a_left, frq_3_a_left, frq_5_a_left, frq_7_a_left, frq_9_a_left ]
-    
-    # GET the right point for dissipation 
-    # prototype 
-    # index_right = get_right_index(signal, amplitude_max, index_max)
-    index_right_array_1 = 0
-    index_right_array_3 = 0
-    index_right_array_5 = 0
-    index_right_array_7 = 0
-    index_right_array_9 = 0
-    
-    index_right_array = [index_right_array_1, index_right_array_3, index_right_array_5, index_right_array_7, index_right_array_7]
-    
-    for i in range(len(num)):
-        index_right_array[i] = get_right_index( amp_a_sp[i], amp_a_sp_max[i], np.argmax(amp_a_sp[i], axis = 0) )
-        
-# =============================================================================
-#     print (index_right_array)
-# =============================================================================
+        band = resonance.find_peak_and_band(xx_a[i], amp_a_sp[i],
+                                            Constants.THRESHOLD_DB)
+        frq_a_left[i] = band.leading_frequency
+        frq_a_right[i] = band.trailing_frequency
+        # by definition both edges sit exactly on the threshold, so there is no
+        # sample to look up: they fall between two of them
+        amp_a_sp_left[i] = band.peak_value - Constants.THRESHOLD_DB
+        amp_a_sp_right[i] = amp_a_sp_left[i]
 
+    (frq_1_a_left, frq_3_a_left, frq_5_a_left,
+     frq_7_a_left, frq_9_a_left) = frq_a_left
+    (frq_1_a_right, frq_3_a_right, frq_5_a_right,
+     frq_7_a_right, frq_9_a_right) = frq_a_right
 
-    amp_a_sp_right = [0,0,0,0,0]
-    
-    for i in range(len(num)):
-        amp_a_sp_right[i] = amp_a_sp[i][index_right_array[i]]
-        
-# =============================================================================
-#     print (amp_a_sp_right)
-# =============================================================================
-        
-    # get frequency right 
-    frq_1_a_right = xx_1_a[index_right_array[0]]
-    frq_3_a_right = xx_3_a[index_right_array[1]]
-    frq_5_a_right = xx_5_a[index_right_array[2]]
-    frq_7_a_right = xx_7_a[index_right_array[3]]
-    frq_9_a_right = xx_9_a[index_right_array[4]]
-    
-    frq_a_right = [frq_1_a_right, frq_3_a_right, frq_5_a_right, frq_7_a_right, frq_9_a_right ]
-    
 # =============================================================================
 #     print (frq_a_left)
 # =============================================================================
@@ -684,31 +580,16 @@ def script_single(nn):
 #     print (amp_n_sp_min, amp_n_sp_max)
 # =============================================================================
     
-    # GET the left point for dissipation 
-    # prototype 
-    # index_left = get_left_index(signal, amplitude_max, index_max)
-    index_left_array_n = 0
-    index_left_array_n = get_left_index( amp_n_a_sp, amp_n_sp_max, np.argmax(amp_n_a_sp, axis = 0) )
-    
-    # get ampli left 
-    amp_a_sp_left_n = 0
-    amp_a_sp_left_n = amp_n_a_sp[index_left_array_n]
-    # get frequency left 
-    frq_n_a_left = xx_n_a[index_left_array_n]
-    
-    # GET the right point for dissipation 
-    # prototype 
-    # index_right = get_right_index(signal, amplitude_max, index_max)
-    index_right_array_n = 0
-    index_right_array_n = get_right_index(amp_n_a_sp, amp_n_sp_max, np.argmax(amp_n_a_sp, axis = 0))
-    
-    # get ampli right 
-    amp_a_sp_right_n = 0
-    amp_a_sp_right_n = amp_n_a_sp[index_right_array_n]
-    
-    # get frequency left 
-    frq_n_a_right = xx_n_a[index_right_array_n]
-    
+    # GET the two points that delimit the dissipation band, from the same
+    # function the instrument measures with: core/resonance.py.
+    band_n = resonance.find_peak_and_band(xx_n_a, amp_n_a_sp,
+                                          Constants.THRESHOLD_DB)
+    frq_n_a_left = band_n.leading_frequency
+    frq_n_a_right = band_n.trailing_frequency
+    # both edges sit exactly on the threshold, between two samples
+    amp_a_sp_left_n = band_n.peak_value - Constants.THRESHOLD_DB
+    amp_a_sp_right_n = amp_a_sp_left_n
+
     ####PLOT  SINGLE
     plot_color_multi_norm = []
     const = 255
