@@ -5,6 +5,15 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — harmonic numbering (2026-07-29)
+
+`78ef8fe`, applied clean. The main window called the fundamental `F0` in the pills, both readout
+cards, the hidden radios and the plot legend, while the new views name overtones by harmonic order —
+the same resonance read `F0` in one window and `F1` in another. Displayed text only: the widget names
+keep the historical `F0` because the controller reaches them as strings. Verified on this branch that
+the labels read `F1`/`D1`/`1st` and that `overtoneBtn_F0`, `radioBtn_F0`, `label_F0_col`, `F0` and
+`D0` all still resolve.
+
 ### Carried from `main` — Datalog View (2026-07-29)
 
 Four more cherry-picks, all clean: `dd5fb37`, `badd438`, `129471d`, `c0a1a92`. Details in `main`'s
