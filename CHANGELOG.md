@@ -5,6 +5,21 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — Peak Data View (2026-07-29)
+
+Two more cherry-picks, `8c40c58` and `c06963f`. Details in `main`'s CHANGELOG; what is specific here:
+
+- **`Constants.BASELINE_POLY_ORDER`** replaces the literal `8` of the calibration baseline. Main had
+  seven call sites; **this branch has two more that main could not know about** — `baseline_coeffs_Vmag()`
+  in `Multiscan.py` and the same V_MAG baseline in `sweep_data/plot_conductance.py`. Both read the
+  constant now: same order, same purpose, and leaving them behind would have recreated the divergence
+  one file over. Value unchanged, so no measurement moves.
+- **Peak Data View** (`ui/peakDataView.py`, **Tools → Peak Data View**) applied clean. It reconstructs
+  the baseline from that constant and re-derives the phase peak, which is not recorded — see `main`'s
+  entry. Verified on this branch against the same 5 MHz calibration: five peaks labelled F1..F9, phase
+  peaks within their search window, amplitude-to-phase disagreement of −500, −500, +500, −2500 and
+  −2000 Hz.
+
 ### Changed — Tools > "Impedance Fit (live)": one tab per overtone (2026-07-29)
 
 The window now matches Raw Data View's shape. The overtone combo box is gone: a `QTabWidget` with
