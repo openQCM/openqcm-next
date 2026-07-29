@@ -246,6 +246,22 @@ Conventional Commits. Versions are marked by Git tags.
     records relative seconds. Grid off and the shared right-click menu. A file that is not a datalog
     is refused with a message. ⚠️ `Tools → Log Data` still opens the older matplotlib viewer; Q-1
     retired its equivalent when it added this entry, and doing the same here is a separate call.
+  - **Movable zero.** A draggable cursor on both shift panels, kept in step, sets where the reference
+    is taken; it snaps to a real sample, since the reference is a mean of real samples. Moving it
+    re-zeroes every curve and readout and leaves the Y axes alone, so what moves is the zero and not
+    the scale. The reference is the mean of `REFERENCE_SAMPLES = 5` points from the cursor, not one:
+    adjacent samples of a real run differ by a few Hz.
+  - **Dissipation is referenced too**, in ppm as the main window's readout card reports it. Absolute
+    dissipation put five overtones at 90–360 ppm on one axis and showed five flat lines.
+  - **Control panel top-left**: per overtone the colour swatch and the two values the plots are
+    referenced to — so the numbers reading zero on screen stay legible — plus the **overtone pills**,
+    the same widgets and `overtoneBtn` QSS property as the main window's quick-select row, showing or
+    hiding that overtone on both panels. The dialog applies `theme.qss` to itself, since the main
+    window sets it on itself rather than on the application.
+  - **Temperature** moves to its own small panel top-right and stays **absolute** in degrees: it is
+    what a drift is read against.
+  - Labels are `F1, F3, F5, F7, F9` — the harmonic order. The main window calls the fundamental `F0`;
+    that is the side that changes next.
 - **Peak Data View** (`ui/peakDataView.py`, new; **Tools → Peak Data View**) — ported from openQCM
   Q-1 v3.0's `ui/calibrationPlot.py` and extended from Q-1's plots to NEXT's five overtones. It
   answers one question — is that really a resonance, or did the detector latch onto a bump in the
@@ -474,6 +490,11 @@ Conventional Commits. Versions are marked by Git tags.
   light / light on dark) via a `_curve_color()` helper, applied at every plot/setData site and
   re-applied on theme switch in `_apply_plot_theme`. The colored multi-overtone
   frequency/dissipation curves were unaffected. Regression from the GUI theme system (Phase 0).
+- **The auxiliary views did not follow the theme** (`ui/theme.py`). The window-background rule
+  covered `QMainWindow` and `#centralwidget` only, and the three auxiliary views are `QDialog`s, so
+  their pyqtgraph canvases went dark while the frame around them stayed at the platform default —
+  with the grey info label on top of it barely readable. `QDialog` joins the rule, which fixes Raw
+  Data View, Peak Data View and Datalog View at once.
 - **Single-overtone mode dropped its first nine sweeps in silence** (`processors/Serial.py`).
   `elaborate()` read `freq_range_mean`, `diss_mean` and `temperature_mean` unconditionally in
   `add3`/`add4`/`add5`, but assigned them only inside the `k >= environment` branch. For every
