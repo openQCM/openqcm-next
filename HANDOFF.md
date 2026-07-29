@@ -79,6 +79,8 @@ Add a line here whenever you decide to skip one, so the next person can tell "ch
 | `7f80f82` | `main`'s own HANDOFF §2 rewrite. This branch documents the same rules in this very section. |
 | `d23333e` | removes the three dead Qt-Designer UI files — this branch never had them. |
 | `439fc9e` | untracks `Calibration_*MHz.txt` — already untracked and ignored here. |
+| `da81e2b` | restores `Calibration.py`'s CRLF endings, which a script on `main` had normalised by accident. This branch never had them normalised -- the same mistake was caught here before the commit -- so the file is already CRLF and the patch has nothing to do. |
+| `e39c0ca`, `a855587` | `main`'s own CHANGELOG for the Datalog View round. |
 | `ab3722a`, `6935826` | `main`'s own CHANGELOG/HANDOFF for the 2026-07-29 round. Branch-specific notes live here instead. |
 
 ⚠️ **`git cherry` also keeps showing `+` for a commit that was ported but needed conflict
