@@ -5,6 +5,47 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` by cherry-pick (2026-07-29)
+
+Eight commits, one at a time, `9694d89`..`b6061b0` on `main`. The full rationale and the measured
+evidence are in `main`'s CHANGELOG; what matters here is how each one met the impedance work. The
+per-commit reconciliation notes are in HANDOFF §2, "ported with conflict resolution".
+
+- **`core/resonance.py`** — the filtering/fitting chain and the band walk in one module, imported by
+  both acquisition processes and by every viewer. `savitzky_golay` and `parameters_finder` had three
+  copies, and the one in `sweep_data/plot_sweep_spline.py` had already drifted: it returned the
+  sample index instead of interpolating, overstating the band by up to 2%. On this branch
+  `elaborate_multi` is where the two lines of work meet — **all five** Savitzky-Golay calls now go
+  through the shared module (the impedance work added four beyond `main`'s one: the phase,
+  `Vmag_corr`, `Vphase` and the raw `Vmag`), and the magnitude spline became
+  `resonance.spline_fit`, verified **bit-identical** on the snapshot sweeps. The published frequency
+  and bandwidth still come from the conductance path, untouched; the magnitude-path band survives
+  only to raise the error flags.
+- **`core/averaging.py`** — `robust_mean` replaces `scipy.stats.trim_mean` at the six averaging
+  sites. `trim_mean` cut `int(proportiontocut * N)` per tail, which is zero below N=10, so outlier
+  rejection was an accident of `Constants.environment == 10` rather than a property of the average.
+  Bit-identical for N ≥ 10; `environment` stays 10 here.
+- **`ui/rawDataView.py`** — Tools → **Raw Data View**: live amplitude and phase sweep per overtone,
+  five tabs, with the peak, the dissipation band and the threshold taken from `resonance.py` at full
+  sample resolution. Pull model with its own timer; reads memory only, never a file.
+- **`common/sweepDump.py`** — the raw sweep dump becomes a development tool, off by default
+  (`OPENQCM_SWEEP_DUMP=1` to enable). This branch's **second** series, `g<n>.txt` with the divider's
+  raw `V_MAG`/`V_PHS`, goes through the same module via its `prefix` parameter, which was added on
+  `main` first so this branch needs no copy of its own. `Tools → Raw Data (from sweep files)` is
+  hidden while the dump is off.
+- **Phase sweep into the GUI process** (`consume_queue_P_multi`), which also closed a `mp.Queue`
+  that `MultiscanProcess` filled on every sweep and nobody drained. Both it and this branch's
+  `consume_queue_GB_multi` are drained in `stop()` and in `_update_plot`.
+- **Single-overtone warm-up fix** — `Serial.elaborate` raised `UnboundLocalError` on every sweep
+  before the buffer filled, swallowed by a bare `except:`, so the first nine sweeps never reached
+  the plots.
+
+⚠️ **Known, not addressed:** `sweep_data/plot_conductance.py` still carries its own copy of
+`savitzky_golay`. It differs from `core/resonance.py` only in the docstring and in the wording of
+its exception messages — the numerical body is identical, so it is a benign duplicate rather than a
+divergent one, unlike the `plot_sweep_spline.py` copy that was removed. Worth folding in next time
+that file is touched.
+
 ### Added — `docs/impedance-analysis/ALGORITHM.md`, the reference for the whole measurement (2026-07-28)
 - Every step from ADC counts to the logged frequency and bandwidth, with the code path, the derived
   constants, the reason each guard exists, and a **worked numerical example** on a committed

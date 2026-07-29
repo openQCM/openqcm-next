@@ -79,6 +79,8 @@ Add a line here whenever you decide to skip one, so the next person can tell "ch
 | `7f80f82` | `main`'s own HANDOFF §2 rewrite. This branch documents the same rules in this very section. |
 | `d23333e` | removes the three dead Qt-Designer UI files — this branch never had them. |
 | `439fc9e` | untracks `Calibration_*MHz.txt` — already untracked and ignored here. |
+| `92ce817` | drops `Constants.environment` to 3 for fast test runs on `main`. Development-only; this branch keeps the production 10, and therefore also keeps the plain comment instead of `main`'s `DEV ONLY` banner, which would describe a state this branch is not in. |
+| `ab3722a`, `6935826` | `main`'s own CHANGELOG/HANDOFF for the 2026-07-29 round. Branch-specific notes live here instead. |
 
 ⚠️ **`git cherry` also keeps showing `+` for a commit that was ported but needed conflict
 resolution**, because it compares patch-ids and the resolved patch is not the original one. On
@@ -91,6 +93,11 @@ first from the third. Note the second when it happens:
 |---|---|
 | `273c6a9` | `_plot_menu_targets` — kept this branch's six-plot list (so View > Grid covers the two impedance views) and dropped the right-click handler loop. |
 | `a165b40` | sidebar pane wrapping, against the three-pane splitter of this branch. |
+| `9694d89` | `core/resonance.py` extraction. `elaborate_multi` is where the two lines of work meet, as predicted. Kept `UnivariateSpline`/`PchipInterpolator` (the conductance splines still need them), pointed **all five** SG calls at the shared module — the impedance work added four beyond `main`'s one — and kept the branch's own appends of `frequency_resonance_G` / `half_bandwidth`. The magnitude-path band is now computed only for the error flags, so `index_peak_fit`, `frequency_resonance` and `Qfac_fit` are dead here; left in place rather than editorialising inside a cherry-pick. Verified the substituted spline is bit-identical on the snapshot sweeps. |
+| `066757f` | both `consume_queue_GB_multi` (branch) and `consume_queue_P_multi` (`main`) drained, in `worker.stop()` and in `_update_plot`. |
+| `4265f75` | Tools menu: kept `Conductance Data` and `Impedance Fit (live)`, added `Raw Data View` first as on `main`. |
+| `0ce8a69` | the sweep dump. This branch writes a **second** series, `g<n>.txt` with the divider's raw `V_MAG`/`V_PHS`, which the shared module could not name. Rather than fork `sweepDump.py`, the `prefix` parameter was added on `main` first (`0b6c6c3`) and `sweepDump.py` taken in its final form here, so **`0b6c6c3` is already carried inside this commit** and `git cherry-pick`ing it separately reports nothing to do. Both writes now sit inside the one `if SweepDump.is_enabled():` guard. |
+| `b6061b0` | `core/averaging.py`. Kept `environment = 10` and this branch's scipy interpolate imports; dropped `from scipy.stats import trim_mean`, which had no other user here. |
 
 #### Why not `git merge main`
 
