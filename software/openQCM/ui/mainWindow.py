@@ -440,9 +440,9 @@ class MainWindow(QtGui.QMainWindow):
         self._setup_log_filename_label()
         self._install_system_log()
 
-        # Phase 3c: initial status pill (standby, theme-aware)
-        self.ui.infostatus.setStyleSheet(self._status_pill("standby"))
-        self.ui.infostatus.setText("● Program Status: Standby")
+        # Nothing is connected yet, so the dot starts grey; _setup_serial_connection_ui
+        # sets the message that says what to do about it.
+        self._set_status("disconnected", "Standby")
 
 
     # https://stackoverflow.com/questions/63182608/colcount-not-working-for-legenditem-in-pyqtgraph-with-pyqt5-library
@@ -819,18 +819,17 @@ class MainWindow(QtGui.QMainWindow):
         self._show_log_filename("")
         # R2: reset the bottom-bar compact readings
         self._reset_status_readings()
-        self.ui.infostatus.setStyleSheet(self._status_pill("standby"))
-        self.ui.infostatus.setText("● Program Status: Standby")
-        self.ui.infobar.setText("Infobar")
+        # stop() re-acquires the port, so the dot goes back to connected-and-idle
+        self._set_status("standby", "Standby")
+        self._set_message("acquisition stopped")
 
         # VER 0.1.6 peak detection is the only mode that reaches stop() while
         # still running via the Stop button — normal completion (and errors)
         # tear down inline in _update_plot, never through stop(). So a stop()
         # during calibration is always a user cancellation: reflect it.
         if self._get_source() == SourceType.calibration:
-            self.ui.infostatus.setStyleSheet(self._status_pill("warn"))
-            self.ui.infostatus.setText("● Program Status:Peak Detection Cancelled")
-            self.ui.infobar.setText("Infobar <font color=#e65100>Peak Detection cancelled by user.</font>")
+            self._set_status("warn", "Peak detection cancelled")
+            self._set_message("cancelled by user")
             # VER 0.1.6 clear the real-time amplitude sweep trace: the generic
             # clear() later in stop() is a no-op during calibration (its frequency
             # buffer is NaN), so the last partial sweep would otherwise linger on
@@ -1642,22 +1641,35 @@ class MainWindow(QtGui.QMainWindow):
         if bar is not None:
             bar.setVisible(checked)
 
-    # Phase 3c: status pill state colors (background). Text stays dark on the
-    # bright state colors; 'standby' is built from the active theme palette.
-    _STATUS_PILL_BG = {"warn": "#ffff00", "err": "#ff0000", "ok": "#00ff72"}
+    # The machine state lives in the COLOUR OF ONE DOT, as in Q-1 v3.0. It used to
+    # be a coloured pill behind the status text plus <font> tags inside the
+    # message, which said the same thing twice and left the message itself harder
+    # to read. Absolute colours, not palette ones: these are state semantics, and
+    # they have to mean the same on both themes.
+    _STATUS_DOT = {
+        "disconnected": "#888888",   # serial not connected
+        "standby": "#ffd700",        # connected, not acquiring
+        "warn": "#ff9800",           # processing, or a recoverable warning
+        "ok": "#4caf50",             # monitoring / success
+        "err": "#f44336",            # error
+    }
 
-    def _status_pill(self, key):
-        """Stylesheet for the infostatus pill; remembers the state so a theme
-        switch can re-apply it (standby follows the theme)."""
+    def _status_dot(self, key):
+        """Stylesheet for the state dot; remembers the key so a theme switch can
+        re-apply it."""
         self._status_key = key
-        if key == "standby":
-            p = getattr(self, "_theme_palette", theme.LIGHT)
-            return ("background: {}; color: {}; padding: 1px 6px; "
-                    "border: 1px solid {}; border-radius: 3px").format(
-                        p["panel"], p["text"], p["border"])
-        return ("background: {}; color: #202020; padding: 1px 6px; "
-                "border: 1px solid transparent; border-radius: 3px").format(
-                    self._STATUS_PILL_BG[key])
+        return "color: {}; font-size: 14px;".format(
+            self._STATUS_DOT.get(key, self._STATUS_DOT["standby"]))
+
+    def _set_status(self, key, text=None):
+        """Colour the state dot and, optionally, set the plain status text."""
+        self.ui.statusIndicator.setStyleSheet(self._status_dot(key))
+        if text is not None:
+            self.ui.infostatus.setText(text)
+
+    def _set_message(self, text):
+        """The message beside the status: plain text, no colour of its own."""
+        self.ui.infobar.setText(text)
 
     # R2 polish: TEC state banner (softened colors, rounded; 'off' follows the
     # theme). Keys: off / warn (getting setpoint) / active / err.
@@ -1698,8 +1710,8 @@ class MainWindow(QtGui.QMainWindow):
         # window-wide Qt Style Sheet
         self.setStyleSheet(theme.qss(self._theme_palette))
         # Phase 3c: re-apply the status pill so 'standby' follows the theme
-        self.ui.infostatus.setStyleSheet(
-            self._status_pill(getattr(self, "_status_key", "standby")))
+        self.ui.statusIndicator.setStyleSheet(
+            self._status_dot(getattr(self, "_status_key", "standby")))
         # R2: corner toggle shows the theme it switches to
         _btn = getattr(self.ui, "themeToggleButton", None)
         if _btn is not None:
@@ -2151,6 +2163,8 @@ class MainWindow(QtGui.QMainWindow):
 
         # Initial connection status
         self.ui.label_COM_status.setText("Disconnected")
+        self._set_status("disconnected", "Standby")
+        self._set_message("select a port and click Connect")
 
     def _refresh_ports(self):
         # Rescan connected devices (serial ports) and repopulate the port combo.
@@ -2164,6 +2178,8 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.cBox_Port.addItems(ports)
         n = len(ports) if ports is not None else 0
         self.ui.label_COM_status.setText("Disconnected - {} port(s) found".format(n))
+        self._set_status("disconnected", "Standby")
+        self._set_message("ready to connect" if n else "no serial port found")
         print(TAG, "Serial ports refreshed: {} found".format(n))
         Log.i(TAG, "Serial ports refreshed: {} found".format(n))
 
@@ -2216,6 +2232,8 @@ class MainWindow(QtGui.QMainWindow):
                 return
             # Level 1: multi-instance lock file
             if not self._acquire_port_lock(port):
+                self._set_status("err")
+                self._set_message("port locked by another instance")
                 PopUp.warning(self, Constants.app_title,
                               "Port [{}] is already in use by another openQCM instance!".format(port))
                 return
@@ -2225,6 +2243,8 @@ class MainWindow(QtGui.QMainWindow):
             except Exception as e:
                 self._release_port_lock()
                 self._serial_lock = None
+                self._set_status("err")
+                self._set_message("port busy or unavailable")
                 PopUp.warning(self, Constants.app_title,
                               "Unable to open port [{}]:\n{}".format(port, str(e)))
                 print(TAG, "Connection failed: {}".format(str(e)))
@@ -2242,6 +2262,8 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.pButton_Tswitch_ON.setEnabled(True)
             self.ui.label_COM_status.setText("Connected: {}".format(port))
             self.ui.label_COM_status.setToolTip("Connected: {}".format(port))
+            self._set_status("standby", "Standby")
+            self._set_message("connected to {} (exclusive)".format(port))
             print(TAG, "Connected to serial port {}".format(port))
             Log.i(TAG, "Connected to serial port {}".format(port))
             # Firmware version check on connection (moved here from app startup)
@@ -2266,6 +2288,8 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.pButton_Start.setEnabled(False)
             self.ui.pButton_Tswitch_ON.setEnabled(False)
             self.ui.label_COM_status.setText("Disconnected")
+            self._set_status("disconnected", "Standby")
+            self._set_message("disconnected")
             print(TAG, "Disconnected from serial port")
             Log.i(TAG, "Disconnected from serial port")
 
@@ -2874,10 +2898,9 @@ class MainWindow(QtGui.QMainWindow):
                   label2 = 'processing...'
                   label3 = 'processing...'
                   labelstatus = 'Processing'
-                  self.ui.infostatus.setStyleSheet(self._status_pill("warn")) #ff8000
+                  self.ui.statusIndicator.setStyleSheet(self._status_dot("warn")) #ff8000
 
-                  color_err = '#000000'
-                  labelbar = 'Please wait, processing early data...'
+                  labelbar = 'processing early data...'
 
                elif (str(vector1[0])=='nan' and (self._ser_error1 or self._ser_error2)):
                       if self._ser_error1 and self._ser_error2:
@@ -2885,26 +2908,23 @@ class MainWindow(QtGui.QMainWindow):
                         label2= ""
                         label3= ""
                         labelstatus = 'Warning'
-                        color_err = '#ff0000'
-                        labelbar = 'Warning: unable to apply half-power bandwidth method, lower and upper cut-off frequency not found'
-                        self.ui.infostatus.setStyleSheet(self._status_pill("err"))
+                        labelbar = 'Warning: -3dB frequencies not found'
+                        self.ui.statusIndicator.setStyleSheet(self._status_dot("err"))
 
                       elif self._ser_error1:
                         label1= ""
                         label2= ""
                         label3= ""
                         labelstatus = 'Warning'
-                        color_err = '#ff0000'
-                        labelbar = 'Warning: unable to apply half-power bandwidth method, lower cut-off frequency (left side) not found'
-                        # self.ControlsWin.ui1.infostatus.setStyleSheet(self._status_pill("err"))
+                        labelbar = 'Warning: lower -3dB frequency not found'
+                        # self.ControlsWin.ui1.infostatus.setStyleSheet(self._status_dot("err"))
                       elif self._ser_error2:
                         label1= ""
                         label2= ""
                         label3= ""
                         labelstatus = 'Warning'
-                        color_err = '#ff0000'
-                        labelbar = 'Warning: unable to apply half-power bandwidth method, upper cut-off frequency (right side) not found'
-                        self.ui.infostatus.setStyleSheet(self._status_pill("err"))
+                        labelbar = 'Warning: upper -3dB frequency not found'
+                        self.ui.statusIndicator.setStyleSheet(self._status_dot("err"))
                else:
                   if not self._ser_error1 and not self._ser_error2:
                       if not self._reference_flag:
@@ -2921,9 +2941,8 @@ class MainWindow(QtGui.QMainWindow):
                       label2= str(d2)+ "e-06"
                       label3= str(d3)+ " °C"
                       labelstatus = 'Monitoring'
-                      color_err = '#000000'
                       labelbar = 'Monitoring!'
-                      self.ui.infostatus.setStyleSheet(self._status_pill("ok"))
+                      self.ui.statusIndicator.setStyleSheet(self._status_dot("ok"))
 
                   else:
                       if self._ser_error1 and self._ser_error2:
@@ -2931,30 +2950,27 @@ class MainWindow(QtGui.QMainWindow):
                         label2= "-"
                         label3= "-"
                         labelstatus = 'Warning'
-                        color_err = '#ff0000'
-                        labelbar = 'Warning: unable to apply half-power bandwidth method, lower and upper cut-off frequency not found'
-                        self.ui.infostatus.setStyleSheet(self._status_pill("err"))
+                        labelbar = 'Warning: -3dB frequencies not found'
+                        self.ui.statusIndicator.setStyleSheet(self._status_dot("err"))
 
                       elif self._ser_error1:
                         label1= "-"
                         label2= "-"
                         label3= "-"
                         labelstatus = 'Warning'
-                        color_err = '#ff0000'
-                        labelbar = 'Warning: unable to apply half-power bandwidth method, lower cut-off frequency (left side) not found'
-                        self.ui.infostatus.setStyleSheet(self._status_pill("err"))
+                        labelbar = 'Warning: lower -3dB frequency not found'
+                        self.ui.statusIndicator.setStyleSheet(self._status_dot("err"))
 
                       elif self._ser_error2:
                         label1= "-"
                         label2= "-"
                         label3= "-"
                         labelstatus = 'Warning'
-                        color_err = '#ff0000'
-                        labelbar = 'Warning: unable to apply half-power bandwidth method, upper cut-off frequency (right side) not found'
-                        self.ui.infostatus.setStyleSheet(self._status_pill("err"))
+                        labelbar = 'Warning: upper -3dB frequency not found'
+                        self.ui.statusIndicator.setStyleSheet(self._status_dot("err"))
                
-               self.ui.infostatus.setText("● Program Status:" + labelstatus)
-               self.ui.infobar.setText("Infobar <font color={}>{}</font>".format(color_err, labelbar))
+               self.ui.infostatus.setText(labelstatus)
+               self.ui.infobar.setText(labelbar)
                # progressbar
                self.ui.progressBar.setValue(self._completed)
 
@@ -3001,10 +3017,9 @@ class MainWindow(QtGui.QMainWindow):
             label2 = 'not available'
             label3 = 'not available'
             labelstatus = 'Peak Detection Processing'
-            color_err = '#000000'
-            labelbar = 'The operation might take just over a minute to complete... please wait...'
+            labelbar = 'please wait...'
 
-            self.ui.infostatus.setStyleSheet(self._status_pill("warn"))
+            self.ui.statusIndicator.setStyleSheet(self._status_dot("warn"))
 
             # request the error data from Worker.py
             error1, error2, error3, self._ser_control, self._overtone_number = self.worker.get_ser_error()
@@ -3027,10 +3042,9 @@ class MainWindow(QtGui.QMainWindow):
               label1 = 'not available'
               label2 = 'not available'
               label3 = 'not available'
-              color_err = '#ff0000'
               labelstatus = 'Calibration Warning'
-              self.ui.infostatus.setStyleSheet(self._status_pill("err"))
-              labelbar = 'Calibration Warning: empty buffer! Please, repeat the Calibration after disconnecting/reconnecting Device!'
+              self.ui.statusIndicator.setStyleSheet(self._status_dot("err"))
+              labelbar = 'empty buffer - reconnect the device and retry'
               # set stop flag True
               stop_flag = 1
               
@@ -3039,10 +3053,9 @@ class MainWindow(QtGui.QMainWindow):
               label1 = 'not available'
               label2 = 'not available'
               label3 = 'not available'
-              color_err = '#ff0000'
               labelstatus = 'Calibration Warning'
-              self.ui.infostatus.setStyleSheet(self._status_pill("err"))
-              labelbar = 'Calibration Warning: empty buffer/ValueError! Please, repeat the Calibration after disconnecting/reconnecting Device!'
+              self.ui.statusIndicator.setStyleSheet(self._status_dot("err"))
+              labelbar = 'empty buffer / value error - reconnect the device and retry'
               # set stop flag True
               stop_flag=1
             
@@ -3053,37 +3066,34 @@ class MainWindow(QtGui.QMainWindow):
               label2 = 'not available'
               label3 = 'not available'
               labelstatus = 'Peak Detection Processing'
-              color_err = '#000000'
-              labelbar = 'The operation might take just over a minute to complete... please wait...'
+              labelbar = 'please wait...'
               
               # CALIBRATION SUCCESS 
               # ---------------------------------------------------------------
               if vector2[0] == 0 and vector3[0] == 0:
                  labelstatus = 'Calibration Success'
-                 self.ui.infostatus.setStyleSheet(self._status_pill("ok"))
-                 color_err = '#000000'
-                 labelbar = 'Calibration Success for baseline correction!'
+                 self.ui.statusIndicator.setStyleSheet(self._status_dot("ok"))
+                 labelbar = 'peak detection completed - ready for baseline correction'
                  
                  # Set the boolean stop flag True to stop the loop                   
                  stop_flag = 1
                  
               elif vector2[0] == 1 or vector3[0] == 1:
-                 color_err = '#ff0000'
                  labelstatus = 'Calibration Warning'
-                 self.ui.infostatus.setStyleSheet(self._status_pill("err"))
+                 self.ui.statusIndicator.setStyleSheet(self._status_dot("err"))
 
                  if vector2[0]== 1:
-                   labelbar = 'Calibration Warning: ValueError or generic error during signal acquisition. Please, repeat the Calibration'
+                   labelbar = 'signal acquisition error - retry'
                    stop_flag=1 ##
                  elif vector3[0]== 1:
                      
                    PopUp.warning_not_blocking(self, "Peak Detection", "WARNING: unable to identify fundamental peak. Please, repeat the calibration")
                    
-                   labelbar = 'Calibration Warning: unable to identify fundamental peak or apply peak detection algorithm. Please, repeat the Calibration!'
+                   labelbar = 'peak not found - retry'
                    stop_flag=1 ##
             
-            self.ui.infostatus.setText("● Program Status:" + labelstatus)
-            self.ui.infobar.setText("Infobar <font color={}>{}</font>".format(color_err, labelbar))
+            self.ui.infostatus.setText(labelstatus)
+            self.ui.infobar.setText(labelbar)
             
             # progressbar -------------
             self.ui.progressBar.setValue(self._completed + 10)
@@ -3163,10 +3173,9 @@ class MainWindow(QtGui.QMainWindow):
                   # VER 0.1.2
                   # Optimize and update infobar and infostatus in multiscan mode
                   labelstatus = 'Processing'
-                  color_err = '#000000'
-                  labelbar = 'Please wait, processing early data...'
-                  self.ui.infostatus.setText("● Program Status:" + labelstatus)
-                  self.ui.infobar.setText("Infobar <font color={}>{}</font>".format(color_err, labelbar))
+                  labelbar = 'processing early data...'
+                  self._set_status("warn", labelstatus)
+                  self._set_message(labelbar)
 
                # progressbar
                self.ui.progressBar.setValue(self._completed)
@@ -3216,30 +3225,26 @@ class MainWindow(QtGui.QMainWindow):
                 # VER 0.1.2
                 # Optimize and update infobar and infostatus in multiscan mode
                 labelstatus = 'Monitoring'
-                color_err = '#000000'
-                labelbar = 'Monitoring multiscan frequency and dissipation '
-                self.ui.infostatus.setText("● Program Status:" + labelstatus)
-                self.ui.infobar.setText("Infobar <font color={}>{}</font>".format(color_err, labelbar))
+                labelbar = 'Monitoring!'
+                self._set_status("ok", labelstatus)
+                self._set_message(labelbar)
             
             # VER 0.1.6 check bandwidth error 
             if self._ser_control > Constants.environment:
                
                 if (self._ser_error1 or self._ser_error2):
                   labelstatus = 'Warning'
-                  color_err = '#ff0000'
-                  # labelbar = f'Warning: Unable to process raw data to get bandwidth measurement on {self._overtone_number}'
-                  labelbar = f'Warning: Unable to process raw data to get bandwidth measurement on {2*self._overtone_number + 1} overtone'
-                  self.ui.infostatus.setText("● Program Status:" + labelstatus)
-                  self.ui.infobar.setText("Infobar <font color={}>{}</font>".format(color_err, labelbar))
+                  labelbar = f'Warning: bandwidth not measurable on F{2*self._overtone_number + 1}'
+                  self._set_status("warn", labelstatus)
+                  self._set_message(labelbar)
                 
                 else: 
                     # VER 0.1.2
                     # Optimize and update infobar and infostatus in multiscan mode
                     labelstatus = 'Monitoring'
-                    color_err = '#000000'
-                    labelbar = 'Monitoring multiscan frequency and dissipation '
-                    self.ui.infostatus.setText("● Program Status:" + labelstatus)
-                    self.ui.infobar.setText("Infobar <font color={}>{}</font>".format(color_err, labelbar))
+                    labelbar = 'Monitoring!'
+                    self._set_status("ok", labelstatus)
+                    self._set_message(labelbar)
                     
 
         #### REFERENCE SET
