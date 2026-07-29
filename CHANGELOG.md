@@ -5,6 +5,23 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — combo and spin box restyle (2026-07-29)
+
+`97e2caf`, `1c6bbab`, `b3f9760`, all applied clean. The platform arrow on a `QComboBox` — a square
+button with a hard divider — is replaced by a chevron the widget paints itself (`ui/widgets.py`), and
+the spin boxes get the same treatment; their buttons stay clickable, only the border and arrow are
+removed. The popup is styled on its own objects because its container is a top-level window the main
+window's style sheet does not reach, which also meant its colours ignored a theme switch.
+
+Verified here: all five combos and all five spin boxes converted, the popup container takes the
+palette's panel colour on both themes with its frame removed, and this branch's seven Tools entries are
+untouched. `impedanceFitWindow.py` needed nothing — its overtone combo became the tab bar earlier
+today.
+
+⚠️ **Known, not addressed** (same on `main`): the four `QSpinBox` in `data_view/qt_designer_ui.py`
+keep the platform look. That is the legacy matplotlib CSV viewer, which is not themed at all, so
+converting its spin boxes alone would make it look less consistent rather than more.
+
 ### Carried from `main` — status bar (2026-07-29)
 
 `d0def43`, applied clean on all three files. The machine state now lives in the colour of **one dot**
