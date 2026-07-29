@@ -42,6 +42,15 @@ COLOR_TEMPERATURE = "#7fc7e0"
 # Number of leading metadata columns: Date, Time, Relative_time, Temperature.
 META_COLUMNS = 4
 
+# The reference is the mean of this many samples from the cursor, not a single
+# point: one sample carries its own noise, and adjacent samples of a real run
+# differ by a few Hz.
+REFERENCE_SAMPLES = 5
+
+# Height of the controls / temperature row. Small on purpose: the two shift
+# panels are what the window is for.
+TOP_ROW_HEIGHT = 190
+
 
 class RelativeTimeAxis(pg.AxisItem):
     """Seconds since the start of the run, shown as h:mm:ss.
@@ -156,20 +165,42 @@ def read_log(path):
 
     return LogContents(path, time_s, temperature, series, skipped, len(header))
 
-
 class DataLogViewDialog(QtWidgets.QDialog):
-    """Non-modal view of one logged run."""
+    """Non-modal view of one logged run, with a movable reference point.
+
+    Frequency and dissipation are shown as the shift from a reference the user
+    chooses: five overtones on one absolute axis span 5 to 45 MHz against a signal
+    of a few hundred Hz, so absolute values hide the only thing worth reading. The
+    reference is taken at a draggable cursor, starts on the first sample, and is
+    the mean of REFERENCE_SAMPLES points rather than one -- a single sample carries
+    its own noise, and on a real run adjacent samples differ by a few Hz.
+
+    Temperature keeps its own small panel, in absolute degrees: it is what a drift
+    is read against, and a delta would make it less legible, not more.
+    """
 
     def __init__(self, theme_name="light", parent=None):
         super(DataLogViewDialog, self).__init__(parent)
         self._theme = theme_name if theme_name in theme.PLOT else "light"
         palette = theme.PLOT[self._theme]
+        # The main window sets the QSS on itself, not on the application, so a
+        # dialog only inherits it while it is parented there. Applying it here too
+        # keeps the overtone pills looking like the main window's either way.
+        self.setStyleSheet(theme.qss(theme.palette(self._theme)))
 
         self.setWindowTitle("Datalog View")
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.Window)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        self.setMinimumSize(760, 560)
-        self.resize(1040, 760)
+        self.setMinimumSize(860, 620)
+        self.resize(1120, 800)
+
+        self._log = None
+        self._curves = []            # [(freq curve, diss curve), ...]
+        self._pills = []
+        self._value_labels = []      # [(freq label, diss label), ...]
+        self._cursors = []
+        self._reference_index = 0
+        self._moving_cursor = False  # guards the two cursors against each other
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
@@ -179,26 +210,65 @@ class DataLogViewDialog(QtWidgets.QDialog):
         self.info.setAlignment(QtCore.Qt.AlignCenter)
         layout.addWidget(self.info)
 
+        # ---------------------------------------------- top row: controls | temp
+        top = QtWidgets.QHBoxLayout()
+        top.setSpacing(6)
+        layout.addLayout(top)
+
+        self._controls = QtWidgets.QGroupBox("Reference")
+        self._controls.setObjectName("datalogControls")
+        self._controls_layout = QtWidgets.QVBoxLayout(self._controls)
+        self._controls_layout.setContentsMargins(8, 6, 8, 6)
+        self._controls_layout.setSpacing(4)
+
+        self.lbl_reference = QtWidgets.QLabel("drag the cursor to move the zero")
+        self._controls_layout.addWidget(self.lbl_reference)
+
+        # per-overtone reference values, filled in on load
+        self._grid = QtWidgets.QGridLayout()
+        self._grid.setHorizontalSpacing(10)
+        self._grid.setVerticalSpacing(2)
+        self._controls_layout.addLayout(self._grid)
+
+        # the overtone pills, same widgets and same QSS property as the main
+        # window's quick-select row
+        self._pill_row = QtWidgets.QHBoxLayout()
+        self._pill_row.setSpacing(3)
+        self._pill_row.setContentsMargins(0, 4, 0, 0)
+        self._controls_layout.addLayout(self._pill_row)
+        self._controls_layout.addStretch(1)
+        top.addWidget(self._controls, stretch=3)
+
+        self.temp_canvas = pg.GraphicsLayoutWidget()
+        self.temp_canvas.setBackground(palette["bg"])
+        self.temp_canvas.setFixedHeight(TOP_ROW_HEIGHT)
+        top.addWidget(self.temp_canvas, stretch=4)
+        self._controls.setFixedHeight(TOP_ROW_HEIGHT)
+
+        self.plt_temp = self.temp_canvas.addPlot(
+            row=0, col=0,
+            axisItems={"bottom": RelativeTimeAxis(orientation="bottom")})
+        self.plt_temp.setTitle("Temperature", color=palette["title"])
+        self.plt_temp.setLabel("left", "T", units="°C", color=palette["title"])
+
+        # ------------------------------------------------- the two shift panels
         self.canvas = pg.GraphicsLayoutWidget()
         self.canvas.setBackground(palette["bg"])
         layout.addWidget(self.canvas, stretch=1)
 
         self.plt_freq = self.canvas.addPlot(
-            row=0, col=0, axisItems={"bottom": RelativeTimeAxis(orientation="bottom")})
+            row=0, col=0,
+            axisItems={"bottom": RelativeTimeAxis(orientation="bottom")})
         self.plt_diss = self.canvas.addPlot(
-            row=1, col=0, axisItems={"bottom": RelativeTimeAxis(orientation="bottom")})
-        self.plt_temp = self.canvas.addPlot(
-            row=2, col=0, axisItems={"bottom": RelativeTimeAxis(orientation="bottom")})
-
+            row=1, col=0,
+            axisItems={"bottom": RelativeTimeAxis(orientation="bottom")})
         self.plt_freq.setTitle("Resonance frequency", color=palette["title"])
         self.plt_diss.setTitle("Dissipation", color=palette["title"])
-        self.plt_temp.setTitle("Temperature", color=palette["title"])
         self.plt_freq.setLabel("left", "Frequency shift", units="Hz",
                                color=palette["title"])
-        self.plt_diss.setLabel("left", "Dissipation", color=palette["title"])
-        self.plt_temp.setLabel("left", "Temperature", units="°C",
+        self.plt_diss.setLabel("left", "Dissipation shift", units="ppm",
                                color=palette["title"])
-        self.plt_temp.setLabel("bottom", "Time (h:mm:ss)", color=palette["title"])
+        self.plt_diss.setLabel("bottom", "Time (h:mm:ss)", color=palette["title"])
 
         for plot in self.plots():
             for axis in ("left", "bottom"):
@@ -208,7 +278,6 @@ class DataLogViewDialog(QtWidgets.QDialog):
             plot.showGrid(x=False, y=False)
             plot.addLegend(offset=(10, 10))
 
-        # one time base for the three panels
         self.plt_diss.setXLink(self.plt_freq)
         self.plt_temp.setXLink(self.plt_freq)
 
@@ -228,42 +297,144 @@ class DataLogViewDialog(QtWidgets.QDialog):
             Log.w(TAG, "could not read {}: {}".format(path, error))
             return False
 
-        for plot in self.plots():
-            plot.clear()
+        self._log = log
+        self._clear_view()
 
         for position, (order, freq, diss) in enumerate(log.series):
             colour = Constants.plot_color_multi[
                 position % len(Constants.plot_color_multi)]
-            pen = pg.mkPen(color=colour, width=Constants.plot_line_width)
-            # Frequency is drawn as the SHIFT from the first logged sample, not
-            # as the absolute value. Five overtones on one absolute axis span
-            # 5 to 45 MHz, against a signal of a few hundred Hz: the panel then
-            # shows five flat lines and hides the only thing worth reading. The
-            # starting frequency is not lost -- it goes in the legend, so the
-            # panel carries both. Same reason the main window has SET REF.
-            start = float(freq[0]) if freq.size else 0.0
-            self.plt_freq.plot(log.time_s, freq - start, pen=pen,
-                               name="F{}  (from {:.0f} Hz)".format(order, start))
-            self.plt_diss.plot(log.time_s, diss,
-                               pen=pg.mkPen(color=colour,
-                                            width=Constants.plot_line_width),
-                               name="F{}".format(order))
+            name = "F{}".format(order)
+            self._curves.append((
+                self.plt_freq.plot(pen=pg.mkPen(color=colour,
+                                                width=Constants.plot_line_width),
+                                   name=name),
+                self.plt_diss.plot(pen=pg.mkPen(color=colour,
+                                                width=Constants.plot_line_width),
+                                   name=name)))
+            self._add_control_row(position, order, colour)
 
         self.plt_temp.plot(log.time_s, log.temperature,
                            pen=pg.mkPen(color=COLOR_TEMPERATURE,
-                                        width=Constants.plot_line_width),
-                           name="temperature")
+                                        width=Constants.plot_line_width))
+
+        # One reference cursor, drawn on both shift panels and kept in step. It is
+        # movable and snaps to a sample, because the reference is a mean of real
+        # samples and a cursor resting between two of them would say otherwise.
+        for plot in (self.plt_freq, self.plt_diss):
+            line = pg.InfiniteLine(
+                pos=log.time_s[0], angle=90, movable=True,
+                pen=pg.mkPen("#f44336", width=1, style=QtCore.Qt.DashLine),
+                hoverPen=pg.mkPen("#ff8a80", width=2))
+            line.setZValue(50)
+            line.sigPositionChanged.connect(self._on_cursor_moved)
+            plot.addItem(line)
+            self._cursors.append(line)
 
         self.setWindowTitle("Datalog View - {}".format(os.path.basename(path)))
         orders = ", ".join("F{}".format(o) for o, _f, _d in log.series)
-        text = ("{}  |  {} points  |  {}  |  {}".format(
+        text = "{}  |  {} points  |  {}  |  {}".format(
             os.path.basename(path), log.time_s.size,
             str(datetime.timedelta(seconds=int(log.duration_s))),
-            "overtones {}".format(orders) if log.multi else "single overtone {}"
-            .format(orders)))
+            "overtones {}".format(orders) if log.multi
+            else "single overtone {}".format(orders))
         if log.skipped:
-            # said out loud: a row of the wrong width is the format trap in the
-            # module docstring showing up, not noise to hide
             text += "  |  {} row(s) skipped, unexpected width".format(log.skipped)
         self.info.setText(text)
+
+        self._set_reference(0)
         return True
+
+    ###########################################################################
+    def _clear_view(self):
+        for plot in self.plots():
+            plot.clear()
+        self._curves = []
+        self._cursors = []
+        self._value_labels = []
+        for pill in self._pills:
+            pill.setParent(None)
+        self._pills = []
+        while self._grid.count():
+            item = self._grid.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+
+    def _add_control_row(self, position, order, colour):
+        """Colour swatch, name, and the two reference values for one overtone."""
+        row = self._grid.rowCount()
+        swatch = QtWidgets.QLabel()
+        swatch.setFixedSize(11, 11)
+        swatch.setStyleSheet("background: rgb({},{},{}); border-radius: 2px;"
+                             .format(*colour[:3]))
+        name = QtWidgets.QLabel("F{}".format(order))
+        freq_value = QtWidgets.QLabel("-")
+        diss_value = QtWidgets.QLabel("-")
+        for label in (freq_value, diss_value):
+            label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self._grid.addWidget(swatch, row, 0)
+        self._grid.addWidget(name, row, 1)
+        self._grid.addWidget(freq_value, row, 2)
+        self._grid.addWidget(diss_value, row, 3)
+        self._value_labels.append((freq_value, diss_value))
+
+        pill = QtWidgets.QPushButton("F{}".format(order))
+        pill.setProperty("overtoneBtn", True)     # the main window's QSS rule
+        pill.setCheckable(True)
+        pill.setChecked(True)
+        pill.setFixedHeight(24)
+        pill.setToolTip("Show or hide overtone F{}".format(order))
+        pill.toggled.connect(
+            lambda checked, i=position: self._set_series_visible(i, checked))
+        self._pill_row.addWidget(pill)
+        self._pills.append(pill)
+
+    def _set_series_visible(self, position, visible):
+        for curve in self._curves[position]:
+            curve.setVisible(bool(visible))
+
+    ###########################################################################
+    def _on_cursor_moved(self, line):
+        if self._moving_cursor or self._log is None:
+            return
+        index = int(np.abs(self._log.time_s - float(line.value())).argmin())
+        if index == self._reference_index:
+            # still the same sample: snap the line back onto it and stop
+            self._sync_cursors(self._log.time_s[index])
+            return
+        self._set_reference(index)
+
+    def _sync_cursors(self, x):
+        self._moving_cursor = True
+        try:
+            for line in self._cursors:
+                line.setValue(float(x))
+        finally:
+            self._moving_cursor = False
+
+    def _set_reference(self, index):
+        """Re-zero every curve on the mean of REFERENCE_SAMPLES from ``index``."""
+        log = self._log
+        if log is None or not self._curves:
+            return
+        index = max(0, min(int(index), log.time_s.size - 1))
+        self._reference_index = index
+        window = slice(index, min(index + REFERENCE_SAMPLES, log.time_s.size))
+
+        for position, (order, freq, diss) in enumerate(log.series):
+            ref_f = float(np.nanmean(freq[window]))
+            ref_d = float(np.nanmean(diss[window]))
+            curve_f, curve_d = self._curves[position]
+            curve_f.setData(log.time_s, freq - ref_f)
+            # ppm, as the main window's dissipation readout card reports it
+            curve_d.setData(log.time_s, (diss - ref_d) * 1e6)
+            label_f, label_d = self._value_labels[position]
+            label_f.setText("{:.2f} Hz".format(ref_f))
+            label_d.setText("{:.2f} ppm".format(ref_d * 1e6))
+
+        self._sync_cursors(log.time_s[index])
+        used = window.stop - window.start
+        self.lbl_reference.setText(
+            "zero at {}  (sample {} of {}, mean of {})".format(
+                str(datetime.timedelta(seconds=int(log.time_s[index]))),
+                index + 1, log.time_s.size, used))
