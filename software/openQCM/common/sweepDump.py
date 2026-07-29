@@ -52,16 +52,22 @@ def _export_directory():
     return "openQCM" + slash + Constants.sweep_export_path
 
 
-def save_sweep(overtone_index, frequency, magnitude, phase):
+def save_sweep(overtone_index, frequency, magnitude, phase, prefix=""):
     """Write one overtone's raw sweep, if the dump is enabled.
 
     :param overtone_index: 0 for the fundamental, 1 for the 3rd overtone, ...
         The file is named after the harmonic order, so index 2 becomes 5.txt.
+    :param prefix: prepended to the file name, for callers that dump a second
+        series alongside the first. The impedance work writes the divider's raw
+        V_MAG/V_PHS as ``g1.txt`` .. ``g9.txt`` next to ``1.txt`` .. ``9.txt``;
+        the parameter lives here rather than in that caller so the export path
+        and the enable flag stay in one place.
     :return: True if a file was written.
     """
     if not is_enabled():
         return False
-    FileStorage.TXT_sweeps_save((int(overtone_index) * 2) + 1,
+    name = "{}{}".format(prefix, (int(overtone_index) * 2) + 1)
+    FileStorage.TXT_sweeps_save(name,
                                 _export_directory(),
                                 frequency, magnitude, phase)
     return True
