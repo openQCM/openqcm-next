@@ -67,7 +67,11 @@ def palette(name):
 def qss(p):
     """Build the application-wide Qt Style Sheet for palette dict ``p``."""
     return """
-    QMainWindow, QWidget#centralwidget {{ background: {window}; }}
+    /* QDialog is here because the auxiliary views (Raw Data View, Peak Data
+       View, Datalog View) are dialogs: without it their pyqtgraph canvases went
+       dark while the window around them stayed at the platform default, which
+       left the grey info label on top of them barely readable. */
+    QMainWindow, QDialog, QWidget#centralwidget {{ background: {window}; }}
     QWidget {{ color: {text}; }}
     QLabel {{ background: transparent; color: {text}; }}
 
