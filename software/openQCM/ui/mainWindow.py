@@ -2468,9 +2468,17 @@ class MainWindow(QtGui.QMainWindow):
     # open a log at all -- so every invocation makes a new window and the list
     # only exists to close them with the application.
     def _open_datalog_view(self):
+        # This module imports QtCore and QtGui only, never QtWidgets: the widgets
+        # are reachable as QtGui.* solely because pyqtgraph's Qt.py copies them
+        # there for Qt4 compatibility. Import the dialog explicitly rather than
+        # leaning on that side effect -- which is what Q-1 does at the same spot.
+        try:
+            from PyQt5.QtWidgets import QFileDialog
+        except ImportError:                       # pragma: no cover
+            from PySide2.QtWidgets import QFileDialog
         from openQCM.ui.dataLogView import DataLogViewDialog
 
-        path, _filter = QtWidgets.QFileDialog.getOpenFileName(
+        path, _filter = QFileDialog.getOpenFileName(
             self, "Open datalog", Constants.csv_export_path,
             "openQCM datalog (*.csv);;All files (*)")
         if not path:
