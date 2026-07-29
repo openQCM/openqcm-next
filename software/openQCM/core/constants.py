@@ -292,6 +292,14 @@ class Constants:
     
     # Savitzky-Golay order of the polynomial fit (common for all)
     SG_order = 3
+
+    # Order of the least-squares polynomial that estimates the baseline of the
+    # full-span calibration sweep, subtracted before anything looks for a peak.
+    # It was written as a literal 8 in seven places -- both baseline_coeffs, both
+    # channels of the peak detection, and the offline viewer -- which is how a
+    # viewer ends up correcting a baseline the instrument did not. Anything that
+    # reproduces the measurement has to read it from here.
+    BASELINE_POLY_ORDER = 8
     
     # VER 0.1.4 TODO
     # Savitzky-Golay window size definition 
