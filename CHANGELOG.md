@@ -5,6 +5,27 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Changed — Tools > "Impedance Fit (live)": one tab per overtone (2026-07-29)
+
+The window now matches Raw Data View's shape. The overtone combo box is gone: a `QTabWidget` with
+one tab per overtone is the selector, labelled from `rawDataView.OVERTONE_NAMES` so one list names
+the overtones in both live windows.
+
+Each tab owns its own three panels — G(f) with the FIT 2 Lorentzian, B(f) beneath it sharing the x
+axis, and the aspect-locked admittance locus with the fitted circle and the `f_s` marker — so a tab
+switch is instant and each overtone keeps its own zoom, which a single shared canvas could not do.
+The cost is three empty plots per overtone.
+
+**The cost profile is unchanged on purpose**: every overtone is still refitted on every tick, because
+the table below shows them all, and only the visible tab's curves are updated. Switching tab redraws
+from the cached fit rather than recomputing it. The table stays one overview across all overtones —
+that is the point of it — and clicking a row raises that overtone's tab.
+
+Verified offscreen against a synthetic series-RLC admittance with a C0 offset: five tabs, all five
+overtones fitted in one tick and the table filled, only the visible tab drawn, the tab switch drawing
+from cache, the row click selecting the tab, and freeze/hide still stopping the timer. The fits
+recover `f_s`, `Gamma` and `R1` exactly on that input, at 0.00 % circle residual.
+
 ### Carried from `main` by cherry-pick (2026-07-29)
 
 Nine commits, one at a time, `9694d89`..`b6061b0` plus `92ce817` on `main`. The full rationale and
