@@ -1,6 +1,7 @@
 import multiprocessing
 from openQCM.core.ringBuffer import RingBuffer
 from openQCM.core.constants import Constants
+from openQCM.core import resonance
 from openQCM.common.fileStorage import FileStorage
 from openQCM.common.logger import Logger as Log
 from openQCM.common.switcher import Overtone_Switcher_5MHz, Overtone_Switcher_10MHz
@@ -9,7 +10,6 @@ import serial
 from serial.tools import list_ports
 import numpy as np
 from numpy import loadtxt
-from scipy.interpolate import UnivariateSpline
 from scipy.stats import trim_mean
 from openQCM.util.ReadLine import ReadLine as rl
 from time import time as tm
@@ -63,260 +63,6 @@ class SerialProcess(multiprocessing.Process):
         return self.coeffs_all
     
     
-    ###########################################################################
-    # Savitzky-Golay (Smoothing/Denoising Filter)
-    ###########################################################################
-    def savitzky_golay(self,y, window_size, order, deriv=0, rate=1):
-        
-        """Smooth (and optionally differentiate) data with a Savitzky-Golay filter.
-        The Savitzky-Golay filter removes high frequency noise from data.
-        It has the advantage of preserving the original shape and
-        features of the signal better than other types of filtering
-        approaches, such as moving averages techniques.
-        Parameters
-        ----------
-        y : array_like, shape (N,) the values of the time history of the signal.
-        window_size : int the length of the window. Must be an odd integer number.
-        order : int the order of the polynomial used in the filtering.
-                Must be less then `window_size` - 1.
-        deriv: int the order of the derivative to compute (default = 0 means only smoothing)
-        Returns
-        -------
-        ys : ndarray, shape (N) the smoothed signal (or it's n-th derivative).
-        Notes
-        -----
-        The Savitzky-Golay is a type of low-pass filter, particularly
-        suited for smoothing noisy data. The main idea behind this
-        approach is to make for each point a least-square fit with a
-        polynomial of high order over a odd-sized window centered at
-        the point.
-        Examples
-        --------
-        t = np.linspace(-4, 4, 500)
-        y = np.exp( -t**2 ) + np.random.normal(0, 0.05, t.shape)
-        ysg = savitzky_golay(y, window_size=31, order=4)
-        import matplotlib.pyplot as plt
-        plt.plot(t, y, label='Noisy signal')
-        plt.plot(t, np.exp(-t**2), 'k', lw=1.5, label='Original signal')
-        plt.plot(t, ysg, 'r', label='Filtered signal')
-        plt.legend()
-        plt.show()
-        References
-        ----------
-        .. [1] A. Savitzky, M. J. E. Golay, Smoothing and Differentiation of
-           Data by Simplified Least Squares Procedures. Analytical
-           Chemistry, 1964, 36 (8), pp 1627-1639.
-        .. [2] Numerical Recipes 3rd Edition: The Art of Scientific Computing
-           W.H. Press, S.A. Teukolsky, W.T. Vetterling, B.P. Flannery
-           Cambridge University Press ISBN-13: 9780521880688
-        """
-        import numpy as np
-        from math import factorial
-        try:
-            window_size = np.abs(np.int(window_size))
-            order = np.abs(np.int(order)) 
-        except ValueError as msg:
-            raise ValueError("WARNING: window size and order have to be of type int!")
-        if window_size % 2 != 1 or window_size < 1:
-            raise TypeError("WARNING: window size must be a positive odd number!")
-        if window_size < order + 2:
-            raise TypeError("WARNING: window size is too small for the polynomials order!")
-        order_range = range(order+1)
-        half_window = (window_size -1) // 2
-        # precompute coefficients
-        b = np.mat([[k**i for i in order_range] for k in range(-half_window, half_window+1)])
-        m = np.linalg.pinv(b).A[deriv] * rate**deriv * factorial(deriv)
-        # pad the signal at the extremes with values taken from the signal itself
-        firstvals = y[0] - np.abs( y[1:half_window+1][::-1] - y[0] )
-        lastvals = y[-1] + np.abs(y[-half_window-1:-1][::-1] - y[-1])
-        y = np.concatenate((firstvals, y, lastvals))
-        return np.convolve( m[::-1], y, mode='valid')
-     
-        
-    ###########################################################################
-    # Resonance Frequency, Resonance Peak, Bandwidth and Q-factor/Dissipation 
-    ###########################################################################
-    def parameters_finder(self, freq, signal, overtone_number, threshold):
-        
-# =============================================================================
-#         # VER 0.1.2
-#         # [BUG] dissipation calculation fails when the sweep signal goes under zero level
-#         
-#         # Developed a new algorithm for the calculation of dissipation: 
-# 		# - shift the signal up make the gain resonance curve positive 
-# 		# - select the bandwith at 50% threshold of the maximum gain, considering only the right-side of the resonance curve
-# 		# - multiply x2 the bandwith	 
-# =============================================================================
-        
-# =============================================================================
-#         # VER 0.1.3
-#         # change the frequency and dissipation calculation, as below: 
-#         # FREQUENCY
-#         #   - resonance frequency at fundamental is defined as the peak of the maximum
-#         #   - resonance frequency at overtones is defined as the middle point between the maximum and minimum of the gain resonance curve 
-#         # DISSIPATION: 
-#         #   - dissipation at fundamenatl is defined as the inverse of the bandwidth. Bandwidth is defined as width of the resonance curve at 75% of maximum
-#         #   - dissipation at overtones is defined as the inverse of the bandwidth. Bandwidth is defined as width of the resonance curve 
-#         #   between the resonance curve at 90% on the left and the minimum of the resonanance curve
-# =============================================================================
-        # VER 0.1.4
-        # Change resonance frequency measurement as the maximum of amplitude signal, same for fundamental and higher overtone. 
-        # Change dissipation measurement defined as bandwidth at -0.3 dB below the maximum for fundamental and overtones
-        
-        # find minimum 
-        f_min = np.min(signal)
-        # find index of minimum 
-        i_min = np.argmin(signal,axis=0)
-        
-        # VER 0.1.4 do not rescale the signal at the minimum 
-# =============================================================================
-#         # rescale the signal 
-#         signal = signal - f_min
-# =============================================================================
-        
-        f_max = np.max(signal)          # Find maximum
-        i_max= np.argmax(signal,axis=0) # Find index of maximum
-        
-        # setup the index for finding the leading edge
-        index_m = i_max
-        
-        # VER 0.1.4
-        if (overtone_number == 0):
-        
-            # loop until the index at FWHM/others is found
-            # VER 0.1.4 find the index for the bandwidth
-            while signal[index_m] > (f_max - threshold):  
-# =============================================================================
-#             while signal[index_m] > percent*f_max:
-# =============================================================================
-                if index_m < 1:
-                   print(TAG, 'WARNING: Left value not found')
-                   self._err1 = 1
-                   break
-                index_m = index_m-1     
-            #linearly interpolate between the previous values to find the value of freq at the leading edge
-            m = (signal[index_m+1] - signal[index_m])/(freq[index_m+1] - freq[index_m])
-            c = signal[index_m] - freq[index_m]*m
-# =============================================================================
-#             i_leading = (percent*f_max - c)/m
-# =============================================================================
-            # VER 0.1.4 find the left index for the bandwidth
-            i_leading = (f_max - threshold - c)/m
-            
-            # setup index for finding the trailing edge
-            index_M = i_max
-            
-            # loop until the index at FWHM/others is found
-            # VER 0.1.4 find the index for the badwidth
-            while signal[index_M] > (f_max - threshold):
-# =============================================================================
-#             while signal[index_M] > percent*f_max:
-# =============================================================================
-                if index_M >= len(signal)-1:
-                    print(TAG, 'WARNING: Right value not found')
-                    self._err2 = 1
-                    break
-                index_M = index_M+1;
-            
-            # linearly interpolate between the previous values to find the value of freq at the trailing edge
-            m = (signal[index_M-1] - signal[index_M])/(freq[index_M-1] - freq[index_M])
-            c = signal[index_M] - freq[index_M]*m
-# =============================================================================
-#             i_trailing = (percent*f_max - c)/m
-# =============================================================================
-            # VER 0.1.4 find the right index for the bandwidth            
-            i_trailing = (f_max - threshold - c)/m
-
-            bandwidth = abs(i_trailing - i_leading)
-      
-        else: 
-# =============================================================================
-#             bandwidth = 0
-#             index_m = 0
-#             index_M = 0
-#             PERCENT_OVERTONE = 0.90
-#             INDEX_OVERTONE_LEFT = i_max
-#             while signal[INDEX_OVERTONE_LEFT] > PERCENT_OVERTONE * f_max:
-#                 if INDEX_OVERTONE_LEFT < 1:
-#                    print(TAG, 'WARNING: Left value not found')
-#                    self._err1 = 1
-#                    break
-#                 INDEX_OVERTONE_LEFT = INDEX_OVERTONE_LEFT - 1     
-# =============================================================================
-            # loop until the index at FWHM/others is found
-            # VER 0.1.4 find the index for the bandwidth
-            while signal[index_m] > (f_max - threshold):  
-                if index_m < 1:
-                   print(TAG, 'WARNING: Left value not found')
-                   self._err1 = 1
-                   break
-                index_m = index_m-1     
-            #linearly interpolate between the previous values to find the value of freq at the leading edge
-            m = (signal[index_m+1] - signal[index_m])/(freq[index_m+1] - freq[index_m])
-            c = signal[index_m] - freq[index_m]*m
-            # VER 0.1.4 find the left index for the bandwidth
-            i_leading = (f_max - threshold - c)/m
-            
-            # setup index for finding the trailing edge
-            index_M = i_max
-            
-            # loop until the index at FWHM/others is found
-            # VER 0.1.4 find the index for the badwidth
-            while signal[index_M] > f_max - threshold:
-                if index_M >= len(signal)-1:
-                    print(TAG, 'WARNING: Right value not found')
-                    self._err2 = 1
-                    break
-                index_M = index_M+1;
-            
-            # linearly interpolate between the previous values to find the value of freq at the trailing edge
-            m = (signal[index_M-1] - signal[index_M])/(freq[index_M-1] - freq[index_M])
-            c = signal[index_M] - freq[index_M]*m
-            # VER 0.1.4 find the right index for the bandwidth
-            i_trailing = (f_max - threshold - c)/m
-            
-            bandwidth = abs(i_trailing - i_leading)
-            
-        
-        #compute the FWHM/others
-        # bandwidth = abs(i_trailing - i_leading)
-        
-        # bandwidth = abs(i_trailing - i_leading)
-        
-        # VER 0.1.2
-        # select the bandwith at 50% threshold of the maximum gain, considering only the right-side of the resonance curve
-        # multiply x2 the bandwith	
-# =============================================================================
-#         bandwidth = (freq[index_M] - freq[i_max])*2
-#         
-# =============================================================================
-        # Qfac=freq[i_max]/bandwidth
-        
-        # VER 0.1.4
-        # frequency and dissipation at fundamental 
-        if (overtone_number == 0):
-            
-            freq_resonance = freq[i_max]
-            Qfac = bandwidth
-        
-        # VER 0.1.4
-        # frequency and dissipation at overtones 
-        else:
-            
-# =============================================================================
-#             freq_resonance = (freq[i_min] + freq[i_max])/2
-# =============================================================================
-
-            # VER 0.1.4 resonance frequency as the peak
-            freq_resonance = freq[i_max]
-# =============================================================================
-#             Qfac = (freq[i_min] - freq[INDEX_OVERTONE_LEFT])
-# =============================================================================
-            # VER 0.1.4
-            Qfac = bandwidth
-
-        # VER 0.1.4 changed the return of the method introducing resonance frequency
-        return i_max, f_max, bandwidth, index_m, index_M, Qfac, freq_resonance  
     
     
     ###########################################################################
@@ -367,43 +113,35 @@ class SerialProcess(multiprocessing.Process):
         mag_beseline_corrected = mag-self._polyfitted
         
         # FILTERING - Savitzky-Golay
-        filtered_mag = self.savitzky_golay(mag_beseline_corrected, window_size = SG_window_size, order = Constants.SG_order)
-        
+        filtered_mag = resonance.savitzky_golay(mag_beseline_corrected, window_size = SG_window_size, order = Constants.SG_order)
+
         # peak, index e frequency of max detection baseline corrected (filtering optional)
         #self._vector_max_baseline_corrected.append(max(mag_beseline_corrected))   #Z axis (max)
         #self._index_max_baseline_corrected.append(np.argmax(mag_beseline_corrected, axis=0)) # X axis (max position)
         #h=self._index_max_baseline_corrected.append(np.argmax(mag_beseline_corrected, axis=0))
         #self._freq_max_baseline_corrected.append(readFREQ[int(h)])
-        
-        # FITTING/INTERPOLATING - SPLINE
-        xrange = range(len(filtered_mag))
-        freq_range = np.linspace(self._readFREQ[0], self._readFREQ[-1], points)
-        s = UnivariateSpline(xrange, filtered_mag, s= Spline_factor)
-        xs = np.linspace(0, len(filtered_mag)-1, points)
-        mag_result_fit = s(xs)
-        
-        # PARAMETERS FINDER
-# =============================================================================
-#         (index_peak_fit, max_peak_fit, bandwidth_fit,index_f1_fit,index_f2_fit, Qfac_fit)= self.parameters_finder(freq_range, mag_result_fit, percent=0.707)
-# =============================================================================
-# =============================================================================
-#         (index_peak_fit, max_peak_fit, bandwidth_fit, 
-#          index_f1_fit, index_f2_fit, Qfac_fit)= self.parameters_finder(freq_range, mag_result_fit, percent=0.5)
-# =============================================================================
-        # VER 0.1.3
-        # change the parameter finder algorithm
-        # VER 0.1.3
-        # change the parameter finder algorithm  
-# =============================================================================
-#         (index_peak_fit, max_peak_fit, bandwidth_fit, 
-#          index_f1_fit,index_f2_fit, Qfac_fit, frequency_resonance) = self.parameters_finder(freq_range, mag_result_fit, self._overtone_int, percent = 0.7)
-#         
-# =============================================================================
 
+        # FITTING/INTERPOLATING - SPLINE
+        freq_range, mag_result_fit = resonance.spline_fit(self._readFREQ, filtered_mag, Spline_factor, points)
+
+        # PARAMETERS FINDER
         # VER 0.1.4 chenge the bandwith threshold value to the constant value THRESHOLD_DB = 0.3
-        (index_peak_fit, max_peak_fit, bandwidth_fit, 
-         index_f1_fit,index_f2_fit, Qfac_fit, frequency_resonance) = self.parameters_finder(freq_range, mag_result_fit, self._overtone_int, Constants.THRESHOLD_DB)
-        
+        # Shared with MultiscanProcess and with the viewers: see core/resonance.py.
+        band = resonance.find_peak_and_band(freq_range, mag_result_fit, Constants.THRESHOLD_DB)
+        index_peak_fit = band.peak_index
+        frequency_resonance = band.peak_frequency
+        # Qfac has been an alias for the bandwidth since VER 0.1.4; the
+        # dissipation below is the bandwidth in MHz, not the inverse of a Q.
+        Qfac_fit = band.bandwidth
+
+        # Sticky until run() has pushed them to parser6.
+        if band.err_left:
+            print(TAG, 'WARNING: Left value not found')
+            self._err1 = 1
+        if band.err_right:
+            print(TAG, 'WARNING: Right value not found')
+            self._err2 = 1
+
         # BANDWIDTH 70.7% of MAX
         #self._bw3.append(bandwidth_fit)
         # Q FACTOR/DISSIPATION
