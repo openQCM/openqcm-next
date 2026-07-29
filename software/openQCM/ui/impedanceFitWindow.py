@@ -51,6 +51,9 @@ import pyqtgraph as pg
 
 from openQCM.core.constants import Constants
 from openQCM.common.logger import Logger as Log
+# one list of overtone labels for both live views, so the two windows cannot end
+# up naming the same overtone differently
+from openQCM.ui.rawDataView import OVERTONE_NAMES
 
 TAG = "[ImpedanceFit]"
 
@@ -78,44 +81,22 @@ COLUMNS = ("n", "delta [deg]", "masked [%]", "f_s FIT1 [Hz]", "Gamma [Hz]",
            "dGamma [%]", "df_s [Hz]")
 
 
-class ImpedanceFitWindow(QtWidgets.QWidget):
-    """Live BVD circle + Lorentzian fit of the measured admittance."""
+def _overtone_label(idx):
+    return (OVERTONE_NAMES[idx] if idx < len(OVERTONE_NAMES)
+            else "overtone {}".format(2 * idx + 1))
 
-    def __init__(self, worker, overtones, parent=None):
-        super(ImpedanceFitWindow, self).__init__(parent)
-        self.worker = worker
-        self.overtones = int(overtones)
-        self._seq = [None] * self.overtones
-        self._theta = [None] * self.overtones        # rotation cache, per overtone
-        self._last = [None] * self.overtones         # last fit result, per overtone
-        self._cost_ms = 0.0
-        self._paused = False
 
-        self.setWindowTitle("openQCM NEXT — live admittance fit "
-                            "(FIT 1 circle / FIT 2 Lorentzian)")
-        self.resize(1180, 760)
+class _FitTab(QtWidgets.QWidget):
+    """One overtone's three panels: G(f), B(f) beneath it, and the locus.
 
-        # ------------------------------------------------------------- controls
-        self.cboOvertone = QtWidgets.QComboBox()
-        for i in range(self.overtones):
-            self.cboOvertone.addItem("overtone %d  (n = %d)" % (i, 2 * i + 1), i)
-        self.cboOvertone.currentIndexChanged.connect(self._force_redraw)
+    One of these per tab. Building them all up front costs three empty plots per
+    overtone and buys a tab switch that is instant and keeps each overtone's own
+    zoom, which a single shared canvas cannot do.
+    """
 
-        self.chkPause = QtWidgets.QCheckBox("freeze")
-        self.chkPause.setToolTip("stop refitting; the last fit stays on screen")
-        self.chkPause.toggled.connect(self._on_pause)
+    def __init__(self, parent=None):
+        super(_FitTab, self).__init__(parent)
 
-        self.lblStatus = QtWidgets.QLabel("waiting for data")
-        self.lblStatus.setStyleSheet("color: #888;")
-
-        top = QtWidgets.QHBoxLayout()
-        top.addWidget(QtWidgets.QLabel("plot:"))
-        top.addWidget(self.cboOvertone)
-        top.addWidget(self.chkPause)
-        top.addStretch(1)
-        top.addWidget(self.lblStatus)
-
-        # ---------------------------------------------------------------- plots
         self.graph = pg.GraphicsLayoutWidget()
         self.graph.setBackground(Constants.plot_background_color)
 
@@ -170,6 +151,53 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
                                    symbolPen=pg.mkPen('#d62728', width=1.5),
                                    symbolBrush=None, name="f_s on the arc")
 
+        lay = QtWidgets.QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(self.graph)
+
+
+class ImpedanceFitWindow(QtWidgets.QWidget):
+    """Live BVD circle + Lorentzian fit of the measured admittance."""
+
+    def __init__(self, worker, overtones, parent=None):
+        super(ImpedanceFitWindow, self).__init__(parent)
+        self.worker = worker
+        self.overtones = int(overtones)
+        self._seq = [None] * self.overtones
+        self._theta = [None] * self.overtones        # rotation cache, per overtone
+        self._last = [None] * self.overtones         # last fit result, per overtone
+        self._cost_ms = 0.0
+        self._paused = False
+
+        self.setWindowTitle("openQCM NEXT — live admittance fit "
+                            "(FIT 1 circle / FIT 2 Lorentzian)")
+        self.resize(1180, 760)
+
+        # ------------------------------------------------------------- controls
+        self.chkPause = QtWidgets.QCheckBox("freeze")
+        self.chkPause.setToolTip("stop refitting; the last fit stays on screen")
+        self.chkPause.toggled.connect(self._on_pause)
+
+        self.lblStatus = QtWidgets.QLabel("waiting for data")
+        self.lblStatus.setStyleSheet("color: #888;")
+
+        top = QtWidgets.QHBoxLayout()
+        top.addWidget(self.chkPause)
+        top.addStretch(1)
+        top.addWidget(self.lblStatus)
+
+        # ----------------------------------------------------------------- tabs
+        # One tab per overtone, as in Raw Data View, so the two live windows are
+        # navigated the same way. The overtone is no longer picked from a combo
+        # box: the tab bar is the selector.
+        self._tabs = QtWidgets.QTabWidget()
+        self._panes = []
+        for i in range(self.overtones):
+            pane = _FitTab()
+            self._tabs.addTab(pane, _overtone_label(i))
+            self._panes.append(pane)
+        self._tabs.currentChanged.connect(self._force_redraw)
+
         # ---------------------------------------------------------------- table
         self.table = QtWidgets.QTableWidget(self.overtones, len(COLUMNS))
         self.table.setHorizontalHeaderLabels(COLUMNS)
@@ -191,8 +219,10 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
                 it.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
                 self.table.setItem(row, col, it)
             self.table.item(row, 0).setText(str(2 * row + 1))
+        # the table stays a single overview across all overtones -- that is the
+        # point of it -- and clicking a row brings up that overtone's tab
         self.table.clicked.connect(
-            lambda i: self.cboOvertone.setCurrentIndex(i.row()))
+            lambda i: self._tabs.setCurrentIndex(i.row()))
 
         note = QtWidgets.QLabel(
             "Gamma is the FULL width at half maximum (the main window reports the "
@@ -215,7 +245,7 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
 
         lay = QtWidgets.QVBoxLayout(self)
         lay.addLayout(top)
-        lay.addWidget(self.graph, 1)
+        lay.addWidget(self._tabs, 1)
         lay.addWidget(self.table)
         lay.addWidget(note)
 
@@ -248,8 +278,13 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         elif self.isVisible():
             self._timer.start(Constants.IMPEDANCE_FIT_UPDATE_MS)
 
-    def _force_redraw(self):
-        idx = self.cboOvertone.currentData()
+    def _current_index(self):
+        """The overtone on screen: the current tab, or None if there is none."""
+        idx = self._tabs.currentIndex()
+        return idx if 0 <= idx < self.overtones else None
+
+    def _force_redraw(self, *_args):
+        idx = self._current_index()
         if idx is not None:
             self._seq[idx] = None            # make the next tick refit this one
         self._draw_selected()
@@ -370,53 +405,60 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         self.table.item(idx, 2).setForeground(QtGui.QColor(mcol))
 
     def _draw_selected(self):
-        idx = self.cboOvertone.currentData()
+        """Draw the visible tab only.
+
+        Every overtone is refitted on every tick because the table shows them all,
+        but only one set of curves is ever updated: switching tab redraws from the
+        cached fit rather than recomputing it.
+        """
+        idx = self._current_index()
         if idx is None or self._last[idx] is None:
             return
+        pane = self._panes[idx]
         d = self._last[idx]
         f, Y, a1, a2 = d["f"], d["Y"], d["a1"], d["a2"]
 
         # G(f), x as the detuning from the fitted f_s
-        self.curveG.setData(x=f - a2["fs"], y=Y.real * 1e3)
+        pane.curveG.setData(x=f - a2["fs"], y=Y.real * 1e3)
         ff = np.linspace(f[0], f[-1], 400)
-        self.curveG2.setData(x=ff - a2["fs"],
+        pane.curveG2.setData(x=ff - a2["fs"],
                              y=fa.fit2_curve(ff, dict(fit2=a2,
                                              fs_seed=d["fs_seed"])) * 1e3)
         # separators, not runs of spaces: the title is rendered as HTML and
         # collapses them
-        self.pG.setTitle("FIT 2 &nbsp;|&nbsp; f_s = %.1f Hz &nbsp;|&nbsp; "
+        pane.pG.setTitle("FIT 2 &nbsp;|&nbsp; f_s = %.1f Hz &nbsp;|&nbsp; "
                          "Gamma = %.1f Hz (FWHM) &nbsp;|&nbsp; D = %.2f ppm"
                          % (a2["fs"], a2["gamma"], a2["D"] * 1e6))
 
         # B(f), with what FIT 1 predicts for it. The model comes from the circle's
         # own geometry - psi = -2*arctan(x) is the position on the arc - so the
         # dashed line is the same fit shown in the locus, read in the B channel.
-        self.curveBf.setData(x=f - a2["fs"], y=Y.imag * 1e3)
+        pane.curveBf.setData(x=f - a2["fs"], y=Y.imag * 1e3)
         x_det = (ff * ff - a1["fs"] ** 2) / (ff * max(a1["gamma"], 1e-9))
         psi = -2.0 * np.arctan(x_det)
         Bm = (a1["yc"] + a1["r"] * np.sin(psi + a1["theta"])) * 1e3
-        self.curveBfit.setData(x=ff - a2["fs"], y=Bm)
-        self.zeroB.setData(x=[f[0] - a2["fs"], f[-1] - a2["fs"]], y=[0.0, 0.0])
+        pane.curveBfit.setData(x=ff - a2["fs"], y=Bm)
+        pane.zeroB.setData(x=[f[0] - a2["fs"], f[-1] - a2["fs"]], y=[0.0, 0.0])
         # B is where a broken reconstruction shows up: report the largest step
         # between adjacent samples as a fraction of B's own range. A continuous
         # trajectory keeps this at a few per cent.
         Bmea = Y.imag * 1e3
         span = float(np.ptp(Bmea)) or 1.0
         jump = 100.0 * float(np.max(np.abs(np.diff(Bmea)))) / span
-        self.pB.setTitle("FIT 1 &nbsp;|&nbsp; B span = %.3f mS &nbsp;|&nbsp; "
+        pane.pB.setTitle("FIT 1 &nbsp;|&nbsp; B span = %.3f mS &nbsp;|&nbsp; "
                          "largest step between samples = %.1f %% of span"
                          % (span, jump))
 
         # the locus and the fitted circle
-        self.curveB.setData(x=Y.real * 1e3, y=Y.imag * 1e3)
+        pane.curveB.setData(x=Y.real * 1e3, y=Y.imag * 1e3)
         th = np.linspace(0.0, 2.0 * np.pi, 181)
-        self.curveFit.setData(x=(a1["xc"] + a1["r"] * np.cos(th)) * 1e3,
+        pane.curveFit.setData(x=(a1["xc"] + a1["r"] * np.cos(th)) * 1e3,
                               y=(a1["yc"] + a1["r"] * np.sin(th)) * 1e3)
         # psi = 0 on the arc is the fitted resonance; where it lands makes the
         # rotation the fit had to absorb visible
-        self.markFs.setData(x=[(a1["xc"] + a1["r"] * np.cos(a1["theta"])) * 1e3],
+        pane.markFs.setData(x=[(a1["xc"] + a1["r"] * np.cos(a1["theta"])) * 1e3],
                             y=[(a1["yc"] + a1["r"] * np.sin(a1["theta"])) * 1e3])
-        self.pC.setTitle("FIT 1 &nbsp;|&nbsp; R1 = %.2f ohm &nbsp;|&nbsp; "
+        pane.pC.setTitle("FIT 1 &nbsp;|&nbsp; R1 = %.2f ohm &nbsp;|&nbsp; "
                          "rms = %.2f %% of r &nbsp;|&nbsp; theta = %+.1f deg"
                          % (a1["R1"], 100.0 * a1["rms_rel"],
                             np.rad2deg(a1["theta"])))
