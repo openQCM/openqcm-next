@@ -490,6 +490,31 @@ Conventional Commits. Versions are marked by Git tags.
   light / light on dark) via a `_curve_color()` helper, applied at every plot/setData site and
   re-applied on theme switch in `_apply_plot_theme`. The colored multi-overtone
   frequency/dissipation curves were unaffected. Regression from the GUI theme system (Phase 0).
+- **Combo boxes and spin boxes lost the platform chrome** (`ui/widgets.py`, new; `ui/theme.py`,
+  `ui/mainWindow_ui.py`, `ui/mainWindow.py`). Qt gives a `QComboBox` a square arrow button with a hard
+  divider down its right edge, which is what made the dropdowns look dated. `ChevronComboBox` paints a
+  thin chevron instead and the style sheet switches the platform arrow off.
+  - ⚠️ **Painted, not styled.** The pure-QSS route is the CSS-triangle trick on `::down-arrow`;
+    **Qt 5.9.7 does not honour it** — it paints the box, so the arrow comes out as a small dark
+    rectangle. Rendered and looked at on this build before choosing. An image would mean one asset per
+    theme times one per pixel density, regenerated whenever a palette colour moves. Painting costs ten
+    lines, follows the palette and is sharp at any scale.
+  - **Spin boxes** get the same treatment — same dated chrome, same cards, the temperature setpoint
+    among them. Their buttons stay **clickable**: the sheet removes the border and the arrow, not the
+    sub-control. Verified with a synthetic click in the now-invisible up button: 7 becomes 8. All ten
+    widgets converted; the controller-facing API is untouched.
+  - The chevron colours are class attributes on a shared mixin, since a style sheet cannot reach a
+    `paintEvent`; `_apply_theme` sets them from the palette and repaints the three classes explicitly
+    rather than through `QtGui.QWidget` — those widgets are only reachable there because pyqtgraph
+    injects them, and leaning on that is what broke File → Open Log.
+  - ⚠️ **The popup was never reached by the theme.** Its container is a separate top-level window, so a
+    `QComboBox QAbstractItemView` rule in the window's sheet styles the list but not the container:
+    on macOS it kept the platform frame, and its colours did not follow a theme switch. Nothing in the
+    dark palette is white, which gave it away. `theme.popup_qss()` plus
+    `ChevronComboBox._style_popup()` now set the sheet **and** the QPalette on the container and the
+    list directly, re-applied on every `showPopup`. The list also loses its border radius: the popup is
+    an opaque window, so a rounded background leaves the window's own colour at the corners. Whether
+    this removes the macOS frame is unconfirmed — the platform frame is not drawn offscreen.
 - **The status bar said the state three times** (`ui/mainWindow.py`, `ui/mainWindow_ui.py`,
   `ui/theme.py`). openQCM Q-1 v3.0 ends up with **one coloured dot** carrying the machine state and
   plain text beside it; NEXT had a coloured pill behind the status text, a `<font color>` tag inside
