@@ -222,6 +222,30 @@ Conventional Commits. Versions are marked by Git tags.
 - **`core/averaging.py`** (new) — `trim_count(n, proportiontocut)` and `robust_mean(values,
   proportiontocut)`, replacing `scipy.stats.trim_mean` at the six places that average the raw
   frequency, dissipation and temperature buffers. See ### Fixed for why.
+- **Peak Data View** (`ui/peakDataView.py`, new; **Tools → Peak Data View**) — ported from openQCM
+  Q-1 v3.0's `ui/calibrationPlot.py` and extended from Q-1's plots to NEXT's five overtones. It
+  answers one question — is that really a resonance, or did the detector latch onto a bump in the
+  baseline? — by drawing three things together on each channel: the raw full-span sweep as dots, the
+  polynomial baseline subtracted from it, and the corrected curve the peaks were found in, with the
+  detected peaks marked and labelled by harmonic order.
+  - A **snapshot, not a live view**, and that is why reading files is right here where it would be
+    wrong in Raw Data View: Peak Detection runs once and writes the two files, there is nothing in
+    memory to read, and those files are the record of the calibration in use. Loaded on open, never
+    polled. The newer of the 5 MHz and 10 MHz calibration files wins, since both can exist from
+    different sessions.
+  - It reconstructs the **baseline** with `Constants.BASELINE_POLY_ORDER` on the same arrays and the
+    same estimator the detection used — only the peak frequencies are stored, not the correction —
+    verified byte-identical to the previous literal `8`.
+  - It also reconstructs the **phase peak**, because `PeakFrequencies.txt` holds the amplitude peak
+    **twice** (`np.column_stack([f, f])` in `Calibration.py`), not amplitude and phase. Re-derived as
+    the maximum of the corrected phase within 200 kHz of each amplitude peak and drawn as a star
+    beside the circle marking where the amplitude peak falls in the phase channel. Their
+    disagreement is the diagnostic: −500, −500, +500, −2500, −2000 Hz on the sensor at hand.
+  - Grid off and the shared right-click menu; `setClipToView` plus **peak** downsampling, because
+    each channel is 100001 samples and panning a full-span sweep is otherwise visibly slow — `peak`
+    mode keeps the extremes, which are exactly what must not be smoothed away here. A missing or
+    unreadable file is reported rather than raised, and a window that would only show an error is not
+    opened.
 - **`ui/plotMenu.py`** (new) — one implementation of the plot right-click menu (Auto-scale, Reset
   zoom, pan/select, Show/Hide grid, Export) and of the grid state, which pyqtgraph offers no
   reliable read-back of. The decision to switch pyqtgraph's own menu off was made once and
@@ -392,6 +416,14 @@ Conventional Commits. Versions are marked by Git tags.
     with the baseline instead of the peak.
   - Four locals `parameters_finder` returned were never read (`max_peak_fit`, `bandwidth_fit`,
     `index_f1_fit`, `index_f2_fit`); they are gone with the call.
+- **The baseline polynomial order stops being a literal** — `np.polyfit`'s order for the full-span
+  calibration baseline was a bare `8` in **seven** call sites (both `baseline_coeffs`, both channels
+  of the peak detection, and the offline sweep viewer). Now `Constants.BASELINE_POLY_ORDER`, because
+  Peak Data View has to correct the baseline the same way the detection did and a viewer with its own
+  copy of that `8` is a viewer that can correct a baseline the instrument never used. Value
+  unchanged, so no measurement moves. ⚠️ Still duplicated and not addressed: the three-line
+  `polyfit` itself exists as `Multiscan.baseline_correction`, `Serial.baseline_correction` and
+  `Calibration.baseline_estimation`.
 - ⚠️ **DEV ONLY — accumulation warm-up shortened to 3 sweeps** (`Constants.environment`, 10 → 3)
   so test runs reach steady state almost immediately. **Must go back to 10 before any production
   build.** The reason is now **purely metrological** — how many sweeps go into each logged point,
