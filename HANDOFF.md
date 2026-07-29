@@ -2,7 +2,7 @@
 
 > Technical starting point to continue development of the software and of the
 > `impedance-analysis` branch. Working language: Italian in chat, English in the repo.
-> Last updated: 2026-07-28.
+> Last updated: 2026-07-29.
 
 ---
 
@@ -153,12 +153,45 @@ Serial/Multiscan/Calibration process  →  Worker (queues → ring buffers)  →
 ```
 
 Package `software/openQCM/`:
-- `core/`: `constants.py` (config), `worker.py` (multiprocessing, ring buffers), `ringBuffer.py`
+- `core/`: `constants.py` (config), `worker.py` (multiprocessing, ring buffers), `ringBuffer.py`,
+  `resonance.py`, `averaging.py`
 - `processors/`: `Serial.py` (SerialProcess), `Multiscan.py` (multi-overtone; conductance on the impedance branch), `Calibration.py` (peak detection), `Parser.py`
 - `ui/`: `mainWindow.py` (controller, ~4000 lines), `mainWindow_ui.py` (**programmatic UI builder**,
-  GUI redesign R1; the old generated `mainWindow_new_ui.py` stays as reference only), `theme.py`, `popUp.py`
+  GUI redesign R1; the old generated `mainWindow_new_ui.py` stays as reference only), `theme.py`,
+  `popUp.py`, `rawDataView.py`, `peakDataView.py`, `dataLogView.py`, `plotMenu.py`, `widgets.py`,
+  **`impedanceFitWindow.py`** (branch only)
+- `common/`: `fileStorage.py`, `logger.py`, `architecture.py`, `switcher.py`, `sweepDump.py`
 - `data_view/`: standalone CSV viewer
 - Entry point: `run.py` → `openQCM.app.OPENQCM().run()`
+
+### The shared modules are documented on `main`, not here
+
+`core/resonance.py`, `core/averaging.py`, `ui/plotMenu.py`, `ui/widgets.py`, `common/sweepDump.py` and
+the three auxiliary views all arrived from `main` on 2026-07-29. **Their rules live in `main`'s
+`HANDOFF.md` §1 and §3** — the band may only be computed in `resonance.py`, the chevrons are painted
+because Qt 5.9.7 ignores the CSS-triangle trick, a combo popup is two widgets and the container is not
+reached by the window's style sheet, and so on. Documentation about shared code does not travel, so it
+is not repeated here; read it in the other worktree.
+
+What is specific to this branch:
+
+- **`elaborate_multi` is where the two lines of work meet.** The impedance work added **four** more
+  Savitzky-Golay call sites beyond `main`'s one (the phase, `Vmag_corr`, `Vphase`, the raw `Vmag`); all
+  five go through `resonance.savitzky_golay`. The magnitude-path band is computed only for the error
+  flags: what gets logged is the conductance-derived pair, so `index_peak_fit`,
+  `frequency_resonance` and `Qfac_fit` are dead here.
+- **Two extra baseline sites** read `Constants.BASELINE_POLY_ORDER` that `main` could not know about:
+  `baseline_coeffs_Vmag()` in `Multiscan.py` and the same V_MAG baseline in
+  `sweep_data/plot_conductance.py`.
+- **The sweep dump writes a second series** here, `g<n>.txt` with the divider's raw `V_MAG`/`V_PHS`.
+  It goes through the shared module via its `prefix` parameter, which was added on `main` first
+  (`0b6c6c3`) precisely so this branch needs no copy of `sweepDump.py`.
+- **`ui/impedanceFitWindow.py`** is branch-only: one tab per overtone like Raw Data View, all overtones
+  refitted per tick because the table shows them all, only the visible tab drawn.
+- ⚠️ **`sweep_data/plot_conductance.py` still has its own `savitzky_golay`.** It differs from
+  `resonance.py` only in its docstring and the wording of its exception messages — the numerical body
+  is identical, so it is a benign duplicate, unlike the `plot_sweep_spline.py` copy that was removed.
+  Worth folding in next time that file is touched.
 
 ## 2. Branches
 
