@@ -147,7 +147,25 @@ class Constants:
 # =============================================================================
     
     # VER 0.1.6 temporary 4 samples for saving time in dev mode
-    environment = 10 # 4 samples in developemtn mode just for saving time chenage
+# =============================================================================
+#     environment = 10 # 4 samples in developemtn mode just for saving time chenage
+# =============================================================================
+
+    # ##################################################################### #
+    # DEV ONLY -- RESTORE environment = 10 BEFORE ANY PRODUCTION BUILD.     #
+    # ##################################################################### #
+    # Shortened so a test run leaves warm-up almost immediately. The reason to
+    # restore it is now purely metrological -- how many sweeps get averaged into
+    # each logged point, and how long the instrument takes to settle.
+    #
+    # It used to be more than that: with scipy's trim_mean, which cuts
+    # int(proportiontocut * N) samples per tail, any N below ten cut nothing and
+    # the outlier rejection silently became a plain arithmetic mean. That
+    # dependency is gone -- core/averaging.py keeps a floor of one sample per
+    # tail at every buffer size -- so shortening the buffer no longer costs
+    # robustness. Measured on the replay with one 40 Hz bad sweep: at N=3 the old
+    # average was 12 Hz off, the new one lands on the median.
+    environment = 3
     
     # VER 0.1.6 reduce the real-time chart history length to 8192 samples 
     ring_buffer_samples = 8192 # 16384
