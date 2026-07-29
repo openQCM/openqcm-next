@@ -201,6 +201,9 @@ class Ui_MainWindow(object):
         # live view, reads the acquisition buffers in memory
         self.actionRawDataView = QtWidgets.QAction("Raw Data View", MainWindow)
         self.actionRawDataView.setObjectName("actionRawDataView")
+        # snapshot of the last Peak Detection, read from the calibration files
+        self.actionPeakDataView = QtWidgets.QAction("Peak Data View", MainWindow)
+        self.actionPeakDataView.setObjectName("actionPeakDataView")
         # the older viewer, which reads the sweep dump under sweep_data/
         self.actionRaw_Data = QtWidgets.QAction("Raw Data (from sweep files)",
                                                 MainWindow)
@@ -216,6 +219,7 @@ class Ui_MainWindow(object):
         self.actionImpedance_Fit = QtWidgets.QAction("Impedance Fit (live)", MainWindow)
         self.actionImpedance_Fit.setObjectName("actionImpedance_Fit")
         self.menuTools.addAction(self.actionRawDataView)
+        self.menuTools.addAction(self.actionPeakDataView)
         self.menuTools.addAction(self.actionRaw_Data)
         self.menuTools.addAction(self.actionConductance_Data)
         self.menuTools.addAction(self.actionImpedance_Fit)
