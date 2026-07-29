@@ -5,6 +5,26 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — Datalog View (2026-07-29)
+
+Four more cherry-picks, all clean: `dd5fb37`, `badd438`, `129471d`, `c0a1a92`. Details in `main`'s
+CHANGELOG.
+
+- **Datalog View** (`ui/dataLogView.py`, **File → Open Log…**, Ctrl/Cmd+O): opens a datalog and shows
+  frequency and dissipation as the shift from a **movable reference cursor**, with a control panel
+  carrying the reference readouts and the overtone pills, and temperature absolute in its own small
+  panel. Verified here against this worktree's **own** 20 logs — all parse, and the largest
+  five-overtone one gives F1..F9 pills, readouts equal to the mean of five samples at the cursor, and
+  a cursor that stays in step across both panels.
+- `QDialog` joins the theme's window-background rule, so Raw Data View, Peak Data View and Datalog
+  View follow light/dark instead of leaving a platform-coloured frame around dark canvases.
+- The Open Log handler imports `QFileDialog` explicitly: `mainWindow.py` has no `QtWidgets`, and the
+  widgets are reachable as `QtGui.*` only because pyqtgraph injects them there.
+
+⚠️ **Not ported:** `da81e2b`, which restores `Calibration.py`'s CRLF endings after a script normalised
+them on `main`. The same mistake was caught here before committing, so this branch's file never lost
+them and the patch has nothing to apply.
+
 ### Carried from `main` — Peak Data View (2026-07-29)
 
 Two more cherry-picks, `8c40c58` and `c06963f`. Details in `main`'s CHANGELOG; what is specific here:
