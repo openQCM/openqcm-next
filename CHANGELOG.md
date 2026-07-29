@@ -490,6 +490,16 @@ Conventional Commits. Versions are marked by Git tags.
   light / light on dark) via a `_curve_color()` helper, applied at every plot/setData site and
   re-applied on theme switch in `_apply_plot_theme`. The colored multi-overtone
   frequency/dissipation curves were unaffected. Regression from the GUI theme system (Phase 0).
+- **The fundamental was called the 0th harmonic in the main window** (`ui/mainWindow_ui.py`,
+  `core/constants.py`) — pills, both readout cards, the hidden legacy radios and the plot legend all
+  read `F0` / `0th`, while Datalog View names overtones by harmonic order. The same resonance read
+  `F0` in one window and `F1` in another. Now `F1` / `D1` / `1st` everywhere it is displayed.
+  ⚠️ **Displayed text only**: the widget names keep the historical `F0`, because the controller reaches
+  `radioBtn_F0`, `overtoneBtn_F0`, `label_F0_col`, `F0` and `D0` as strings and renaming them is a
+  separate job that could break a lookup no import would catch. The loops now carry identifier and
+  label separately. Checked that nothing parses the displayed text back into an index. The log
+  filename keeps its `_fundamental` suffix — changing it would split comparability with every log
+  already on disk.
 - **The auxiliary views did not follow the theme** (`ui/theme.py`). The window-background rule
   covered `QMainWindow` and `#centralwidget` only, and the three auxiliary views are `QDialog`s, so
   their pyqtgraph canvases went dark while the frame around them stayed at the platform default —
