@@ -391,6 +391,8 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.actionLog_Data.triggered.connect(self._log_data_plot)
         self.ui.actionRaw_Data.triggered.connect(self._raw_data_plot)
         self.ui.actionRawDataView.triggered.connect(self._open_raw_data_view)
+        self.ui.actionPeakDataView.triggered.connect(self._open_peak_data_view)
+        self._peak_data_view = None
 
         # The file-based viewer only has something to read when the sweep dump is
         # on, and the dump is a development tool that is off in release. Hide the
@@ -1428,8 +1430,9 @@ class MainWindow(QtGui.QMainWindow):
                 Log.i(TAG, "Window closed without stopping the capture, application will stop...")
                 self.stop()
 
-            # take the live Raw Data View down with the window
+            # take the auxiliary views down with the window
             self._close_raw_data_view()
+            self._close_peak_data_view()
 
             # Restore stdout/stderr before the window is destroyed
             self._restore_system_log()
@@ -2337,6 +2340,50 @@ class MainWindow(QtGui.QMainWindow):
 
     def _forget_raw_data_view(self, *_args):
         self._raw_data_view = None
+
+    # Peak Data View: a snapshot of the last Peak Detection, read from the
+    # calibration files. Not a live view -- Peak Detection runs once and writes
+    # them -- so it is loaded on open and never polled.
+    def _open_peak_data_view(self):
+        from openQCM.ui.peakDataView import (PeakDataViewDialog,
+                                             latest_calibration_path)
+
+        if self._peak_data_view is not None:
+            self._peak_data_view.raise_()
+            self._peak_data_view.activateWindow()
+            return
+
+        calibration = latest_calibration_path()
+        peaks = Constants.cvs_peakfrequencies_path
+        if calibration is None or not os.path.exists(peaks):
+            PopUp.warning(self, "Peak Data View",
+                          "No calibration data found.\n"
+                          "Run Peak Detection first.")
+            return
+
+        dialog = PeakDataViewDialog(theme_name=self._theme, parent=self)
+        if not dialog.load(calibration, peaks):
+            # the dialog says what went wrong in its own label; a window showing
+            # only an error message is worse than none
+            PopUp.warning(self, "Peak Data View", dialog.info.text())
+            dialog.deleteLater()
+            return
+        dialog.destroyed.connect(self._forget_peak_data_view)
+        self._peak_data_view = dialog
+        dialog.show()
+
+    def _forget_peak_data_view(self, *_args):
+        self._peak_data_view = None
+
+    def _close_peak_data_view(self):
+        dialog = self._peak_data_view
+        self._peak_data_view = None
+        if dialog is None:
+            return
+        try:
+            dialog.close()
+        except RuntimeError:
+            pass
 
     def _close_raw_data_view(self):
         """Called from the main closeEvent; the dialog may already be gone."""
