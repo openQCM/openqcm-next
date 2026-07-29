@@ -41,6 +41,12 @@ REFRESH_MS = 300
 # exists to prevent.
 MAX_FIT_POINTS = 200000
 
+# First framing of a tab: how much either side of the peak to show, as a
+# multiple of the measured band, with a floor for the case where the band comes
+# out implausibly narrow.
+BAND_ZOOM_FACTOR = 20.0
+MIN_ZOOM_HALF_SPAN_HZ = 200.0
+
 # Savitzky-Golay window and spline smoothing factor per overtone, read from the
 # very constants the acquisition reads (getMultiscanParameters_5Mhz/_10Mhz).
 # Today every entry resolves to Constants.SG_WINDOW_SIZE / SPLINE_FACTOR, but
@@ -168,6 +174,25 @@ class _OvertoneTab(QtWidgets.QWidget):
         self.phase = self.plt_phase.plot(
             pen=pg.mkPen(color=colour, width=Constants.plot_line_width))
 
+        # set once, on the first fit, then never again: see frame_once()
+        self._framed = False
+
+    def frame_once(self, band):
+        """Frame the resonance the first time this tab has a band to show.
+
+        At full sweep scale the band is a sliver -- 62 Hz inside an 18 kHz span
+        on a typical sensor -- so the overlay that this view exists to show would
+        be invisible until the user zoomed in by hand. The range is set only on
+        the first fit: after that the axes belong to whoever is looking, and a
+        view that re-framed itself every 300 ms would be unusable.
+        """
+        if self._framed:
+            return
+        half = max(BAND_ZOOM_FACTOR * band.bandwidth, MIN_ZOOM_HALF_SPAN_HZ)
+        self.plt_amp.setXRange(band.peak_frequency - half,
+                               band.peak_frequency + half, padding=0)
+        self._framed = True
+
     def plots(self):
         return (self.plt_amp, self.plt_phase)
 
@@ -294,6 +319,7 @@ class RawDataViewDialog(QtWidgets.QDialog):
         pane.band.setVisible(True)
         pane.threshold.setValue(level)
         pane.threshold.setVisible(True)
+        pane.frame_once(band)
 
         truncated = ""
         if band.err_left or band.err_right:
