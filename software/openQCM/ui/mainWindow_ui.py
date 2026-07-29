@@ -23,6 +23,9 @@ import os
 from PyQt5 import QtCore, QtGui, QtWidgets
 from pyqtgraph import GraphicsLayoutWidget
 
+from openQCM.ui.widgets import (ChevronComboBox, ChevronSpinBox,
+                                ChevronDoubleSpinBox)
+
 # Application icon, resolved absolutely from this module (robust to the launch
 # working directory — the old relative "favicon.png" only loaded from cwd).
 APP_ICON = os.path.normpath(
@@ -253,7 +256,7 @@ class Ui_MainWindow(object):
         self.label_COM_status.setSizePolicy(QtWidgets.QSizePolicy.Ignored,
                                             QtWidgets.QSizePolicy.Preferred)
         self.label_COM_status.setMinimumWidth(0)
-        self.cBox_Port = QtWidgets.QComboBox(self.groupConnection)
+        self.cBox_Port = ChevronComboBox(self.groupConnection)
         self.cBox_Port.setObjectName("cBox_Port")
         self.cBox_Port.setSizeAdjustPolicy(
             QtWidgets.QComboBox.AdjustToMinimumContentsLength)
@@ -284,10 +287,10 @@ class Ui_MainWindow(object):
         self.gridSetup = QtWidgets.QGridLayout(self.groupSetup)
         self.gridSetup.setObjectName("gridSetup")
         self._label(self.groupSetup, "info11", "Operation mode")
-        self.cBox_Source = QtWidgets.QComboBox(self.groupSetup)
+        self.cBox_Source = ChevronComboBox(self.groupSetup)
         self.cBox_Source.setObjectName("cBox_Source")
         self._label(self.groupSetup, "l2", "Frequency (single mode)")
-        self.cBox_Speed = QtWidgets.QComboBox(self.groupSetup)
+        self.cBox_Speed = ChevronComboBox(self.groupSetup)
         self.cBox_Speed.setObjectName("cBox_Speed")
         # kept for structural compatibility (hidden separator of the old grid)
         self.line = self._hline(self.groupSetup, "line")
@@ -353,7 +356,7 @@ class Ui_MainWindow(object):
         self.gridLayout_5.setObjectName("gridLayout_5")
         self._label(self.sidebarContainer, "sampling_time_lbl",
                     "Datalog Sampling Time (sec) ")
-        self.cBox_sampling_time = QtWidgets.QComboBox(self.sidebarContainer)
+        self.cBox_sampling_time = ChevronComboBox(self.sidebarContainer)
         self.cBox_sampling_time.setObjectName("cBox_sampling_time")
         self._label(self.sidebarContainer, "time_lbl", "Time elapsed (sec)")
         self._label(self.sidebarContainer, "time_indicator", "0")
@@ -514,7 +517,7 @@ class Ui_MainWindow(object):
         self.pButton_Temperature_Set = QtWidgets.QPushButton("T SET",
                                                              self.tab)
         self.pButton_Temperature_Set.setObjectName("pButton_Temperature_Set")
-        self.doubleSpinBox_Temperature = QtWidgets.QDoubleSpinBox(self.tab)
+        self.doubleSpinBox_Temperature = ChevronDoubleSpinBox(self.tab)
         self.doubleSpinBox_Temperature.setObjectName("doubleSpinBox_Temperature")
         self.doubleSpinBox_Temperature.setDecimals(0)
         self.doubleSpinBox_Temperature.setMinimum(5.0)
@@ -557,27 +560,27 @@ class Ui_MainWindow(object):
         self.gridLayout_3.setObjectName("gridLayout_3")
         self.pButton_PID_Set = QtWidgets.QPushButton("PID Set", self.tab_2)
         self.pButton_PID_Set.setObjectName("pButton_PID_Set")
-        self.cBox_PID = QtWidgets.QComboBox(self.tab_2)
+        self.cBox_PID = ChevronComboBox(self.tab_2)
         self.cBox_PID.setObjectName("cBox_PID")
         self._label(self.tab_2, "label_Cycling_Time", "Cycling Time [msec]")
-        self.spinBox_Cycling_Time = QtWidgets.QSpinBox(self.tab_2)
+        self.spinBox_Cycling_Time = ChevronSpinBox(self.tab_2)
         self.spinBox_Cycling_Time.setObjectName("spinBox_Cycling_Time")
         self.spinBox_Cycling_Time.setMinimum(1)
         self.spinBox_Cycling_Time.setMaximum(1000)
         self.spinBox_Cycling_Time.setValue(50)
         self._label(self.tab_2, "label_P_Share", "P Share [mA/K]")
-        self.spinBox_P_Share = QtWidgets.QSpinBox(self.tab_2)
+        self.spinBox_P_Share = ChevronSpinBox(self.tab_2)
         self.spinBox_P_Share.setObjectName("spinBox_P_Share")
         self.spinBox_P_Share.setMaximum(100000)
         self.spinBox_P_Share.setValue(1000)
         self._label(self.tab_2, "label_I_Share", "I Share [mA/(K*sec)]")
-        self.spinBox_I_Share = QtWidgets.QSpinBox(self.tab_2)
+        self.spinBox_I_Share = ChevronSpinBox(self.tab_2)
         self.spinBox_I_Share.setObjectName("spinBox_I_Share")
         self.spinBox_I_Share.setMaximum(100000)
         self.spinBox_I_Share.setSingleStep(0)
         self.spinBox_I_Share.setValue(200)
         self._label(self.tab_2, "label_D_Share", "D Share [(mA*s)/K]")
-        self.spinBox_D_Share = QtWidgets.QSpinBox(self.tab_2)
+        self.spinBox_D_Share = ChevronSpinBox(self.tab_2)
         self.spinBox_D_Share.setObjectName("spinBox_D_Share")
         self.spinBox_D_Share.setMaximum(100000)
         self.spinBox_D_Share.setValue(100)

@@ -133,12 +133,52 @@ def qss(p):
         padding: 2px 8px; margin: 2px 6px; }}
 
     QComboBox, QSpinBox, QDoubleSpinBox {{ background: {field_bg}; color: {field_text};
-        border: 1px solid {border}; border-radius: 6px; padding: 4px 8px;
+        border: 1px solid {border}; border-radius: 8px; padding: 6px 10px;
         min-height: 20px; }}
     QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled {{
-        background: {disabled_bg}; color: {disabled_text}; }}
+        background: {disabled_bg}; color: {disabled_text};
+        border-color: {disabled_bg}; }}
+
+    /* Combo boxes: the platform arrow is a square button with a hard divider,
+       which is the dated part. It is switched off here and ui/widgets.py's
+       ChevronComboBox paints a thin chevron in its place -- Qt 5.9.7 ignores the
+       CSS-triangle trick on ::down-arrow, so a painted glyph is the only route
+       that needs no per-theme, per-density image asset. The right padding leaves
+       room for it. */
+    QComboBox {{ padding-right: 30px; }}
+    QComboBox:hover {{ border-color: {muted}; }}
+    QComboBox:focus, QComboBox:on {{ border-color: {accent}; }}
+    QComboBox::drop-down {{ width: 0px; border: none; background: transparent; }}
+    QComboBox::down-arrow {{ image: none; width: 0px; height: 0px; }}
+
+    /* Spin boxes get the same treatment, since they sit in the same cards and the
+       platform up/down pair is the same dated chrome. The buttons stay CLICKABLE:
+       only their border and arrow are removed, so pressing where the painted
+       glyphs are still steps the value. */
+    QSpinBox, QDoubleSpinBox {{ padding-right: 26px; }}
+    QSpinBox:hover, QDoubleSpinBox:hover {{ border-color: {muted}; }}
+    QSpinBox:focus, QDoubleSpinBox:focus {{ border-color: {accent}; }}
+    QSpinBox::up-button, QDoubleSpinBox::up-button,
+    QSpinBox::down-button, QDoubleSpinBox::down-button {{
+        subcontrol-origin: border; width: 22px; border: none;
+        background: transparent; }}
+    QSpinBox::up-button, QDoubleSpinBox::up-button {{
+        subcontrol-position: top right; }}
+    QSpinBox::down-button, QDoubleSpinBox::down-button {{
+        subcontrol-position: bottom right; }}
+    QSpinBox::up-arrow, QDoubleSpinBox::up-arrow,
+    QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
+        image: none; width: 0px; height: 0px; }}
+
+    /* the open list */
     QComboBox QAbstractItemView {{ background: {panel}; color: {text};
+        border: 1px solid {border}; border-radius: 8px; padding: 4px;
+        outline: none;
         selection-background-color: {accent}; selection-color: {accent_text}; }}
+    QComboBox QAbstractItemView::item {{ min-height: 24px; padding: 3px 8px;
+        border-radius: 5px; }}
+    QComboBox QAbstractItemView::item:selected {{ background: {accent};
+        color: {accent_text}; }}
 
     /* Live readout values (mockup look: borderless bold text) */
     QLabel#F0, QLabel#F3, QLabel#F5, QLabel#F7, QLabel#F9,
