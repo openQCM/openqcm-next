@@ -54,6 +54,7 @@ from openQCM.common.logger import Logger as Log
 # one list of overtone labels for both live views, so the two windows cannot end
 # up naming the same overtone differently
 from openQCM.ui.rawDataView import OVERTONE_NAMES
+from openQCM.ui.plotMenu import PlotMenu
 
 TAG = "[ImpedanceFit]"
 
@@ -101,7 +102,6 @@ class _FitTab(QtWidgets.QWidget):
         self.graph.setBackground(Constants.plot_background_color)
 
         self.pG = self.graph.addPlot(row=0, col=0, title="conductance G(f) — FIT 2")
-        self.pG.showGrid(x=True, y=True, alpha=0.2)
         self.pG.setLabel('bottom', 'f - f_s', units='Hz')
         self.pG.setLabel('left', 'G', units='mS')
         self.pG.addLegend(offset=(-10, 10))
@@ -118,7 +118,6 @@ class _FitTab(QtWidgets.QWidget):
         # fitted circle looking fine.
         self.pB = self.graph.addPlot(row=1, col=0,
                                      title="susceptance B(f) — FIT 1")
-        self.pB.showGrid(x=True, y=True, alpha=0.2)
         self.pB.setLabel('bottom', 'f - f_s', units='Hz')
         self.pB.setLabel('left', 'B', units='mS')
         self.pB.setXLink(self.pG)
@@ -136,7 +135,6 @@ class _FitTab(QtWidgets.QWidget):
         # the circle a dot in the middle. A roughly square box avoids that.
         self.pC = self.graph.addPlot(row=0, col=1, rowspan=2,
                                      title="admittance plane — FIT 1")
-        self.pC.showGrid(x=True, y=True, alpha=0.2)
         self.pC.setLabel('bottom', 'G', units='mS')
         self.pC.setLabel('left', 'B', units='mS')
         self.pC.setAspectLocked(True)
@@ -151,9 +149,17 @@ class _FitTab(QtWidgets.QWidget):
                                    symbolPen=pg.mkPen('#d62728', width=1.5),
                                    symbolBrush=None, name="f_s on the arc")
 
+        # grid off by default, like every other plot panel in this GUI; it is
+        # turned on per plot from the right-click menu
+        for plot in self.plots():
+            plot.showGrid(x=False, y=False)
+
         lay = QtWidgets.QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.addWidget(self.graph)
+
+    def plots(self):
+        return (self.pG, self.pB, self.pC)
 
 
 class ImpedanceFitWindow(QtWidgets.QWidget):
@@ -191,11 +197,15 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         # navigated the same way. The overtone is no longer picked from a combo
         # box: the tab bar is the selector.
         self._tabs = QtWidgets.QTabWidget()
+        # same right-click menu as the other plot panels, from ui/plotMenu.py:
+        # Auto-scale, Reset zoom, pan/select, Show/Hide grid, Export
+        self._menu = PlotMenu(self)
         self._panes = []
         for i in range(self.overtones):
             pane = _FitTab()
             self._tabs.addTab(pane, _overtone_label(i))
             self._panes.append(pane)
+            self._menu.attach(pane.plots())
         self._tabs.currentChanged.connect(self._force_redraw)
 
         # ---------------------------------------------------------------- table
