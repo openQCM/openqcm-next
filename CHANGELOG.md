@@ -7,9 +7,9 @@ Conventional Commits. Versions are marked by Git tags.
 
 ### Carried from `main` by cherry-pick (2026-07-29)
 
-Eight commits, one at a time, `9694d89`..`b6061b0` on `main`. The full rationale and the measured
-evidence are in `main`'s CHANGELOG; what matters here is how each one met the impedance work. The
-per-commit reconciliation notes are in HANDOFF §2, "ported with conflict resolution".
+Nine commits, one at a time, `9694d89`..`b6061b0` plus `92ce817` on `main`. The full rationale and
+the measured evidence are in `main`'s CHANGELOG; what matters here is how each one met the impedance
+work. The per-commit reconciliation notes are in HANDOFF §2, "ported with conflict resolution".
 
 - **`core/resonance.py`** — the filtering/fitting chain and the band walk in one module, imported by
   both acquisition processes and by every viewer. `savitzky_golay` and `parameters_finder` had three
@@ -24,7 +24,12 @@ per-commit reconciliation notes are in HANDOFF §2, "ported with conflict resolu
 - **`core/averaging.py`** — `robust_mean` replaces `scipy.stats.trim_mean` at the six averaging
   sites. `trim_mean` cut `int(proportiontocut * N)` per tail, which is zero below N=10, so outlier
   rejection was an accident of `Constants.environment == 10` rather than a property of the average.
-  Bit-identical for N ≥ 10; `environment` stays 10 here.
+  Bit-identical for N ≥ 10.
+- ⚠️ **DEV ONLY — `Constants.environment` 10 → 3** so test runs reach steady state almost
+  immediately. **Restore 10 before any production build**, on this branch as well as on `main`. The
+  reason is now purely metrological — how many sweeps go into each logged point — because
+  `core/averaging.py` removed the robustness dependency. Note the values logged at N=3 differ from
+  those logged at N=10 by construction: fewer sweeps averaged.
 - **`ui/rawDataView.py`** — Tools → **Raw Data View**: live amplitude and phase sweep per overtone,
   five tabs, with the peak, the dissipation band and the threshold taken from `resonance.py` at full
   sample resolution. Pull model with its own timer; reads memory only, never a file.
