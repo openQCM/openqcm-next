@@ -127,7 +127,11 @@ class Constants:
     # VER 0.1.6G hex palette for the conductance plots (matplotlib, not pyqtgraph)
     plot_color_multi_g =  ['#0000FF', '#4663FF', '#7AA0FF', '#ADB6FF', '#FFE4FF']
                          
-    name_legend = ["0th", "3rd", "5th", "7th", "9th"]                        
+    # plot-legend text per overtone. The fundamental is the FIRST harmonic;
+    # it read "0th" until 2026-07-29. Read from here everywhere, including
+    # the removeItem calls that take the legend entry by name, so the value
+    # can change but must stay a single source.
+    name_legend = ["1st", "3rd", "5th", "7th", "9th"]                        
     
     overtone_dummy = [0, 1, 2, 3, 4]
     
