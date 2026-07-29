@@ -298,7 +298,13 @@ class Ui_MainWindow(object):
         # frequency / dissipation readouts moved out of the sidebar into
         # horizontal cards above their plots (see _build_readout_card, called
         # from _build_center). Keep the overtone list for the selector below.
+        # The widget names keep the historical F0 for the fundamental: the
+        # controller reaches radioBtn_F0 / overtoneBtn_F0 / F0 / D0 by string, so
+        # renaming them is a separate job with nothing to show for it. What the
+        # user reads is the label below, and the fundamental is the FIRST
+        # harmonic, not the zeroth.
         overtones = ("F0", "F3", "F5", "F7", "F9")
+        overtone_labels = ("F1", "F3", "F5", "F7", "F9")
 
         # --- overtone selector row (gridLayout_D) ----------------------- #
         self.gridLayout_D = QtWidgets.QGridLayout()
@@ -309,9 +315,9 @@ class Ui_MainWindow(object):
         # tight row so the 5 chips take the least horizontal room possible
         self.horizontalLayout_2.setSpacing(3)
         self.horizontalLayout_2.setContentsMargins(0, 0, 0, 0)
-        radio_texts = ("0th", "3rd", "5th", "7th", "9th")
+        radio_texts = ("1st", "3rd", "5th", "7th", "9th")
         self.overtone_buttons = []
-        for name, rtext in zip(overtones, radio_texts):
+        for name, label, rtext in zip(overtones, overtone_labels, radio_texts):
             # legacy radio: hidden, still the source of truth for scan_selector
             radio = QtWidgets.QRadioButton(rtext, self.sidebarContainer)
             radio.setObjectName("radioBtn_" + name)
@@ -320,12 +326,12 @@ class Ui_MainWindow(object):
             setattr(self, "radioBtn_" + name, radio)
             self.horizontalLayout_2.addWidget(radio)
             # quick-select proxy button (Phase 3b)
-            btn = QtWidgets.QPushButton(name, self.sidebarContainer)
+            btn = QtWidgets.QPushButton(label, self.sidebarContainer)
             btn.setObjectName("overtoneBtn_" + name)
             btn.setProperty("overtoneBtn", True)
             btn.setCheckable(True)
             btn.setFixedHeight(24)
-            btn.setToolTip("Overtone " + name)
+            btn.setToolTip("Overtone " + label)
             setattr(self, "overtoneBtn_" + name, btn)
             self.horizontalLayout_2.addWidget(btn)
             self.overtone_buttons.append(btn)
@@ -594,7 +600,10 @@ class Ui_MainWindow(object):
         card.setObjectName(obj_name)
         row = QtWidgets.QHBoxLayout(card)
         row.setSpacing(14)
-        for n in ("0", "3", "5", "7", "9"):
+        # n names the widget (F0..F9, label_F0_col..), harmonic is what is read:
+        # the fundamental is the 1st harmonic and the card now says so.
+        for n, harmonic in zip(("0", "3", "5", "7", "9"),
+                               ("1", "3", "5", "7", "9")):
             cell = QtWidgets.QWidget(card)
             ch = QtWidgets.QHBoxLayout(cell)
             ch.setContentsMargins(0, 0, 0, 0)
@@ -603,7 +612,7 @@ class Ui_MainWindow(object):
             sw.setFixedSize(11, 11)
             ch.addWidget(sw)
             ch.addWidget(self._label(cell, "label_%s%s" % (kind, n),
-                                     "%s%s" % (kind, n)))
+                                     "%s%s" % (kind, harmonic)))
             ch.addWidget(self._label(cell, "%s%s" % (kind, n), "0"))
             row.addWidget(cell)
         row.addStretch(1)
