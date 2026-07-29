@@ -17,7 +17,8 @@ Serial/Multiscan/Calibration process  →  Worker (queues → ring buffers)  →
 
 Package `software/openQCM/`:
 - `core/`: `constants.py` (config), `worker.py` (multiprocessing, ring buffers), `ringBuffer.py`,
-  **`resonance.py`** (peak detection, dissipation band, SG filter + spline — see below)
+  **`resonance.py`** (peak detection, dissipation band, SG filter + spline — see below),
+  **`averaging.py`** (robust averaging of the ring buffers — see below)
 - `processors/`: `Serial.py` (SerialProcess), `Multiscan.py` (multi-overtone; conductance on the impedance branch), `Calibration.py` (peak detection), `Parser.py`
 - `ui/`: `mainWindow.py` (controller, ~4000 lines), `mainWindow_ui.py` (**programmatic UI builder**,
   GUI redesign R1; the old generated `mainWindow_new_ui.py` stays as reference only), `theme.py`,
@@ -155,15 +156,39 @@ off, since it would only open an empty or stale window. It is kept working (it n
 ⚠️ **`sweep_data/` is overwritten on every acquisition.** Copy the files somewhere else before
 analysing them.
 
+### `core/averaging.py` — why the buffer length no longer decides robustness
+
+`robust_mean()` replaces `scipy.stats.trim_mean` at the six places that average the raw frequency,
+dissipation and temperature buffers. The estimator is the same (sort, drop k per tail, average the
+rest); what changed is how k is chosen.
+
+`trim_mean` drops `int(proportiontocut * N)` samples per tail, which with `proportiontocut = 0.10`
+is **zero for every N below ten**. The outlier rejection VER 0.1.6 was introduced for therefore
+existed only because `Constants.environment` happened to equal exactly 10 — a coincidence, not a
+property, and one that any resizing of the buffer would have destroyed **in silence**, with nothing
+in the logged output to show that the average had become a plain arithmetic mean.
+`trim_count()` adds a floor of one sample per tail and a ceiling of `(n-1)//2`.
+
+⚠️ **If you touch this, the gate is exact equality against `scipy.stats.trim_mean` at N=10 and
+N=50 on real buffers.** Production values must not move. Two things learned by tripping over them:
+- k equals `int(proportiontocut * n)` for every n ≥ 10, so wherever the old code trimmed at all the
+  result must be **bit-identical**, not merely close.
+- ⚠️ `np.mean` adds in array order, so `np.sort` and `np.partition` give results differing in the
+  last bit even on the same retained samples (measured: 25.045000000000002 against
+  25.044999999999998). `robust_mean` partitions with the same kth arguments as `trim_mean` for
+  exactly this reason. Do not "simplify" it to a full sort.
+
+**NaN is trimmed, not propagated**: it orders above every real number, so one NaN goes out with the
+high tail. With more NaNs than k the result is still NaN. This differs from the old behaviour only
+on a short buffer (at N ≥ 10 `trim_mean` already dropped it).
+
 ### ⚠️ `Constants.environment` is currently a development value
 
 It is **3**, not the production **10**, so test runs leave warm-up almost immediately.
-**Restore 10 before any production build.** It is not a free knob: the trimmed means drop
-`int(trim_mean_proportiontocut * N)` samples per tail, which with `proportiontocut = 0.10` is
-**zero for any N below ten**, so under ten the trimmed mean degenerates into a plain arithmetic
-mean and the VER 0.1.6 outlier rejection is silently gone (measured: nine 100s and one 1000 give
-100 at N=10 and 400 at N=3). Ten is the smallest value that still drops one sample per tail. The
-constant carries a banner saying so.
+**Restore 10 before any production build.** The reason is now **purely metrological** — how many
+sweeps go into each logged point, and how long the instrument takes to settle. It used to be more
+than that (shortening the buffer switched off the outlier rejection); `core/averaging.py` removed
+that dependency, so do not repeat the old warning. The constant carries a banner explaining both.
 
 ### Also done on main
 `run.py` entry point; full README; `requirements.txt` / `environment.yml`; Raw Data fix
@@ -174,7 +199,8 @@ acquisition buffer; **observable plots default to Y autorange** in development
 dark/light** (`ui/theme.py` + View → Theme menu, Phase 0 of the GUI redesign); **phase sweep
 plumbed into the GUI process** (`consume_queue_P_multi`, which also closed an unbounded
 `mp.Queue`); **single-overtone warm-up bug fixed** (the first nine sweeps used to be dropped by a
-swallowed `UnboundLocalError`) — all see §5 and CHANGELOG.
+swallowed `UnboundLocalError`); **outlier rejection made a property of the average instead of a
+coincidence of the buffer length** (`core/averaging.py`) — all see §5 and CHANGELOG.
 
 ### ⚠️ TEST-ONLY firmware variant (no-TEC board) — temporary, will be removed
 `firmware/openQCM_Next_py_0.1.5a_TEST_teensy/` (`0.1.5a-TEST`) is a **throwaway internal

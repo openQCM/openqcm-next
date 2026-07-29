@@ -219,6 +219,9 @@ Conventional Commits. Versions are marked by Git tags.
   the band walk: `savitzky_golay`, `spline_fit`, `find_peak_and_band` and an `analyze_sweep`
   convenience wrapper. Imported by both acquisition processes and by every viewer, so a viewer
   can no longer draw a band the instrument did not measure. See ### Changed and ### Fixed.
+- **`core/averaging.py`** (new) — `trim_count(n, proportiontocut)` and `robust_mean(values,
+  proportiontocut)`, replacing `scipy.stats.trim_mean` at the six places that average the raw
+  frequency, dissipation and temperature buffers. See ### Fixed for why.
 
 ### Changed
 - **GUI palette reduction — Start/Stop toggle now blue/brown** — moving toward a two-color palette
@@ -376,12 +379,10 @@ Conventional Commits. Versions are marked by Git tags.
     `index_f1_fit`, `index_f2_fit`); they are gone with the call.
 - ⚠️ **DEV ONLY — accumulation warm-up shortened to 3 sweeps** (`Constants.environment`, 10 → 3)
   so test runs reach steady state almost immediately. **Must go back to 10 before any production
-  build**, and not only because warm-up length is a metrology choice: the trimmed means drop
-  `int(trim_mean_proportiontocut * N)` samples per tail, which with `proportiontocut = 0.10` is
-  **zero for any N below ten**. Under ten the trimmed mean is a plain arithmetic mean and the
-  outlier rejection introduced in VER 0.1.6 is silently gone — measured on a buffer of nine 100s
-  and one 1000: `trim_mean` gives 100 at N=10 and 400 at N=3. Ten is the smallest value that
-  still drops one sample per tail. The constant carries a banner saying so.
+  build.** The reason is now **purely metrological** — how many sweeps go into each logged point,
+  and how long the instrument takes to settle. It was briefly more than that: shortening the
+  buffer also switched off the outlier rejection, which is the defect fixed below, so that part of
+  the warning no longer applies. The constant carries a banner explaining both.
 
 ### Fixed
 - **Application icon now loads on all platforms** — it was set from non-resolving paths:
@@ -422,6 +423,38 @@ Conventional Commits. Versions are marked by Git tags.
   every other queue except that one, so the queue grew for the whole life of the process holding
   five arrays of `Constants.SAMPLES` floats per sweep. Now drained on every GUI update and on
   stop.
+- **Outlier rejection depended on the ring buffer being exactly 10 samples long**
+  (`core/averaging.py`, new; six call sites in `processors/Multiscan.py` and
+  `processors/Serial.py`). The robust average introduced in VER 0.1.6 rejected outliers **by
+  accident, not by construction**: `scipy.stats.trim_mean` drops `int(proportiontocut * N)`
+  samples per tail, which with `proportiontocut = 0.10` is **zero for every N below ten**. The
+  rejection existed only because `Constants.environment` happened to equal 10, and any future
+  resizing of the buffer would have switched it off in silence — nothing in the logged output
+  would have shown that the average had become a plain arithmetic mean. Found while shortening
+  the buffer for test runs.
+  - `trim_count(n, proportiontocut)` keeps the proportion but adds a **floor of one sample per
+    tail** and a **ceiling of `(n - 1) // 2`** — the ceiling because dropping one per tail of a
+    two-sample buffer would leave nothing to average; below three samples nothing is trimmed.
+    `robust_mean()` cuts k per tail and averages the rest. `scipy.stats.trim_mean` is no longer
+    imported in either processor.
+  - **Production values do not move**, and that was the gate rather than an afterthought: exact
+    equality against scipy on the snapshot's real buffers at N=10 and N=50, across constant,
+    per-overtone and jittered-with-outlier shapes for all three quantities. ⚠️ The first run of
+    that gate **failed**: two buffers differed in the last bit (`25.045000000000002` against
+    `25.044999999999998`) because `np.mean` adds in array order and a full `np.sort` leaves the
+    retained samples ordered differently from `trim_mean`'s `np.partition`. `robust_mean` now
+    partitions with the same kth arguments, which makes the agreement exact rather than probable;
+    since k equals `int(proportiontocut * n)` for every n ≥ 10, anywhere the old code trimmed at
+    all the result is **bit-identical**. Confirmed end to end by replaying `elaborate_multi` and
+    `Serial.elaborate` against `491925b` at N=10 (260 and 42 payloads unchanged).
+  - What changes is small N, which is the point. Replay with real sweep-to-sweep jitter and one
+    40 Hz bad sweep: at N=10 both averages give `4998877.500000` (the outlier trimmed by both);
+    at N=3 the old average leaks it and reports `4998891` — **12 Hz off** — while the new one
+    lands on the median at `4998879`.
+  - **Behaviour change on NaN**: NaN orders above every real number, so a single NaN is now
+    discarded as the high extreme instead of poisoning the average. With `trim_mean` at N=3 one
+    NaN made the logged value NaN; at N ≥ 10 it was already dropped, so this differs only on a
+    short buffer. More NaNs than k still give NaN.
 - **The file-based sweep viewer drew a band the instrument had not measured**
   (`sweep_data/plot_sweep_spline.py`, the third copy of the band walk — exactly the openQCM Q-1
   divergence, already present here). Two defects, both measured:
