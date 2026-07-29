@@ -389,7 +389,11 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.actionTEC_current.triggered.connect(self.open_second_window)
         self.ui.actionLog_Data.triggered.connect(self._log_data_plot)
         self.ui.actionRaw_Data.triggered.connect(self._raw_data_plot)
-        
+        self.ui.actionRawDataView.triggered.connect(self._open_raw_data_view)
+
+        # the live Raw Data View, while it is open
+        self._raw_data_view = None
+
         # VER 0.1.6 init the null numpy array
         self._numpy_nan_signal = np.empty(Constants.ring_buffer_samples, dtype=float)
         self._numpy_nan_signal.fill(np.nan)
@@ -1417,7 +1421,10 @@ class MainWindow(QtGui.QMainWindow):
                 print(TAG, 'Window closed without stopping the capture, application will stop...')
                 Log.i(TAG, "Window closed without stopping the capture, application will stop...")
                 self.stop()
-            
+
+            # take the live Raw Data View down with the window
+            self._close_raw_data_view()
+
             # Restore stdout/stderr before the window is destroyed
             self._restore_system_log()
             # Accept the close event
@@ -2304,6 +2311,39 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.pButtonSecondWindow.clicked.connect(self.open_second_window)
         '''
     
+    # Live Raw Data View: reads the acquisition buffers in memory, never a file.
+    def _open_raw_data_view(self):
+        from openQCM.ui.rawDataView import RawDataViewDialog
+
+        # already open: raise it instead of stacking a second timer on the same
+        # buffers
+        if self._raw_data_view is not None:
+            self._raw_data_view.raise_()
+            self._raw_data_view.activateWindow()
+            return
+
+        dialog = RawDataViewDialog(self, theme_name=self._theme, parent=self)
+        # WA_DeleteOnClose means the C++ object is gone after the close; drop our
+        # reference with it, or closeEvent below would touch a dead object
+        dialog.destroyed.connect(self._forget_raw_data_view)
+        self._raw_data_view = dialog
+        dialog.show()
+
+    def _forget_raw_data_view(self, *_args):
+        self._raw_data_view = None
+
+    def _close_raw_data_view(self):
+        """Called from the main closeEvent; the dialog may already be gone."""
+        dialog = self._raw_data_view
+        self._raw_data_view = None
+        if dialog is None:
+            return
+        try:
+            dialog.close()
+        except RuntimeError:
+            # the underlying C++ object was already deleted
+            pass
+
     # VER 0.1.4
     # add-on view sweep raw data plot
     def _raw_data_plot(self):

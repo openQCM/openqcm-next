@@ -148,12 +148,18 @@ class Ui_MainWindow(object):
         # Tools (existing actions re-homed from the old Add-On menu)
         self.menuTools = QtWidgets.QMenu("Tools", self.menuBar)
         self.menuTools.setObjectName("menuTools")
-        self.actionRaw_Data = QtWidgets.QAction("Raw Data", MainWindow)
+        # live view, reads the acquisition buffers in memory
+        self.actionRawDataView = QtWidgets.QAction("Raw Data View", MainWindow)
+        self.actionRawDataView.setObjectName("actionRawDataView")
+        # the older viewer, which reads the sweep dump under sweep_data/
+        self.actionRaw_Data = QtWidgets.QAction("Raw Data (from sweep files)",
+                                                MainWindow)
         self.actionRaw_Data.setObjectName("actionRaw_Data")
         self.actionLog_Data = QtWidgets.QAction("Log Data", MainWindow)
         self.actionLog_Data.setObjectName("actionLog_Data")
         self.actionTEC_current = QtWidgets.QAction("Tec Current", MainWindow)
         self.actionTEC_current.setObjectName("actionTEC_current")
+        self.menuTools.addAction(self.actionRawDataView)
         self.menuTools.addAction(self.actionRaw_Data)
         self.menuTools.addAction(self.actionLog_Data)
         self.menuTools.addAction(self.actionTEC_current)
