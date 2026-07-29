@@ -13,7 +13,7 @@ import numpy as np
 from numpy import loadtxt
 from scipy.interpolate import UnivariateSpline
 from scipy.interpolate import PchipInterpolator
-from scipy.stats import trim_mean
+from openQCM.core.averaging import robust_mean
 
 from progressbar import Bar, Percentage, ProgressBar, RotatingMarker,Timer
 
@@ -935,20 +935,23 @@ class MultiscanProcess(multiprocessing.Process):
            # linear 3-point moving average with NO outlier rejection, so a
            # single bad sweep leaked almost entirely into the logged value
            # (and was even amplified at the buffer edges by the reflective
-           # padding). trim_mean drops the lowest/highest int(proportion*N)
-           # samples per tail (N=10 -> 1) before averaging, without the
-           # staircase artifact of a plain median.
-           self._freq_range_mean [overtone_number] = trim_mean(
+           # padding). robust_mean drops the lowest/highest samples before
+           # averaging, without the staircase artifact of a plain median.
+           # It is core/averaging.py and not scipy's trim_mean because that one
+           # cuts int(proportion*N) per tail, which is ZERO for any N below ten:
+           # the rejection held only while Constants.environment was exactly 10,
+           # and any resizing of the buffer switched it off in silence.
+           self._freq_range_mean [overtone_number] = robust_mean(
                self._my_list_f[overtone_number].get_all(), Constants.trim_mean_proportiontocut)
 
            # DISSIPATION (same robust trimmed-mean; resolves the former
            # "TODO insert a median" that used to sit on this averaging line)
-           self._diss_mean [overtone_number] = trim_mean(
+           self._diss_mean [overtone_number] = robust_mean(
                self._my_list_d[overtone_number].get_all(), Constants.trim_mean_proportiontocut)
-           
+
            # TEMPERATURE
            if overtone_number == 0:
-               self._temperature_mean = trim_mean(
+               self._temperature_mean = robust_mean(
                    self._temperature_buffer_0.get_all(), Constants.trim_mean_proportiontocut)
                
         
