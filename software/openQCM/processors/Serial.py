@@ -168,6 +168,16 @@ class SerialProcess(multiprocessing.Process):
         
         self._temperature_buffer.append(temperature)
         
+        # No mean exists until the circular buffer has filled. NaN is what the
+        # ring buffers themselves use for "no datum yet", and the GUI keys its
+        # warm-up state off exactly that: a NaN newest frequency is what puts
+        # the status on "processing..." instead of drawing a point. Assigning
+        # them here is what keeps add3/add4/add5 below from reading unbound
+        # locals for every sweep before `environment`.
+        freq_range_mean = np.nan
+        diss_mean = np.nan
+        temperature_mean = np.nan
+
         if self._k>=self._environment:
            #FREQUENCY
            # VER 0.1.6 robust trimmed-mean on the raw circular buffer (same
@@ -178,8 +188,8 @@ class SerialProcess(multiprocessing.Process):
            diss_mean = trim_mean(self._dissipation_buffer.get_all(), Constants.trim_mean_proportiontocut)
            #TEMPERATURE
            temperature_mean = trim_mean(self._temperature_buffer.get_all(), Constants.trim_mean_proportiontocut)
-           
-        
+
+
         # VER 0.1.4 set the current value of frequency 
         if self._k <= self._environment:
             # current value is raw
