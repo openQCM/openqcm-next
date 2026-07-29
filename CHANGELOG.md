@@ -490,6 +490,32 @@ Conventional Commits. Versions are marked by Git tags.
   light / light on dark) via a `_curve_color()` helper, applied at every plot/setData site and
   re-applied on theme switch in `_apply_plot_theme`. The colored multi-overtone
   frequency/dissipation curves were unaffected. Regression from the GUI theme system (Phase 0).
+- **The status bar said the state three times** (`ui/mainWindow.py`, `ui/mainWindow_ui.py`,
+  `ui/theme.py`). openQCM Q-1 v3.0 ends up with **one coloured dot** carrying the machine state and
+  plain text beside it; NEXT had a coloured pill behind the status text, a `<font color>` tag inside
+  every message, and the literal word **"Infobar"** printed in front of each one. (The hex colours
+  still in Q-1's source are never drawn — its `_update_status_indicator` sniffs those stylesheet
+  strings to choose the dot's colour.)
+  - New `statusIndicator` label holds the dot, the only coloured thing in the bar; `infostatus` and
+    `infobar` become plain text. `_status_pill` → `_status_dot` with Q-1's five states: grey
+    disconnected, yellow connected-and-idle, orange processing or recoverable warning, green
+    monitoring, red error. Two helpers, `_set_status(key, text)` and `_set_message(text)`, so a call
+    site states the state once instead of pairing a `setText` with a stylesheet. Absolute colours, not
+    palette ones — these are state semantics and must mean the same on both themes.
+  - The message moves from `muted` to the plain text colour: it is now the only place a warning is
+    written.
+  - **Messages rewritten into Q-1's register**: `Warning: unable to apply half-power bandwidth method,
+    lower and upper cut-off frequency not found` → `Warning: -3dB frequencies not found`; the
+    calibration ones → `peak not found - retry`, `empty buffer - reconnect the device and retry`,
+    `peak detection completed - ready for baseline correction`. The per-overtone one keeps its detail
+    and gains the label — `bandwidth not measurable on F5` — because on NEXT it is genuinely ambiguous
+    which overtone failed.
+  - **Two gaps closed**: the connection lifecycle never reached the message line, which is what Q-1
+    uses it for (select a port and click Connect / ready to connect / connected to <port> (exclusive) /
+    port locked by another instance / port busy or unavailable / disconnected / acquisition stopped);
+    and **in multiscan the state colour was never set at all**, not by the dot now nor by the pill
+    before. All four branches now say which state they are in.
+  - The 18 assignments of `color_err` are gone with the `<font>` tags that consumed them.
 - **The fundamental was called the 0th harmonic in the main window** (`ui/mainWindow_ui.py`,
   `core/constants.py`) — pills, both readout cards, the hidden legacy radios and the plot legend all
   read `F0` / `0th`, while Datalog View names overtones by harmonic order. The same resonance read
