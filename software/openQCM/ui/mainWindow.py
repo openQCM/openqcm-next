@@ -31,6 +31,8 @@ except Exception as _e:
     ImpedanceFitWindow = None
     print("Warning: impedance fit window unavailable:", _e)
 from openQCM.ui import theme
+from openQCM.ui.widgets import (_Chevroned, ChevronComboBox,
+                                ChevronSpinBox, ChevronDoubleSpinBox)
 from openQCM.common.logger import Logger as Log
 from openQCM.common.architecture import Architecture,OSType
 from openQCM.common import sweepDump as SweepDump
@@ -1709,6 +1711,17 @@ class MainWindow(QtGui.QMainWindow):
         self._theme_palette = theme.palette(name)
         # window-wide Qt Style Sheet
         self.setStyleSheet(theme.qss(self._theme_palette))
+        # The combo chevron is painted, not styled, so a stylesheet cannot reach
+        # it: hand it the palette here. Class attributes, so every combo in the
+        # application follows in one step.
+        _Chevroned.chevron_colour = self._theme_palette["muted"]
+        _Chevroned.chevron_colour_disabled = self._theme_palette["disabled_text"]
+        # the three classes explicitly, rather than QtGui.QWidget: the widgets are
+        # only reachable through QtGui here because pyqtgraph injects them, and
+        # leaning on that is what broke File > Open Log
+        for cls in (ChevronComboBox, ChevronSpinBox, ChevronDoubleSpinBox):
+            for widget in self.findChildren(cls):
+                widget.update()
         # Phase 3c: re-apply the status pill so 'standby' follows the theme
         self.ui.statusIndicator.setStyleSheet(
             self._status_dot(getattr(self, "_status_key", "standby")))
