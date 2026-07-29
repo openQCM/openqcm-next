@@ -170,6 +170,55 @@ Conventional Commits. Versions are marked by Git tags.
     checkable action (state kept in sync). Cursor items are parented to the ViewBox with
     `ignoreBounds` so they survive `clear()` and never drive the autorange.
   - Min-Y-scale enforcement deferred by decision.
+- **Raw Data View — live amplitude and phase sweeps per overtone** (`ui/rawDataView.py`, new;
+  **Tools → Raw Data View**). Ported from openQCM Q-1 v3.0 and extended from Q-1's single
+  overtone to NEXT's five, as a non-modal pyqtgraph dialog: one tab per overtone, amplitude
+  over phase with the **X axes linked**, and the resonance peak (red diamond), the
+  **dissipation band** (shaded region between the two crossings the dissipation is actually
+  computed from) and the `peak − THRESHOLD_DB` threshold line drawn on the fit.
+  - **Pull model, not push**: the dialog owns a 300 ms `QTimer` and asks the acquisition object
+    for its buffers. No `set_data()`, no signal, no registration — which is what makes a closed
+    dialog cost *nothing* rather than merely idle, and keeps the acquisition from ever waiting on
+    the GUI. The worker is re-resolved (`getattr(host, 'worker', None)`) on **every tick** and
+    never cached at construction: START/STOP replace the object and a cached reference would
+    silently freeze the view.
+  - **Memory only, never a file** — see the sweep-dump entry below for the constraint and how it
+    was verified.
+  - The band comes from `core/resonance.py` at **full sample resolution** (18001 points for the
+    current 18 kHz span), so what is drawn is what is logged. Only the arrays handed to the plot
+    are decimated (`Constants.FREQ_STEP_PLOT`), exactly as the main sweep panel already does;
+    the fit is never decimated and `spline_points` is never clamped, since either would draw a
+    band disagreeing with the instrument. Beyond an absurd span the fit is skipped and says so.
+    Only the **visible tab** is analysed: one spline per tick, not five.
+  - Q-1 traps corrected rather than inherited: narrow exception handling instead of the
+    `except Exception` that hid Q-1's hundreds-of-megabytes `linspace`; one
+    `sigMouseClicked` per `QGraphicsScene` plus a hit test (the plots of one
+    `GraphicsLayoutWidget` share a scene); default menus off on both `PlotItem` and `ViewBox`;
+    grid off by default; and the host clears its reference on `destroyed` and guards the close,
+    since `WA_DeleteOnClose` otherwise lets `closeEvent` reach a deleted C++ object.
+  - Each tab **frames the resonance once**, on its first successful fit (±20× the measured band,
+    ~2.5 kHz), then never again: at full sweep scale a 62 Hz band inside an 18 kHz span is an
+    invisible sliver, but a view that re-framed itself every 300 ms would be unusable.
+- **Raw sweep dump behind a development flag, isolated in one module**
+  (`common/sweepDump.py`, new; `Constants.dev_sweep_dump`, default `False`). The dump to
+  `sweep_data/<n>.txt` used to run unconditionally on every sweep, as two copies of an inline
+  block (each with its own OS-separator logic) in `MultiscanProcess` and `SerialProcess`.
+  Enable it for one session without editing anything: `OPENQCM_SWEEP_DUMP=1 python3 run.py`.
+  **The point of the separation is that Raw Data View must not depend on it**, and that was
+  verified rather than asserted: deleting `sweepDump.py` and every reference to it (17 lines
+  across three files) and driving the dialog in the amputated tree gives the same bands, peaks,
+  threshold and info text, with identical SHA-256 of the fitted, sample and phase arrays. So the
+  dump can be deleted outright whenever it stops being useful. **Tools → Raw Data (from sweep
+  files)** — the older matplotlib viewer, renamed to tell the two apart — is hidden while the
+  dump is off, since it could only open an empty or stale window.
+- **The phase sweep reaches the GUI process** (`core/worker.py`): `consume_queue_P_multi()`,
+  `_P_multi_buffer` and `get_P_values_buffer(idx)`, mirroring the amplitude side (the frequency
+  axis is not stored twice — the amplitude queue carries the same one). Drained from
+  `_update_plot` and from `stop()`. See ### Fixed for the leak this also closes.
+- **`core/resonance.py`** (new) — the single source of truth for the filtering/fitting chain and
+  the band walk: `savitzky_golay`, `spline_fit`, `find_peak_and_band` and an `analyze_sweep`
+  convenience wrapper. Imported by both acquisition processes and by every viewer, so a viewer
+  can no longer draw a band the instrument did not measure. See ### Changed and ### Fixed.
 
 ### Changed
 - **GUI palette reduction — Start/Stop toggle now blue/brown** — moving toward a two-color palette
@@ -301,6 +350,38 @@ Conventional Commits. Versions are marked by Git tags.
   variations — can be restored and its paddings (`y_f_range` / `y_d_range` / `y_t_range`) tuned
   for distribution by setting the flag `True`. The sweep-spectrum plot's own fixed range is
   unchanged.
+- **Peak detection and the dissipation band unified into `core/resonance.py`** — behaviour
+  preserved exactly. `savitzky_golay` and `parameters_finder` existed in **three** copies:
+  `processors/Multiscan.py`, `processors/Serial.py` and `sweep_data/plot_sweep_spline.py`. In
+  openQCM Q-1 that same duplication reached the GUI and the copies drifted, so the band on
+  screen stopped being the band measured; in NEXT the third copy had **already** drifted (see
+  ### Fixed). The two acquisition copies were **token-identical** (488 tokens, differing only in
+  whitespace and comments), so unifying them is safe by construction — verified anyway against a
+  frozen verbatim copy of `Multiscan.py` at `491925b`, with **exact equality** rather than a
+  tolerance: the pure functions over 12 quantities on the five real sweeps of the 2026-07-29
+  snapshot, on all five `overtone_number` branches and on the edge cases that raise
+  `err_left`/`err_right` (including the historical division by zero on a flat signal);
+  `elaborate_multi` over 65 calls and 260 parser payloads plus every ring buffer, trimmed mean
+  and error flag; `Serial.elaborate` over 13 cycles and 42 payloads. Net −309 lines.
+  - Quirks deliberately preserved and now documented in one place: the fundamental and overtone
+    branches of `parameters_finder` have been **numerically identical since VER 0.1.4**, so the
+    shared function has a single path; the `err` flags stay **sticky** (cleared only once `run()`
+    has pushed them to `parser6`, so they still report every overtone of the cycle); `Qfac`
+    remains an **alias for the bandwidth**, and the logged dissipation remains the **bandwidth in
+    MHz, not `1/Q`** — worth knowing before drawing either number in a viewer. The threshold is a
+    **drop in dB below the maximum** (`Constants.THRESHOLD_DB = 0.3`), not a fraction of it as in
+    Q-1: on a baseline-corrected sweep, which crosses zero, a proportional threshold would move
+    with the baseline instead of the peak.
+  - Four locals `parameters_finder` returned were never read (`max_peak_fit`, `bandwidth_fit`,
+    `index_f1_fit`, `index_f2_fit`); they are gone with the call.
+- ⚠️ **DEV ONLY — accumulation warm-up shortened to 3 sweeps** (`Constants.environment`, 10 → 3)
+  so test runs reach steady state almost immediately. **Must go back to 10 before any production
+  build**, and not only because warm-up length is a metrology choice: the trimmed means drop
+  `int(trim_mean_proportiontocut * N)` samples per tail, which with `proportiontocut = 0.10` is
+  **zero for any N below ten**. Under ten the trimmed mean is a plain arithmetic mean and the
+  outlier rejection introduced in VER 0.1.6 is silently gone — measured on a buffer of nine 100s
+  and one 1000: `trim_mean` gives 100 at N=10 and 400 at N=3. Ten is the smallest value that
+  still drops one sample per tail. The constant carries a banner saying so.
 
 ### Fixed
 - **Application icon now loads on all platforms** — it was set from non-resolving paths:
@@ -321,6 +402,43 @@ Conventional Commits. Versions are marked by Git tags.
   light / light on dark) via a `_curve_color()` helper, applied at every plot/setData site and
   re-applied on theme switch in `_apply_plot_theme`. The colored multi-overtone
   frequency/dissipation curves were unaffected. Regression from the GUI theme system (Phase 0).
+- **Single-overtone mode dropped its first nine sweeps in silence** (`processors/Serial.py`).
+  `elaborate()` read `freq_range_mean`, `diss_mean` and `temperature_mean` unconditionally in
+  `add3`/`add4`/`add5`, but assigned them only inside the `k >= environment` branch. For every
+  sweep before the circular buffer filled the method raised `UnboundLocalError`, which the caller
+  swallowed with a bare `except:` — so in single-overtone mode frequency, dissipation and
+  temperature never reached the plots for the first nine sweeps, and it looked like warm-up.
+  `MultiscanProcess` does not have the bug because there the means are instance attributes. The
+  three now start as **NaN**, which is what the ring buffers already use for "no datum yet" and
+  what matters beyond tidiness: the GUI decides it is still warming up by testing whether the
+  newest frequency is NaN, so pushing zeros would have replaced "processing..." with a point
+  drawn at zero. Verified against `491925b`: raises for k in 1..9 before and never after, pushes
+  NaN throughout warm-up, and from `k >= environment` every payload, buffer and
+  `freq_res_current` identical. (`_flag_error`, which the swallowing handler set, is written in
+  three places and read in none, so the spurious flag had no effect.)
+- **`_queue_P_multi` was filled forever and drained by nobody** (`core/worker.py`).
+  `MultiscanProcess` has always pushed the per-overtone phase sweep onto it once per sweep via
+  `elaborate_ampli_phase_multi()`, but there was no `consume_queue_P_multi` and `stop()` drained
+  every other queue except that one, so the queue grew for the whole life of the process holding
+  five arrays of `Constants.SAMPLES` floats per sweep. Now drained on every GUI update and on
+  stop.
+- **The file-based sweep viewer drew a band the instrument had not measured**
+  (`sweep_data/plot_sweep_spline.py`, the third copy of the band walk — exactly the openQCM Q-1
+  divergence, already present here). Two defects, both measured:
+  - Its `get_left_index`/`get_right_index` returned the **index of the last sample above the
+    threshold** instead of interpolating between the two samples the crossing falls between, so
+    the band was quantised to the spline grid and always **too wide**: +0.75%, +1.02%, +1.02%,
+    +1.64%, +2.03% on the five sweeps of the 2026-07-29 snapshot. It now draws 62.362, 61.377,
+    67.889, 68.610 and 83.376 Hz — the numbers the acquisition path logs — and the edge markers
+    sit exactly on the threshold, because that is where the crossing is by definition.
+  - The right-hand guard read `if INDEX_OVERTONE_RIGHT > len(signal-1)`: `signal-1` subtracts one
+    from every **element** and `len()` of that is `len(signal)`, so the guard was `> len(signal)`
+    and could never fire before the indexing did. A sweep that never dropped below the threshold
+    on the right raised `IndexError` instead of printing the warning. Measured:
+    `len(signal-1) = 501` against `len(signal)-1 = 500`.
+  - Verified by running `script()` headless on both versions and reading the markers off the
+    figures: five panels, no exception either side, peak markers unchanged, bands narrowed to the
+    measured values.
 
 ### Docs
 - Rewrote `README.md` with a full structure (badges, TOC, features, architecture,

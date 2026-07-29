@@ -16,12 +16,39 @@ Serial/Multiscan/Calibration process  →  Worker (queues → ring buffers)  →
 ```
 
 Package `software/openQCM/`:
-- `core/`: `constants.py` (config), `worker.py` (multiprocessing, ring buffers), `ringBuffer.py`
+- `core/`: `constants.py` (config), `worker.py` (multiprocessing, ring buffers), `ringBuffer.py`,
+  **`resonance.py`** (peak detection, dissipation band, SG filter + spline — see below)
 - `processors/`: `Serial.py` (SerialProcess), `Multiscan.py` (multi-overtone; conductance on the impedance branch), `Calibration.py` (peak detection), `Parser.py`
 - `ui/`: `mainWindow.py` (controller, ~4000 lines), `mainWindow_ui.py` (**programmatic UI builder**,
-  GUI redesign R1; the old generated `mainWindow_new_ui.py` stays as reference only), `theme.py`, `popUp.py`
+  GUI redesign R1; the old generated `mainWindow_new_ui.py` stays as reference only), `theme.py`,
+  `popUp.py`, **`rawDataView.py`** (live Raw Data View)
+- `common/`: `fileStorage.py`, `logger.py`, `architecture.py`, `switcher.py`,
+  **`sweepDump.py`** (development-only raw sweep dump, off by default)
 - `data_view/`: standalone CSV viewer
 - Entry point: `run.py` → `openQCM.app.OPENQCM().run()`
+
+### ⚠️ `core/resonance.py` is the only place the band may be computed
+
+`savitzky_golay` + `parameters_finder` used to exist in **three** copies (`Multiscan.py`,
+`Serial.py`, `sweep_data/plot_sweep_spline.py`). That is how openQCM Q-1 ended up drawing a band
+that was not the measured one, and in NEXT the third copy **had already drifted**: it returned the
+index of the last sample above the threshold instead of interpolating, overstating the band by up
+to 2%. Everything — both acquisition processes and every viewer — now calls this module.
+
+**If you need the band, import it. Do not re-derive it.** A viewer that quietly disagrees with the
+instrument is worse than one that does not draw the band at all.
+
+Things about the chain that surprise people, all commented in the module:
+- The threshold is a **drop in dB below the maximum** (`Constants.THRESHOLD_DB = 0.3`), *not* a
+  fraction of it as in Q-1. The sweep is baseline-corrected and crosses zero, so a proportional
+  threshold would track the baseline rather than the peak.
+- It applies to `spline(SG(mag − polynomial baseline))`, never to the raw amplitude.
+- The two edges are **linearly interpolated** between adjacent spline points, so they are
+  frequencies in Hz despite the historical `i_leading` / `i_trailing` names.
+- `Qfac` is an **alias for the bandwidth**, and the logged dissipation is the **bandwidth in MHz,
+  not `1/Q`**. Check this before you put either number on screen.
+- The fundamental and overtone branches have been numerically identical since VER 0.1.4, hence the
+  single code path.
 
 ## 2. Branches
 
@@ -85,13 +112,69 @@ mode). Methods in `software/openQCM/ui/mainWindow.py`:
   `stop()` calls `_reacquire_serial_lock()` before the shutdown queries.
 - `_refresh_ports()` — rescans devices; **Start** is enabled only once connected (`_enable_ui`).
 
+### Raw Data View, and the two things it must never become
+
+`ui/rawDataView.py` (**Tools → Raw Data View**) shows the live amplitude and phase sweep per
+overtone, with the peak, the dissipation band and the threshold drawn on the fit. Ported from Q-1
+v3.0 and extended to NEXT's five overtones as tabs. Two design rules hold it up, and both are easy
+to break by accident:
+
+1. **It pulls; nothing pushes into it.** The dialog owns a 300 ms timer and asks the acquisition
+   object for its buffers. Do not add a `set_data()` or a signal from the worker: the pull model is
+   the only reason a closed dialog costs *nothing* instead of merely being idle, and the reason the
+   acquisition never waits on the GUI.
+2. **It reads memory only, never a file.** The sweep dump is a separate development tool
+   (`common/sweepDump.py`, below) and shares no state and no code with it. Verified by deleting the
+   dump module and every reference to it and checking the dialog draws byte-identical arrays.
+
+⚠️ **Re-resolve the worker on every tick** — `getattr(host, 'worker', None)`. START/STOP replace
+that object; a reference cached at construction leaves the view frozen with nothing to say so. This
+is the classic porting bug and it is silent.
+
+The analysis runs in the GUI thread at **full sample resolution** so the band drawn is the band
+logged; only what goes into the plot is decimated (`Constants.FREQ_STEP_PLOT`). Never clamp
+`spline_points` or decimate the fit to save time — that draws a band the instrument did not
+measure, which is exactly the failure this module exists to prevent. Only the visible tab is
+analysed, so the cost is one spline per tick. Each tab frames the resonance once on its first fit
+and then leaves the axes alone: at full scale a 62 Hz band inside an 18 kHz span is invisible, but
+re-framing every tick would be unusable.
+
+### ⚠️ Sweep dump: development only, off by default
+
+`common/sweepDump.py` is the only writer of `sweep_data/<n>.txt`, gated by
+`Constants.dev_sweep_dump` (default `False`). Enable it for a session without touching source:
+
+```bash
+OPENQCM_SWEEP_DUMP=1 python3 run.py
+```
+
+**Tools → Raw Data (from sweep files)** — the older matplotlib viewer — is hidden while the dump is
+off, since it would only open an empty or stale window. It is kept working (it now calls
+`resonance.py`), but the live view is the one to build on.
+
+⚠️ **`sweep_data/` is overwritten on every acquisition.** Copy the files somewhere else before
+analysing them.
+
+### ⚠️ `Constants.environment` is currently a development value
+
+It is **3**, not the production **10**, so test runs leave warm-up almost immediately.
+**Restore 10 before any production build.** It is not a free knob: the trimmed means drop
+`int(trim_mean_proportiontocut * N)` samples per tail, which with `proportiontocut = 0.10` is
+**zero for any N below ten**, so under ten the trimmed mean degenerates into a plain arithmetic
+mean and the VER 0.1.6 outlier rejection is silently gone (measured: nine 100s and one 1000 give
+100 at N=10 and 400 at N=3). Ten is the smallest value that still drops one sample per tail. The
+constant carries a banner saying so.
+
 ### Also done on main
 `run.py` entry point; full README; `requirements.txt` / `environment.yml`; Raw Data fix
 (restored the functional `sweep_data/*.txt`); **robust trimmed-mean averaging** of the raw
 acquisition buffer; **observable plots default to Y autorange** in development
 (`Constants.plot_force_yrange`); **responsive peak-detection (calibration) cancellation**
 (ported from Q-1 v3.0 — Stop now interruptible mid-sweep, clean shutdown); **GUI theme system
-dark/light** (`ui/theme.py` + View → Theme menu, Phase 0 of the GUI redesign) — all see §5 and CHANGELOG.
+dark/light** (`ui/theme.py` + View → Theme menu, Phase 0 of the GUI redesign); **phase sweep
+plumbed into the GUI process** (`consume_queue_P_multi`, which also closed an unbounded
+`mp.Queue`); **single-overtone warm-up bug fixed** (the first nine sweeps used to be dropped by a
+swallowed `UnboundLocalError`) — all see §5 and CHANGELOG.
 
 ### ⚠️ TEST-ONLY firmware variant (no-TEC board) — temporary, will be removed
 `firmware/openQCM_Next_py_0.1.5a_TEST_teensy/` (`0.1.5a-TEST`) is a **throwaway internal
@@ -396,23 +479,41 @@ selectable).
   (`QtGui.QMainWindow`, `QtGui.QPushButton`…); PyQt5 ≥5.11 moves widgets to `QtWidgets` and breaks the
   app. **Python 3.9.12**. Tested on macOS Intel and Apple Silicon. Conda is the reproducible route
   (see `software/environment.yml`).
-- **Runtime-rewritten data files** (`Calibration_5MHz/10MHz.txt`, `PeakFrequencies*.txt`,
-  `sweep_data/1-9.txt`): the program overwrites them. They are versioned as **defaults** (the Raw Data
-  view / calibration need them in a fresh clone) but should be marked **`skip-worktree`** on each
-  machine so runtime rewrites do not pollute git — it is a **local, per-clone** setting:
+- **Runtime-rewritten data files.** Only three are still tracked: `PeakFrequencies.txt`,
+  `PeakFrequenciesRT.txt` and `config.txt`. `Calibration_5MHz/10MHz.txt` and `sweep_data/*.txt` were
+  untracked on 2026-07-28/29 and are regenerated by Peak Detection and by an acquisition; the
+  PeakFrequencies pair had to **stay** versioned, because `load_frequencies_file()` reads them while
+  the window is being built and the only thing that writes them is a button inside that window, so a
+  clone without them does not start. Same reason for `config.txt` (`loadtxt` at start-up in both
+  `MultiscanProcess` and `SerialProcess`). Mark the tracked ones **`skip-worktree`** on each machine
+  so runtime rewrites do not pollute git — a **local, per-clone** setting:
 
   ```bash
-  git update-index --skip-worktree \
-    software/openQCM/Calibration_5MHz.txt software/openQCM/Calibration_10MHz.txt \
-    software/openQCM/PeakFrequencies.txt software/openQCM/PeakFrequenciesRT.txt \
-    software/openQCM/sweep_data/1.txt software/openQCM/sweep_data/3.txt \
-    software/openQCM/sweep_data/5.txt software/openQCM/sweep_data/7.txt \
-    software/openQCM/sweep_data/9.txt
+  git update-index --skip-worktree software/openQCM/PeakFrequencies.txt software/openQCM/PeakFrequenciesRT.txt
   ```
 
-- **GUI can't be tested headless**: run static checks (`python -m py_compile ...` and
-  `python -c "from openQCM.app import OPENQCM"` from `software/`), then leave the on-device smoke test
-  to a human.
+  ⚠️ Untracking a file **deletes it** on every other clone that pulls; `.gitignore` does not protect
+  an already-tracked file. Before untracking anything, ask what reads it. And if you ever see the
+  three symptoms together — clean `git status`, `git checkout --` saying "did not match any file(s)
+  known to git", and a merge complaining about local modifications to those same files — that is the
+  `skip-worktree` bit: diagnose with `git ls-files -v | grep ^S`.
+
+- **The GUI *can* be exercised headless** — the old "leave it all to a human" is only half true, and
+  the difference matters because logic bugs are cheap to catch this way. Static checks first
+  (`python -m py_compile ...`, `python -c "from openQCM.app import OPENQCM"` from `software/`), then
+  drive real widgets under `QT_QPA_PLATFORM=offscreen`: build `Ui_MainWindow` on a bare
+  `QMainWindow`, or instantiate a dialog against a stub host and call its refresh directly (this is
+  how Raw Data View's bands, worker re-resolution, one-shot framing and closed-dialog behaviour were
+  verified before any on-device run). Three traps, all found the hard way:
+  - **hold the `QApplication` in a name.** `QApplication.instance() or QApplication([])` as a bare
+    expression leaves it unreferenced, it is collected at once, and the process segfaults with no
+    output at all — buffered stdout dies with it, so it looks like the script did nothing.
+  - **do not call `show()`** on the dialog; it segfaults offscreen. Capture with pyqtgraph's
+    `ImageExporter` on `canvas.scene()` instead, which needs no visible window.
+  - **do not re-import two copies of `openQCM`** from different trees into one Qt process; it
+    segfaults. Use a subprocess per tree.
+  Fonts are missing offscreen (`QFontDatabase: Cannot find font directory`), so rendered captures
+  have no text — expected, not a bug. The on-device smoke test still belongs to a human.
 - **Every change goes into `CHANGELOG.md`** (unless explicitly told not to, e.g. a fix that just
   restores pre-existing behavior); keep the **README** aligned with substantial changes. Commits use
   Conventional Commits + a `Co-Authored-By` trailer.
