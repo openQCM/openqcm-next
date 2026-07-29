@@ -3,6 +3,7 @@ from openQCM.core.ringBuffer import RingBuffer
 from openQCM.core.constants import Constants
 from openQCM.core import resonance
 from openQCM.common.fileStorage import FileStorage
+from openQCM.common import sweepDump as SweepDump
 from openQCM.common.logger import Logger as Log
 from openQCM.common.switcher import Overtone_Switcher_5MHz, Overtone_Switcher_10MHz
 from time import time
@@ -735,29 +736,19 @@ class MultiscanProcess(multiprocessing.Process):
                                             
                                         
                                         # --------------------------------------------------------------------------
-                                        # DEV RAWDATA  SAVE RAW SWEEP DATA 
+                                        # DEV RAWDATA  SAVE RAW SWEEP DATA
+                                        # Development tool, off by default and confined to common/sweepDump.py.
+                                        # The live Raw Data View does not read these files, so this block can
+                                        # be deleted outright without touching it.
                                         # --------------------------------------------------------------------------
-                                        # build the frequency data array 
-                                        for i in range (length - 1):
-                                            data_f[i] = startF[overtone_index] + i * stepF[overtone_index]
-                                        
-                                        # DEV RAWDATA check the OS     
-                                        # if Architecture.get_os() is (OSType.linux or OSType.macosx):
-                                        if Architecture.get_os() in{OSType.macosx, OSType.linux}:    
-                                            # print ("MAC_OS_X")
-                                            slash = "/"
+                                        if SweepDump.is_enabled():
+                                            # build the frequency data array
+                                            for i in range (length - 1):
+                                                data_f[i] = startF[overtone_index] + i * stepF[overtone_index]
 
-                                        elif Architecture.get_os() is OSType.windows:
-                                            # print("WINDOWS")
-                                            slash = "\\"
-                                        else:
-                                            # print ("OTHER_OS")
-                                            slash = "/"
-                                            
-                                        FileStorage.TXT_sweeps_save( (overtone_index * 2) + 1 , 
-                                                                    str("openQCM") + slash  +  Constants.sweep_export_path, 
-                                                                    data_f,  data_mag, data_ph)
-                                
+                                            SweepDump.save_sweep(overtone_index, data_f, data_mag, data_ph)
+
+
 # =============================================================================
 #                             if (overtone_index == 0):
 #                                 self._amp_sweep_0 = data_mag.tolist()

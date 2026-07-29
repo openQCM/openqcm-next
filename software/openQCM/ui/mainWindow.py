@@ -27,6 +27,7 @@ from openQCM.ui.popUp import PopUp
 from openQCM.ui import theme
 from openQCM.common.logger import Logger as Log
 from openQCM.common.architecture import Architecture,OSType
+from openQCM.common import sweepDump as SweepDump
 
 import numpy as np
 import sys
@@ -390,6 +391,11 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.actionLog_Data.triggered.connect(self._log_data_plot)
         self.ui.actionRaw_Data.triggered.connect(self._raw_data_plot)
         self.ui.actionRawDataView.triggered.connect(self._open_raw_data_view)
+
+        # The file-based viewer only has something to read when the sweep dump is
+        # on, and the dump is a development tool that is off in release. Hide the
+        # entry rather than leave it there to open an empty or stale window.
+        self.ui.actionRaw_Data.setVisible(SweepDump.is_enabled())
 
         # the live Raw Data View, while it is open
         self._raw_data_view = None
