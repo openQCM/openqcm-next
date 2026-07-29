@@ -5,6 +5,21 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — status bar (2026-07-29)
+
+`d0def43`, applied clean on all three files. The machine state now lives in the colour of **one dot**
+(`statusIndicator`) with plain text beside it, as in Q-1 v3.0: NEXT used to say it three times — a
+coloured pill, a `<font color>` tag inside every message, and the literal word "Infobar" in front of
+each one. Messages are rewritten into Q-1's short register, the connection lifecycle finally reaches
+the message line, and the multiscan branches now set a state colour, which neither the dot nor the old
+pill ever did.
+
+Checked here that nothing of the old scheme survived on this branch: no `_status_pill`, no
+`● Program Status`, no `<font color>` in the bar, no `color_err`. All 19 live message texts match
+`main`'s, so this branch had no message of its own left in the old verbose register, and the multiscan
+conversion landed in all four branches. The dot cycles grey → green → red as expected and the extra
+Tools entries are untouched.
+
 ### Carried from `main` — harmonic numbering (2026-07-29)
 
 `78ef8fe`, applied clean. The main window called the fundamental `F0` in the pills, both readout
