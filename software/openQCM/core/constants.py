@@ -728,6 +728,13 @@ class Constants:
     
     # DEV RAWDATA
     sweep_export_path = "sweep_data"
+
+    # Raw sweep dump to sweep_export_path: a development tool, off in release.
+    # Nothing reads these files except the older "Raw Data (from sweep files)"
+    # viewer, which is hidden while this is off; the live Raw Data View works
+    # from memory and is unaffected. Override for one session without editing
+    # anything: OPENQCM_SWEEP_DUMP=1 python3 run.py
+    dev_sweep_dump = False
     
     csv_filename = (strftime(csv_default_prefix, localtime())) #+'_DataLog')
     csv_sweeps_export_path = "{}{}{}".format(csv_export_path,slash,csv_filename)

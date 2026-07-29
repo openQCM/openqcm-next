@@ -3,6 +3,7 @@ from openQCM.core.ringBuffer import RingBuffer
 from openQCM.core.constants import Constants
 from openQCM.core import resonance
 from openQCM.common.fileStorage import FileStorage
+from openQCM.common import sweepDump as SweepDump
 from openQCM.common.logger import Logger as Log
 from openQCM.common.switcher import Overtone_Switcher_5MHz, Overtone_Switcher_10MHz
 from time import time
@@ -1588,34 +1589,24 @@ class MultiscanProcess(multiprocessing.Process):
                                             # ad83092 phase bit raw
                                             bit_phase[i] = float(strs[i][1])
                                         # --------------------------------------------------------------------------
-                                        # DEV RAWDATA  SAVE RAW SWEEP DATA 
+                                        # DEV RAWDATA  SAVE RAW SWEEP DATA
+                                        # Development tool, off by default and confined to common/sweepDump.py.
+                                        # The live Raw Data View does not read these files, so this block can
+                                        # be deleted outright without touching it.
                                         # --------------------------------------------------------------------------
-                                        # build the frequency data array 
-                                        for i in range (length - 1):
-                                            data_f[i] = startF[overtone_index] + i * stepF[overtone_index]
-                                        
-                                        # DEV RAWDATA check the OS     
-                                        # if Architecture.get_os() is (OSType.linux or OSType.macosx):
-                                        if Architecture.get_os() in{OSType.macosx, OSType.linux}:    
-                                            # print ("MAC_OS_X")
-                                            slash = "/"
+                                        if SweepDump.is_enabled():
+                                            # build the frequency data array
+                                            for i in range (length - 1):
+                                                data_f[i] = startF[overtone_index] + i * stepF[overtone_index]
 
-                                        elif Architecture.get_os() is OSType.windows:
-                                            # print("WINDOWS")
-                                            slash = "\\"
-                                        else:
-                                            # print ("OTHER_OS")
-                                            slash = "/"
-                                            
-                                        FileStorage.TXT_sweeps_save( (overtone_index * 2) + 1 , 
-                                                                    str("openQCM") + slash  +  Constants.sweep_export_path, 
-                                                                    data_f,  data_mag, data_ph)
-                                        
-                                        # VER 0.1.6G
-                                        FileStorage.TXT_sweeps_save( "g" + str((overtone_index * 2) + 1) , 
-                                                                   str("openQCM") + slash  +  Constants.sweep_export_path, 
-                                                                   data_f,  V_mag, V_ph)
-                                
+                                            SweepDump.save_sweep(overtone_index, data_f, data_mag, data_ph)
+
+                                            # VER 0.1.6G the divider's raw V_MAG/V_PHS,
+                                            # as g1.txt .. g9.txt beside the pair above
+                                            SweepDump.save_sweep(overtone_index, data_f,
+                                                                 V_mag, V_ph, prefix="g")
+
+
 # =============================================================================
 #                             if (overtone_index == 0):
 #                                 self._amp_sweep_0 = data_mag.tolist()

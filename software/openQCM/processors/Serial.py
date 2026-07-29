@@ -3,6 +3,7 @@ from openQCM.core.ringBuffer import RingBuffer
 from openQCM.core.constants import Constants
 from openQCM.core import resonance
 from openQCM.common.fileStorage import FileStorage
+from openQCM.common import sweepDump as SweepDump
 from openQCM.common.logger import Logger as Log
 from openQCM.common.switcher import Overtone_Switcher_5MHz, Overtone_Switcher_10MHz
 from time import time
@@ -649,30 +650,17 @@ class SerialProcess(multiprocessing.Process):
                                         data_ph[i] = (data_ph[i]-VCP) / 0.01
                                         
                                         
-                                    # TODO VER 0.1.5a_DEV Raw data view for sweep in single mode 
-                                    
-                                    # get overtone number selected 
-                                    # print ("DEV raw data view in single mode: print the current overtone number = ", self._overtone_int)
-                                    # get frequency array 
-                                    for i in range (length - 1):
-                                        data_f[i] =  self._startFreq + i * fStep
-                                        
-                                    # check the os directory separator 
-                                    if Architecture.get_os() in{OSType.macosx, OSType.linux}:    
-                                        # mac OS 
-                                        slash = "/"
-                                    elif Architecture.get_os() is OSType.windows:
-                                        # windows 
-                                        slash = "\\"
-                                    else:
-                                        # print ("OTHER_OS")
-                                        slash = "/"
-                                     
-                                    # save data to file depending on the overtone number 
-                                    FileStorage.TXT_sweeps_save( (int(self._overtone_int) * 2) + 1 , 
-                                                                str("openQCM") + slash  +  Constants.sweep_export_path, 
-                                                                data_f,  data_mag, data_ph)
-                                    
+                                    # VER 0.1.5a_DEV raw sweep dump, single-overtone mode.
+                                    # Development tool, off by default and confined to
+                                    # common/sweepDump.py. Nothing else reads these files.
+                                    if SweepDump.is_enabled():
+                                        # get frequency array
+                                        for i in range (length - 1):
+                                            data_f[i] =  self._startFreq + i * fStep
+
+                                        SweepDump.save_sweep(self._overtone_int, data_f,
+                                                             data_mag, data_ph)
+
                              
                                     # ACQUIRES the temperature value from the buffer 
                                     data_temp = float((strs[length -1][0]))
