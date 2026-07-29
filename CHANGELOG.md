@@ -222,6 +222,30 @@ Conventional Commits. Versions are marked by Git tags.
 - **`core/averaging.py`** (new) — `trim_count(n, proportiontocut)` and `robust_mean(values,
   proportiontocut)`, replacing `scipy.stats.trim_mean` at the six places that average the raw
   frequency, dissipation and temperature buffers. See ### Fixed for why.
+- **Datalog View** (`ui/dataLogView.py`, new; **File → Open Log…**, Ctrl/Cmd+O) — opens a log the
+  instrument wrote and plots it, in the same menu position openQCM Q-1 v3.0 uses. Q-1 draws resonance
+  frequency and dissipation against a hh:mm:ss axis; this adds the **temperature** channel, logged in
+  the same file and what a drift usually has to be read against. Three panels on one time base.
+  - **Not a singleton**, unlike the other views: comparing two runs side by side is the reason to open
+    a log at all, so each invocation opens a new window.
+  - ⚠️ **The log format has a trap, and it dictated the parser.** `FileStorage.CSVsave_Multi` always
+    writes a **14-column header**, but the data rows **skip** every overtone whose frequency or
+    dissipation is zero. Measured across all 33 logs in `logged_data/`: the 10 MHz sensor writes
+    **10-column** rows under that 14-column header, the 5 MHz one writes 14. Reading columns by header
+    name would have invented two overtones on every 10 MHz run. Pairs are therefore taken
+    **positionally**, the row width decides how many there are, and rows of a different width are
+    counted and reported rather than guessed at — none occurred in the 33 files.
+  - The **harmonic order is derived** from the frequencies (the ratio to the first pair rounds to
+    1, 3, 5, …) because the file does not record which overtones were selected. Verified on all 33
+    logs: `F1,F3,F5` for the 10 MHz runs, `F1,F3,F5,F7,F9` for the 5 MHz ones.
+  - Frequency is drawn as the **shift** from each overtone's first sample, with the starting value in
+    the legend. Found by looking at the rendered output: five overtones on one absolute axis span 5 to
+    45 MHz against a signal of a few hundred Hz, so the panel showed five flat lines and hid the only
+    thing worth reading — the same reason the main window has SET REF.
+  - Its own time axis rather than `Constants.DateAxis`, which reads epoch microseconds while a log
+    records relative seconds. Grid off and the shared right-click menu. A file that is not a datalog
+    is refused with a message. ⚠️ `Tools → Log Data` still opens the older matplotlib viewer; Q-1
+    retired its equivalent when it added this entry, and doing the same here is a separate call.
 - **Peak Data View** (`ui/peakDataView.py`, new; **Tools → Peak Data View**) — ported from openQCM
   Q-1 v3.0's `ui/calibrationPlot.py` and extended from Q-1's plots to NEXT's five overtones. It
   answers one question — is that really a resonance, or did the detector latch onto a bump in the
