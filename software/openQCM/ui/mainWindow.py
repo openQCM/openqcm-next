@@ -417,7 +417,9 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.actionImpedance_Fit.triggered.connect(self._impedance_fit_plot)
         self.ui.actionRawDataView.triggered.connect(self._open_raw_data_view)
         self.ui.actionPeakDataView.triggered.connect(self._open_peak_data_view)
+        self.ui.actionOpenLog.triggered.connect(self._open_datalog_view)
         self._peak_data_view = None
+        self._datalog_views = []
 
         # The file-based viewer only has something to read when the sweep dump is
         # on, and the dump is a development tool that is off in release. Hide the
@@ -1473,6 +1475,7 @@ class MainWindow(QtGui.QMainWindow):
             # take the auxiliary views down with the window
             self._close_raw_data_view()
             self._close_peak_data_view()
+            self._close_datalog_views()
 
             # Restore stdout/stderr before the window is destroyed
             self._restore_system_log()
@@ -2459,6 +2462,40 @@ class MainWindow(QtGui.QMainWindow):
 
     def _forget_peak_data_view(self, *_args):
         self._peak_data_view = None
+
+    # File > Open Log…: pick a datalog and plot it. Unlike the other views this
+    # one is NOT a singleton -- comparing two runs side by side is the reason to
+    # open a log at all -- so every invocation makes a new window and the list
+    # only exists to close them with the application.
+    def _open_datalog_view(self):
+        from openQCM.ui.dataLogView import DataLogViewDialog
+
+        path, _filter = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Open datalog", Constants.csv_export_path,
+            "openQCM datalog (*.csv);;All files (*)")
+        if not path:
+            return
+
+        dialog = DataLogViewDialog(theme_name=self._theme, parent=self)
+        if not dialog.load(path):
+            PopUp.warning(self, "Open Log", dialog.info.text())
+            dialog.deleteLater()
+            return
+        dialog.destroyed.connect(
+            lambda *_a, d=dialog: self._forget_datalog_view(d))
+        self._datalog_views.append(dialog)
+        dialog.show()
+
+    def _forget_datalog_view(self, dialog):
+        self._datalog_views = [d for d in self._datalog_views if d is not dialog]
+
+    def _close_datalog_views(self):
+        views, self._datalog_views = self._datalog_views, []
+        for dialog in views:
+            try:
+                dialog.close()
+            except RuntimeError:
+                pass
 
     def _close_peak_data_view(self):
         dialog = self._peak_data_view

@@ -185,6 +185,12 @@ class Ui_MainWindow(object):
         # File
         self.menuFile = QtWidgets.QMenu("File", self.menuBar)
         self.menuFile.setObjectName("menuFile")
+        # open a datalog the instrument wrote; same place Q-1 v3.0 puts it
+        self.actionOpenLog = QtWidgets.QAction("Open Log…", MainWindow)
+        self.actionOpenLog.setObjectName("actionOpenLog")
+        self.actionOpenLog.setShortcut(QtGui.QKeySequence.Open)
+        self.menuFile.addAction(self.actionOpenLog)
+        self.menuFile.addSeparator()
         self.actionQuit = QtWidgets.QAction("Quit", MainWindow)
         self.actionQuit.setObjectName("actionQuit")
         self.actionQuit.setShortcut("Ctrl+Q")
