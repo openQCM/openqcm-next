@@ -71,6 +71,18 @@ class ChevronComboBox(_Chevroned, QtWidgets.QComboBox):
 
     _MARGIN = 12        # distance from the right edge; matches the QSS padding
 
+    def __init__(self, *args, **kwargs):
+        super(ChevronComboBox, self).__init__(*args, **kwargs)
+        # The popup is TWO widgets: the QListView and a QFrame container holding
+        # it. The container is what draws the platform frame -- on macOS a light
+        # rounded border that stayed white on the dark theme -- and a style sheet
+        # rule aimed at the view never reaches it. Take its frame away here, where
+        # the object is in hand, instead of guessing at a selector; the view then
+        # fills the container and the QSS colours are all that is left visible.
+        container = self.view().parentWidget()
+        if isinstance(container, QtWidgets.QFrame):
+            container.setFrameShape(QtWidgets.QFrame.NoFrame)
+
     def paintEvent(self, event):
         super(ChevronComboBox, self).paintEvent(event)
         painter = self._chevron_painter()

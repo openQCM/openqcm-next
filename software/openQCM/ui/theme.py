@@ -170,9 +170,15 @@ def qss(p):
     QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
         image: none; width: 0px; height: 0px; }}
 
-    /* the open list */
+    /* The open list. SQUARE corners on purpose: the popup is an opaque window and
+       a rounded background leaves the window's own colour showing at the four
+       corners -- white on macOS, which is exactly the frame that showed up on the
+       dark theme. The items keep their radius, which is where it reads. The
+       container QFrame is covered too, belt and braces with the setFrameShape in
+       ui/widgets.py. */
+    QComboBox QFrame {{ background: {panel}; border: none; }}
     QComboBox QAbstractItemView {{ background: {panel}; color: {text};
-        border: 1px solid {border}; border-radius: 8px; padding: 4px;
+        border: 1px solid {border}; border-radius: 0px; padding: 4px;
         outline: none;
         selection-background-color: {accent}; selection-color: {accent_text}; }}
     QComboBox QAbstractItemView::item {{ min-height: 24px; padding: 3px 8px;
