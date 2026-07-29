@@ -100,9 +100,16 @@ class Ui_MainWindow(object):
         bar = QtWidgets.QHBoxLayout(self.statusBarFrame)
         bar.setContentsMargins(8, 3, 8, 3)
         bar.setSpacing(8)
-        self._label(self.statusBarFrame, "infostatus", "Program status ")
+        # Q-1 v3.0's shape: the machine state is carried by the COLOUR of a single
+        # dot, and the two text labels beside it stay plain. Colouring the text as
+        # well -- which is what the pill background and the <font> tags used to do
+        # -- says the same thing twice and makes the message harder to read.
+        self._label(self.statusBarFrame, "statusIndicator", "●")
+        self.statusIndicator.setFixedWidth(16)
+        bar.addWidget(self.statusIndicator)
+        self._label(self.statusBarFrame, "infostatus", "Standby")
         bar.addWidget(self.infostatus)
-        self._label(self.statusBarFrame, "infobar", "Infobar")
+        self._label(self.statusBarFrame, "infobar", "Ready")
         bar.addWidget(self.infobar, 1)
         # Only temperature and sampling time. The per-overtone frequency and
         # dissipation readouts that used to sit here are a Q-1 inheritance: on NEXT

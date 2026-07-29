@@ -238,5 +238,11 @@ def qss(p):
     QFrame#statusBarFrame {{ background: {panel}; border-top: 1px solid {border}; }}
     QLabel#statusTempValue, QLabel#statusSampValue {{
         color: {text}; font-weight: bold; padding: 0 4px; }}
-    QLabel#infobar {{ color: {muted}; }}
+    /* The message is the only place a warning or an error is written now that the
+       coloured pill and the <font> tags are gone, so it sits at full contrast
+       rather than muted -- Q-1 gives its statusMessage the plain text colour for
+       the same reason. */
+    QLabel#infobar {{ color: {text}; }}
+    /* default for the state dot, before any state has been set */
+    QLabel#statusIndicator {{ color: {muted}; font-size: 14px; }}
     """.format(**p)
