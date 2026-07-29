@@ -144,8 +144,22 @@ class Constants:
 #     environment = 50
 # =============================================================================
     
-    # VER 0.1.6 temporary 4 samples for saving time in dev mode  
-    environment = 10 # 4 samples in developemtn mode just for saving time chenage
+    # VER 0.1.6 temporary 4 samples for saving time in dev mode
+# =============================================================================
+#     environment = 10 # 4 samples in developemtn mode just for saving time chenage
+# =============================================================================
+
+    # ##################################################################### #
+    # DEV ONLY -- RESTORE environment = 10 BEFORE ANY PRODUCTION BUILD.     #
+    # ##################################################################### #
+    # Shortened so a test run leaves warm-up almost immediately. It is not a
+    # free knob: the trimmed means drop int(trim_mean_proportiontocut * N)
+    # samples per tail, and with proportiontocut = 0.10 that is zero for any
+    # N < 10. Below ten the trimmed mean therefore degenerates into a plain
+    # arithmetic mean and the outlier rejection added in VER 0.1.6 is gone --
+    # measured: one 1000 among nines 100 gives 100 at N = 10 and 400 at N = 3.
+    # Ten is the smallest value that still rejects one sample per tail.
+    environment = 3
     
     # VER 0.1.6 reduce the real-time chart history length to 8192 samples 
     ring_buffer_samples = 8192 # 16384
