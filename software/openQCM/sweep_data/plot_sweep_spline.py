@@ -93,7 +93,7 @@ def baseline_coeffs():
     (freq_all, mag_all, phase_all) = load_calibration_file()
     
     # Baseline correction: input signal Amplitude (sweep all frequencies)
-    (polyfitted_all, coeffs_all) = baseline_correction(freq_all, mag_all, 8)
+    (polyfitted_all, coeffs_all) = baseline_correction(freq_all, mag_all, Constants.BASELINE_POLY_ORDER)
     mag_beseline_corrected_all= mag_all-polyfitted_all
 
     return coeffs_all

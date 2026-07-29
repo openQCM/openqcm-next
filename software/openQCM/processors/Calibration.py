@@ -69,11 +69,11 @@ class CalibrationProcess(multiprocessing.Process):
     def baseline_correction(self,readFREQ,data_mag,data_ph):
         
         # input signal Amplitude
-        (self._polyfitted_all,self._coeffs_all) = self.baseline_estimation(readFREQ,data_mag,8)
+        (self._polyfitted_all,self._coeffs_all) = self.baseline_estimation(readFREQ,data_mag,Constants.BASELINE_POLY_ORDER)
         self._mag_beseline_corrected_all = data_mag-self._polyfitted_all
         
         # input signal Phase
-        (self._polyfitted_all_phase,self._coeffs_all_phase) = self.baseline_estimation(readFREQ,data_ph,8)
+        (self._polyfitted_all_phase,self._coeffs_all_phase) = self.baseline_estimation(readFREQ,data_ph,Constants.BASELINE_POLY_ORDER)
         self._phase_beseline_corrected_all = data_ph - self._polyfitted_all_phase 
         return self._mag_beseline_corrected_all, self._phase_beseline_corrected_all
     

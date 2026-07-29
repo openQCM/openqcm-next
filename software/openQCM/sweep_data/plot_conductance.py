@@ -101,7 +101,7 @@ def baseline_coeffs():
     Vmag_all = (mag_all * 0.03) + 0.3
     
     # Baseline correction: input signal Amplitude (sweep all frequencies)
-    (polyfitted_all, coeffs_all) = baseline_correction(freq_all, Vmag_all, 8)
+    (polyfitted_all, coeffs_all) = baseline_correction(freq_all, Vmag_all, Constants.BASELINE_POLY_ORDER)
     mag_beseline_corrected_all= Vmag_all - polyfitted_all
 
     return coeffs_all

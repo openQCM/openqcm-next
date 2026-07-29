@@ -53,11 +53,11 @@ class MultiscanProcess(multiprocessing.Process):
         (self.freq_all, self.mag_all, self.phase_all) = self.load_calibration_file()
         
         # Baseline correction: input signal Amplitude (sweep all frequencies)
-        (self.polyfitted_all, self.coeffs_all) = self.baseline_correction(self.freq_all, self.mag_all,8)
+        (self.polyfitted_all, self.coeffs_all) = self.baseline_correction(self.freq_all, self.mag_all, Constants.BASELINE_POLY_ORDER)
         self.mag_beseline_corrected_all = self.mag_all-self.polyfitted_all
         
         # Baseline correction: input signal Phase (sweep all frequencies)
-        (self.polyfitted_all_phase,self.coeffs_all_phase)=self.baseline_correction(self.freq_all,self.phase_all,8)
+        (self.polyfitted_all_phase,self.coeffs_all_phase)=self.baseline_correction(self.freq_all,self.phase_all,Constants.BASELINE_POLY_ORDER)
         self.phase_beseline_corrected_all= self.phase_all-self.polyfitted_all_phase 
         return self.coeffs_all
     
@@ -65,7 +65,7 @@ class MultiscanProcess(multiprocessing.Process):
         
         # convert mag to Vmag_c
         Vmag_c = (self.mag_all * 0.03) + 0.3
-        (poly_Vmag, coeff_Vmag) = self.baseline_correction(self.freq_all, Vmag_c, 8)
+        (poly_Vmag, coeff_Vmag) = self.baseline_correction(self.freq_all, Vmag_c, Constants.BASELINE_POLY_ORDER)
         
         return poly_Vmag, coeff_Vmag
 
