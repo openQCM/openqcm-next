@@ -551,6 +551,22 @@ Conventional Commits. Versions are marked by Git tags.
   label separately. Checked that nothing parses the displayed text back into an index. The log
   filename keeps its `_fundamental` suffix — changing it would split comparability with every log
   already on disk.
+- **File → Open Log raised `NameError` on every click** (`ui/mainWindow.py`). `_open_datalog_view`
+  called `QtWidgets.QFileDialog`, but that module imports `QtCore` and `QtGui` only. ⚠️ **Worth
+  knowing beyond this bug**: the file subclasses `QtGui.QMainWindow`, which does not exist in PyQt5
+  either — pyqtgraph's `Qt.py` copies every `QtWidgets` member into `QtGui` for Qt4 compatibility
+  (line 299 of 0.11.0), and `mainWindow.py` imports pyqtgraph before `QtGui`. Measured:
+  `QtGui.QFileDialog` is `False` before importing pyqtgraph and `True` after. So widgets reached
+  through `QtGui` in that file work **by side effect of a third-party import**. The dialog is imported
+  explicitly from `QtWidgets` instead, as Q-1 does at the same spot.
+- ⚠️ **`Calibration.py`'s CRLF line endings were normalised by accident** in `8c40c58` and restored in
+  `da81e2b`. The script that made that edit read the file with universal newlines and wrote it back
+  with `'\n'`, turning all 799 lines from CRLF to LF and burying a two-line change in a 1598-line
+  diff. Only the endings were restored: `git diff --ignore-all-space` against `8c40c58` is empty. **The
+  repository has no `.gitattributes` and mixed endings** — 42 `.py` files are LF and five are CRLF
+  (`fileStorage`, `switcher`, `Sigma_Clip`, `ReadLine`, `Calibration`). Normalising them is a
+  reasonable thing to do, as its own decision; a Windows clone should set
+  `core.autocrlf false` first, or git rewrites every one of them at checkout.
 - **The auxiliary views did not follow the theme** (`ui/theme.py`). The window-background rule
   covered `QMainWindow` and `#centralwidget` only, and the three auxiliary views are `QDialog`s, so
   their pyqtgraph canvases went dark while the frame around them stayed at the platform default —

@@ -2,7 +2,7 @@
 
 > Technical starting point to continue development of the software and of the
 > `impedance-analysis` branch. Working language: Italian in chat, English in the repo.
-> Last updated: 2026-07-28.
+> Last updated: 2026-07-29.
 
 ---
 
@@ -22,7 +22,9 @@ Package `software/openQCM/`:
 - `processors/`: `Serial.py` (SerialProcess), `Multiscan.py` (multi-overtone; conductance on the impedance branch), `Calibration.py` (peak detection), `Parser.py`
 - `ui/`: `mainWindow.py` (controller, ~4000 lines), `mainWindow_ui.py` (**programmatic UI builder**,
   GUI redesign R1; the old generated `mainWindow_new_ui.py` stays as reference only), `theme.py`,
-  `popUp.py`, **`rawDataView.py`** (live Raw Data View)
+  `popUp.py`, **`rawDataView.py`** (live Raw Data View), **`peakDataView.py`** (last Peak
+  Detection), **`dataLogView.py`** (File > Open Log), **`plotMenu.py`** (the one plot right-click
+  menu), **`widgets.py`** (combo/spin boxes that paint their own chevron)
 - `common/`: `fileStorage.py`, `logger.py`, `architecture.py`, `switcher.py`,
   **`sweepDump.py`** (development-only raw sweep dump, off by default)
 - `data_view/`: standalone CSV viewer
@@ -50,6 +52,9 @@ Things about the chain that surprise people, all commented in the module:
   not `1/Q`**. Check this before you put either number on screen.
 - The fundamental and overtone branches have been numerically identical since VER 0.1.4, hence the
   single code path.
+- The polynomial order of the full-span baseline is `Constants.BASELINE_POLY_ORDER` (8). It was a bare
+  literal in **seven** call sites, which is how a viewer ends up correcting a baseline the instrument
+  never used. Anything that reproduces the measurement reads it from there.
 
 ## 2. Branches
 
@@ -139,6 +144,77 @@ measure, which is exactly the failure this module exists to prevent. Only the vi
 analysed, so the cost is one spline per tick. Each tab frames the resonance once on its first fit
 and then leaves the axes alone: at full scale a 62 Hz band inside an 18 kHz span is invisible, but
 re-framing every tick would be unusable.
+
+### The other two views: Peak Data View and Datalog View
+
+Three auxiliary windows now, and the difference between them is the thing to keep straight.
+
+| window | menu | reads | live? |
+|---|---|---|---|
+| Raw Data View | Tools | the acquisition buffers, in memory | yes, 300 ms pull |
+| Peak Data View | Tools | `Calibration_*MHz.txt` + `PeakFrequencies.txt` | no, snapshot on open |
+| Datalog View | File > Open Log… | a `logged_data/*.csv` the user picks | no, snapshot on open |
+
+**Reading files is right in the last two and wrong in the first.** Peak Detection runs once and writes
+its two files; a datalog is a finished run. There is nothing in memory to read in either case, and
+those files *are* the record. Raw Data View is the opposite: the sweeps are in memory, and reading the
+dump instead is what coupled Q-1's viewer to a debugging tool.
+
+⚠️ **Peak Data View reconstructs two things**, because neither is stored: the baseline (from
+`BASELINE_POLY_ORDER`, on the same arrays the detector used) and the phase peak. The second is not an
+oversight to fix — `PeakFrequencies.txt` holds the amplitude peak **twice**
+(`np.column_stack([f, f])` in `Calibration.py`), so the phase peak has to be re-derived. It is drawn
+beside the amplitude peak on purpose: their disagreement is the diagnostic.
+
+⚠️ **Datalog View has a format trap.** `FileStorage.CSVsave_Multi` always writes a **14-column
+header**, but the data rows **skip** every overtone whose frequency or dissipation is zero. Measured
+across 33 logs: a 10 MHz sensor writes **10-column** rows under that header. Reading columns by header
+name invents two overtones on every such run. Pairs are therefore taken positionally, the row width
+decides how many there are, and the harmonic order is derived from the frequencies because the file
+does not record which overtones were selected.
+
+Frequency and dissipation are shown as the shift from a **movable reference cursor** (the mean of
+`REFERENCE_SAMPLES` = 5 samples). Absolute values are unreadable: five overtones on one axis span
+5 to 45 MHz against a signal of a few hundred Hz.
+
+### `ui/plotMenu.py` — the plot right-click menu, once
+
+Grid off, then Auto-scale / Reset zoom / mouse mode / grid / Export. Two pyqtgraph facts live in that
+module because they cost time to find: `setMenuEnabled(False)` is needed on the `PlotItem` **and** its
+`ViewBox`, and the plots of one `GraphicsLayoutWidget` share a `QGraphicsScene`, so `sigMouseClicked`
+is connected **once per scene** with the plot found by hit test.
+
+⚠️ `mainWindow.py` still has its own copy: its version carries the delta cursors and four plot
+targets. `plotMenu` has the hooks needed to absorb it (`extra_actions`, `apply_grid`); converting the
+production window is a job of its own and is still open.
+
+### `ui/widgets.py` — why the chevrons are painted
+
+`ChevronComboBox` / `ChevronSpinBox` / `ChevronDoubleSpinBox` draw their own chevron; the style sheet
+switches the platform arrow off. **Do not "simplify" this into pure QSS**: the CSS-triangle trick on
+`::down-arrow` is not honoured by Qt 5.9.7 — it paints the box, so the arrow comes out a rectangle,
+measured on this build. An image would mean one asset per theme times one per pixel density.
+
+⚠️ The spin buttons are **invisible, not gone**: the sheet removes their border and arrow, not the
+sub-control, so clicking where the glyphs are still steps the value.
+
+⚠️ **A combo popup is two widgets**, the list and a `QFrame` container, and the container is a separate
+top-level window: a `QComboBox QAbstractItemView` rule in the window's sheet **does not reach it**. Its
+colours ignored theme switches until `_style_popup()` started setting the sheet and the QPalette on
+both objects directly. The popup list is deliberately square-cornered — it is an opaque window, so a
+rounded background leaves the window's own colour showing at the corners. On macOS a light native
+frame may still show around it; on Windows it does not.
+
+### The status bar: one dot, plain text
+
+The machine state is the **colour of one dot** (`statusIndicator`), as in Q-1 v3.0: grey disconnected,
+yellow connected and idle, orange processing or recoverable warning, green monitoring, red error.
+`infostatus` and `infobar` are plain text beside it. Write through `_set_status(key, text)` and
+`_set_message(text)` rather than pairing a `setText` with a stylesheet.
+
+It used to say the state three times — a coloured pill, a `<font color>` inside the message, and the
+literal word "Infobar" printed in front of it. The dot colours are absolute, not palette entries: they
+are state semantics and must mean the same on both themes.
 
 ### ⚠️ Sweep dump: development only, off by default
 
@@ -503,7 +579,13 @@ selectable).
 
 - **PyQt5 = 5.9.2 is mandatory**: the GUI uses the classic `QtGui` widget namespace
   (`QtGui.QMainWindow`, `QtGui.QPushButton`…); PyQt5 ≥5.11 moves widgets to `QtWidgets` and breaks the
-  app. **Python 3.9.12**. Tested on macOS Intel and Apple Silicon. Conda is the reproducible route
+  app.
+  ⚠️ **And `QtGui` does not actually contain those widgets** — not even in 5.9.2. It works because
+  pyqtgraph's `Qt.py` copies every `QtWidgets` member into `QtGui` for Qt4 compatibility (line 299 of
+  0.11.0), and `mainWindow.py` imports pyqtgraph *before* `QtGui`. Measured: `QtGui.QFileDialog` is
+  `False` before importing pyqtgraph and `True` after. So every widget reached through `QtGui` in that
+  file works **by side effect of a third-party import**. It already cost one traceback in production
+  (`File > Open Log`, fixed in `badd438`). In new code import from `QtWidgets` explicitly. **Python 3.9.12**. Tested on macOS Intel and Apple Silicon. Conda is the reproducible route
   (see `software/environment.yml`).
 - **Runtime-rewritten data files.** Only three are still tracked: `PeakFrequencies.txt`,
   `PeakFrequenciesRT.txt` and `config.txt`. `Calibration_5MHz/10MHz.txt` and `sweep_data/*.txt` were
@@ -524,6 +606,14 @@ selectable).
   known to git", and a merge complaining about local modifications to those same files — that is the
   `skip-worktree` bit: diagnose with `git ls-files -v | grep ^S`.
 
+- â ï¸ **Mixed line endings, and no `.gitattributes`.** 42 `.py` files are LF and five are CRLF
+  (`fileStorage`, `switcher`, `Sigma_Clip`, `ReadLine`, `Calibration`). Two consequences. **On
+  Windows**, set `git config --global core.autocrlf false` *before cloning*, or git rewrites every
+  file at checkout and the clone looks entirely modified. **When editing with a script**, read and
+  write in binary: `open(p).read()` uses universal newlines and `write()` emits `'\n'`, which
+  silently converts a CRLF file whole â it happened in `8c40c58` and had to be undone in `da81e2b`,
+  where a two-line change arrived as a 1598-line diff. Normalising all five is a reasonable decision
+  to take deliberately; it has not been taken.
 - **The GUI *can* be exercised headless** — the old "leave it all to a human" is only half true, and
   the difference matters because logic bugs are cheap to catch this way. Static checks first
   (`python -m py_compile ...`, `python -c "from openQCM.app import OPENQCM"` from `software/`), then
