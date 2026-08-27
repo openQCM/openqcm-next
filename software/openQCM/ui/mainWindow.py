@@ -25,6 +25,7 @@ from openQCM.processors.Serial import SerialProcess
 from openQCM.core.constants import Constants, SourceType, DateAxis, NonScientificAxis
 from openQCM.ui.popUp import PopUp
 from openQCM.ui import theme
+from openQCM.ui.plotMenu import PlotMenu
 from openQCM.ui.widgets import (_Chevroned, ChevronComboBox,
                                 ChevronSpinBox, ChevronDoubleSpinBox)
 from openQCM.common.logger import Logger as Log
@@ -4267,12 +4268,15 @@ class MainWindow(QtGui.QMainWindow):
     # openQCM Q-1 v3.0; NEXT keeps F and D in two separate panels.
     # ------------------------------------------------------------------
     def _setup_plot_interactions(self):
-        # per-plot grid state (grids default OFF)
-        self._grid_on = {}
+        # The menu is ui/plotMenu.py's, not a copy: this window used to carry its
+        # own, which is how one scene-scoping defect came to exist twice. The two
+        # things only this window needs are the hooks the shared module already
+        # provides -- the delta cursors as an extra item, and the phase twin's
+        # grid following the amplitude plot's.
         self._plot_menu_targets = [self._plt0, self._plt4, self._plt2, self._pltD]
-        # one handler per GraphicsLayoutWidget scene (ui.plt hosts _plt0 + _plt4)
-        for canvas in (self.ui.plt, self.ui.pltB, self.ui.pltD):
-            canvas.scene().sigMouseClicked.connect(self._on_scene_mouse_clicked)
+        self._plot_menu = PlotMenu(self, extra_actions=self._plot_menu_extras,
+                                   apply_grid=self._apply_grid)
+        self._plot_menu.attach(self._plot_menu_targets)
         # Δ cursors: two movable time cursors + delta readout per panel. The
         # items are parented to the ViewBox (ignoreBounds) so they survive
         # PlotItem.clear() and never drive the autorange.
@@ -4294,55 +4298,27 @@ class MainWindow(QtGui.QMainWindow):
             self._plot_cursors[plot] = {"c1": c1, "c2": c2,
                                         "text": txt, "kind": kind}
 
-    def _on_scene_mouse_clicked(self, ev):
-        """Right-click inside a plot: show OUR menu and nothing else. The default
-        pyqtgraph menu is switched off per-plot with setMenuEnabled(False)."""
-        if ev.button() != QtCore.Qt.RightButton:
-            return
-        for plot in self._plot_menu_targets:
-            vb = plot.getViewBox()
-            if vb is not None and vb.sceneBoundingRect().contains(ev.scenePos()):
-                ev.accept()
-                self._show_plot_menu(plot, ev.screenPos().toPoint())
-                return
-
-    def _show_plot_menu(self, plot, screen_pos):
-        menu = QtGui.QMenu(self)
-        menu.addAction("Auto-scale", lambda: plot.enableAutoRange())
-        menu.addAction("Reset zoom", lambda: plot.autoRange())
-        vb = plot.getViewBox()
-        if vb.state.get("mouseMode") == pg.ViewBox.RectMode:
-            menu.addAction("Mouse: pan mode",
-                           lambda: vb.setMouseMode(pg.ViewBox.PanMode))
-        else:
-            menu.addAction("Mouse: select/zoom mode",
-                           lambda: vb.setMouseMode(pg.ViewBox.RectMode))
-        menu.addSeparator()
-        menu.addAction("Hide grid" if self._grid_on.get(plot, False)
-                       else "Show grid",
-                       lambda: self._set_grid(plot,
-                                              not self._grid_on.get(plot, False)))
+    def _plot_menu_extras(self, menu, plot):
+        """The Δ-cursor item, added to the two panels that carry cursors."""
         if plot in self._plot_cursors:
             visible = self._plot_cursors[plot]["c1"].isVisible()
             menu.addAction("Hide Δ cursors" if visible else "Show Δ cursors",
                            lambda: self._toggle_cursors_for(plot))
-        # Export lived in pyqtgraph's scene menu, which is off now: keep it reachable
-        menu.addSeparator()
-        menu.addAction("Export…", lambda: plot.scene().showExportDialog())
-        menu.exec_(screen_pos)
 
-    def _toggle_all_grids(self, on):
-        """View > Grid: same state on every plot panel."""
-        for plot in getattr(self, "_plot_menu_targets", []):
-            if plot is not None:
-                self._set_grid(plot, on)
-
-    def _set_grid(self, plot, on):
-        self._grid_on[plot] = on
+    def _apply_grid(self, plot, on):
         plot.showGrid(x=on, y=on, alpha=0.3)
         # the phase twin overlays the amplitude plot: keep the grids together
         if plot is self._plt0 and getattr(self, "_plt1", None) is not None:
             self._plt1.showGrid(x=on, y=on, alpha=0.3)
+
+    def _toggle_all_grids(self, on):
+        """View > Grid: same state on every plot panel."""
+        menu = getattr(self, "_plot_menu", None)
+        if menu is not None:
+            menu.set_grid_all(bool(on))
+
+    def _set_grid(self, plot, on):
+        self._plot_menu.set_grid(plot, on)
 
     def _toggle_cursors_for(self, plot, on=None):
         info = self._plot_cursors[plot]
