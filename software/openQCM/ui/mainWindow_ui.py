@@ -233,7 +233,9 @@ class Ui_MainWindow(object):
         self.actionRaw_Data = QtWidgets.QAction("Raw Data (from sweep files)",
                                                 MainWindow)
         self.actionRaw_Data.setObjectName("actionRaw_Data")
-        self.actionLog_Data = QtWidgets.QAction("Log Data", MainWindow)
+        # the same window as File > Open Log...; kept here because this is where
+        # the habit is, and it no longer opens a second viewer of its own
+        self.actionLog_Data = QtWidgets.QAction("Log Data...", MainWindow)
         self.actionLog_Data.setObjectName("actionLog_Data")
         self.actionTEC_current = QtWidgets.QAction("Tec Current", MainWindow)
         self.actionTEC_current.setObjectName("actionTEC_current")
