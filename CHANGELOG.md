@@ -19,8 +19,10 @@ it was the one asserting `mainWindow.py` no longer mentions `window_pro`.
 
 `1a073d9`, `600a33b`, `6a8779f`, all three applied clean.
 
-`Tools > Log Data` used to open a second, matplotlib viewer of the same log files. It now opens the
-same Datalog View `File > Open Log…` does, and `openQCM/data_view/` is removed. Its two-window
+`Tools > Log Data` used to open a second, matplotlib viewer of the same log files. That entry is
+**gone** (`bdb4b48`, `fbefaa8`, both applied — the first with two conflicts, this branch's two extra
+Tools entries and its own copy of the handler): it opened the same Datalog View `File > Open Log…`
+opens, so it was two menu items for one window. `openQCM/data_view/` is removed with it. Its two-window
 analysis went first into `core/logAnalysis.py` and then into Datalog View's own panel, as draggable
 bands rather than four spin boxes — that was the condition for deleting the package.
 
