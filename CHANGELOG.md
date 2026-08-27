@@ -475,9 +475,11 @@ Conventional Commits. Versions are marked by Git tags.
   one behind Tools > Log Data drew them with matplotlib on a hard-coded `#191919` that ignored the
   theme, labelled the overtones `F_0..F_9` in the numbering corrected everywhere else last month,
   kept the grid on against this GUI's convention, carried a matplotlib toolbar instead of the shared
-  right-click menu, and put its x axis in bare seconds. The menu entry stays — that is where the
-  habit is — and now opens what `File > Open Log…` opens. Also gone: a `MatplotlibWidget` built and
-  hidden at start-up whether or not anyone ever opened the window.
+  right-click menu, and put its x axis in bare seconds. **The Tools entry is gone too**: it was kept
+  for a few commits because that is where the habit was, but it opened exactly what
+  `File > Open Log…` opens — two menu items, one window, no difference between them. Also gone: a
+  `MatplotlibWidget` built and hidden at start-up whether or not anyone ever opened the window, and
+  the line in the commented-out button block that wired `logData_btn` to the handler.
   - Nothing is lost, and that was the condition for deleting the package rather than an
     afterthought: its two-window analysis moved first, to `core/logAnalysis.py` and into Datalog
     View's own panel.

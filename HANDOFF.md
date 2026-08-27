@@ -216,9 +216,10 @@ Each control row carries **two** colour swatches, one beside the frequency value
 dissipation value. It carried one until 2026-08-27, when the two panels stopped sharing a colour;
 a single swatch would now claim a curve it does not match.
 
-**Tools > Log Data opens this same window** since 2026-08-27. It used to raise a second, matplotlib
-viewer of the same files (`data_view/`, now removed); the menu entry stayed because that is where
-the habit is. Its two-window comparison came along, as the panel below.
+**`File > Open Log…` is the only way in.** Until 2026-08-27 `Tools > Log Data` raised a second,
+matplotlib viewer of the same files (`data_view/`, now removed); the entry was kept for a few
+commits, then dropped as well — it opened this same window, so it was two menu items for one thing.
+The old viewer's two-window comparison came along, as the panel below.
 
 The **Two-window analysis** pane is hidden until the button in the Reference card is pressed, and
 the two shaded bands on the plots appear and disappear with it — bands with no report say nothing,
