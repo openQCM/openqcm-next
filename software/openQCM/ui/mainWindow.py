@@ -3329,7 +3329,9 @@ class MainWindow(QtGui.QMainWindow):
                 self._vector_1 = self._nscaled(
                     overtone_selected,
                     np.array(self.worker.get_d1_buffer()) - self._reference_value_frequency)
-                self._vector_2 = np.array(self.worker.get_d2_buffer()) - self._reference_value_dissipation
+                self._vector_2 = self._nscaled(
+                    overtone_selected,
+                    np.array(self.worker.get_d2_buffer()) - self._reference_value_dissipation)
                 
                 # VER 0.1.6 Do not set the y-range axis 
                 # TODO try to set the minimum and maximum y-range axis 
@@ -3625,7 +3627,9 @@ class MainWindow(QtGui.QMainWindow):
                         y_freq = self._nscaled(
                             idx,
                             np.array( self.worker.get_F_values_buffer(idx) ) - self._reference_value_frequency_array[idx])
-                        y_diss = np.array( self.worker.get_D_values_buffer(idx) ) - self._reference_value_dissipation_array[idx]
+                        y_diss = self._nscaled(
+                            idx,
+                            np.array( self.worker.get_D_values_buffer(idx) ) - self._reference_value_dissipation_array[idx])
                         
                         # VER 0.1.6 do not set the y-range axis 
 
@@ -3894,7 +3898,8 @@ class MainWindow(QtGui.QMainWindow):
 
                y_freq = self._nscaled(overtone_selected,
                                       self.worker.get_d1_buffer())
-               y_diss = self.worker.get_d2_buffer()
+               y_diss = self._nscaled(overtone_selected,
+                                      self.worker.get_d2_buffer())
                
                # VER 0.1.6 do not get max and min 
 # =============================================================================
@@ -4187,7 +4192,8 @@ class MainWindow(QtGui.QMainWindow):
                        # get y frequency and dissipation axis
                        y_freq = self._nscaled(
                            idx, self.worker.get_F_values_buffer(idx))
-                       y_diss = self.worker.get_D_values_buffer(idx)
+                       y_diss = self._nscaled(
+                           idx, self.worker.get_D_values_buffer(idx))
                        
 # =============================================================================
 #                        # frequency
@@ -4366,6 +4372,13 @@ class MainWindow(QtGui.QMainWindow):
         only because they are handed the same arrays as the curves, which is the
         point -- a card that disagrees with the line above it is the defect this
         codebase keeps producing.
+
+        ⚠️ ON THIS BRANCH IT DIVIDES DISSIPATION TOO; `main` scales frequency
+        only. The difference is deliberate and was specified that way, and it
+        must not be reconciled by a cherry-pick in either direction. The reason
+        is metrological -- what the dissipation panel holds is not the same
+        quantity on the two branches -- and it is the user's call, not this
+        file's; do not "fix" one side to match the other.
         """
         if not self._nscale:
             return 1.0
@@ -4388,6 +4401,10 @@ class MainWindow(QtGui.QMainWindow):
         self._plt2.setLabel(
             "left", "Resonance Frequency / n" if self._nscale
             else "Resonance Frequency", units="Hz")
+        # ⚠️ branch behaviour: dissipation is scaled here and not on main
+        self._pltD.setLabel(
+            "left", "Dissipation / n" if self._nscale else "Dissipation",
+            units="")
         # the curves are redrawn by the plot timer; when it is not running the
         # panel would keep the old scale until the next acquisition
         timer = getattr(self, "_timer_plot", None)
@@ -4716,9 +4733,9 @@ class MainWindow(QtGui.QMainWindow):
             y = (self.worker.get_d1_buffer() if kind == "F"
                  else self.worker.get_d2_buffer())
         # the cursors read the buffers directly, so N-SCALE has to be applied
-        # here too or ΔF would print unscaled hertz under a scaled curve
-        if kind == "F":
-            y = self._nscaled(index, y)
+        # here too or the readout would print unscaled units under a scaled
+        # curve. ⚠️ BOTH channels on this branch: main scales frequency only.
+        y = self._nscaled(index, y)
         return np.asarray(t, dtype=float), np.asarray(y, dtype=float)
 
     def _update_cursor_delta(self, plot):
