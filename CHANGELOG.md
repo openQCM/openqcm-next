@@ -484,7 +484,28 @@ Conventional Commits. Versions are marked by Git tags.
     whatever width the sidebar had. A trailing spacer takes the slack now, and the chips keep
     `OVERTONE_CHIP_WIDTH` = **62 px** — what they measured at, sharing the row, in the real widget
     chain. Left at their label width they came out at 42, too narrow to read.
-  - ⚠️ **The width was measured wrong first, at 75 px, and clipped the whole sidebar.** That number
+- ⚠️ **The sidebar was narrower than its own content, so the cards were clipped**
+  (`ui/mainWindow_ui.py`). Its scroll area is `widgetResizable` with the horizontal bar **off**, so a
+  container wider than the viewport is not scrolled — it is silently **clipped**, and the cards lose
+  their right edge: the port combo, F9, the temperature spin box. Measured,
+  `sidebarContainer.minimumSizeHint().width()`:
+
+  | | |
+  |---|---|
+  | before N-SCALE (`da0f457`) | 371 |
+  | N-SCALE in a single row (`2c0c062`) | **545** |
+  | Plot Controls 2×2 (`45da71c`) | 371 |
+  | chips pinned at 62 | 371 |
+
+  The pane's minimum was **260** and the splitter opened it at **300** — both below 371, so the
+  clipping is older than any of this and the pinned chips did not cause it. What did cause the wide
+  version was N-SCALE arriving in a single row of four buttons; the 2×2 grid already undid that. The
+  pane now starts and stops at `SIDEBAR_MIN_WIDTH` = **380**, the measured content minimum plus
+  slack, with the maximum raised to 460. The comment claiming 300 px "shows the whole sidebar
+  content without clipping" was wrong by 71 px.
+  - Gated: `SIDEBAR_MIN_WIDTH` is asserted no smaller than the container's own minimum, and at both
+    380 and 460 the container must fit inside the viewport while the chips stay at 62.
+  - ⚠️ **The chip width was measured wrong first, at 75 px.** That number
     came from a harness that put the Measurement Setup card in a dialog on its own, where a card
     takes its own size hint instead of the width the sidebar gives it. Pinned at 75 the card went
     from 355 px to 419 and the sidebar content hint past the pane, so every card was cut on its
