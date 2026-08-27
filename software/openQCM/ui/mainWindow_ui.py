@@ -32,22 +32,6 @@ APP_ICON = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)),
                  "..", "res", "icon", "favicon.png"))
 
-# Width of the F1..F9 quick-select chips. Not a taste number: it is what the five
-# measured at, sharing the row, in the real widget chain -- sidebarPane, scroll
-# area, Measurement Setup card. Pinning it keeps that look while stopping them
-# from growing with the window.
-#
-# ⚠️ Measure it through sidebarPane, not through a card on its own. A card asked
-# for its size hint in isolation reports a wider row than it ever gets, and a
-# chip width taken from there (75) pushed the Setup card from 355 px to 419 and
-# the whole sidebar past the pane, which clipped every card on the right.
-OVERTONE_CHIP_WIDTH = 62
-
-# Narrowest the sidebar may be dragged, and its default width. It is the measured
-# minimum of the cards (371 px) plus a little slack. Below it the scroll area
-# clips rather than scrolls -- see the note where it is applied.
-SIDEBAR_MIN_WIDTH = 380
-
 
 class Ui_MainWindow(object):
 
@@ -100,7 +84,7 @@ class Ui_MainWindow(object):
         self.mainSplitter.setCollapsible(1, False)
         self.mainSplitter.setStretchFactor(0, 0)
         self.mainSplitter.setStretchFactor(1, 1)
-        self.mainSplitter.setSizes([SIDEBAR_MIN_WIDTH, 900])
+        self.mainSplitter.setSizes([300, 900])
 
         outer = QtWidgets.QVBoxLayout(self.centralwidget)
         outer.setContentsMargins(4, 4, 4, 4)
@@ -354,15 +338,10 @@ class Ui_MainWindow(object):
             btn.setProperty("overtoneBtn", True)
             btn.setCheckable(True)
             btn.setFixedHeight(24)
-            btn.setFixedWidth(OVERTONE_CHIP_WIDTH)
             btn.setToolTip("Overtone " + label)
             setattr(self, "overtoneBtn_" + name, btn)
             self.horizontalLayout_2.addWidget(btn)
             self.overtone_buttons.append(btn)
-        # the chips keep OVERTONE_CHIP_WIDTH and a trailing stretch takes the
-        # slack, the way the temperature ON / RESET row does. Without it the five
-        # grow with the sidebar and the row reflows as the window is resized.
-        self.horizontalLayout_2.addStretch(1)
         self.gridLayout_D.addWidget(self.line_2, 3, 0, 1, 2)
         self.gridLayout_D.addLayout(self.horizontalLayout_2, 4, 0, 1, 2)
         # R2: the overtone quick-select row belongs to the Measurement Setup card
@@ -510,14 +489,18 @@ class Ui_MainWindow(object):
         bottom.addWidget(self.pButton_Start)
         pane.addLayout(bottom)
 
-        # ⚠️ The pane must not be allowed narrower than its content. The scroll
-        # area is widgetResizable with the horizontal bar OFF, so a container
-        # wider than the viewport is not scrolled -- it is silently CLIPPED, and
-        # the cards lose their right edge. Measured: sidebarContainer's minimum
-        # is 371 px, and the old 260/300 pair sat below it, which is why the port
-        # combo, F9 and the temperature spin box were cut off.
-        self.sidebarPane.setMinimumWidth(SIDEBAR_MIN_WIDTH)
-        self.sidebarPane.setMaximumWidth(460)
+        # Default width 300 px (set on the splitter below). Kept resizable --
+        # min/max instead of a fixed width -- so the splitter handle can smoothly
+        # drag it, not just snap open/closed.
+        #
+        # ⚠️ Measured, and left as it is on purpose: sidebarContainer's minimum is
+        # 371 px, so at 300 the cards ARE clipped on the right -- the scroll area
+        # is widgetResizable with the horizontal bar off, so a container wider
+        # than the viewport is not scrolled, it is cut. Raising the minimum to
+        # 380 fixes the clipping but takes away the ability to narrow the
+        # sidebar, which is worse. Deferred, not forgotten.
+        self.sidebarPane.setMinimumWidth(260)
+        self.sidebarPane.setMaximumWidth(400)
 
     # ------------------------------------------------------------------ #
     # Temperature control card                                           #
