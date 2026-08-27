@@ -470,6 +470,35 @@ Conventional Commits. Versions are marked by Git tags.
   and how long the instrument takes to settle. It was briefly more than that: shortening the
   buffer also switched off the outlier rejection, which is the defect fixed below, so that part of
   the warning no longer applies. The constant carries a banner explaining both.
+- **The dissipation curves get their own colour family, and the plot panels a grey**
+  (`Constants.plot_color_multi_diss` new, `plot_color_multi` last two entries, `ui/theme.py`,
+  `ui/mainWindow.py`, `ui/dataLogView.py`). Both plots drew the same five blues, so a screenshot
+  of the dissipation panel was indistinguishable from one of the frequency panel. Dissipation now
+  carries the interface brown's family, on a ramp **specified in luminance rather than copied**:
+  a first attempt that reused the blues' fractions of the way to white failed on the instrument,
+  because brown starts light (Rec. 709 luminance 156 against pure blue's 18) and the five landed
+  inside a 58-point band with steps of 10-13 that the eye could not separate. The ramp now locks
+  the hue at the interface brown's 18.4 deg, drops saturation 0.85 -> 0.26 and solves V per entry
+  so the luminances land on **70, 105, 140, 176, 211** -- steps of 35.
+  - Both ends are bounded by the panels they have to survive, which pulled in the rest:
+    `theme.PLOT["light"]["bg"]` was `"w"`, and on pure white the palest overtone of each series
+    all but vanished. **Both panels now read the interface's own window colour** instead of
+    carrying private constants -- the dark one was already `(43,43,43)` = `DARK["window"]` and is
+    unchanged bit-for-bit, the light one becomes `LIGHT["window"]`, `#f2f4f7` at luminance 244.
+  - On that panel the palest blue, `#BFFFFF` at 241, cleared it by **three points** and read by
+    its cyan tint alone; F9 was barely there on the instrument. The last two blues come down to
+    `#60CCEF` (184) and `#92E4EB` (211). Entry 4 had to move as well: capping entry 5 at 211 while
+    leaving 4 at 205 would have put six points between F7 and F9, trading one defect for another.
+    The three identity blues are untouched. Both series now clear the panel by 33.
+  - Datalog View used **one** colour for both of its panels, so its control rows now carry **two**
+    swatches, each beside the value it belongs to. Raw Data View and `plot_sweep_spline` draw
+    amplitude sweeps, where the blue is correct, and are unchanged; the legacy `data_view`
+    matplotlib viewer still uses the blues for both of its plots and is on the retirement list.
+  - Verified by reading the colours back **out of the live Qt objects** -- `PlotDataItem` pens and
+    swatch stylesheets -- not out of `Constants`, which would only prove the constant equals
+    itself. Gated on: both ramps monotonically lightening, brown steps 35 +- 0, minimum blue step
+    >= 25, the three identity blues pinned, the dark panel still exactly `(43,43,43)`, and both
+    series' palest entry a measured distance from the light panel.
 
 ### Fixed
 - **Application icon now loads on all platforms** — it was set from non-resolving paths:

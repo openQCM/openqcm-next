@@ -258,6 +258,43 @@ N=50 on real buffers.** Production values must not move. Two things learned by t
 high tail. With more NaNs than k the result is still NaN. This differs from the old behaviour only
 on a short buffer (at N ≥ 10 `trim_mean` already dropped it).
 
+### The two curve palettes, and why the light panel is grey
+
+`Constants.plot_color_multi` (frequency, blue) and `Constants.plot_color_multi_diss`
+(dissipation, brown) are **two ramps specified in luminance**, not two lists picked by eye. Read
+them from `Constants`; nothing may hard-code a curve colour.
+
+Rec. 709 luminance, the number every decision below is made on:
+
+| # | frequency | Y | dissipation | Y |
+|---|---|---|---|---|
+| 1 | `#0000FF` | 18 | `#873814` | 70 |
+| 2 | `#007FFF` | 109 | `#AE5A34` | 105 |
+| 3 | `#00BFFF` | 155 | `#CE7E5B` | 140 |
+| 4 | `#60CCEF` | 184 | `#E5A487` | 176 |
+| 5 | `#92E4EB` | 211 | `#F7CBB7` | 211 |
+
+⚠️ **A ramp that mirrors another ramp's *shape* is not a ramp that can be read.** The
+first brown series reused the blues' fractions of the way to white. Because brown starts light
+(156 against pure blue's 18), the five landed inside a 58-point band with steps of 10-13, and on
+the instrument the middle overtones were not separable. The brown is now hue-locked at 18.4 deg
+with saturation falling 0.85 -> 0.26 and V solved per entry for the target luminance: steps of 35.
+
+⚠️ **Both ramps are bounded by the panels they are drawn on**, so the panels are not
+free either. `theme.PLOT[*]["bg"]` reads the interface's **own window colour** — `DARK["window"]`
+(43,43,43) and `LIGHT["window"]` `#f2f4f7` at 244. The light panel was `"w"`, and against pure
+white the palest entry of each series all but vanished. Two consequences worth knowing:
+- The ceiling of both ramps is **211**, which clears the light panel by 33. The palest blue used to
+  be `#BFFFFF` at 241 — three points from the panel — and read by its cyan tint alone.
+- Entry 4 of the blue moved too. Capping entry 5 at 211 while leaving 4 at 205 would have left six
+  points between F7 and F9: one defect for another. The **three identity blues (1-3) do not move**.
+
+Still on the blues in both panels: the legacy `data_view` matplotlib viewer (retirement list) and
+`plot_color_multi_g`, the branch-only hex mirror used by the conductance plots — which is a copy of
+an *older* blue palette and has never tracked this one.
+
+Raw Data View and `plot_sweep_spline` draw amplitude sweeps; blue is correct there.
+
 ### ⚠️ `Constants.environment` is currently a development value
 
 It is **3**, not the production **10**, so test runs leave warm-up almost immediately.
