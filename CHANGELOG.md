@@ -5,6 +5,32 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Changed — the two impedance views move into a card (2026-08-27)
+
+The right-hand dock was the only plot area in this GUI still drawn on bare window background: a
+loose label, then the splitter, no frame. `_build_impedance_panel` now puts the conductance
+spectrum and the admittance locus in a **compact card** — the same one the frequency and
+dissipation readouts wear above their own plots — and the floating "Impedance — exact formula"
+label becomes the card's title, so the panel carries one label instead of two. The splitter is
+unchanged: both views still collapse.
+
+The look comes from the `cardCompact` property added to the shared style sheet on `main`
+(`c43b5cf`, carried below), not from a name `theme.py` would have to know. ⚠️ The property is set
+in the builder, which runs at `setupUi()`, **before** `_apply_theme()` puts the sheet on the
+window: Qt evaluates property selectors at polish time and a later `setProperty` would do nothing.
+
+Verified off the real builder rather than a mock: the card is the two plots' ancestor, the old
+`impedanceHeader` label is **gone** rather than hidden, the title is not duplicated as a loose
+label, the splitter still holds both views and both stay collapsible, and — rendered, on both
+themes — the card with the property does not look like the same card without it.
+
+### Carried from `main` — compact cards opt in by property (2026-08-27)
+
+`c43b5cf`, applied clean. `QGroupBox[cardCompact="true"]` joins the two `#groupFreqReadout` /
+`#groupDissReadout` rules in `theme.qss`, so a card built on this branch can take the compact look
+without adding a dead `#name` selector to a file `main` also uses. Measured there on Qt 5.9.7: a
+box that sets the property renders pixel-identical to one named `groupFreqReadout`.
+
 ### Carried from `main` — the two curve palettes and the grey plot panel (2026-08-27)
 
 `8dc1cf7`. One whitespace conflict in `constants.py` (this branch has a bare blank line where `main`
