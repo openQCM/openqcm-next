@@ -409,6 +409,10 @@ class Ui_MainWindow(object):
             setattr(self, "overtoneBtn_" + name, btn)
             self.horizontalLayout_2.addWidget(btn)
             self.overtone_buttons.append(btn)
+        # keep the chips at their natural width and let a trailing stretch take
+        # the slack, the way the temperature ON / RESET row does. Without it the
+        # five grow with the sidebar and the row reflows as the window is resized.
+        self.horizontalLayout_2.addStretch(1)
         self.gridLayout_D.addWidget(self.line_2, 3, 0, 1, 2)
         self.gridLayout_D.addLayout(self.horizontalLayout_2, 4, 0, 1, 2)
         # R2: the overtone quick-select row belongs to the Measurement Setup card
@@ -454,10 +458,12 @@ class Ui_MainWindow(object):
         self.groupPlotControls = QtWidgets.QGroupBox("Plot Controls",
                                                      self.sidebarContainer)
         self.groupPlotControls.setObjectName("groupPlotControls")
-        # compact horizontal row: buttons keep their natural (label) width,
-        # left-aligned via a trailing stretch (same rule as the other groups)
-        _pc = QtWidgets.QHBoxLayout(self.groupPlotControls)
-        _pc.setSpacing(6)
+        # two rows of two: AUTO / CLEAR act on the view, SET REF / N-SCALE change
+        # what the curves mean. A grid rather than two QHBoxLayouts so the second
+        # button of each row lines up with the first.
+        _pc = QtWidgets.QGridLayout(self.groupPlotControls)
+        _pc.setHorizontalSpacing(6)
+        _pc.setVerticalSpacing(4)
         self.pButton_Autoscale = QtWidgets.QPushButton("AUTO",
                                                        self.sidebarContainer)
         self.pButton_Autoscale.setObjectName("pButton_Autoscale")
@@ -477,10 +483,13 @@ class Ui_MainWindow(object):
         self.pButton_NScale.setToolTip(
             "Divide each overtone by its harmonic order (display only — the "
             "datalog keeps the measured values)")
-        for _b in (self.pButton_Autoscale, self.pButton_Reference,
-                   self.pButton_Clear, self.pButton_NScale):
-            _pc.addWidget(_b)
-        _pc.addStretch(1)
+        _pc.addWidget(self.pButton_Autoscale, 0, 0)
+        _pc.addWidget(self.pButton_Clear, 0, 1)
+        _pc.addWidget(self.pButton_Reference, 1, 0)
+        _pc.addWidget(self.pButton_NScale, 1, 1)
+        # the slack goes to a third, empty column: the buttons keep their natural
+        # width instead of stretching with the sidebar
+        _pc.setColumnStretch(2, 1)
         sb.addWidget(self.groupPlotControls)
 
         # Plot Controls is the last top-anchored card; this stretch pushes the
