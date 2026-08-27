@@ -5,6 +5,28 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Changed — N-SCALE divides dissipation too, which `main` does not (2026-08-27)
+
+`17a3561` carried clean; this commit is the branch's own behaviour on top of it.
+
+The divisor reaches the four dissipation assignments in `_update_plot`, the Δ-cursor readout for
+**both** channels, and the dissipation axis label, which gains "/ n" alongside the frequency one.
+
+⚠️ **The difference from `main` is deliberate and specified, not drift**, and must not be reconciled
+by a cherry-pick in either direction: what the dissipation panel holds is not the same quantity on
+the two branches. The divisor's docstring says so at the point where someone would be tempted to
+"fix" it, and the verification suite reads which contract it is checking from the environment — on
+`main` all four dissipation assignments must be **unwrapped**, here all four must be **wrapped**, and
+the same gates run on both worktrees.
+
+### Carried from `main` — Plot Controls > N-SCALE (2026-08-27)
+
+`17a3561`, applied clean. Each overtone's frequency is drawn divided by **n** (1, 3, 5, 7, 9) while
+the button is held down, so the five can be read against one another. It scales whatever is drawn —
+the shift when a reference is set, the absolute frequency when it is not. ⚠️ Display only: the
+buffers, the datalog and the status bar keep the measured values. Details on `main`, CHANGELOG
+*Changed* and HANDOFF §3.
+
 ### Carried from `main` — the plot right-click menu acted on the wrong plot (2026-08-27)
 
 `3ef2e27` clean, `2b7db5a` with one conflict: this branch adds `_pltG` and `_pltGB` to the target

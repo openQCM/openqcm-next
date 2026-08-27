@@ -174,6 +174,11 @@ is not repeated here; read it in the other worktree.
 
 What is specific to this branch:
 
+- ⚠️ **N-SCALE divides dissipation here and only frequency on `main`.** The one place the two
+  branches are meant to behave differently. Specified, not drift; do not reconcile it in either
+  direction. `main`'s HANDOFF §3 carries the rest of the control's rules, and the shared gate reads
+  which contract to assert from the environment so it runs on both worktrees.
+
 - **Six plot targets over five scenes**, against `main`'s four over three: `_pltG` and `_pltGB`, the
   impedance dock's two views, join `_plot_menu_targets` and their canvases join the right-click
   connections. Worth knowing because the scene-scoping rule in `main`'s HANDOFF §3 bites harder the
