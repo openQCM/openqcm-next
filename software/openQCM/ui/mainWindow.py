@@ -321,7 +321,7 @@ class MainWindow(QtGui.QMainWindow):
             rgb_color = "rgb(%d, %d, %d)" % (color[0], color[1], color[2])
             label.setStyleSheet("background-color: %s;" % rgb_color)
             
-        for color, label in zip(Constants.plot_color_multi, label_D):
+        for color, label in zip(Constants.plot_color_multi_diss, label_D):
             rgb_color = "rgb(%d, %d, %d)" % (color[0], color[1], color[2])
             label.setStyleSheet("background-color: %s;" % rgb_color)
 
@@ -612,7 +612,7 @@ class MainWindow(QtGui.QMainWindow):
                                                                  width = Constants.plot_line_width))
                                         
                 # reference to the line object dissipation 
-                self._pltD_line = self._pltD.plot(pen = pg.mkPen(color = Constants.plot_color_multi[overtone_selected], 
+                self._pltD_line = self._pltD.plot(pen = pg.mkPen(color = Constants.plot_color_multi_diss[overtone_selected], 
                                                                  width = Constants.plot_line_width))
                                                 
                 
@@ -722,7 +722,7 @@ class MainWindow(QtGui.QMainWindow):
                     self._plt2_multiline[idx] = self._plt2.plot(pen = pg.mkPen(color = Constants.plot_color_multi[idx], 
                                                                                width = Constants.plot_line_width))
                     # dissipation multilines 
-                    self._pltD_multiline[idx] = self._pltD.plot(pen = pg.mkPen(color = Constants.plot_color_multi[idx], 
+                    self._pltD_multiline[idx] = self._pltD.plot(pen = pg.mkPen(color = Constants.plot_color_multi_diss[idx], 
                                                                                width = Constants.plot_line_width))
                 
                 
@@ -3688,7 +3688,7 @@ class MainWindow(QtGui.QMainWindow):
                         self._plt2_multiline[idx].setData(x = time_axis_new, y = y_freq, 
                                                           pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width))
                         self._pltD_multiline[idx].setData(x = time_axis_new, y = y_diss, 
-                                                          pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width))
+                                                          pen = pg.mkPen(color = Constants.plot_color_multi_diss[idx], width = Constants.plot_line_width))
 
                         self._update_indicator_F (idx, y_freq)
                         self._update_indicator_D (idx, y_diss)
@@ -4221,7 +4221,7 @@ class MainWindow(QtGui.QMainWindow):
                        self._plt2_multiline[idx].setData(x = time_axis_new, y = y_freq, 
                                                          pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width))
                        self._pltD_multiline[idx].setData(x = time_axis_new, y = y_diss, 
-                                                         pen = pg.mkPen(color = Constants.plot_color_multi[idx], width = Constants.plot_line_width))
+                                                         pen = pg.mkPen(color = Constants.plot_color_multi_diss[idx], width = Constants.plot_line_width))
             
                        
 
@@ -4922,7 +4922,7 @@ class MainWindow(QtGui.QMainWindow):
                     self._plt2_line = self._plt2.plot(pen = pg.mkPen(color = Constants.plot_color_multi[overtone_selected], 
                                                                      width = Constants.plot_line_width))
                     # reference to the line object dissipation 
-                    self._pltD_line = self._pltD.plot(pen = pg.mkPen(color = Constants.plot_color_multi[overtone_selected], 
+                    self._pltD_line = self._pltD.plot(pen = pg.mkPen(color = Constants.plot_color_multi_diss[overtone_selected], 
                                                                      width = Constants.plot_line_width))
                 
                     # VER 0.1.6 after clear the plt create the reference to the ampli lines again 
@@ -4938,7 +4938,7 @@ class MainWindow(QtGui.QMainWindow):
                         self._plt2_multiline[idx] = self._plt2.plot(pen = pg.mkPen(color = Constants.plot_color_multi[idx], 
                                                                                    width = Constants.plot_line_width))
                         # dissipation multilines 
-                        self._pltD_multiline[idx] = self._pltD.plot(pen = pg.mkPen(color = Constants.plot_color_multi[idx], 
+                        self._pltD_multiline[idx] = self._pltD.plot(pen = pg.mkPen(color = Constants.plot_color_multi_diss[idx], 
                                                                                    width = Constants.plot_line_width))
                         
                         # amplitude plot replot multiline

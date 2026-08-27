@@ -301,17 +301,21 @@ class DataLogViewDialog(QtWidgets.QDialog):
         self._clear_view()
 
         for position, (order, freq, diss) in enumerate(log.series):
-            colour = Constants.plot_color_multi[
+            # each panel keeps its own family: blue for frequency, brown for
+            # dissipation, as in the main window
+            colour_f = Constants.plot_color_multi[
                 position % len(Constants.plot_color_multi)]
+            colour_d = Constants.plot_color_multi_diss[
+                position % len(Constants.plot_color_multi_diss)]
             name = "F{}".format(order)
             self._curves.append((
-                self.plt_freq.plot(pen=pg.mkPen(color=colour,
+                self.plt_freq.plot(pen=pg.mkPen(color=colour_f,
                                                 width=Constants.plot_line_width),
                                    name=name),
-                self.plt_diss.plot(pen=pg.mkPen(color=colour,
+                self.plt_diss.plot(pen=pg.mkPen(color=colour_d,
                                                 width=Constants.plot_line_width),
                                    name=name)))
-            self._add_control_row(position, order, colour)
+            self._add_control_row(position, order, colour_f, colour_d)
 
         self.plt_temp.plot(log.time_s, log.temperature,
                            pen=pg.mkPen(color=COLOR_TEMPERATURE,
@@ -360,22 +364,31 @@ class DataLogViewDialog(QtWidgets.QDialog):
             if widget is not None:
                 widget.setParent(None)
 
-    def _add_control_row(self, position, order, colour):
-        """Colour swatch, name, and the two reference values for one overtone."""
+    @staticmethod
+    def _swatch(colour):
+        label = QtWidgets.QLabel()
+        label.setFixedSize(11, 11)
+        label.setStyleSheet("background: rgb({},{},{}); border-radius: 2px;"
+                            .format(*colour[:3]))
+        return label
+
+    def _add_control_row(self, position, order, colour_f, colour_d):
+        """Name and the two reference values, each beside its own curve colour.
+
+        Two swatches, not one: the panels no longer share a colour, so a single
+        swatch would claim a curve it does not match.
+        """
         row = self._grid.rowCount()
-        swatch = QtWidgets.QLabel()
-        swatch.setFixedSize(11, 11)
-        swatch.setStyleSheet("background: rgb({},{},{}); border-radius: 2px;"
-                             .format(*colour[:3]))
         name = QtWidgets.QLabel("F{}".format(order))
         freq_value = QtWidgets.QLabel("-")
         diss_value = QtWidgets.QLabel("-")
         for label in (freq_value, diss_value):
             label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        self._grid.addWidget(swatch, row, 0)
+        self._grid.addWidget(self._swatch(colour_f), row, 0)
         self._grid.addWidget(name, row, 1)
         self._grid.addWidget(freq_value, row, 2)
-        self._grid.addWidget(diss_value, row, 3)
+        self._grid.addWidget(self._swatch(colour_d), row, 3)
+        self._grid.addWidget(diss_value, row, 4)
         self._value_labels.append((freq_value, diss_value))
 
         pill = QtWidgets.QPushButton("F{}".format(order))

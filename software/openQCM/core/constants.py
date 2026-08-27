@@ -116,17 +116,46 @@ class Constants:
     
     # plot_color_multi = [(0, 0, 255), (70, 99, 255), (122, 160, 255), (173, 182, 255), (255, 228, 255)]
 
+    # Frequency curves. The first three are the identity blues and are untouched;
+    # the last two were pulled down in luminance (205 -> 184, 241 -> 211) because
+    # the light plot panel is the interface grey at 244 and #BFFFFF sat 3 points
+    # from it: F9 read by its cyan tint alone, and on the instrument it was barely
+    # there. 211 is the same ceiling the dissipation ramp uses, so both series now
+    # clear the panel by 33.
     plot_color_multi = [
-    (0, 0, 255),      # Blu puro
-    (0, 127, 255),    # Blu medio-azzurro
-    (0, 191, 255),    # Azzurro brillante
-    (127, 223, 255),  # Azzurro chiaro
-    (191, 255, 255)   # Azzurro molto chiaro/ciano chiaro
+    (0, 0, 255),      # Blu puro                      Y= 18
+    (0, 127, 255),    # Blu medio-azzurro             Y=109
+    (0, 191, 255),    # Azzurro brillante             Y=155
+    (96, 204, 239),   # #60CCEF, azzurro chiaro       Y=184
+    (146, 228, 235)   # #92E4EB, ciano chiaro         Y=211
     ]
 
     # VER 0.1.6G hex palette for the conductance plots (matplotlib, not pyqtgraph)
     plot_color_multi_g =  ['#0000FF', '#4663FF', '#7AA0FF', '#ADB6FF', '#FFE4FF']
                          
+    # Dissipation curves: the brown family of the interface, on a ramp built to
+    # be *read*, not to mirror the blue one.
+    #
+    # The first attempt reused the blues' fractions of the way to white. It
+    # failed on the instrument: brown starts light (luminance 156 against pure
+    # blue's 18), so the five ended up inside a 58-point band with steps of
+    # 10-13 and the middle overtones were not separable by eye.
+    #
+    # This ramp is specified in luminance instead: hue locked to the interface
+    # brown's 18.4 deg, saturation falling 0.85 -> 0.26, and V solved per entry so
+    # that Rec. 709 luminance lands on 70, 105, 140, 176, 211 -- steps of 35, near
+    # three times the old ones. The ends are bounded by the two plot backgrounds
+    # they have to survive: 70 stays above the dark panel (43), and 211 stays
+    # below the light panel, which is why that one is a grey and not white
+    # (see theme.PLOT).
+    plot_color_multi_diss = [
+    (135, 56, 20),    # #873814
+    (174, 90, 52),    # #AE5A34
+    (206, 126, 91),   # #CE7E5B, the interface brown's neighbour
+    (229, 164, 135),  # #E5A487
+    (247, 203, 183)   # #F7CBB7
+    ]
+
     # plot-legend text per overtone. The fundamental is the FIRST harmonic;
     # it read "0th" until 2026-07-29. Read from here everywhere, including
     # the removeItem calls that take the legend entry by name, so the value
