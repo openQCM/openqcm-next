@@ -228,6 +228,32 @@ shift panels and kept in step by the same re-entry guard as the reference cursor
 panels are x-linked and a band on one of them would leave the other reader guessing. The numbers
 come from `core/logAnalysis.py`; see §1 for what they mean and what they deliberately ignore.
 
+### Plot Controls > N-SCALE, and the one thing that differs between the branches
+
+Pressed, every plotted frequency is divided by its harmonic order (1, 3, 5, 7, 9), so the overtones
+can be read against one another. It divides **whatever is drawn**: the shift when a reference is
+set, the absolute frequency when it is not.
+
+⚠️ **Display only.** `_nscaled()` is applied where the plotted series is built and nowhere else —
+the buffers, the datalog and the status bar keep the measured values. The readout cards follow
+because they are handed the same arrays as the curves; that coupling is deliberate and worth
+keeping, since a card that disagrees with the line above it is the recurring defect here.
+
+Five places apply it, and a sixth would be easy to miss: `_update_plot` builds the plotted frequency
+at **four** points (single / multiscan × reference / no reference), and `_cursor_series` reads the
+worker buffers **directly**, so the Δ readout has to divide too or it prints unscaled hertz under a
+scaled curve.
+
+While the control is off, `_nscaled` returns the object it was given unchanged — same identity, same
+type — so nothing about the ordinary path moved.
+
+⚠️ **`main` scales frequency only; `impedance-analysis` scales dissipation as well.** This is the
+one place the two branches are meant to behave differently. It is specified, not drift, and must not
+be reconciled by a cherry-pick in either direction — the dissipation panel does not hold the same
+quantity on the two. The divisor's docstring repeats this at the point where someone would be
+tempted to "fix" it, and the verification suite reads which contract it is checking from the
+environment so the same gates run on both worktrees.
+
 ### `ui/plotMenu.py` — the plot right-click menu, once
 
 Grid off, then Auto-scale / Reset zoom / mouse mode / grid / Export. **Every panel in the

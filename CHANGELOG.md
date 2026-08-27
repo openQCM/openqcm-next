@@ -470,6 +470,28 @@ Conventional Commits. Versions are marked by Git tags.
   and how long the instrument takes to settle. It was briefly more than that: shortening the
   buffer also switched off the outlier rejection, which is the defect fixed below, so that part of
   the warning no longer applies. The constant carries a banner explaining both.
+- **Plot Controls gains N-SCALE** (`ui/mainWindow.py`, `ui/mainWindow_ui.py`). Pressed, each
+  overtone's frequency is drawn divided by **n** — 1, 3, 5, 7, 9 — so the five can be read against
+  one another instead of against their own multiples. A toggle, not a one-shot: it changes what the
+  panel means for as long as it is held down.
+  - It scales **whatever is drawn**. With a reference set that is the shift, Δf_n/n; without one it
+    is the absolute frequency, f_n/n, and the five curves collapse onto the fundamental. One rule,
+    no hidden state.
+  - ⚠️ **Display only.** The buffers, the datalog and the status bar keep the measured values. The
+    readout cards *do* follow, and only because they are handed the same arrays as the curves — a
+    card disagreeing with the line above it is the defect this codebase keeps producing, so that
+    coupling is deliberate.
+  - `_update_plot` builds the plotted frequency at **four** points (single and multiscan, each with
+    and without a reference); all four go through `_nscaled()`. The Δ-cursor readout needed it
+    separately: `_cursor_series` reads the worker buffers directly, so ΔF would have printed
+    unscaled hertz under a scaled curve.
+  - While the control is off, `_nscaled` returns **the very object it was given** — same identity,
+    same type — so the ordinary path is exactly what it was before. Gated, not assumed.
+  - ⚠️ **Dissipation is not scaled here, and is on `impedance-analysis`.** The difference is
+    deliberate and specified: what the dissipation panel holds is not the same quantity on the two
+    branches. It must not be reconciled by a cherry-pick in either direction. The verification suite
+    reads which behaviour it is checking from the environment, so the same gates run on both
+    worktrees and each asserts its own contract.
 - ⚠️ **The plot right-click menu acted on whatever plot came first, not the one clicked**
   (`ui/plotMenu.py`, `ui/mainWindow.py`). Both handlers walked a flat list of targets and took the
   first whose rectangle contained the click. `sceneBoundingRect()` is in the coordinates of the
