@@ -482,8 +482,15 @@ Conventional Commits. Versions are marked by Git tags.
     and the other outline buttons keep the family rule untouched.
   - The chips grew with the window because their row had no trailing stretch, so the five shared
     whatever width the sidebar had. A trailing spacer takes the slack now, and the chips keep
-    `OVERTONE_CHIP_WIDTH` = **75 px** — what they measured at, sharing the row, at the default 300 px
-    sidebar. Left at their label width they came out at 42, too narrow to read.
+    `OVERTONE_CHIP_WIDTH` = **62 px** — what they measured at, sharing the row, in the real widget
+    chain. Left at their label width they came out at 42, too narrow to read.
+  - ⚠️ **The width was measured wrong first, at 75 px, and clipped the whole sidebar.** That number
+    came from a harness that put the Measurement Setup card in a dialog on its own, where a card
+    takes its own size hint instead of the width the sidebar gives it. Pinned at 75 the card went
+    from 355 px to 419 and the sidebar content hint past the pane, so every card was cut on its
+    right edge — the port combo, F9, Temperature, Plot Controls. At 62 the card is 355 and the hint
+    371, both identical to the behaviour before any of these layout changes, and the gate now
+    measures through `sidebarPane` and asserts the footprint did not grow.
   - ⚠️ `setFixedWidth` alone did not hold: the chip rule in `theme.qss` carried `min-width: 0px`, and
     **a style-sheet min-width overrides the widget's own minimum**. The buttons reported
     `minimumWidth() == 75` and still rendered at 42 once the sheet was applied. The declaration is
