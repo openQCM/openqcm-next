@@ -145,10 +145,18 @@ def qss(p):
     QGroupBox#groupBox_data QWidget, QGroupBox#groupTempPID QWidget,
     QGroupBox#groupPlotControls QWidget {{ font-weight: normal; }}
 
-    /* Readout cards above the frequency / dissipation plots (compact) */
-    QGroupBox#groupFreqReadout, QGroupBox#groupDissReadout {{
+    /* Compact cards that sit directly on a plot: the frequency / dissipation
+       readouts, and anything that opts in with the cardCompact property. The
+       property selector is there so a card this file does not know the name of
+       -- one built on a branch, say -- can take the same look without adding a
+       dead #name selector here. ⚠️ Qt evaluates a property selector when the
+       sheet is applied: set the property BEFORE the style sheet reaches the
+       widget, or unpolish/polish it afterwards, or nothing happens. */
+    QGroupBox#groupFreqReadout, QGroupBox#groupDissReadout,
+    QGroupBox[cardCompact="true"] {{
         margin-top: 0px; padding: 4px; padding-top: 20px; }}
-    QGroupBox#groupFreqReadout::title, QGroupBox#groupDissReadout::title {{
+    QGroupBox#groupFreqReadout::title, QGroupBox#groupDissReadout::title,
+    QGroupBox[cardCompact="true"]::title {{
         subcontrol-origin: margin; subcontrol-position: top left;
         left: 10px; top: 3px; color: {muted}; font-weight: bold; font-size: 11px; }}
 
