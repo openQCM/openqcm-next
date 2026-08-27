@@ -5,6 +5,29 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — the two curve palettes and the grey plot panel (2026-08-27)
+
+`8dc1cf7`. One whitespace conflict in `constants.py` (this branch has a bare blank line where `main`
+has a line of spaces, and `plot_color_multi_g` sits between the two palettes); everything else
+applied clean.
+
+Dissipation gets its own brown ramp (`Constants.plot_color_multi_diss`), both ramps are now
+specified in Rec. 709 luminance, and `theme.PLOT[*]["bg"]` reads the interface's own window colour
+so the light plot panel is `#f2f4f7` instead of white. The reasoning is on `main` — CHANGELOG
+*Changed*, HANDOFF §3 — and is not repeated here.
+
+Verified here the same way as on `main`, by reading the pens and swatch stylesheets back out of a
+live `DataLogViewDialog` rather than out of `Constants`: both ramps lightening, brown steps 35 ± 0,
+minimum blue step 28, the three identity blues pinned, the dark panel still exactly `(43,43,43)`,
+and both series' palest entry 33 from the light panel. This branch's `mainWindow.py` has all seven
+`_pltD` sites on the brown and no live `_pltD` site left on the blues.
+
+⚠️ **Known, not addressed here**: `Constants.plot_color_multi_g`, the hex palette the conductance
+plots use (`sweep_data/plot_conductance.py`, 26 call sites), is branch-only and is a copy of an
+**older** blue list — `#4663FF`, `#7AA0FF`, `#ADB6FF`, `#FFE4FF` are not, and never were, the
+current `plot_color_multi`. It also colours the phase and the raw magnitude plots, not just the
+conductance. Aligning it is a decision about those offline figures, not a port of this commit.
+
 ### Carried from `main` — combo and spin box restyle (2026-07-29)
 
 `97e2caf`, `1c6bbab`, `b3f9760`, all applied clean. The platform arrow on a `QComboBox` — a square

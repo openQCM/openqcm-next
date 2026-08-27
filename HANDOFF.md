@@ -188,6 +188,12 @@ What is specific to this branch:
   (`0b6c6c3`) precisely so this branch needs no copy of `sweepDump.py`.
 - **`ui/impedanceFitWindow.py`** is branch-only: one tab per overtone like Raw Data View, all overtones
   refitted per tick because the table shows them all, only the visible tab drawn.
+- ⚠️ **`Constants.plot_color_multi_g` does not track the curve palettes.** The two ramps
+  (`plot_color_multi` blue, `plot_color_multi_diss` brown) arrived from `main` on 2026-08-27 and are
+  specified in luminance; their rules are in `main`'s HANDOFF §3. `plot_color_multi_g` is
+  branch-only, feeds 26 call sites in `sweep_data/plot_conductance.py` — conductance, phase and raw
+  magnitude alike — and is a copy of an **older** blue list that was never the current one. Do not
+  assume a figure from that script uses the same colours as the GUI.
 - ⚠️ **`sweep_data/plot_conductance.py` still has its own `savitzky_golay`.** It differs from
   `resonance.py` only in its docstring and the wording of its exception messages — the numerical body
   is identical, so it is a benign duplicate, unlike the `plot_sweep_spline.py` copy that was removed.
