@@ -43,6 +43,11 @@ APP_ICON = os.path.normpath(
 # the whole sidebar past the pane, which clipped every card on the right.
 OVERTONE_CHIP_WIDTH = 62
 
+# Narrowest the sidebar may be dragged, and its default width. It is the measured
+# minimum of the cards (371 px) plus a little slack. Below it the scroll area
+# clips rather than scrolls -- see the note where it is applied.
+SIDEBAR_MIN_WIDTH = 380
+
 
 class Ui_MainWindow(object):
 
@@ -99,7 +104,9 @@ class Ui_MainWindow(object):
         self.mainSplitter.setStretchFactor(0, 0)
         self.mainSplitter.setStretchFactor(1, 1)
         self.mainSplitter.setStretchFactor(2, 0)
-        self.mainSplitter.setSizes([280, 700, 380])
+        # VER 0.1.6G three panes here; the sidebar takes the same minimum as on
+        # main, and the impedance dock keeps its own share
+        self.mainSplitter.setSizes([SIDEBAR_MIN_WIDTH, 700, 380])
 
         outer = QtWidgets.QVBoxLayout(self.centralwidget)
         outer.setContentsMargins(4, 4, 4, 4)
@@ -572,12 +579,14 @@ class Ui_MainWindow(object):
         bottom.addWidget(self.pButton_Start)
         pane.addLayout(bottom)
 
-        # Default width 300 px (set on the splitter below): shows the whole
-        # sidebar content without clipping. Kept resizable — min/max instead of
-        # a fixed width — so the splitter handle can smoothly drag it, not just
-        # snap open/closed. On the pane now, since that is what the splitter holds.
-        self.sidebarPane.setMinimumWidth(260)
-        self.sidebarPane.setMaximumWidth(400)
+        # ⚠️ The pane must not be allowed narrower than its content. The scroll
+        # area is widgetResizable with the horizontal bar OFF, so a container
+        # wider than the viewport is not scrolled -- it is silently CLIPPED, and
+        # the cards lose their right edge. Measured: sidebarContainer's minimum
+        # is 371 px, and the old 260/300 pair sat below it, which is why the port
+        # combo, F9 and the temperature spin box were cut off.
+        self.sidebarPane.setMinimumWidth(SIDEBAR_MIN_WIDTH)
+        self.sidebarPane.setMaximumWidth(460)
 
     # ------------------------------------------------------------------ #
     # Temperature control card                                           #
