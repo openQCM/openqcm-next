@@ -470,6 +470,19 @@ Conventional Commits. Versions are marked by Git tags.
   and how long the instrument takes to settle. It was briefly more than that: shortening the
   buffer also switched off the outlier rejection, which is the defect fixed below, so that part of
   the warning no longer applies. The constant carries a banner explaining both.
+- **Sidebar: Plot Controls in two rows, and the overtone chips stop stretching**
+  (`ui/mainWindow_ui.py`, `ui/theme.py`). AUTO / CLEAR on one row, SET REF / N-SCALE on the next, in
+  a `QGridLayout` so the second button of each row lines up with the first; the slack goes to an
+  empty third column, which is what keeps the four at their label width instead of letting them grow
+  with the sidebar.
+  - **N-SCALE is brown while off and blue while on.** That reads the other way round from Connect
+    and the temperature toggle, where brown marks a "press me to undo" affordance — deliberately:
+    N-SCALE is a checkable state, so brown means the plots are showing measured hertz and blue means
+    they are divided by n. Same reading as the overtone chips, where accent means engaged. SET REF
+    and the other outline buttons keep the family rule untouched.
+  - The chips grew with the window because their row had no trailing stretch, so the five shared
+    whatever width the sidebar had. They now get the same treatment as the temperature ON / RESET
+    row: natural width, slack to a trailing spacer.
 - **Plot Controls gains N-SCALE** (`ui/mainWindow.py`, `ui/mainWindow_ui.py`). Pressed, each
   overtone's frequency is drawn divided by **n** — 1, 3, 5, 7, 9 — so the five can be read against
   one another instead of against their own multiples. A toggle, not a one-shot: it changes what the
