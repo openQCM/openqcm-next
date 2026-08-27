@@ -3,6 +3,9 @@
 > Technical starting point to continue development of the software and of the
 > `impedance-analysis` branch. Working language: Italian in chat, English in the repo.
 > Last updated: 2026-08-27.
+>
+> Starting a new session: paste [`docs/SESSION_PROMPT.md`](docs/SESSION_PROMPT.md)
+> as the first message. It is a shortcut into this file, not a replacement for it.
 
 ---
 
