@@ -25,12 +25,14 @@ guessed at.
 import csv
 import datetime
 import os
+import sys
 
 import numpy as np
 import pyqtgraph as pg
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 from openQCM.core.constants import Constants
+from openQCM.core import logAnalysis
 from openQCM.common.logger import Logger as Log
 from openQCM.ui import theme
 from openQCM.ui.plotMenu import PlotMenu
@@ -50,6 +52,16 @@ REFERENCE_SAMPLES = 5
 # Height of the controls / temperature row. Small on purpose: the two shift
 # panels are what the window is for.
 TOP_ROW_HEIGHT = 190
+
+# Where the two analysis windows start out: the first and the last tenth of the
+# run. A guess, but the useful one -- an experiment is normally read as "what
+# changed between the state it settled into and the state it ended in".
+DEFAULT_WINDOW_FRACTION = 0.10
+
+# The shaded bands. Green opens the run, amber closes it; both are drawn under
+# the curves and over the background.
+COLOR_WINDOW_INITIAL = (76, 175, 80)
+COLOR_WINDOW_FINAL = (255, 152, 0)
 
 
 class RelativeTimeAxis(pg.AxisItem):
@@ -199,6 +211,8 @@ class DataLogViewDialog(QtWidgets.QDialog):
         self._pills = []
         self._value_labels = []      # [(freq label, diss label), ...]
         self._cursors = []
+        self._regions = {"initial": [], "final": []}   # one band per shift panel
+        self._moving_region = False   # guards a band against its own twin
         self._reference_index = 0
         self._moving_cursor = False  # guards the two cursors against each other
 
@@ -236,6 +250,14 @@ class DataLogViewDialog(QtWidgets.QDialog):
         self._pill_row.setSpacing(3)
         self._pill_row.setContentsMargins(0, 4, 0, 0)
         self._controls_layout.addLayout(self._pill_row)
+
+        self.btn_analysis = QtWidgets.QPushButton("Two-window analysis")
+        self.btn_analysis.setCheckable(True)
+        self.btn_analysis.setFixedHeight(24)
+        self.btn_analysis.setToolTip(
+            "Compare a starting stretch of the run with a final one")
+        self.btn_analysis.toggled.connect(self._set_analysis_visible)
+        self._controls_layout.addWidget(self.btn_analysis)
         self._controls_layout.addStretch(1)
         top.addWidget(self._controls, stretch=3)
 
@@ -254,7 +276,15 @@ class DataLogViewDialog(QtWidgets.QDialog):
         # ------------------------------------------------- the two shift panels
         self.canvas = pg.GraphicsLayoutWidget()
         self.canvas.setBackground(palette["bg"])
-        layout.addWidget(self.canvas, stretch=1)
+
+        # The analysis pane sits beside the plots and starts hidden: drawing the
+        # run is this window's first job, and "what changed between these two
+        # stretches" is a second question not every reader is asking.
+        self._body = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        self._body.addWidget(self.canvas)
+        self._body.setStretchFactor(0, 1)
+        self._body.setChildrenCollapsible(False)
+        layout.addWidget(self._body, stretch=1)
 
         self.plt_freq = self.canvas.addPlot(
             row=0, col=0,
@@ -283,6 +313,40 @@ class DataLogViewDialog(QtWidgets.QDialog):
 
         self._menu = PlotMenu(self)
         self._menu.attach(self.plots())
+
+        self._build_analysis_panel()
+
+    # ------------------------------------------------------------------ #
+    def _build_analysis_panel(self):
+        """The report pane. Empty until a log is loaded and the bands exist."""
+        self._analysis = QtWidgets.QGroupBox("Two-window analysis")
+        self._analysis.setObjectName("datalogAnalysis")
+        box = QtWidgets.QVBoxLayout(self._analysis)
+        box.setContentsMargins(8, 6, 8, 6)
+        box.setSpacing(4)
+
+        hint = QtWidgets.QLabel(
+            "Drag the green and amber bands on the plots to choose the two "
+            "stretches to compare.")
+        hint.setWordWrap(True)
+        box.addWidget(hint)
+
+        self.txt_analysis = QtWidgets.QTextEdit()
+        self.txt_analysis.setObjectName("datalogReport")   # theme.qss console rule
+        self.txt_analysis.setReadOnly(True)
+        self.txt_analysis.setLineWrapMode(QtWidgets.QTextEdit.NoWrap)
+        mono = QtGui.QFont("Menlo" if sys.platform == "darwin" else
+                           "Consolas" if sys.platform.startswith("win") else
+                           "Monospace")
+        mono.setStyleHint(QtGui.QFont.TypeWriter)
+        mono.setPointSize(10)
+        self.txt_analysis.setFont(mono)
+        box.addWidget(self.txt_analysis, stretch=1)
+
+        self._analysis.setMinimumWidth(340)
+        self._analysis.setVisible(False)
+        self._body.addWidget(self._analysis)
+        self._body.setStretchFactor(1, 0)
 
     def plots(self):
         return (self.plt_freq, self.plt_diss, self.plt_temp)
@@ -334,6 +398,8 @@ class DataLogViewDialog(QtWidgets.QDialog):
             plot.addItem(line)
             self._cursors.append(line)
 
+        self._build_windows(log.time_s)
+
         self.setWindowTitle("Datalog View - {}".format(os.path.basename(path)))
         orders = ", ".join("F{}".format(o) for o, _f, _d in log.series)
         text = "{}  |  {} points  |  {}  |  {}".format(
@@ -354,7 +420,10 @@ class DataLogViewDialog(QtWidgets.QDialog):
             plot.clear()
         self._curves = []
         self._cursors = []
+        # plot.clear() already took the band items off the scene
+        self._regions = {"initial": [], "final": []}
         self._value_labels = []
+        self.txt_analysis.setPlainText("")
         for pill in self._pills:
             pill.setParent(None)
         self._pills = []
@@ -405,6 +474,101 @@ class DataLogViewDialog(QtWidgets.QDialog):
     def _set_series_visible(self, position, visible):
         for curve in self._curves[position]:
             curve.setVisible(bool(visible))
+
+    ###########################################################################
+    # Two-window analysis
+    ###########################################################################
+    def _build_windows(self, time_s):
+        """One draggable band per window, mirrored on both shift panels.
+
+        Mirrored rather than drawn once: the panels are x-linked, so a band on
+        only one of them would leave the other reader guessing which stretch the
+        report is about. The twins are kept in step the same way the reference
+        cursors are, through a re-entry guard.
+        """
+        if time_s.size < 2:
+            return
+        first, last = float(time_s[0]), float(time_s[-1])
+        span = (last - first) * DEFAULT_WINDOW_FRACTION
+        bounds = {"initial": (first, first + span),
+                  "final": (last - span, last)}
+        colours = {"initial": COLOR_WINDOW_INITIAL, "final": COLOR_WINDOW_FINAL}
+
+        for key in ("initial", "final"):
+            r, g, b = colours[key]
+            for plot in (self.plt_freq, self.plt_diss):
+                band = pg.LinearRegionItem(
+                    values=bounds[key], movable=True,
+                    brush=pg.mkBrush(r, g, b, 38),
+                    pen=pg.mkPen(r, g, b, 160))
+                band.setZValue(-10)          # under the curves, over the panel
+                band.sigRegionChanged.connect(
+                    lambda item, k=key: self._on_window_changed(k, item))
+                plot.addItem(band)
+                self._regions[key].append(band)
+
+        # a band is created visible; the panel may not be, and the two travel
+        # together
+        self._set_analysis_visible(self.btn_analysis.isChecked())
+
+    def _set_analysis_visible(self, visible):
+        """Show or hide the report pane and the bands together.
+
+        Together on purpose: bands with no report say nothing, and a report the
+        reader cannot see the extent of is worse than no report.
+        """
+        visible = bool(visible)
+        self._analysis.setVisible(visible)
+        for bands in self._regions.values():
+            for band in bands:
+                band.setVisible(visible)
+        if visible:
+            # the splitter would otherwise hand the pane half the window on its
+            # size hint; the plots are what the window is for
+            pane = max(self._analysis.minimumWidth(), 360)
+            self._body.setSizes([max(self.width() - pane - 24, 400), pane])
+            self._refresh_analysis()
+
+    def _on_window_changed(self, key, item):
+        if self._moving_region:
+            return
+        self._moving_region = True
+        try:
+            for band in self._regions[key]:
+                if band is not item:
+                    band.setRegion(item.getRegion())
+        finally:
+            self._moving_region = False
+        self._refresh_analysis()
+
+    def _window_bounds(self, key):
+        """(start, duration) in seconds for one band."""
+        bands = self._regions.get(key)
+        if not bands:
+            return None
+        lo, hi = sorted(float(v) for v in bands[0].getRegion())
+        return lo, hi - lo
+
+    def _refresh_analysis(self):
+        """Recompute the report from core/logAnalysis, never from here.
+
+        Dissipation is scaled to ppm before it goes in, so the report carries the
+        unit the panel is drawn in. The reference cursor is deliberately NOT
+        applied: shift, std and Hadamard all survive a constant subtracted from
+        the series, so the report says the same thing wherever the zero sits --
+        which is what lets the cursor stay free.
+        """
+        # the button, not the widget: QWidget.isVisible() is about what is on
+        # screen, and it is False for a dialog that has not been shown yet
+        if self._log is None or not self.btn_analysis.isChecked():
+            return
+        initial, final = self._window_bounds("initial"), self._window_bounds("final")
+        if initial is None or final is None:
+            return
+        series = [(order, freq, diss * 1e6)
+                  for order, freq, diss in self._log.series]
+        report = logAnalysis.analyse(self._log.time_s, series, initial, final)
+        self.txt_analysis.setPlainText(logAnalysis.format_report(report))
 
     ###########################################################################
     def _on_cursor_moved(self, line):
