@@ -480,44 +480,30 @@ Conventional Commits. Versions are marked by Git tags.
     N-SCALE is a checkable state, so brown means the plots are showing measured hertz and blue means
     they are divided by n. Same reading as the overtone chips, where accent means engaged. SET REF
     and the other outline buttons keep the family rule untouched.
-  - The chips grew with the window because their row had no trailing stretch, so the five shared
-    whatever width the sidebar had. A trailing spacer takes the slack now, and the chips keep
-    `OVERTONE_CHIP_WIDTH` = **62 px** — what they measured at, sharing the row, in the real widget
-    chain. Left at their label width they came out at 42, too narrow to read.
-- ⚠️ **The sidebar was narrower than its own content, so the cards were clipped**
-  (`ui/mainWindow_ui.py`). Its scroll area is `widgetResizable` with the horizontal bar **off**, so a
-  container wider than the viewport is not scrolled — it is silently **clipped**, and the cards lose
-  their right edge: the port combo, F9, the temperature spin box. Measured,
-  `sidebarContainer.minimumSizeHint().width()`:
+  - The overtone chips are **unchanged**: they still share the row and still grow with the sidebar.
+- ⚠️ **Known, deferred: the sidebar cards are clipped at the default width.** Its scroll area is
+  `widgetResizable` with the horizontal bar **off**, so a container wider than the viewport is not
+  scrolled — it is silently **clipped**, and the cards lose their right edge: the port combo, F9, the
+  temperature spin box. Measured, `sidebarContainer.minimumSizeHint().width()`:
 
   | | |
   |---|---|
   | before N-SCALE (`da0f457`) | 371 |
   | N-SCALE in a single row (`2c0c062`) | **545** |
   | Plot Controls 2×2 (`45da71c`) | 371 |
-  | chips pinned at 62 | 371 |
 
-  The pane's minimum was **260** and the splitter opened it at **300** — both below 371, so the
-  clipping is older than any of this and the pinned chips did not cause it. What did cause the wide
-  version was N-SCALE arriving in a single row of four buttons; the 2×2 grid already undid that. The
-  pane now starts and stops at `SIDEBAR_MIN_WIDTH` = **380**, the measured content minimum plus
-  slack, with the maximum raised to 460. The comment claiming 300 px "shows the whole sidebar
-  content without clipping" was wrong by 71 px.
-  - Gated: `SIDEBAR_MIN_WIDTH` is asserted no smaller than the container's own minimum, and at both
-    380 and 460 the container must fit inside the viewport while the chips stay at 62.
-  - ⚠️ **The chip width was measured wrong first, at 75 px.** That number
-    came from a harness that put the Measurement Setup card in a dialog on its own, where a card
-    takes its own size hint instead of the width the sidebar gives it. Pinned at 75 the card went
-    from 355 px to 419 and the sidebar content hint past the pane, so every card was cut on its
-    right edge — the port combo, F9, Temperature, Plot Controls. At 62 the card is 355 and the hint
-    371, both identical to the behaviour before any of these layout changes, and the gate now
-    measures through `sidebarPane` and asserts the footprint did not grow.
-  - ⚠️ `setFixedWidth` alone did not hold: the chip rule in `theme.qss` carried `min-width: 0px`, and
-    **a style-sheet min-width overrides the widget's own minimum**. The buttons reported
-    `minimumWidth() == 75` and still rendered at 42 once the sheet was applied. The declaration is
-    gone, so the width lives in one place — and the gate now measures the chips **with the sheet
-    applied, at two window widths**, because the first version of this change passed a gate that
-    asked the widget for its constraints and never looked at what was drawn.
+  The pane's minimum is **260** and the splitter opens it at **300**, both below 371, so this is
+  older than any of today's work. Raising the minimum to 380 does fix it and costs the ability to
+  narrow the sidebar at all — the worse trade, so it was tried and reverted. Left as it is on
+  purpose, with the numbers in the comment at the min/max.
+  - ⚠️ **Pinning them was tried and reverted.** A fixed width has to fit the *narrowest* sidebar the
+    pane allows — about 44 px at 260, too small to read — while a comfortable width stops the row
+    shrinking and clips the cards. The two requirements conflict; the chips share the row again,
+    62 px at a 300 px sidebar and 68 at 400. Along the way: `setFixedWidth` did nothing while the
+    chip rule carried `min-width: 0px` (⚠️ **a style-sheet min-width overrides the widget's own
+    minimum** — the buttons reported 75 and rendered at 42), and a first width of 75 px came from a
+    harness that measured a card in isolation, where it takes its own size hint rather than the
+    width the sidebar gives it.
 - **Plot Controls gains N-SCALE** (`ui/mainWindow.py`, `ui/mainWindow_ui.py`). Pressed, each
   overtone's frequency is drawn divided by **n** — 1, 3, 5, 7, 9 — so the five can be read against
   one another instead of against their own multiples. A toggle, not a one-shot: it changes what the
