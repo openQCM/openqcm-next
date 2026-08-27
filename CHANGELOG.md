@@ -470,6 +470,17 @@ Conventional Commits. Versions are marked by Git tags.
   and how long the instrument takes to settle. It was briefly more than that: shortening the
   buffer also switched off the outlier rejection, which is the defect fixed below, so that part of
   the warning no longer applies. The constant carries a banner explaining both.
+- **The compact plot card is opt-in by property, not only by name** (`ui/theme.py`). The rounded
+  card with the small bold title inside it — the one the frequency and dissipation readouts wear
+  above their plots — was reachable only through the two hard-coded object names
+  `groupFreqReadout` and `groupDissReadout`. A card built where this file cannot see it, on a
+  branch for instance, had no way to ask for the look short of adding a `#name` selector here for a
+  widget that does not exist on `main`. `QGroupBox[cardCompact="true"]` now joins both rules.
+  Measured on this Qt (5.9.7), not assumed: a group box that sets the property renders
+  **pixel-identical** to one named `groupFreqReadout`, and differs from one that sets neither.
+  ⚠️ Qt evaluates property selectors at **polish** time — set the property before the style sheet
+  reaches the widget, or unpolish/polish it afterwards. No existing widget changes; nothing on
+  `main` sets the property yet (`impedance-analysis` does, for its impedance panel).
 - **The dissipation curves get their own colour family, and the plot panels a grey**
   (`Constants.plot_color_multi_diss` new, `plot_color_multi` last two entries, `ui/theme.py`,
   `ui/mainWindow.py`, `ui/dataLogView.py`). Both plots drew the same five blues, so a screenshot
