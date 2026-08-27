@@ -240,8 +240,11 @@ def qss(p):
     /* Datalog filename label (Phase 3d) */
     QLabel#lblLogFile {{ color: {accent}; font-weight: bold; }}
 
-    /* System Log console (theme-aware, monospace) */
-    QTextEdit#systemLog {{ background: {field_bg}; color: {field_text};
+    /* Monospace consoles: the System Log, and Datalog View's analysis report.
+       Named rather than a property selector -- both widgets live in this repo
+       and this file can see their names, so there is nothing to generalise. */
+    QTextEdit#systemLog, QTextEdit#datalogReport {{
+        background: {field_bg}; color: {field_text};
         border: 1px solid {border};
         font-family: "Menlo", "Consolas", "Courier New", monospace; }}
 
