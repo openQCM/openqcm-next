@@ -2588,9 +2588,6 @@ class MainWindow(QtGui.QMainWindow):
                 print(f"error occurred: {e}")
                 
     def _conductance_data_plot(self):
-           ####TEST 
-           self.window_pro.hide()
-           
            # multiscan mode 
            if  (self._get_source() == SourceType.multiscan):
                try:
