@@ -49,7 +49,6 @@ from time import sleep
 from openQCM.util.embedding_in_qt_sgskip import ApplicationWindow
 
 from openQCM.sweep_data import plot_sweep_spline
-from openQCM.data_view import main
 
 
 TAG = ""#"[MainWindow]"
@@ -351,10 +350,6 @@ class MainWindow(QtGui.QMainWindow):
 #         
 #         plot_sweep_spline.script()
 # =============================================================================
-        
-        # VER 0.1.4 BETA init and hide window for viewing and processing log data view          
-        self.window_pro = main.MatplotlibWidget()
-        self.window_pro.hide()
         
         # VER 0.1.4 enable sampling time datalog only in multiscan mode 
         if ( self._get_source() == SourceType.calibration):
@@ -2490,9 +2485,6 @@ class MainWindow(QtGui.QMainWindow):
     def _raw_data_plot(self):
         # VER 0.1.6 Try-except code block to prevent the software from freezing when calling the raw data plot
         
-        ####TEST 
-        self.window_pro.hide()
-        
         # multiscan mode 
         if  (self._get_source() == SourceType.multiscan):
             try:
@@ -2513,17 +2505,11 @@ class MainWindow(QtGui.QMainWindow):
     # VER 0.1.4
     # add-on view data log and make some processing 
     def _log_data_plot(self):
-        # print ("THIS IS LOG DATA")
-        
-        self.window_pro.show()
-# =============================================================================
-#         from PyQt5.QtWidgets import QApplication
-#         app = QApplication([])
-#         window = main.MatplotlibWidget()
-#         window.show()
-#         app.exec_()
-# =============================================================================
-        
+        # Same window as File > Open Log...: this entry used to raise a second,
+        # matplotlib viewer of the same files, which is the copy that has now
+        # gone. The menu item stays because it is where the habit is.
+        self._open_datalog_view()
+
 
 ###########################################################################
     # Updates the sample size of the plot (now not used)
