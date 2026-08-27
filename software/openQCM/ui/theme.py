@@ -278,7 +278,7 @@ def qss(p):
     QPushButton#pButton_Autoscale, QPushButton#pButton_Reference,
     QPushButton#pButton_Reference_Not, QPushButton#pButton_Clear,
     QPushButton#pButton_Tswitch_ON, QPushButton#pButton_TEC_Reset,
-    QPushButton#pButton_Temperature_Set {{
+    QPushButton#pButton_Temperature_Set, QPushButton#pButton_NScale {{
         background: transparent; color: {accent}; border: 1px solid {accent};
         border-radius: 6px; padding: 4px 10px; min-width: 0px; }}
     QPushButton#pButton_Connect:hover, QPushButton#pButton_Refresh:hover,
@@ -289,11 +289,17 @@ def qss(p):
         background: {field_bg}; }}
     QPushButton#pButton_Connect[connected="true"] {{ color: {brown}; border-color: {brown}; }}
     QPushButton#pButton_Tswitch_ON[tecOn="true"] {{ color: {brown}; border-color: {brown}; }}
+    /* N-SCALE reads the other way round from the two above, and deliberately:
+       it is a checkable state, not a "press me to undo" affordance, so brown
+       marks the plots showing measured hertz and blue marks them divided by n.
+       Same reading as the overtone chips, where accent means engaged. */
+    QPushButton#pButton_NScale {{ color: {brown}; border-color: {brown}; }}
+    QPushButton#pButton_NScale:checked {{ color: {accent}; border-color: {accent}; }}
     QPushButton#pButton_Connect:disabled, QPushButton#pButton_Refresh:disabled,
     QPushButton#pButton_Autoscale:disabled, QPushButton#pButton_Reference:disabled,
     QPushButton#pButton_Reference_Not:disabled, QPushButton#pButton_Clear:disabled,
     QPushButton#pButton_Tswitch_ON:disabled, QPushButton#pButton_TEC_Reset:disabled,
-    QPushButton#pButton_Temperature_Set:disabled {{
+    QPushButton#pButton_Temperature_Set:disabled, QPushButton#pButton_NScale:disabled {{
         background: transparent; color: {disabled_text}; border-color: {border}; }}
 
     /* Overtone quick-select chips F0..F9 — as compact as possible (sidebar) */
