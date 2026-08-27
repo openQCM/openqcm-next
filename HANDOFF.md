@@ -174,6 +174,12 @@ is not repeated here; read it in the other worktree.
 
 What is specific to this branch:
 
+- **Six plot targets over five scenes**, against `main`'s four over three: `_pltG` and `_pltGB`, the
+  impedance dock's two views, join `_plot_menu_targets` and their canvases join the right-click
+  connections. Worth knowing because the scene-scoping rule in `main`'s HANDOFF §3 bites harder the
+  more canvases a window has — and `ui/impedanceFitWindow.py` attaches `PlotMenu` **per tab**, which
+  is five more scenes again.
+
 - ⚠️ **`_conductance_data_plot` was the only caller of `window_pro` left after the log-viewer
   retirement** (2026-08-27). It had copied `_raw_data_plot`'s `self.window_pro.hide()`, which
   `main` removed in the same port without being able to see this copy. Worth remembering as the

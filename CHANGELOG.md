@@ -5,6 +5,27 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — the plot right-click menu acted on the wrong plot (2026-08-27)
+
+`3ef2e27` clean, `2b7db5a` with one conflict: this branch adds `_pltG` and `_pltGB` to the target
+list and their two canvases to the connections. Resolved by keeping the six targets and taking
+`main`'s consolidation around them.
+
+The hit test compared a click against rectangles measured in **other scenes** — `sceneBoundingRect()`
+is in the coordinates of the item's own scene, and every `GraphicsLayoutWidget` owns a separate one
+whose origin is its own top-left corner. Full numbers on `main`, CHANGELOG *Changed* and HANDOFF §3.
+
+⚠️ **This branch felt it hardest.** `main` has four plot targets over three scenes; here it is
+**six over five**, because the impedance dock's conductance and admittance views joined the same
+set. The Impedance Fit window is worse still: `PlotMenu` is attached per tab, so five tabs are five
+more scenes in one target list, and every tab after the first was answering with tab 0's plots.
+
+The main window also drops its own copy of the menu here, as on `main`: the defect existed twice
+because the menu existed twice. Verified in this worktree with the same two suites — all panels
+answer for themselves across the scenes, the cross-scene coincidences the layout contains are
+asserted still present and all resolved correctly, the Δ-cursor item appears only where cursors
+exist, and the phase twin still follows `_plt0`'s grid.
+
 ### Fixed — the conductance viewer called hide() on a window that no longer exists (2026-08-27)
 
 `_conductance_data_plot` is branch-only and had copied `_raw_data_plot`'s opening line,
