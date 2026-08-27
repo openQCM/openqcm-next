@@ -230,14 +230,30 @@ come from `core/logAnalysis.py`; see §1 for what they mean and what they delibe
 
 ### `ui/plotMenu.py` — the plot right-click menu, once
 
-Grid off, then Auto-scale / Reset zoom / mouse mode / grid / Export. Two pyqtgraph facts live in that
-module because they cost time to find: `setMenuEnabled(False)` is needed on the `PlotItem` **and** its
-`ViewBox`, and the plots of one `GraphicsLayoutWidget` share a `QGraphicsScene`, so `sigMouseClicked`
-is connected **once per scene** with the plot found by hit test.
+Grid off, then Auto-scale / Reset zoom / mouse mode / grid / Export. **Every panel in the
+application uses this module** — the main window included, since 2026-08-27; it had its own copy
+until then, and the hooks `extra_actions` (the Δ cursors) and `apply_grid` (the phase twin's grid)
+exist so that it needs no second implementation.
 
-⚠️ `mainWindow.py` still has its own copy: its version carries the delta cursors and four plot
-targets. `plotMenu` has the hooks needed to absorb it (`extra_actions`, `apply_grid`); converting the
-production window is a job of its own and is still open.
+Three pyqtgraph facts live in that module because they cost time to find:
+
+- `setMenuEnabled(False)` is needed on the `PlotItem` **and** its `ViewBox`; either one left enabled
+  still pops pyqtgraph's own menu.
+- the plots of one `GraphicsLayoutWidget` share a `QGraphicsScene`, so `sigMouseClicked` is
+  connected **once per scene**, with the plot found by hit test.
+- ⚠️ **and the hit test has to be scoped to the scene that fired it.** `sceneBoundingRect()` is in
+  the coordinates of the item's own scene, and every `GraphicsLayoutWidget` owns a separate one
+  whose origin is its own top-left corner, so rectangles from two canvases are **not comparable** —
+  they all start near (0, 0) and overlap almost completely. Testing a click against every target
+  regardless of scene is what made this menu act on the wrong plot for months: right-clicking the
+  main window's dissipation panel drove the **temperature** plot, because that one sits in the first
+  canvas and its rectangle covered the same coordinates. Measured before the fix: two of the main
+  window's four panels answered with the wrong plot, and Datalog View's temperature panel answered
+  with the frequency one.
+
+The rectangle tested is the **`PlotItem`'s**, not the `ViewBox`'s — axes, title and legend margin
+are part of the plot to the eye and outside the `ViewBox`, and a right-click on the axis strip used
+to open nothing at all. Where two candidates in one scene both contain the point, the smaller wins.
 
 ### `ui/widgets.py` — why the chevrons are painted
 

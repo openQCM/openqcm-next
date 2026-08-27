@@ -470,6 +470,41 @@ Conventional Commits. Versions are marked by Git tags.
   and how long the instrument takes to settle. It was briefly more than that: shortening the
   buffer also switched off the outlier rejection, which is the defect fixed below, so that part of
   the warning no longer applies. The constant carries a banner explaining both.
+- ⚠️ **The plot right-click menu acted on whatever plot came first, not the one clicked**
+  (`ui/plotMenu.py`, `ui/mainWindow.py`). Both handlers walked a flat list of targets and took the
+  first whose rectangle contained the click. `sceneBoundingRect()` is in the coordinates of the
+  item's **own** scene, and every `GraphicsLayoutWidget` owns a separate one whose origin is its own
+  top-left corner — rectangles from two canvases all start near (0, 0) and overlap almost
+  completely, so the test was matching a click in one scene against rectangles measured in another.
+  Measured:
+  - main window, four panels over three canvases: right-clicking **Resonance Frequency** or
+    **Dissipation** opened a menu that drove the **Temperature** plot. Two of four wrong, and the
+    two panels a user actually reads were unreachable from their own menu.
+  - Datalog View, three plots over two canvases: the centre of the temperature panel, scene point
+    (188, 100), is inside `plt_freq`'s rectangle in the *other* scene, and `plt_freq` won.
+  - the tabbed viewers (Raw Data View, and Impedance Fit on the branch) attach one canvas per tab,
+    so every tab after the first hit tab 0's plots. Reasoned from the same code path, not measured:
+    the offscreen platform segfaults on a `QTabWidget` full of `GraphicsLayoutWidget`s.
+  - The connection was already made once per scene, correctly, and the module docstring said so.
+    What was missing is that the **hit test** must be scoped to the scene that fired it. It is now,
+    through a partial bound at connect time — kept in a list, because a connection to a callable
+    nothing else references dies at the next collection.
+  - The rectangle tested is now the `PlotItem`'s rather than the `ViewBox`'s: on Datalog View's
+    dissipation panel those are `[9, 303, 1090, 261]` and `[67, 334, 1031, 187]`, so a right-click
+    on the left axis opened **nothing at all**. Q-1 tested the `PlotItem`, which is why this read as
+    a regression against it. Where two candidates in one scene both contain the point, the smaller
+    wins.
+  - `QMenu` was reached through `QtGui`, which works only because pyqtgraph's shim copies the
+    widgets there for Qt4 compatibility. Imported from `QtWidgets` now; the same assumption raised a
+    `NameError` elsewhere in this GUI.
+- **The main window drops its own plot menu for the shared one** (`ui/mainWindow.py`). The defect
+  above existed twice because the menu existed twice. `_on_scene_mouse_clicked`, `_show_plot_menu`
+  and the private `_grid_on` bookkeeping are gone; `ui/plotMenu.py` does the work through the two
+  hooks that were added for exactly this conversion and had no caller until now — `extra_actions`
+  for the Δ-cursor item, which only two of the four panels carry, and `apply_grid` so the phase twin
+  overlaying the amplitude plot still follows its grid. **View > Grid** goes through
+  `set_grid_all`, so the checkbox and the per-plot menu labels read one state instead of two
+  dictionaries. Closes the "`mainWindow.py` keeps its own copy" item.
 - **Tools > Log Data opens the Datalog View; the matplotlib copy retires** (`ui/mainWindow.py`,
   `ui/mainWindow_ui.py`, `openQCM/data_view/` **removed**). Two viewers read the same log files. The
   one behind Tools > Log Data drew them with matplotlib on a hard-coded `#191919` that ignored the
