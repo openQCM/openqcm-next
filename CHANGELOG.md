@@ -481,8 +481,15 @@ Conventional Commits. Versions are marked by Git tags.
     they are divided by n. Same reading as the overtone chips, where accent means engaged. SET REF
     and the other outline buttons keep the family rule untouched.
   - The chips grew with the window because their row had no trailing stretch, so the five shared
-    whatever width the sidebar had. They now get the same treatment as the temperature ON / RESET
-    row: natural width, slack to a trailing spacer.
+    whatever width the sidebar had. A trailing spacer takes the slack now, and the chips keep
+    `OVERTONE_CHIP_WIDTH` = **75 px** — what they measured at, sharing the row, at the default 300 px
+    sidebar. Left at their label width they came out at 42, too narrow to read.
+  - ⚠️ `setFixedWidth` alone did not hold: the chip rule in `theme.qss` carried `min-width: 0px`, and
+    **a style-sheet min-width overrides the widget's own minimum**. The buttons reported
+    `minimumWidth() == 75` and still rendered at 42 once the sheet was applied. The declaration is
+    gone, so the width lives in one place — and the gate now measures the chips **with the sheet
+    applied, at two window widths**, because the first version of this change passed a gate that
+    asked the widget for its constraints and never looked at what was drawn.
 - **Plot Controls gains N-SCALE** (`ui/mainWindow.py`, `ui/mainWindow_ui.py`). Pressed, each
   overtone's frequency is drawn divided by **n** — 1, 3, 5, 7, 9 — so the five can be read against
   one another instead of against their own multiples. A toggle, not a one-shot: it changes what the
