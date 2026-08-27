@@ -33,10 +33,15 @@ APP_ICON = os.path.normpath(
                  "..", "res", "icon", "favicon.png"))
 
 # Width of the F1..F9 quick-select chips. Not a taste number: it is what the five
-# measured at, sharing the row, before the row was given a trailing stretch --
-# 75 px at the default 300 px sidebar. Pinning it keeps that look while stopping
-# them from growing with the window.
-OVERTONE_CHIP_WIDTH = 75
+# measured at, sharing the row, in the real widget chain -- sidebarPane, scroll
+# area, Measurement Setup card. Pinning it keeps that look while stopping them
+# from growing with the window.
+#
+# ⚠️ Measure it through sidebarPane, not through a card on its own. A card asked
+# for its size hint in isolation reports a wider row than it ever gets, and a
+# chip width taken from there (75) pushed the Setup card from 355 px to 419 and
+# the whole sidebar past the pane, which clipped every card on the right.
+OVERTONE_CHIP_WIDTH = 62
 
 
 class Ui_MainWindow(object):
