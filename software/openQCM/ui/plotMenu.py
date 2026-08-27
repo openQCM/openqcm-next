@@ -14,6 +14,19 @@ find:
   ``sigMouseClicked`` must be connected **once per scene** and the plot found by
   hit-testing the click position. Connecting per plot fires the handler once per
   plot on the same click.
+* ⚠️ and the hit test must be **scoped to the scene that fired it**.
+  ``sceneBoundingRect()`` is in the coordinates of the item's own scene, and every
+  ``GraphicsLayoutWidget`` owns a separate one whose origin is its own top-left
+  corner, so rectangles from two canvases are not comparable -- they all start
+  near (0, 0) and overlap almost completely. Testing a click against every target
+  regardless of scene is how this menu spent months acting on the wrong plot:
+  right-clicking the main window's dissipation panel opened a menu that drove the
+  temperature plot, because that one is in the first canvas and its rectangle
+  covered the same coordinates.
+* the rectangle to test is the **PlotItem's**, not the ViewBox's: the axes, the
+  title and the legend margin are part of the plot to the eye and outside the
+  ViewBox. Where two candidates in one scene both contain the point, the smaller
+  one wins, which is what the eye would say too.
 * ``setMenuEnabled(False)`` has to be called on the ``PlotItem`` *and* on its
   ``ViewBox``; either one left enabled still pops pyqtgraph's menu up.
 
@@ -21,10 +34,16 @@ The grid state lives here because pyqtgraph offers no reliable read-back of it,
 and the menu label has to say "Show grid" or "Hide grid".
 """
 
+from functools import partial
+
+# QMenu lives in QtWidgets. It is reachable through QtGui only because
+# pyqtgraph's Qt shim copies the widgets there for Qt4 compatibility, which is a
+# side effect of a third-party import and not something to build on -- the same
+# assumption raised a NameError elsewhere in this GUI.
 try:
-    from PyQt5 import QtCore, QtGui
+    from PyQt5 import QtCore, QtWidgets
 except ImportError:                                      # pragma: no cover
-    from PySide2 import QtCore, QtGui
+    from PySide2 import QtCore, QtWidgets
 import pyqtgraph as pg
 
 GRID_ALPHA = 0.3
@@ -50,6 +69,9 @@ class PlotMenu(object):
         self.grid_on = {}
         self._targets = []
         self._scenes = []
+        # the bound handlers, kept alive: a connection to a callable nothing
+        # else references dies at the next collection
+        self._handlers = []
 
     # ------------------------------------------------------------------ setup
     def attach(self, plots):
@@ -71,7 +93,9 @@ class PlotMenu(object):
             scene = plot.scene()
             if scene is not None and not any(scene is s for s in self._scenes):
                 self._scenes.append(scene)
-                scene.sigMouseClicked.connect(self._on_scene_clicked)
+                handler = partial(self._on_scene_clicked, scene)
+                self._handlers.append(handler)
+                scene.sigMouseClicked.connect(handler)
 
     # ------------------------------------------------------------------- grid
     def set_grid(self, plot, on):
@@ -92,7 +116,7 @@ class PlotMenu(object):
     def build_menu(self, plot):
         """The menu for ``plot``, not yet shown. Separated from :meth:`show` so
         the items can be inspected without entering a modal event loop."""
-        menu = QtGui.QMenu(self._owner)
+        menu = QtWidgets.QMenu(self._owner)
         menu.addAction("Auto-scale", lambda: plot.enableAutoRange())
         menu.addAction("Reset zoom", lambda: plot.autoRange())
         box = plot.getViewBox()
@@ -117,14 +141,31 @@ class PlotMenu(object):
     def show(self, plot, screen_pos):
         self.build_menu(plot).exec_(screen_pos)
 
-    def _on_scene_clicked(self, event):
+    def plot_at(self, scene, scene_pos):
+        """The target under ``scene_pos`` in ``scene``, or None.
+
+        Candidates from other scenes are skipped: their rectangles are measured
+        from a different origin and would match by coincidence. Among the ones
+        that do belong, the smallest containing rectangle wins.
+        """
+        best, best_area = None, None
+        for plot in self._targets:
+            if plot.scene() is not scene:
+                continue
+            rect = plot.sceneBoundingRect()
+            if not rect.contains(scene_pos):
+                continue
+            area = rect.width() * rect.height()
+            if best is None or area < best_area:
+                best, best_area = plot, area
+        return best
+
+    def _on_scene_clicked(self, scene, event):
         """Right-click inside one of our plots: show OUR menu and nothing else."""
         if event.button() != QtCore.Qt.RightButton:
             return
-        for plot in self._targets:
-            box = plot.getViewBox()
-            if box is not None and box.sceneBoundingRect().contains(
-                    event.scenePos()):
-                event.accept()
-                self.show(plot, event.screenPos().toPoint())
-                return
+        plot = self.plot_at(scene, event.scenePos())
+        if plot is None:
+            return
+        event.accept()
+        self.show(plot, event.screenPos().toPoint())
