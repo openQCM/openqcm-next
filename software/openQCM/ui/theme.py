@@ -53,9 +53,14 @@ DARK = {
 # bg: GraphicsLayoutWidget background; axis: axis line + tick + label color;
 # title: plot title color. Frequency (blue) / dissipation (brown) curve colors
 # are theme-independent and live in Constants.
+# The plot panels inherit the interface's own window grey rather than carrying
+# their own colours: the dark panel was already (43,43,43) = DARK["window"], and
+# the light one was pure white, which is the only place the two disagreed. On
+# white the palest overtone of each series all but vanished.
 PLOT = {
-    "light": {"bg": "w", "axis": "#666666", "title": "#333333", "curve": "#333333"},
-    "dark": {"bg": (43, 43, 43), "axis": "#c8c8c8", "title": "#e0e0e0", "curve": "#e0e0e0"},
+    "light": {"bg": LIGHT["window"], "axis": "#666666", "title": "#333333",
+              "curve": "#333333"},
+    "dark": {"bg": DARK["window"], "axis": "#c8c8c8", "title": "#e0e0e0", "curve": "#e0e0e0"},
 }
 
 
