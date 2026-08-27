@@ -2499,8 +2499,6 @@ class MainWindow(QtGui.QMainWindow):
                 print(f"error occurred: {e}")
             
     # VER 0.1.4
-    # add-on view data log and make some processing 
-
 ###########################################################################
     # Updates the sample size of the plot (now not used)
     ###########################################################################
