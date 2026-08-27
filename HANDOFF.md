@@ -177,6 +177,10 @@ Frequency and dissipation are shown as the shift from a **movable reference curs
 `REFERENCE_SAMPLES` = 5 samples). Absolute values are unreadable: five overtones on one axis span
 5 to 45 MHz against a signal of a few hundred Hz.
 
+Each control row carries **two** colour swatches, one beside the frequency value and one beside the
+dissipation value. It carried one until 2026-08-27, when the two panels stopped sharing a colour;
+a single swatch would now claim a curve it does not match.
+
 ### `ui/plotMenu.py` — the plot right-click menu, once
 
 Grid off, then Auto-scale / Reset zoom / mouse mode / grid / Export. Two pyqtgraph facts live in that
@@ -282,7 +286,8 @@ with saturation falling 0.85 -> 0.26 and V solved per entry for the target lumin
 
 ⚠️ **Both ramps are bounded by the panels they are drawn on**, so the panels are not
 free either. `theme.PLOT[*]["bg"]` reads the interface's **own window colour** — `DARK["window"]`
-(43,43,43) and `LIGHT["window"]` `#f2f4f7` at 244. The light panel was `"w"`, and against pure
+(43,43,43) and `LIGHT["window"]` `#f2f4f7` at 244. One dict, four canvases: the main
+window and all three auxiliary views set their background from it. The light panel was `"w"`, and against pure
 white the palest entry of each series all but vanished. Two consequences worth knowing:
 - The ceiling of both ramps is **211**, which clears the light panel by 33. The palest blue used to
   be `#BFFFFF` at 241 — three points from the panel — and read by its cyan tint alone.
