@@ -251,6 +251,7 @@ class MainWindow(QtGui.QMainWindow):
 
         # Reference variables
         self._reference_flag = False
+        self._nscale = False        # Plot Controls > N-SCALE
         self._vector_reference_frequency = None
         self._vector_reference_dissipation = None
         self._vector_1 = None
@@ -2385,6 +2386,7 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.pButton_Stop.hide()
         self.ui.pButton_Clear.clicked.connect(self.clear)
         self.ui.pButton_Autoscale.clicked.connect(self.autoscale)
+        self.ui.pButton_NScale.toggled.connect(self._set_nscale)
         # single Set/Clear Reference toggle (pButton_Reference_Not is hidden)
         self.ui.pButton_Reference.clicked.connect(self._toggle_reference)
         self.ui.pButton_Reference_Not.clicked.connect(self.reference_not)
@@ -3324,7 +3326,9 @@ class MainWindow(QtGui.QMainWindow):
 
                 # FREQUENCY and DISSIPATION
                 # -------------------------------------------------------------
-                self._vector_1 = np.array(self.worker.get_d1_buffer()) - self._reference_value_frequency
+                self._vector_1 = self._nscaled(
+                    overtone_selected,
+                    np.array(self.worker.get_d1_buffer()) - self._reference_value_frequency)
                 self._vector_2 = np.array(self.worker.get_d2_buffer()) - self._reference_value_dissipation
                 
                 # VER 0.1.6 Do not set the y-range axis 
@@ -3618,7 +3622,9 @@ class MainWindow(QtGui.QMainWindow):
                         time_axis_new = self.worker.get_time_values_buffer(idx)
 
                         # get y frequency and dissipation axis
-                        y_freq = np.array( self.worker.get_F_values_buffer(idx) ) - self._reference_value_frequency_array[idx]
+                        y_freq = self._nscaled(
+                            idx,
+                            np.array( self.worker.get_F_values_buffer(idx) ) - self._reference_value_frequency_array[idx])
                         y_diss = np.array( self.worker.get_D_values_buffer(idx) ) - self._reference_value_dissipation_array[idx]
                         
                         # VER 0.1.6 do not set the y-range axis 
@@ -3886,7 +3892,8 @@ class MainWindow(QtGui.QMainWindow):
                #  TODO set the legend in single mode
                overtone_selected = self._overtones_number_all - self.ui.cBox_Speed.currentIndex() - 1
 
-               y_freq = self.worker.get_d1_buffer()
+               y_freq = self._nscaled(overtone_selected,
+                                      self.worker.get_d1_buffer())
                y_diss = self.worker.get_d2_buffer()
                
                # VER 0.1.6 do not get max and min 
@@ -4178,7 +4185,8 @@ class MainWindow(QtGui.QMainWindow):
                        time_axis_new = self.worker.get_time_values_buffer(idx)
 
                        # get y frequency and dissipation axis
-                       y_freq = self.worker.get_F_values_buffer(idx)
+                       y_freq = self._nscaled(
+                           idx, self.worker.get_F_values_buffer(idx))
                        y_diss = self.worker.get_D_values_buffer(idx)
                        
 # =============================================================================
@@ -4346,6 +4354,48 @@ class MainWindow(QtGui.QMainWindow):
     
         # reset the Temperature and PID parameter to default 
         self._set_PID_T_default()       
+
+    ###########################################################################
+    # N-SCALE: every plotted frequency divided by its harmonic order
+    ###########################################################################
+    def _nscale_div(self, index):
+        """The divisor for overtone ``index``: 1, 3, 5, 7, 9 -- or 1 when off.
+
+        ⚠️ DISPLAY ONLY. The buffers, the datalog and the status bar carry the
+        measured values; this divides what is drawn. The readout cards follow
+        only because they are handed the same arrays as the curves, which is the
+        point -- a card that disagrees with the line above it is the defect this
+        codebase keeps producing.
+        """
+        if not self._nscale:
+            return 1.0
+        return float(2 * int(index) + 1)
+
+    def _nscaled(self, index, values):
+        """``values`` divided by the harmonic order, or untouched when off.
+
+        Returned unchanged -- same object, same type -- while N-SCALE is off, so
+        the ordinary path is exactly what it was before this control existed.
+        """
+        div = self._nscale_div(index)
+        if div == 1.0:
+            return values
+        return np.asarray(values, dtype=float) / div
+
+    def _set_nscale(self, on):
+        self._nscale = bool(on)
+        # the axis label has to say what it now holds
+        self._plt2.setLabel(
+            "left", "Resonance Frequency / n" if self._nscale
+            else "Resonance Frequency", units="Hz")
+        # the curves are redrawn by the plot timer; when it is not running the
+        # panel would keep the old scale until the next acquisition
+        timer = getattr(self, "_timer_plot", None)
+        if self.worker is not None and (timer is None or not timer.isActive()):
+            try:
+                self._update_plot()
+            except Exception:
+                pass          # nothing acquired yet: the label is enough
 
     def _update_indicator_F (self, index, value):
 
@@ -4654,14 +4704,21 @@ class MainWindow(QtGui.QMainWindow):
         # Data behind the cursor Δy: multiscan → fundamental buffers (same
         # convention as the status bar); single mode → the measured overtone.
         if self._get_source() == SourceType.multiscan:
+            index = 0
             t = self.worker.get_time_values_buffer(0)
             y = (self.worker.get_F_values_buffer(0) if kind == "F"
                  else self.worker.get_D_values_buffer(0))
         else:
+            index = (self._overtones_number_all
+                     - self.ui.cBox_Speed.currentIndex() - 1)
             t = (self.worker.get_t1_buffer() if kind == "F"
                  else self.worker.get_t2_buffer())
             y = (self.worker.get_d1_buffer() if kind == "F"
                  else self.worker.get_d2_buffer())
+        # the cursors read the buffers directly, so N-SCALE has to be applied
+        # here too or ΔF would print unscaled hertz under a scaled curve
+        if kind == "F":
+            y = self._nscaled(index, y)
         return np.asarray(t, dtype=float), np.asarray(y, dtype=float)
 
     def _update_cursor_delta(self, plot):
