@@ -27,8 +27,43 @@ Package `software/openQCM/`:
   menu), **`widgets.py`** (combo/spin boxes that paint their own chevron)
 - `common/`: `fileStorage.py`, `logger.py`, `architecture.py`, `switcher.py`,
   **`sweepDump.py`** (development-only raw sweep dump, off by default)
-- `data_view/`: standalone CSV viewer
 - Entry point: `run.py` → `openQCM.app.OPENQCM().run()`
+
+### `core/logAnalysis.py` — the two-window comparison, and the four numbers it fixed
+
+The statistics behind Tools > Log Data — a starting stretch of a run against a final one — used to
+live inside `data_view/main.py` as ~350 lines of per-overtone copy-paste. That package is **gone**
+(retired 2026-08-27); the analysis is here, without Qt, and Datalog View's panel reads it rather
+than deriving its own.
+
+⚠️ **Four defects went out with the move, and the numbers the old window printed for them were
+wrong, not differently rounded.** Measured on a probe with a quiet 7th overtone and a noisy 9th:
+
+| | old | correct |
+|---|---|---|
+| 9th overtone Hadamard, final window | 0.03 | 1.30 |
+
+- the 9th overtone read `f_3_hadamard` — the **7th's** — divided by 9, in both blocks;
+- the final window was normalised by the initial window's length, `6*(j-i)` for `6*(l-k)`;
+- the Hadamard loop read `x[i-1]`, so a window starting at sample 0 folded the **last** sample of
+  the run into its first term through negative indexing (129099 against 0 on a probe with one large
+  value at the end);
+- a window reaching past the end of the run lost its last sample, because the index search was a
+  `for`/`break` that fell out holding the last index rather than one past it. Not an edge case: it
+  is what happens whenever a final window is asked to run to the end.
+
+Everything else is the legacy behaviour on purpose — window selection is identical wherever the old
+rule was defined, and the fundamental's Hadamard over the initial window agrees to 1e-12.
+
+⚠️ **Three of the four reported quantities are independent of the caller's reference**: `shift`
+(a difference of means), `std` and `hadamard` all survive a constant subtracted from the series.
+Only the per-window `mean` moves with it. That is what lets Datalog View keep a draggable zero
+while the analysis is on screen, and it is gated — moving the reference leaves the rendered report
+character-for-character identical. Do not add a reference-dependent number to `format_report`
+without revisiting that.
+
+⚠️ The harness comparing this module against the legacy implementation is pinned to **`600a33b`**,
+the last commit where `data_view/main.py` exists. It cannot run against HEAD.
 
 ### ⚠️ `core/resonance.py` is the only place the band may be computed
 
@@ -181,6 +216,17 @@ Each control row carries **two** colour swatches, one beside the frequency value
 dissipation value. It carried one until 2026-08-27, when the two panels stopped sharing a colour;
 a single swatch would now claim a curve it does not match.
 
+**Tools > Log Data opens this same window** since 2026-08-27. It used to raise a second, matplotlib
+viewer of the same files (`data_view/`, now removed); the menu entry stayed because that is where
+the habit is. Its two-window comparison came along, as the panel below.
+
+The **Two-window analysis** pane is hidden until the button in the Reference card is pressed, and
+the two shaded bands on the plots appear and disappear with it — bands with no report say nothing,
+and a report whose extent the reader cannot see is worse than none. Each band is mirrored on both
+shift panels and kept in step by the same re-entry guard as the reference cursors, because the
+panels are x-linked and a band on one of them would leave the other reader guessing. The numbers
+come from `core/logAnalysis.py`; see §1 for what they mean and what they deliberately ignore.
+
 ### `ui/plotMenu.py` — the plot right-click menu, once
 
 Grid off, then Auto-scale / Reset zoom / mouse mode / grid / Export. Two pyqtgraph facts live in that
@@ -294,9 +340,9 @@ white the palest entry of each series all but vanished. Two consequences worth k
 - Entry 4 of the blue moved too. Capping entry 5 at 211 while leaving 4 at 205 would have left six
   points between F7 and F9: one defect for another. The **three identity blues (1-3) do not move**.
 
-Still on the blues in both panels: the legacy `data_view` matplotlib viewer (retirement list) and
-`plot_color_multi_g`, the branch-only hex mirror used by the conductance plots — which is a copy of
-an *older* blue palette and has never tracked this one.
+Still on the blues in both panels: `plot_color_multi_g`, the branch-only hex mirror used by the
+conductance plots — a copy of an *older* blue palette that has never tracked this one. (The legacy
+`data_view` viewer was the other one; it was retired on 2026-08-27.)
 
 Raw Data View and `plot_sweep_spline` draw amplitude sweeps; blue is correct there.
 

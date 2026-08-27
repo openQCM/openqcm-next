@@ -470,6 +470,54 @@ Conventional Commits. Versions are marked by Git tags.
   and how long the instrument takes to settle. It was briefly more than that: shortening the
   buffer also switched off the outlier rejection, which is the defect fixed below, so that part of
   the warning no longer applies. The constant carries a banner explaining both.
+- **Tools > Log Data opens the Datalog View; the matplotlib copy retires** (`ui/mainWindow.py`,
+  `ui/mainWindow_ui.py`, `openQCM/data_view/` **removed**). Two viewers read the same log files. The
+  one behind Tools > Log Data drew them with matplotlib on a hard-coded `#191919` that ignored the
+  theme, labelled the overtones `F_0..F_9` in the numbering corrected everywhere else last month,
+  kept the grid on against this GUI's convention, carried a matplotlib toolbar instead of the shared
+  right-click menu, and put its x axis in bare seconds. The menu entry stays — that is where the
+  habit is — and now opens what `File > Open Log…` opens. Also gone: a `MatplotlibWidget` built and
+  hidden at start-up whether or not anyone ever opened the window.
+  - Nothing is lost, and that was the condition for deleting the package rather than an
+    afterthought: its two-window analysis moved first, to `core/logAnalysis.py` and into Datalog
+    View's own panel.
+- **Datalog View gains the two-window analysis** (`ui/dataLogView.py`, `ui/theme.py`). The
+  comparison of a starting stretch of a run against a final one now sits beside the plots it is
+  about. The windows are **draggable bands, not four spin boxes**: typing 300 and 80 into boxes
+  means reading the times off the plot and then describing them, while a band goes where the reader
+  is already looking. Each band is mirrored on both shift panels — they are x-linked, so a band on
+  one would leave the other reader guessing — and kept in step by the same re-entry guard the
+  reference cursors use. Pane and bands are hidden until the button in the Reference card is
+  pressed, and they travel together.
+  - ⚠️ The report is **deliberately blind to the reference cursor**: shift, standard deviation and
+    Hadamard deviation all survive a constant subtracted from the series, which is what lets the
+    cursor stay free while the analysis is on screen. Gated by moving the reference and requiring
+    the rendered report to be character-for-character identical.
+  - `theme.qss`'s monospace console rule covered `QTextEdit#systemLog` only, so the report pane came
+    up white on the dark theme. Both names are in the rule now.
+- **The two-window log analysis becomes a module, with four fixes** (`core/logAnalysis.py`, new).
+  ~350 lines of per-overtone copy-paste inside the legacy viewer become a Qt-free module the viewer
+  imports. ⚠️ **Four defects went with it, and the numbers the old window printed were wrong, not
+  differently rounded.** Measured on a probe with a quiet 7th overtone and a noisy 9th, over two
+  windows of deliberately different lengths:
+  - the **9th overtone reported the 7th's** Hadamard deviation (`f_3_hadamard` for `f_4_hadamard`,
+    `data_view/main.py:508` and `:516`, in both the initial and the final block): the window showed
+    **0.03** where the answer is **1.30**;
+  - the **final window was normalised by the initial window's length**, `6*(j-i)` instead of
+    `6*(l-k)`: 1.639 against the correct 1.296. Harmless only while the two windows happen to be the
+    same length, which nothing enforced;
+  - the Hadamard loop read `x[i-1]`, so a window **starting at sample 0 folded the last sample of
+    the run** into its first term through negative indexing: 129099 against 0 on a probe with one
+    large value at the end;
+  - a window **reaching past the end of the run lost its last sample** — the index search was a
+    `for`/`break` loop that fell out holding the last index rather than one past it. Not an edge
+    case: it is what happens every time a final window is asked to run to the end of the run.
+  - Everything else is the legacy behaviour on purpose, and gated: window selection is identical
+    wherever the old rule was defined, and the fundamental's Hadamard over the initial window agrees
+    to 1e-12 (0.477485550623). Degenerate windows and NaN in the data now report NaN rather than a
+    zero that reads as a perfectly quiet instrument.
+  - ⚠️ The harness comparing the module against the legacy code is pinned to **`600a33b`**, the last
+    commit where `data_view/main.py` exists; it cannot run against HEAD.
 - **The compact plot card is opt-in by property, not only by name** (`ui/theme.py`). The rounded
   card with the small bold title inside it — the one the frequency and dissipation readouts wear
   above their plots — was reachable only through the two hard-coded object names
@@ -504,7 +552,8 @@ Conventional Commits. Versions are marked by Git tags.
   - Datalog View used **one** colour for both of its panels, so its control rows now carry **two**
     swatches, each beside the value it belongs to. Raw Data View and `plot_sweep_spline` draw
     amplitude sweeps, where the blue is correct, and are unchanged; the legacy `data_view`
-    matplotlib viewer still uses the blues for both of its plots and is on the retirement list.
+    matplotlib viewer still used the blues for both of its plots; it was retired later the
+    same day, see below.
   - Verified by reading the colours back **out of the live Qt objects** -- `PlotDataItem` pens and
     swatch stylesheets -- not out of `Constants`, which would only prove the constant equals
     itself. Gated on: both ramps monotonically lightening, brown steps 35 +- 0, minimum blue step
