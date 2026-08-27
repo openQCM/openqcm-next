@@ -115,17 +115,26 @@ class Ui_MainWindow(object):
         lay.setContentsMargins(4, 4, 4, 4)
         lay.setSpacing(4)
 
-        header = QtWidgets.QLabel("Impedance — exact formula")
-        header.setObjectName("impedanceHeader")
-        lay.addWidget(header)
+        # The two views sit in a card, like every other plot in this GUI. The
+        # header that used to float above them is the card's title, so the panel
+        # carries one label instead of two. `cardCompact` is the property hook in
+        # theme.qss; it is set HERE, before the style sheet reaches the widget,
+        # because Qt evaluates property selectors at polish time.
+        self.groupImpedance = QtWidgets.QGroupBox("Impedance — exact formula")
+        self.groupImpedance.setObjectName("groupImpedance")
+        self.groupImpedance.setProperty("cardCompact", True)
+        card = QtWidgets.QVBoxLayout(self.groupImpedance)
+        card.setContentsMargins(4, 4, 4, 4)
+        card.setSpacing(4)
+        lay.addWidget(self.groupImpedance, 1)
 
         # conductance spectrum G(f), all overtones
-        self.pltG = GraphicsLayoutWidget(self.impedancePanel)
+        self.pltG = GraphicsLayoutWidget(self.groupImpedance)
         self.pltG.setObjectName("pltG")
         self.pltG.setAntialiasing(True)
 
         # admittance locus B vs G, all overtones
-        self.pltGB = GraphicsLayoutWidget(self.impedancePanel)
+        self.pltGB = GraphicsLayoutWidget(self.groupImpedance)
         self.pltGB.setObjectName("pltGB")
         self.pltGB.setAntialiasing(True)
 
@@ -139,7 +148,7 @@ class Ui_MainWindow(object):
         self.impedanceSplitter.setStretchFactor(0, 1)
         self.impedanceSplitter.setStretchFactor(1, 1)
         self.impedanceSplitter.setSizes([340, 340])
-        lay.addWidget(self.impedanceSplitter, 1)
+        card.addWidget(self.impedanceSplitter, 1)
 
     # ------------------------------------------------------------------ #
     # bottom status bar (R2)                                             #
