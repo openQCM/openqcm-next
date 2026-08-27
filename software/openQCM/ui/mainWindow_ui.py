@@ -32,6 +32,12 @@ APP_ICON = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)),
                  "..", "res", "icon", "favicon.png"))
 
+# Width of the F1..F9 quick-select chips. Not a taste number: it is what the five
+# measured at, sharing the row, before the row was given a trailing stretch --
+# 75 px at the default 300 px sidebar. Pinning it keeps that look while stopping
+# them from growing with the window.
+OVERTONE_CHIP_WIDTH = 75
+
 
 class Ui_MainWindow(object):
 
@@ -338,13 +344,14 @@ class Ui_MainWindow(object):
             btn.setProperty("overtoneBtn", True)
             btn.setCheckable(True)
             btn.setFixedHeight(24)
+            btn.setFixedWidth(OVERTONE_CHIP_WIDTH)
             btn.setToolTip("Overtone " + label)
             setattr(self, "overtoneBtn_" + name, btn)
             self.horizontalLayout_2.addWidget(btn)
             self.overtone_buttons.append(btn)
-        # keep the chips at their natural width and let a trailing stretch take
-        # the slack, the way the temperature ON / RESET row does. Without it the
-        # five grow with the sidebar and the row reflows as the window is resized.
+        # the chips keep OVERTONE_CHIP_WIDTH and a trailing stretch takes the
+        # slack, the way the temperature ON / RESET row does. Without it the five
+        # grow with the sidebar and the row reflows as the window is resized.
         self.horizontalLayout_2.addStretch(1)
         self.gridLayout_D.addWidget(self.line_2, 3, 0, 1, 2)
         self.gridLayout_D.addLayout(self.horizontalLayout_2, 4, 0, 1, 2)
