@@ -302,12 +302,12 @@ def qss(p):
     QPushButton#pButton_Temperature_Set:disabled, QPushButton#pButton_NScale:disabled {{
         background: transparent; color: {disabled_text}; border-color: {border}; }}
 
-    /* Overtone quick-select chips F0..F9. ⚠️ No min-width here: the width is
-       set on the widget (mainWindow_ui.OVERTONE_CHIP_WIDTH) and a style sheet
-       min-width overrides the widget's minimum, so `min-width: 0px` silently
-       let the layout squeeze them back down to their label. */
+    /* Overtone quick-select chips F0..F9 — as compact as possible (sidebar).
+       ⚠️ `min-width: 0px` is what lets the row shrink with the sidebar. A style
+       sheet min-width overrides the widget's own minimum, so setting a fixed
+       width on the buttons while this is here does nothing. */
     QPushButton[overtoneBtn="true"] {{ background: {field_bg}; color: {text};
-        border: 1px solid {border}; border-radius: 7px; padding: 2px 3px; }}
+        border: 1px solid {border}; border-radius: 7px; padding: 2px 3px; min-width: 0px; }}
 
     /* (Temperature toggle + TEC Reset share the secondary-outline rule above.) */
     QPushButton[overtoneBtn="true"]:checked {{ background: {accent}; color: {accent_text};
