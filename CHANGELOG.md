@@ -5,6 +5,16 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — the sidebar was narrower than its own content (2026-08-27)
+
+`d61647e`, one conflict: the splitter has **three** panes here (sidebar | plots | impedance dock),
+so `setSizes` keeps its three-way form with `SIDEBAR_MIN_WIDTH` in the first slot.
+
+The sidebar's scroll area is `widgetResizable` with the horizontal bar **off**, so a container wider
+than the viewport is not scrolled — it is silently **clipped**. The container's minimum is 371 px
+and the pane's was 260, opened at 300, so the cards lost their right edge. `SIDEBAR_MIN_WIDTH` = 380
+now, maximum 460. Numbers across the day's commits on `main`, CHANGELOG *Changed*.
+
 ### Carried from `main` — Plot Controls in two rows, chips that stop stretching (2026-08-27)
 
 `45da71c`, applied clean. AUTO / CLEAR on one row and SET REF / N-SCALE on the next, in a
