@@ -161,7 +161,6 @@ Package `software/openQCM/`:
   `popUp.py`, `rawDataView.py`, `peakDataView.py`, `dataLogView.py`, `plotMenu.py`, `widgets.py`,
   **`impedanceFitWindow.py`** (branch only)
 - `common/`: `fileStorage.py`, `logger.py`, `architecture.py`, `switcher.py`, `sweepDump.py`
-- `data_view/`: standalone CSV viewer
 - Entry point: `run.py` → `openQCM.app.OPENQCM().run()`
 
 ### The shared modules are documented on `main`, not here
@@ -174,6 +173,12 @@ reached by the window's style sheet, and so on. Documentation about shared code 
 is not repeated here; read it in the other worktree.
 
 What is specific to this branch:
+
+- ⚠️ **`_conductance_data_plot` was the only caller of `window_pro` left after the log-viewer
+  retirement** (2026-08-27). It had copied `_raw_data_plot`'s `self.window_pro.hide()`, which
+  `main` removed in the same port without being able to see this copy. Worth remembering as the
+  shape of the risk: a branch-only method that begins as a copy of a `main` method keeps its bugs
+  and loses its fixes.
 
 - **`elaborate_multi` is where the two lines of work meet.** The impedance work added **four** more
   Savitzky-Golay call sites beyond `main`'s one (the phase, `Vmag_corr`, `Vphase`, the raw `Vmag`); all

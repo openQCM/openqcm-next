@@ -5,6 +5,37 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Fixed — the conductance viewer called hide() on a window that no longer exists (2026-08-27)
+
+`_conductance_data_plot` is branch-only and had copied `_raw_data_plot`'s opening line,
+`self.window_pro.hide()`. That attribute went away with the matplotlib log viewer carried below,
+and the call is the **first statement of the method, outside its `try`** — so `Tools > Conductance
+Data` would have raised `AttributeError` before drawing anything. Removed rather than repaired:
+hiding an unrelated window was never part of plotting conductance. `main` lost the same line from
+`_raw_data_plot` in the same port; this copy was invisible to that commit, and the gate that caught
+it was the one asserting `mainWindow.py` no longer mentions `window_pro`.
+
+### Carried from `main` — the two-window log analysis, and the retirement of `data_view/` (2026-08-27)
+
+`1a073d9`, `600a33b`, `6a8779f`, all three applied clean.
+
+`Tools > Log Data` used to open a second, matplotlib viewer of the same log files. It now opens the
+same Datalog View `File > Open Log…` does, and `openQCM/data_view/` is removed. Its two-window
+analysis went first into `core/logAnalysis.py` and then into Datalog View's own panel, as draggable
+bands rather than four spin boxes — that was the condition for deleting the package.
+
+⚠️ **Four measured defects went out with the move**, and the numbers the old window printed for them
+were wrong, not differently rounded: the 9th overtone reported the **7th's** Hadamard deviation
+(0.03 where the answer is 1.30), the final window was normalised by the initial window's length, the
+Hadamard loop folded the run's last sample into a window starting at sample 0, and a window reaching
+past the end of the run lost its last sample. Full numbers on `main` — CHANGELOG *Changed*, HANDOFF
+§1 — and not repeated here.
+
+Verified here the same way as on `main`: the panel's text equals `format_report()` on the same
+inputs character for character, moving the reference cursor leaves every reported number unchanged,
+`openQCM.data_view.main` no longer imports, and this branch's `mainWindow.py` mentions neither the
+package nor `window_pro` — which is how the conductance defect above surfaced.
+
 ### Changed — the two impedance views move into a card (2026-08-27)
 
 The right-hand dock was the only plot area in this GUI still drawn on bare window background: a
@@ -67,9 +98,9 @@ palette's panel colour on both themes with its frame removed, and this branch's 
 untouched. `impedanceFitWindow.py` needed nothing — its overtone combo became the tab bar earlier
 today.
 
-⚠️ **Known, not addressed** (same on `main`): the four `QSpinBox` in `data_view/qt_designer_ui.py`
-keep the platform look. That is the legacy matplotlib CSV viewer, which is not themed at all, so
-converting its spin boxes alone would make it look less consistent rather than more.
+⚠️ ~~**Known, not addressed** (same on `main`): the four `QSpinBox` in
+`data_view/qt_designer_ui.py` keep the platform look.~~ Moot since 2026-08-27: that viewer was
+retired and the package removed.
 
 ### Carried from `main` — status bar (2026-07-29)
 
