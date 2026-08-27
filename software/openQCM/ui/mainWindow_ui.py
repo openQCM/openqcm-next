@@ -400,8 +400,18 @@ class Ui_MainWindow(object):
         self.pButton_Clear = QtWidgets.QPushButton("CLEAR",
                                                    self.sidebarContainer)
         self.pButton_Clear.setObjectName("pButton_Clear")
+        # Divide every plotted frequency by its harmonic order, so the overtones
+        # can be read against one another. A toggle, not a one-shot: it changes
+        # what the panel means for as long as it is pressed.
+        self.pButton_NScale = QtWidgets.QPushButton("N-SCALE",
+                                                    self.sidebarContainer)
+        self.pButton_NScale.setObjectName("pButton_NScale")
+        self.pButton_NScale.setCheckable(True)
+        self.pButton_NScale.setToolTip(
+            "Divide each overtone by its harmonic order (display only — the "
+            "datalog keeps the measured values)")
         for _b in (self.pButton_Autoscale, self.pButton_Reference,
-                   self.pButton_Clear):
+                   self.pButton_Clear, self.pButton_NScale):
             _pc.addWidget(_b)
         _pc.addStretch(1)
         sb.addWidget(self.groupPlotControls)
