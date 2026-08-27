@@ -5,7 +5,11 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
-### Carried from `main` — the sidebar was narrower than its own content (2026-08-27)
+### Carried from `main` — the sidebar width attempt, tried and reverted (2026-08-27)
+
+`f995a8e` reverts it (one conflict again on the three-pane `setSizes`, back to `[280, 700, 380]`).
+The chips share the row as they always did, and the pane is 260/400 again. What follows is kept
+because the measurement is worth having, not because the code still does it.
 
 `d61647e`, one conflict: the splitter has **three** panes here (sidebar | plots | impedance dock),
 so `setSizes` keeps its three-way form with `SIDEBAR_MIN_WIDTH` in the first slot.
@@ -22,9 +26,8 @@ now, maximum 460. Numbers across the day's commits on `main`, CHANGELOG *Changed
 on** — the other way round from Connect and the temperature toggle, deliberately: it is a checkable
 state, so brown means measured hertz and blue means divided by n. The overtone chips get the
 temperature ON / RESET treatment, natural width plus a trailing spacer, instead of sharing whatever
-width the sidebar has — pinned at `OVERTONE_CHIP_WIDTH` = **62 px**, what they measured at before
-the row got its stretch (`22c7bff` and `22c249e`, carried too; the first put it at 75, which pushed
-the Setup card from 355 px to 419 and clipped every card in the sidebar). ⚠️ `setFixedWidth` alone did not hold: `theme.qss`
+width the sidebar has — ⚠️ **and they still do**: pinning them (`22c7bff`, `22c249e`) was reverted
+in `f995a8e`, because a fixed width cannot both fit the narrowest sidebar and stay readable. ⚠️ `setFixedWidth` alone did not hold: `theme.qss`
 carried `min-width: 0px` on the chip rule, and a style-sheet min-width overrides the widget's own
 minimum — the buttons reported 75 and rendered at 42. Reasoning on `main`, CHANGELOG *Changed*.
 
