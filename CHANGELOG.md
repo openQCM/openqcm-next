@@ -5,6 +5,19 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — Plot Controls in two rows, chips that stop stretching (2026-08-27)
+
+`45da71c`, applied clean. AUTO / CLEAR on one row and SET REF / N-SCALE on the next, in a
+`QGridLayout` with the slack in an empty third column. **N-SCALE is brown while off and blue while
+on** — the other way round from Connect and the temperature toggle, deliberately: it is a checkable
+state, so brown means measured hertz and blue means divided by n. The overtone chips get the
+temperature ON / RESET treatment, natural width plus a trailing spacer, instead of sharing whatever
+width the sidebar has. Reasoning on `main`, CHANGELOG *Changed*.
+
+Verified here with the same gates: the grid holds the four buttons one per cell with the stretch on
+column 2, the chip row ends in an expanding spacer, and the unchecked N-SCALE renders 260 brown
+pixels and no blue while the checked one renders 260 blue and no brown, on both themes.
+
 ### Changed — N-SCALE divides dissipation too, which `main` does not (2026-08-27)
 
 `17a3561` carried clean; this commit is the branch's own behaviour on top of it.
