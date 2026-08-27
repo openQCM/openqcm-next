@@ -407,7 +407,6 @@ class MainWindow(QtGui.QMainWindow):
 
         # VER 0.1.6 toolbar menu add on application
         self.ui.actionTEC_current.triggered.connect(self.open_second_window)
-        self.ui.actionLog_Data.triggered.connect(self._log_data_plot)
         self.ui.actionRaw_Data.triggered.connect(self._raw_data_plot)
         # VER 0.1.6G conductance / impedance offline view
         self.ui.actionConductance_Data.triggered.connect(self._conductance_data_plot)
@@ -2439,9 +2438,6 @@ class MainWindow(QtGui.QMainWindow):
         # DEV RAWDATA
         self.ui.rawData_btn.clicked.connect(self._raw_data_plot)
         
-        # DEV LOG DATA 
-        self.ui.logData_btn.clicked.connect(self._log_data_plot)
-        
         # VER 0.1.6 push button for TEC current data plot secondary window 
         self.ui.pButtonSecondWindow.clicked.connect(self.open_second_window)
         '''
@@ -2795,13 +2791,7 @@ class MainWindow(QtGui.QMainWindow):
             print(f"error occurred: {e}")
 
     # VER 0.1.4
-    # add-on view data log and make some processing
-    def _log_data_plot(self):
-        # Same window as File > Open Log...: this entry used to raise a second,
-        # matplotlib viewer of the same files, which is the copy that has now
-        # gone. The menu item stays because it is where the habit is.
-        self._open_datalog_view()
-
+    # add-on view data log and make some processing 
 
 ###########################################################################
     # Updates the sample size of the plot (now not used)

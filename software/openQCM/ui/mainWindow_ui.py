@@ -233,10 +233,6 @@ class Ui_MainWindow(object):
         self.actionRaw_Data = QtWidgets.QAction("Raw Data (from sweep files)",
                                                 MainWindow)
         self.actionRaw_Data.setObjectName("actionRaw_Data")
-        # the same window as File > Open Log...; kept here because this is where
-        # the habit is, and it no longer opens a second viewer of its own
-        self.actionLog_Data = QtWidgets.QAction("Log Data...", MainWindow)
-        self.actionLog_Data.setObjectName("actionLog_Data")
         self.actionTEC_current = QtWidgets.QAction("Tec Current", MainWindow)
         self.actionTEC_current.setObjectName("actionTEC_current")
         # VER 0.1.6G conductance / impedance offline view (branch impedance-analysis)
@@ -250,7 +246,6 @@ class Ui_MainWindow(object):
         self.menuTools.addAction(self.actionRaw_Data)
         self.menuTools.addAction(self.actionConductance_Data)
         self.menuTools.addAction(self.actionImpedance_Fit)
-        self.menuTools.addAction(self.actionLog_Data)
         self.menuTools.addAction(self.actionTEC_current)
 
         # Help (existing actions re-homed from the old Info menu)
