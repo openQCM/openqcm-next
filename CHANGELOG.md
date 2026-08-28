@@ -5,6 +5,25 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Fixed — the impedance panel curves were built in two places (2026-08-28)
+
+The previous two commits changed the conductance and locus series and nothing happened on screen.
+⚠️ **They are created twice**: once in `start()` and once in `clear()` — and `start()` calls
+`self.clear()` immediately after its own copy has run, so the `clear()` version wins every time.
+Editing the other one is invisible by construction.
+
+⚠️ **And `PlotItem.clear()` empties the legend.** `removeItem()` calls `legend.removeItem()` on
+everything it removes, so the legend object survives as an empty, invisible box. Measured: two
+entries before `clear()`, zero after, legend still alive. That is why the keys appeared when the
+panel was built and vanished at the first acquisition.
+
+Both copies are now one `_build_impedance_curves()`: it clears the two panels, re-adds the legend
+keys, then creates the five conductance lines, the five locus sample series and the five dashed
+circles. Starting from `clear()` every time is what keeps the count at exactly one and two keys —
+adding them anywhere else appends a duplicate pair per acquisition. Verified across three
+consecutive calls: 1 and 2 entries each time, locus with `symbol='o'` and no pen, conductance a
+2 px line, fit dashed, `_pltGB_seq` reset, and an all-NaN `setData` still harmless.
+
 ### Fixed — the legends were anchored outside the plot (2026-08-28)
 
 ⚠️ **`addLegend(offset=(-10, 10))` freezes the legend where the panel was when it was created.**

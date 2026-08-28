@@ -725,24 +725,8 @@ class MainWindow(QtGui.QMainWindow):
                 for idx in range(self._overtones_number_all):
                     self._plt0_multiline[idx] = self._plt0.plot(pen = Constants.plot_color_multi[idx])
 
-                # VER 0.1.6G impedance panel: one conductance series and one
-                # admittance-locus series per overtone, same colours as above.
-                # The locus is drawn as SAMPLES because a fitted circle is drawn
-                # over it and the two have to be told apart; the conductance
-                # carries no fit, so it stays a line and reads better as one.
-                for idx in range(self._overtones_number_all):
-                    self._pltG_multiline[idx] = self._pltG.plot(
-                        pen = pg.mkPen(color = Constants.plot_color_multi[idx],
-                                       width = Constants.plot_line_width))
-                    self._pltGB_multiline[idx] = self._pltGB.plot(
-                        pen = None, symbol = 'o', symbolSize = 3,
-                        symbolPen = None,
-                        symbolBrush = Constants.plot_color_multi[idx])
-                    self._pltGB_fitline[idx] = self._pltGB.plot(
-                        pen = pg.mkPen(color = Constants.plot_color_multi[idx],
-                                       width = 1, style = QtCore.Qt.DashLine))
-                    # force a repaint on the next tick: the curves are new
-                    self._pltGB_seq[idx] = None
+                # VER 0.1.6G impedance panel curves
+                self._build_impedance_curves()
 
 # =============================================================================
 #                 # VER 0.1.6 reference to the line object temperature 
@@ -1951,18 +1935,12 @@ class MainWindow(QtGui.QMainWindow):
         # menu AND the ViewBox one, which is the one right-click actually raises
         self._pltG.setMenuEnabled(False)
         self._pltG.scene().contextMenu = None
-        # Legend key, not a curve: it holds no data and exists only to name what
-        # is drawn. Built here, with the panel, rather than beside the real
-        # series -- those are recreated on every START, and a legend fed from
-        # them would gain a duplicate entry each time.
         # ⚠️ Default offset, like _legend_f and _legend_D. A negative x anchors
-        # to the right edge, and the anchor is computed when the legend is
-        # created -- while this panel is still 0 px wide, so it landed outside
-        # the visible plot and the legend never appeared.
+        # to the right edge and the anchor is computed once, when the legend is
+        # created and this panel is still its construction width -- measured at
+        # 68.6 px against a 265 px viewbox, which is outside the panel as laid
+        # out. The keys themselves are filled in by _build_impedance_curves.
         self._pltG.addLegend()
-        self._pltG.plot(pen = pg.mkPen(color = Constants.plot_color_multi[0],
-                                       width = Constants.plot_line_width),
-                        name = "measured")
 
         # admittance locus B vs G — 1:1 aspect so a circle looks like a circle
         self._pltGB = self.ui.pltGB.addPlot(row=0, col=0,
@@ -1975,17 +1953,10 @@ class MainWindow(QtGui.QMainWindow):
         # menu AND the ViewBox one, which is the one right-click actually raises
         self._pltGB.setMenuEnabled(False)
         self._pltGB.scene().contextMenu = None
-        # two legend keys here: dots are the measurement, the dashed line is the
-        # circle fitted to it (see _fit_circle_taubin, and the note there on how
-        # it differs from the live fit window)
+        # dots are the measurement, the dashed line is the circle fitted to it
+        # (see _fit_circle_taubin, and the note there on how it differs from the
+        # live fit window). Keys filled in by _build_impedance_curves.
         self._pltGB.addLegend()
-        self._pltGB.plot(pen = None, symbol = 'o', symbolSize = 3,
-                         symbolPen = None,
-                         symbolBrush = Constants.plot_color_multi[0],
-                         name = "measured")
-        self._pltGB.plot(pen = pg.mkPen(color = Constants.plot_color_multi[0],
-                                        width = 1, style = QtCore.Qt.DashLine),
-                         name = "BVD circle fit")
 
         # VER 0.1.2
         # editing pyqtgraph context menu
@@ -4814,6 +4785,55 @@ class MainWindow(QtGui.QMainWindow):
         info["text"].setPos(xr[0] + 0.02 * (xr[1] - xr[0]), yr[1])
         info["text"].setText(text)
 
+    def _build_impedance_curves(self):
+        """(Re)create everything drawn in the two impedance panels.
+
+        ⚠️ The ONE place that builds them. There used to be two identical
+        copies, in start() and in clear(), and start() calls clear() right
+        after its own copy has run -- so the clear() version silently won,
+        every time, and an edit to the other one had no visible effect at all.
+
+        Conductance is a line: no fit is drawn over it, so nothing has to be
+        told apart. The locus is samples with the fitted circle dashed on top,
+        which is the whole reason that panel is worth looking at.
+
+        ⚠️ The legend keys are re-added here because PlotItem.clear() takes
+        them away: removeItem() calls legend.removeItem() on everything it
+        removes, so the legend survives as an empty, invisible box. Measured:
+        two entries before clear(), zero after. Starting from clear() every
+        time is also what keeps the count at exactly one and two -- adding the
+        keys anywhere else would append a duplicate pair per acquisition.
+        """
+        if self._pltG is None or self._pltGB is None:
+            return
+
+        self._pltG.clear()
+        self._pltGB.clear()
+
+        colour = Constants.plot_color_multi[0]
+        self._pltG.plot(pen = pg.mkPen(color = colour,
+                                       width = Constants.plot_line_width),
+                        name = "measured")
+        self._pltGB.plot(pen = None, symbol = 'o', symbolSize = 3,
+                         symbolPen = None, symbolBrush = colour,
+                         name = "measured")
+        self._pltGB.plot(pen = pg.mkPen(color = colour, width = 1,
+                                        style = QtCore.Qt.DashLine),
+                         name = "BVD circle fit")
+
+        for idx in range(self._overtones_number_all):
+            self._pltG_multiline[idx] = self._pltG.plot(
+                pen = pg.mkPen(color = Constants.plot_color_multi[idx],
+                               width = Constants.plot_line_width))
+            self._pltGB_multiline[idx] = self._pltGB.plot(
+                pen = None, symbol = 'o', symbolSize = 3, symbolPen = None,
+                symbolBrush = Constants.plot_color_multi[idx])
+            self._pltGB_fitline[idx] = self._pltGB.plot(
+                pen = pg.mkPen(color = Constants.plot_color_multi[idx],
+                               width = 1, style = QtCore.Qt.DashLine))
+            # force a repaint on the next tick: the curves are new
+            self._pltGB_seq[idx] = None
+
     def _yrange_freq_diss(self, y_f_min, y_f_max, y_d_min, y_d_max):
         """The vertical axis of the frequency and dissipation panels.
 
@@ -5033,24 +5053,10 @@ class MainWindow(QtGui.QMainWindow):
                         # amplitude plot replot multiline
                         self._plt0_multiline[idx] = self._plt0.plot(pen = Constants.plot_color_multi[idx])
 
-                    # VER 0.1.6G impedance panel: clear and rebuild its curves
-                    # together with the others, so Clear leaves the whole GUI in
-                    # one consistent state instead of freezing the right panel
-                    # on the last sweep.
-                    if self._pltG is not None and self._pltGB is not None:
-                        self._pltG.clear()
-                        self._pltGB.clear()
-                        for idx in range(self._overtones_number_all):
-                            self._pltG_multiline[idx] = self._pltG.plot(
-                                pen = pg.mkPen(color = Constants.plot_color_multi[idx],
-                                               width = Constants.plot_line_width))
-                            self._pltGB_multiline[idx] = self._pltGB.plot(
-                                pen = pg.mkPen(color = Constants.plot_color_multi[idx],
-                                               width = Constants.plot_line_width))
-                            self._pltGB_fitline[idx] = self._pltGB.plot(
-                                pen = pg.mkPen(color = Constants.plot_color_multi[idx],
-                                               width = 1, style = QtCore.Qt.DashLine))
-                            self._pltGB_seq[idx] = None
+                    # VER 0.1.6G impedance panel: cleared and rebuilt with the
+                    # others, so Clear leaves the whole GUI in one consistent
+                    # state instead of freezing the right panel on the last sweep
+                    self._build_impedance_curves()
 
 # =============================================================================
 #                 # reference to the line object temperature 
