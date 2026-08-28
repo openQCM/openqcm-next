@@ -177,6 +177,15 @@ The argument is a directory of `g1.txt … g9.txt` as written by the sweep dump,
 and defaults to the path above. Those files are overwritten by every
 acquisition, so pass a copy when the numbers have to stay put.
 
+It prints the table and then opens a window with four panels: the locus and the
+three circles, the two fitting domains on `G(f)`, the radial residual of all
+overtones, and the decomposition of section 3 — the figures of this document,
+drawn from the data just measured rather than reproduced from it. `--overtone N`
+chooses the overtone of the top row, `--save DIR` writes a PNG instead of
+opening a window, `--no-plot` gives the table alone. Under
+`QT_QPA_PLATFORM=offscreen` the window is skipped automatically, so the same
+command line still works headless.
+
 The script rebuilds the admittance with the offline `admittance()`, applies the
 AD8302 ratio mask and the `+-3` half-width clip that `MultiscanProcess` applies,
 then runs both estimators on that single array — the same array both views
