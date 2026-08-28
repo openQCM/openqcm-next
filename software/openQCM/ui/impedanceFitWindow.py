@@ -120,7 +120,7 @@ class _FitTab(QtWidgets.QWidget):
         self.pG.setTitle("conductance G(f) — FIT 2", color=palette["title"])
         self.pG.setLabel('bottom', 'f - f_s', units='Hz', color=palette["title"])
         self.pG.setLabel('left', 'G', units='mS', color=palette["title"])
-        self.pG.addLegend(offset=(-10, 10))
+        self.pG.addLegend()   # default anchor: see the note in mainWindow
         self.curveG = self.pG.plot(
             pen=pg.mkPen(color=colour, width=Constants.plot_line_width),
             name="measured")
@@ -138,7 +138,7 @@ class _FitTab(QtWidgets.QWidget):
         self.pB.setLabel('bottom', 'f - f_s', units='Hz', color=palette["title"])
         self.pB.setLabel('left', 'B', units='mS', color=palette["title"])
         self.pB.setXLink(self.pG)
-        self.pB.addLegend(offset=(-10, 10))
+        self.pB.addLegend()   # default anchor: see the note in mainWindow
         self.zeroB = self.pB.plot(pen=pg.mkPen(palette["axis"], width=1,
                                                style=QtCore.Qt.DotLine))
         self.curveBf = self.pB.plot(
@@ -156,7 +156,7 @@ class _FitTab(QtWidgets.QWidget):
         self.pC.setLabel('bottom', 'G', units='mS', color=palette["title"])
         self.pC.setLabel('left', 'B', units='mS', color=palette["title"])
         self.pC.setAspectLocked(True)
-        self.pC.addLegend(offset=(-10, 10))
+        self.pC.addLegend()   # default anchor: see the note in mainWindow
         # the locus is the same measurement as the two curves on the left, so it
         # carries the same overtone colour; only the fitted overlay is red
         self.curveB = self.pC.plot(pen=None, symbol='o', symbolSize=2.5,

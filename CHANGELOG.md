@@ -5,6 +5,36 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Fixed — the legends were anchored outside the plot (2026-08-28)
+
+⚠️ **`addLegend(offset=(-10, 10))` freezes the legend where the panel was when it was created.**
+A negative x anchors to the right edge, and the anchor is computed once, while the panel is still
+its construction size — it does not follow the resize that the layout applies immediately after.
+Measured: with the default offset the legend sits at x = 30 before and after a resize; with
+`(-10, 10)` it sits at x = 68.6 both times, computed against a 265 px viewbox, so on the real
+panels it landed outside the visible area and never appeared. The impedance panels and the three
+panes of the live fit window all use the default anchor now, like `_legend_f` and `_legend_D`,
+which is why those two were never affected.
+
+### Changed — dots where there is a fit, lines where there is none (2026-08-28)
+
+Refines the previous commit. The **admittance locus** keeps its samples plus the fitted circle as
+the only line: the two have to be distinguishable. The **conductance** goes back to a line — it
+carries no fit, so nothing needs telling apart, and a spectrum reads better as a curve. The live
+fit window already followed this rule: G(f) and B(f) are curves, the locus is samples.
+
+### Changed — ⚠️ temporary: the frequency and dissipation axes are left alone (2026-08-28)
+
+`Constants.plot_reassert_yrange_freq_diss = False`, **to be restored when the vertical axis is
+settled**. It is not the same switch as `plot_force_yrange`, which was already False: with that one
+off, `_set_yrange_forced` still called `enableAutoRange` on **every sweep**, so a manual vertical
+zoom or pan survived exactly one sweep before snapping back. The axis was not locked to a range, it
+was locked to the data.
+
+The two panels now go through `_yrange_freq_diss`, which skips the call entirely while the constant
+is False. pyqtgraph then turns autorange off by itself the moment the user drags, so the zoom
+stays, and **AUTO in Plot Controls brings the automatic framing back**. Temperature is unchanged.
+
 ### Changed — the impedance panels say which line is a fit (2026-08-28)
 
 Both panels drew the measurement as a continuous line, and the admittance panel drew the fitted

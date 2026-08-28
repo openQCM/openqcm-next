@@ -72,6 +72,17 @@ class Constants:
     # for distribution builds, where a wider fixed range avoids over-emphasising
     # small signal variations.
     plot_force_yrange = False
+
+    # VER 0.1.6G ⚠️ TEMPORARY, restore True when the vertical axis is settled.
+    # False leaves the frequency and dissipation panels alone after every sweep.
+    # It is not the same switch as plot_force_yrange above: with that one False,
+    # _set_yrange_forced still called enableAutoRange on EVERY update, so a
+    # vertical zoom or pan survived exactly one sweep before snapping back --
+    # the axis was not locked to a range, it was locked to the data. This skips
+    # the call entirely for those two panels, and pyqtgraph then turns autorange
+    # off by itself the moment the user drags, which is what makes a manual zoom
+    # stick. AUTO in Plot Controls brings the automatic framing back.
+    plot_reassert_yrange_freq_diss = False
     
     # VER 0.1.6 set the color to white (unused)
     # plot_colors = ['#ff0000', '#0072bd', '#00ffff', '#edb120', '#000000', '#77ac30', '#4dbeee', '#a2142f'] 

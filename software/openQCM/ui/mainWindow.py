@@ -727,15 +727,13 @@ class MainWindow(QtGui.QMainWindow):
 
                 # VER 0.1.6G impedance panel: one conductance series and one
                 # admittance-locus series per overtone, same colours as above.
-                # Both are drawn as SAMPLES, not as lines: what the panel shows
-                # is measured points, and the only line in it is a fit. Reading
-                # that off the plot is the whole reason the fitted circle is
-                # worth drawing over the locus at all.
+                # The locus is drawn as SAMPLES because a fitted circle is drawn
+                # over it and the two have to be told apart; the conductance
+                # carries no fit, so it stays a line and reads better as one.
                 for idx in range(self._overtones_number_all):
                     self._pltG_multiline[idx] = self._pltG.plot(
-                        pen = None, symbol = 'o', symbolSize = 3,
-                        symbolPen = None,
-                        symbolBrush = Constants.plot_color_multi[idx])
+                        pen = pg.mkPen(color = Constants.plot_color_multi[idx],
+                                       width = Constants.plot_line_width))
                     self._pltGB_multiline[idx] = self._pltGB.plot(
                         pen = None, symbol = 'o', symbolSize = 3,
                         symbolPen = None,
@@ -1953,14 +1951,17 @@ class MainWindow(QtGui.QMainWindow):
         # menu AND the ViewBox one, which is the one right-click actually raises
         self._pltG.setMenuEnabled(False)
         self._pltG.scene().contextMenu = None
-        # Legend keys, not curves: they hold no data and exist only to show what
-        # a dot means. Built here, with the panel, rather than beside the real
+        # Legend key, not a curve: it holds no data and exists only to name what
+        # is drawn. Built here, with the panel, rather than beside the real
         # series -- those are recreated on every START, and a legend fed from
         # them would gain a duplicate entry each time.
-        self._pltG.addLegend(offset = (-10, 10))
-        self._pltG.plot(pen = None, symbol = 'o', symbolSize = 3,
-                        symbolPen = None,
-                        symbolBrush = Constants.plot_color_multi[0],
+        # ⚠️ Default offset, like _legend_f and _legend_D. A negative x anchors
+        # to the right edge, and the anchor is computed when the legend is
+        # created -- while this panel is still 0 px wide, so it landed outside
+        # the visible plot and the legend never appeared.
+        self._pltG.addLegend()
+        self._pltG.plot(pen = pg.mkPen(color = Constants.plot_color_multi[0],
+                                       width = Constants.plot_line_width),
                         name = "measured")
 
         # admittance locus B vs G — 1:1 aspect so a circle looks like a circle
@@ -1974,10 +1975,10 @@ class MainWindow(QtGui.QMainWindow):
         # menu AND the ViewBox one, which is the one right-click actually raises
         self._pltGB.setMenuEnabled(False)
         self._pltGB.scene().contextMenu = None
-        # same two legend keys: dots are the measurement, the dashed line is the
+        # two legend keys here: dots are the measurement, the dashed line is the
         # circle fitted to it (see _fit_circle_taubin, and the note there on how
         # it differs from the live fit window)
-        self._pltGB.addLegend(offset = (-10, 10))
+        self._pltGB.addLegend()
         self._pltGB.plot(pen = None, symbol = 'o', symbolSize = 3,
                          symbolPen = None,
                          symbolBrush = Constants.plot_color_multi[0],
@@ -3441,8 +3442,7 @@ class MainWindow(QtGui.QMainWindow):
                     y_d_min = y_diss_single_min - y_d_range
                   
                     # set y range axis 
-                    self._set_yrange_forced(self._plt2, y_f_min, y_f_max)
-                    self._set_yrange_forced(self._pltD, y_d_min, y_d_max)
+                    self._yrange_freq_diss(y_f_min, y_f_max, y_d_min, y_d_max)
 # =============================================================================
 #                
 # =============================================================================
@@ -3752,8 +3752,8 @@ class MainWindow(QtGui.QMainWindow):
                             y_d_min = y_diss_min - y_d_range
                             
                             # set y range axis 
-                            self._set_yrange_forced(self._plt2, y_f_min, y_f_max)
-                            self._set_yrange_forced(self._pltD, y_d_min, y_d_max)
+                            self._yrange_freq_diss(y_f_min, y_f_max,
+                                                   y_d_min, y_d_max)
 
                     else:
                         dummy = [0]
@@ -4022,8 +4022,7 @@ class MainWindow(QtGui.QMainWindow):
                    y_d_min = y_diss_single_min - y_d_range
                  
                    # set y range axis 
-                   self._set_yrange_forced(self._plt2, y_f_min, y_f_max)
-                   self._set_yrange_forced(self._pltD, y_d_min, y_d_max)
+                   self._yrange_freq_diss(y_f_min, y_f_max, y_d_min, y_d_max)
 # =============================================================================
 #                
 # =============================================================================
@@ -4814,6 +4813,21 @@ class MainWindow(QtGui.QMainWindow):
         xr, yr = plot.getViewBox().viewRange()
         info["text"].setPos(xr[0] + 0.02 * (xr[1] - xr[0]), yr[1])
         info["text"].setText(text)
+
+    def _yrange_freq_diss(self, y_f_min, y_f_max, y_d_min, y_d_max):
+        """The vertical axis of the frequency and dissipation panels.
+
+        ⚠️ Off while Constants.plot_reassert_yrange_freq_diss is False, which it
+        temporarily is. Reasserting the range on every sweep -- even as plain
+        autorange -- undid a manual vertical zoom one sweep after it was made.
+        Skipping the call leaves pyqtgraph's own autorange on until the user
+        drags, at which point it switches itself off and the zoom stays; AUTO in
+        Plot Controls re-enables it on all four panels.
+        """
+        if not Constants.plot_reassert_yrange_freq_diss:
+            return
+        self._set_yrange_forced(self._plt2, y_f_min, y_f_max)
+        self._set_yrange_forced(self._pltD, y_d_min, y_d_max)
 
     def _set_yrange_forced(self, plot, y_min, y_max):
         if Constants.plot_force_yrange:
