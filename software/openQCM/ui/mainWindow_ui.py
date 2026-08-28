@@ -38,11 +38,16 @@ APP_ICON = os.path.normpath(
 # smaller than it was. Above that the stretches between the chips take the
 # slack, and a wider sidebar buys spacing rather than five wider buttons.
 #
-# ⚠️ Below 330 px of row the chips still shrink, and that is deliberate: the
-# style sheet's min-width: 0px lets them, and the alternative is a row that
+# ⚠️ Below 5*W + 12 px of row the chips still shrink, and that is deliberate:
+# the style sheet's min-width: 0px lets them, and the alternative is a row that
 # refuses to fit and clips the card it lives in. Narrow sidebar, small chips,
-# exactly as before; wide sidebar, chips at 64 and air between them.
-OVERTONE_CHIP_WIDTH = 64
+# exactly as before; wide sidebar, chips at their width and air between them.
+#
+# ⚠️ Raising this alone does nothing once the row cannot hold it: the width is
+# honoured only while 5*W + 12 <= row, so 72 needs a 372 px row and the sidebar
+# pane has to be dragged wide enough to give it. That is why the maximum below
+# was raised with it.
+OVERTONE_CHIP_WIDTH = 72
 OVERTONE_CHIP_GAP = 3          # the minimum gap; the stretches grow from here
 
 
@@ -528,7 +533,10 @@ class Ui_MainWindow(object):
         # 380 fixes the clipping but takes away the ability to narrow the
         # sidebar, which is worse. Deferred, not forgotten.
         self.sidebarPane.setMinimumWidth(260)
-        self.sidebarPane.setMaximumWidth(400)
+        # 520, not 400: the overtone chips are honoured only while
+        # 5 * OVERTONE_CHIP_WIDTH + 12 fits the row, so the pane has to be
+        # draggable wide enough for the width they are given.
+        self.sidebarPane.setMaximumWidth(520)
 
     # ------------------------------------------------------------------ #
     # Temperature control card                                           #

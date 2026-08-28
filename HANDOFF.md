@@ -365,19 +365,23 @@ frame may still show around it; on Windows it does not.
 ### The overtone chips: a fixed width, and gaps that grow
 
 `F1 F3 F5 F7 F9` in the Measurement Setup card. Widening the sidebar adds **spacing between them**,
-not width: each chip is pinned at `OVERTONE_CHIP_WIDTH` = 64 px with a `Fixed` size policy, and a
+not width: each chip is pinned at `OVERTONE_CHIP_WIDTH` = 72 px with a `Fixed` size policy, and a
 stretch sits between one chip and the next so the slack lands in the gaps. Measured by driving the
 row layout directly (`QLayout.setGeometry`, no `show()`, which segfaults offscreen):
 
 | row width | before | after |
 |---|---|---|
-| 260 | chips 50, gaps 3 | chips 50, gaps 3 |
 | 330 | chips 64, gaps 3 | chips 64, gaps 3 |
-| 360 | chips 70, gaps 3 | chips 64, **gaps 10** |
-| 400 | chips 78, gaps 3 | chips 64, **gaps 20** |
+| 372 | chips 72, gaps 3 | chips 72, gaps 3 |
+| 400 | chips 78, gaps 3 | chips 72, **gaps 10** |
+| 440 | chips 86, gaps 3 | chips 72, **gaps 20** |
+| 480 | chips 94, gaps 3 | chips 72, **gaps 30** |
 
-64 px is not a taste: it is what the row already gave each chip at 330 px, so nothing is smaller
-than it was.
+⚠️ **The width is honoured only while `5*W + 12 <= row`.** Below that the style sheet's
+`min-width: 0px` lets the layout squeeze the chips back down, so raising the constant on its own
+changes nothing: at 72 the row has to be at least 372 px, which is why `sidebarPane`'s maximum went
+from 400 to **520**. It is a maximum, not a default — the splitter still opens at
+`setSizes([300, 900])`, so the sidebar has to be dragged wider before the extra width appears.
 
 ⚠️ **`setFixedWidth` alone does not pin these buttons.** `theme.qss` carries `min-width: 0px` on the
 chip rule, and a style-sheet min-width beats the widget's own minimum — measured, the layout item
@@ -389,9 +393,10 @@ size policy, and that is the half that matters here.
 fit, and this sidebar clips rather than scrolls (below). Narrow sidebar, small chips, exactly as
 before; wide sidebar, chips at 64 and air between them.
 
-The row's own minimum drops from 387 px to 332, and the sidebar container's from 435 to 380 — so
-this loosens the clipping described in §5 by 55 px instead of adding to it. It does not fix it: the
-pane still allows 260.
+At 72 px the row's minimum is 372 and the sidebar container's 420, against 387 and 435 for the
+stretching row it replaced — so the clipping described in §5 is slightly looser, not fixed: the pane
+still allows 260. Every extra pixel of chip costs five of container minimum, which is the budget to
+spend when tuning this.
 
 ### The status bar: one dot, plain text
 
