@@ -5,6 +5,24 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — the real-time time axis is the Q-1 one (2026-08-28)
+
+`c13f45e`, applied clean on `constants.py`, `mainWindow.py` and `dataLogView.py`. The four live axes
+print `0 / 45 / 2:00 / 5:00 / 1:02:05` under **`Time (hh:mm:ss)`** instead of bare seconds under
+`Time (Sec)`. The plotted x values do not move — still epoch microseconds — so the buffers, the
+datalog and the Δ cursors are untouched; only the tick labels are relative.
+
+`Constants.DateAxis` is gone, replaced by `ElapsedTimeAxis` plus the shared
+`format_elapsed_seconds`. ⚠️ **Checked here specifically**: no branch-only code referenced the
+removed class, and the conductance views draw against frequency, not time, so nothing on this branch
+loses an axis. Verified after the cherry-pick — `py_compile`, the app imports, and both axes produce
+the same five tick strings as on `main`.
+
+The defects that go out with the seconds axis: the raw epoch printed for the whole warm-up
+(`1787904318`), no reference reset between runs, a NaN reference raising out of the paint path, and
+a reference taken from `buffer[0]` — the **newest** sample, since `RingBuffer.get_all()` returns
+newest-first — instead of `np.nanmin`. `self.start_time` is microseconds in both modes now.
+
 ### Carried from `main` — datalog file names follow the Q-1 rule (2026-08-28)
 
 `00481a1`, applied clean: `switcher.py` was already identical on the two branches, and
