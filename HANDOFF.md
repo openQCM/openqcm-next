@@ -362,41 +362,28 @@ both objects directly. The popup list is deliberately square-cornered — it is 
 rounded background leaves the window's own colour showing at the corners. On macOS a light native
 frame may still show around it; on Windows it does not.
 
-### The overtone chips: a fixed width, and gaps that grow
+### The overtone chips, and why they still stretch
 
-`F1 F3 F5 F7 F9` in the Measurement Setup card. Widening the sidebar adds **spacing between them**,
-not width: each chip is pinned at `OVERTONE_CHIP_WIDTH` = 72 px with a `Fixed` size policy, and a
-stretch sits between one chip and the next so the slack lands in the gaps. Measured by driving the
-row layout directly (`QLayout.setGeometry`, no `show()`, which segfaults offscreen):
+`F1 F3 F5 F7 F9` in the Measurement Setup card share whatever width the sidebar has: each is
+50 px at a 260 px row, 64 at 330, 78 at 400, with the gaps fixed at 3. Pinning them so a wider
+sidebar buys **spacing** instead has now been tried twice and reverted twice — `1e587d7`, and again
+on 2026-08-28. The second attempt worked mechanically and was rejected on looks: at a wide sidebar
+five fixed chips with 80 px gaps read as five islands, which is worse than five wide buttons.
 
-| row width | before | after |
-|---|---|---|
-| 330 | chips 64, gaps 3 | chips 64, gaps 3 |
-| 372 | chips 72, gaps 3 | chips 72, gaps 3 |
-| 400 | chips 78, gaps 3 | chips 72, **gaps 10** |
-| 440 | chips 86, gaps 3 | chips 72, **gaps 20** |
-| 480 | chips 94, gaps 3 | chips 72, **gaps 30** |
+What the two attempts established, so a third does not rediscover it:
 
-⚠️ **The width is honoured only while `5*W + 12 <= row`.** Below that the style sheet's
-`min-width: 0px` lets the layout squeeze the chips back down, so raising the constant on its own
-changes nothing: at 72 the row has to be at least 372 px, which is why `sidebarPane`'s maximum went
-from 400 to **520**. It is a maximum, not a default — the splitter still opens at
-`setSizes([300, 900])`, so the sidebar has to be dragged wider before the extra width appears.
-
-⚠️ **`setFixedWidth` alone does not pin these buttons.** `theme.qss` carries `min-width: 0px` on the
-chip rule, and a style-sheet min-width beats the widget's own minimum — measured, the layout item
-reports a minimum of 8 px however wide the button says it is, which is how the first attempt
-(reverted) came to report 75 and render 42. What stops the row **stretching** them is the `Fixed`
-size policy, and that is the half that matters here.
-
-⚠️ **They still shrink below a 330 px row, on purpose.** The alternative is a row that refuses to
-fit, and this sidebar clips rather than scrolls (below). Narrow sidebar, small chips, exactly as
-before; wide sidebar, chips at 64 and air between them.
-
-At 72 px the row's minimum is 372 and the sidebar container's 420, against 387 and 435 for the
-stretching row it replaced — so the clipping described in §5 is slightly looser, not fixed: the pane
-still allows 260. Every extra pixel of chip costs five of container minimum, which is the budget to
-spend when tuning this.
+- ⚠️ **`setFixedWidth` alone does not pin these buttons.** `theme.qss` carries `min-width: 0px` on
+  the chip rule, and a style-sheet min-width beats the widget's own minimum — measured, the layout
+  item reports a minimum of 8 px however wide the button says it is, which is how the first attempt
+  came to report 75 and render 42. What stops the row **stretching** them is a `Fixed` size policy.
+- ⚠️ **A pinned width is honoured only while `5*W + 12 <= row`**, so raising it on its own does
+  nothing once the row cannot hold it: 72 px per chip needs a 372 px row, and the pane maximum is
+  400. Widening the pane to reach it is a second change, not a detail.
+- **The sidebar takes 48 px off the pane before the row sees it** (measured: the container's minimum
+  is the row's minimum plus 48), and **every pixel of chip costs five of container minimum** — which
+  is the budget for tuning it, against the clipping in §5.
+- Packing the chips left with **one trailing spacer**, the treatment the temperature buttons get, is
+  the variant neither attempt tried. It keeps them grouped instead of scattered.
 
 ### The status bar: one dot, plain text
 

@@ -303,15 +303,20 @@ Conventional Commits. Versions are marked by Git tags.
   doing on its own.
 
 ### Changed
+- **Reverted: the overtone chips go back to stretching** — pinning them at a fixed width with the
+  slack in the gaps (`1347bae`, widened to 72 px in `e70af23`) worked mechanically and was rejected
+  on looks: at a wide sidebar five fixed chips with 80 px gaps read as five islands. Second attempt,
+  second revert; the first was `1e587d7`. The measurements both attempts produced are kept in
+  HANDOFF §3 rather than in the code — the style-sheet `min-width: 0px` that defeats
+  `setFixedWidth`, the `5*W + 12 <= row` rule, the sidebar's 48 px inset, and the five-to-one cost
+  of chip width against the container minimum — together with the one variant nobody has tried:
+  chips packed left behind a single trailing spacer.
 - **The overtone chips keep their width; the sidebar buys spacing instead** — `F1 F3 F5 F7 F9` grew
   with the sidebar (50 px at a 260 px row, 78 at 400) while the gaps between them stayed at 3.
-  Each chip is now pinned at `OVERTONE_CHIP_WIDTH` = **72** with a **`Fixed`** size policy, and a
+  Each chip is now pinned at `OVERTONE_CHIP_WIDTH` = 64 with a **`Fixed`** size policy, and a
   stretch between one chip and the next takes the slack: measured by driving the row layout
-  directly, 72 px chips with gaps of 3 / 10 / 20 / 30 at rows of 372 / 400 / 440 / 480.
-  - ⚠️ **The width is honoured only while `5*W + 12 <= row`** — 372 px of row for a 72 px chip.
-    Below that the style-sheet `min-width: 0px` lets the layout squeeze them back, so raising the
-    constant alone does nothing; `sidebarPane`'s maximum goes from 400 to **520** so the row can be
-    dragged wide enough. It is a maximum, not a default: the splitter still opens at 300.
+  directly, 64 px chips with gaps of 3 / 10 / 20 at rows of 330 / 360 / 400.
+  - 64 px is what the row already gave each chip at 330, so nothing ends up smaller than it was.
   - ⚠️ **`setFixedWidth` alone does not pin them**, which is what defeated the first attempt (tried
     and reverted in `1e587d7`): `theme.qss` carries `min-width: 0px` on the chip rule, a style-sheet
     min-width beats the widget's own minimum, and the layout item's minimum stays at 8 px however

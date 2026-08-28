@@ -76,10 +76,15 @@ processo Qt. I `QDialog` invece si mostrano e si catturano senza problemi.
 
 - ⚠️ **`Constants.environment = 3` su entrambi i rami**, da riportare a **10**
   prima di qualsiasi build di produzione. Motivo ormai solo metrologico.
-- ⚠️ **Sidebar tagliata**: il contenuto chiede **380 px**, il pannello ne concede
-  260 al minimo. La scroll area è `widgetResizable` con la barra orizzontale
-  spenta, quindi non scorre: **taglia**. Difetto preesistente, ridotto (era 435)
-  dai pill a larghezza fissa, non risolto.
+- ⚠️ **Sidebar tagliata**: il contenuto chiede **435 px**, il pannello ne concede
+  260 al minimo e 400 al massimo. La scroll area è `widgetResizable` con la barra
+  orizzontale spenta, quindi non scorre: **taglia**. Difetto preesistente.
+- **Larghezza dei pill delle armoniche**: tentata **due volte** e revertita due
+  volte. La seconda funzionava (chip fissi, gap elastici) ed è stata bocciata
+  esteticamente: a sidebar larga cinque isolette. Quello che si è imparato sta in
+  `HANDOFF.md` §3, "The overtone chips, and why they still stretch" — inclusa la
+  variante mai provata: chip impaccati a sinistra con **un solo spaziatore in
+  coda**, come i bottoni della temperatura.
 - **`plot_color_multi_g`** (solo ramo): palette esadecimale dei grafici di
   conduttanza, copia di una lista blu più vecchia, mai allineata alle due rampe.
 - Copia benigna di `savitzky_golay` in `sweep_data/plot_conductance.py` (ramo).
