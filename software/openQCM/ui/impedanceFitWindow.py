@@ -55,6 +55,7 @@ from openQCM.common.logger import Logger as Log
 # up naming the same overtone differently
 from openQCM.ui.rawDataView import OVERTONE_NAMES
 from openQCM.ui.plotMenu import PlotMenu
+from openQCM.ui import theme
 
 TAG = "[ImpedanceFit]"
 
@@ -87,27 +88,43 @@ def _overtone_label(idx):
             else "overtone {}".format(2 * idx + 1))
 
 
+# Colour of every fitted overlay: the circle, the Lorentzian and the f_s
+# marker. Raw Data View paints the measured sweep in the overtone's colour and
+# the quantities DERIVED from it in this red, and this window says the same
+# thing about the same data, so it says it the same way.
+FIT_COLOUR = "#f44336"
+
+
 class _FitTab(QtWidgets.QWidget):
     """One overtone's three panels: G(f), B(f) beneath it, and the locus.
 
     One of these per tab. Building them all up front costs three empty plots per
     overtone and buys a tab switch that is instant and keeps each overtone's own
     zoom, which a single shared canvas cannot do.
+
+    Styled from ui/theme.py exactly as Raw Data View is: the two live windows
+    show the same sweep, and one of them painting it on a different background
+    in a different palette is a difference the reader has to explain away.
     """
 
-    def __init__(self, parent=None):
+    def __init__(self, overtone_index, theme_name, parent=None):
         super(_FitTab, self).__init__(parent)
+        palette = theme.PLOT[theme_name]
+        colour = Constants.plot_color_multi[
+            overtone_index % len(Constants.plot_color_multi)]
 
         self.graph = pg.GraphicsLayoutWidget()
-        self.graph.setBackground(Constants.plot_background_color)
+        self.graph.setBackground(palette["bg"])
 
-        self.pG = self.graph.addPlot(row=0, col=0, title="conductance G(f) — FIT 2")
-        self.pG.setLabel('bottom', 'f - f_s', units='Hz')
-        self.pG.setLabel('left', 'G', units='mS')
+        self.pG = self.graph.addPlot(row=0, col=0)
+        self.pG.setTitle("conductance G(f) — FIT 2", color=palette["title"])
+        self.pG.setLabel('bottom', 'f - f_s', units='Hz', color=palette["title"])
+        self.pG.setLabel('left', 'G', units='mS', color=palette["title"])
         self.pG.addLegend(offset=(-10, 10))
-        self.curveG = self.pG.plot(pen=pg.mkPen('#1f77b4', width=1),
-                                   name="measured")
-        self.curveG2 = self.pG.plot(pen=pg.mkPen('#d62728', width=1,
+        self.curveG = self.pG.plot(
+            pen=pg.mkPen(color=colour, width=Constants.plot_line_width),
+            name="measured")
+        self.curveG2 = self.pG.plot(pen=pg.mkPen(FIT_COLOUR, width=1,
                                                  style=QtCore.Qt.DashLine),
                                     name="FIT 2")
 
@@ -116,42 +133,48 @@ class _FitTab(QtWidgets.QWidget):
         # the phase) shows up here. The reverted roundness-fitted offset was
         # exactly that case - a step of up to 77 % of B's range that left G and the
         # fitted circle looking fine.
-        self.pB = self.graph.addPlot(row=1, col=0,
-                                     title="susceptance B(f) — FIT 1")
-        self.pB.setLabel('bottom', 'f - f_s', units='Hz')
-        self.pB.setLabel('left', 'B', units='mS')
+        self.pB = self.graph.addPlot(row=1, col=0)
+        self.pB.setTitle("susceptance B(f) — FIT 1", color=palette["title"])
+        self.pB.setLabel('bottom', 'f - f_s', units='Hz', color=palette["title"])
+        self.pB.setLabel('left', 'B', units='mS', color=palette["title"])
         self.pB.setXLink(self.pG)
         self.pB.addLegend(offset=(-10, 10))
-        self.zeroB = self.pB.plot(pen=pg.mkPen('#888888', width=1,
+        self.zeroB = self.pB.plot(pen=pg.mkPen(palette["axis"], width=1,
                                                style=QtCore.Qt.DotLine))
-        self.curveBf = self.pB.plot(pen=pg.mkPen('#2ca02c', width=1),
-                                    name="measured")
-        self.curveBfit = self.pB.plot(pen=pg.mkPen('#d62728', width=1,
+        self.curveBf = self.pB.plot(
+            pen=pg.mkPen(color=colour, width=Constants.plot_line_width),
+            name="measured")
+        self.curveBfit = self.pB.plot(pen=pg.mkPen(FIT_COLOUR, width=1,
                                                    style=QtCore.Qt.DashLine),
                                       name="FIT 1")
 
         # The locus spans both rows on the right: it is aspect-locked (a circle has
         # to look like one), so a wide, short box would dilate the G axis and leave
         # the circle a dot in the middle. A roughly square box avoids that.
-        self.pC = self.graph.addPlot(row=0, col=1, rowspan=2,
-                                     title="admittance plane — FIT 1")
-        self.pC.setLabel('bottom', 'G', units='mS')
-        self.pC.setLabel('left', 'B', units='mS')
+        self.pC = self.graph.addPlot(row=0, col=1, rowspan=2)
+        self.pC.setTitle("admittance plane — FIT 1", color=palette["title"])
+        self.pC.setLabel('bottom', 'G', units='mS', color=palette["title"])
+        self.pC.setLabel('left', 'B', units='mS', color=palette["title"])
         self.pC.setAspectLocked(True)
         self.pC.addLegend(offset=(-10, 10))
+        # the locus is the same measurement as the two curves on the left, so it
+        # carries the same overtone colour; only the fitted overlay is red
         self.curveB = self.pC.plot(pen=None, symbol='o', symbolSize=2.5,
-                                   symbolPen=None, symbolBrush='#1f77b4',
+                                   symbolPen=None, symbolBrush=colour,
                                    name="measured")
-        self.curveFit = self.pC.plot(pen=pg.mkPen('#d62728', width=1,
+        self.curveFit = self.pC.plot(pen=pg.mkPen(FIT_COLOUR, width=1,
                                                   style=QtCore.Qt.DashLine),
                                      name="FIT 1 circle")
         self.markFs = self.pC.plot(pen=None, symbol='o', symbolSize=11,
-                                   symbolPen=pg.mkPen('#d62728', width=1.5),
+                                   symbolPen=pg.mkPen(FIT_COLOUR, width=1.5),
                                    symbolBrush=None, name="f_s on the arc")
 
         # grid off by default, like every other plot panel in this GUI; it is
         # turned on per plot from the right-click menu
         for plot in self.plots():
+            for axis in ("left", "bottom"):
+                plot.getAxis(axis).setPen(palette["axis"])
+                plot.getAxis(axis).setTextPen(palette["axis"])
             plot.showGrid(x=False, y=False)
 
         lay = QtWidgets.QVBoxLayout(self)
@@ -165,10 +188,17 @@ class _FitTab(QtWidgets.QWidget):
 class ImpedanceFitWindow(QtWidgets.QWidget):
     """Live BVD circle + Lorentzian fit of the measured admittance."""
 
-    def __init__(self, worker, overtones, parent=None):
+    def __init__(self, worker, overtones, theme_name="light", parent=None):
         super(ImpedanceFitWindow, self).__init__(parent)
         self.worker = worker
         self.overtones = int(overtones)
+        # Given a parent, this widget would be laid out INSIDE it; the flag is
+        # what keeps it a window of its own. Raw Data View does the same, and
+        # the parent is the reason both inherit the application style sheet --
+        # without it the frame and the table stay in the platform's own colours
+        # while the rest of the GUI follows the theme.
+        self.theme = theme_name if theme_name in theme.PLOT else "light"
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.Window)
         self._seq = [None] * self.overtones
         self._theta = [None] * self.overtones        # rotation cache, per overtone
         self._last = [None] * self.overtones         # last fit result, per overtone
@@ -202,7 +232,7 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         self._menu = PlotMenu(self)
         self._panes = []
         for i in range(self.overtones):
-            pane = _FitTab()
+            pane = _FitTab(i, self.theme)
             self._tabs.addTab(pane, _overtone_label(i))
             self._panes.append(pane)
             self._menu.attach(pane.plots())

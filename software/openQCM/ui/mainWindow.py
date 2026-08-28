@@ -2613,7 +2613,12 @@ class MainWindow(QtGui.QMainWindow):
         """
         try:
             n = self._overtones_number_all or len(Constants.overtone_dummy)
-            if self._window_fit is not None and self._window_fit.overtones != n:
+            # rebuilt on a theme switch as well: the palette is read when the
+            # plots are built, so a window kept from before the switch would
+            # stay on the old background while every other panel moved
+            if self._window_fit is not None and (
+                    self._window_fit.overtones != n
+                    or self._window_fit.theme != self._theme):
                 self._window_fit.close()
                 self._window_fit = None
             if ImpedanceFitWindow is None:
@@ -2621,7 +2626,8 @@ class MainWindow(QtGui.QMainWindow):
                       "see the message at start-up")
                 return
             if self._window_fit is None:
-                self._window_fit = ImpedanceFitWindow(self.worker, n)
+                self._window_fit = ImpedanceFitWindow(
+                    self.worker, n, theme_name=self._theme, parent=self)
             self._window_fit.worker = self.worker
             self._window_fit.show()
             self._window_fit.raise_()
