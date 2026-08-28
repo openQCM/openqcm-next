@@ -2,7 +2,7 @@
 
 > Technical starting point to continue development of the software and of the
 > `impedance-analysis` branch. Working language: Italian in chat, English in the repo.
-> Last updated: 2026-08-27.
+> Last updated: 2026-08-28.
 >
 > Starting a new session: paste [`docs/SESSION_PROMPT.md`](docs/SESSION_PROMPT.md)
 > as the first message. It is a shortcut into this file, not a replacement for it.
@@ -230,6 +230,27 @@ and a report whose extent the reader cannot see is worse than none. Each band is
 shift panels and kept in step by the same re-entry guard as the reference cursors, because the
 panels are x-linked and a band on one of them would leave the other reader guessing. The numbers
 come from `core/logAnalysis.py`; see §1 for what they mean and what they deliberately ignore.
+
+### Datalog file names — the Q-1 rule, and the copy that defeated it
+
+`YYYY-MM-DD_hh-mm-ss_<label>.csv` in `logged_data/`, where the label is `F0 F3 F5 F7 F9` for a
+single-overtone run and `multi` for a multiscan. Ported from Q-1 v3.0 (`b6fd052`) on 2026-08-28;
+before that the format was `%Y-%b-%d` with the label spelled `fundamental` / `3th Overtone`, which
+put `Jul` before `Jun` in a directory listing and put a **space inside the file name**.
+
+- The labels come from `common/switcher.py` and, in NEXT, reach **nothing but the file names**:
+  `Worker.get_overtone()` has no caller in the UI (in Q-1 it fed the `info2` readout). Renaming
+  them is a storage change, not a display change.
+- ⚠️ **The format string lives in `Constants.csv_default_prefix` and nowhere else.** `Worker.start()`
+  used to declare its own copy of it, so editing the constant renamed nothing — the kind of defect
+  that reads as "the change did not work" rather than as a second definition.
+- ⚠️ **Nothing composes a datalog name at import time.** `Constants.csv_filename` and
+  `csv_sweeps_export_path` were `strftime` calls in the class body: they carried the moment the
+  module was imported, not the moment START was pressed. Both are gone; the timestamp is taken once
+  per START in `Worker.start()` and the raw-sweep dump path derives from it in `store_data`.
+- Old logs keep their old names and stay readable — **nothing parses a datalog file name.** Datalog
+  View decides the column layout from the row width (see its format trap above), and the harmonic
+  order from the frequencies.
 
 ### Plot Controls > N-SCALE, and the one thing that differs between the branches
 
@@ -577,7 +598,7 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
        inside `_enable_ui`; `pButton_Stop` hidden, inline style dropped.
      - **3d log-filename display — DONE** (see CHANGELOG): runtime `lblLogFile` in the sidebar
        status area (elided + tooltip) + window title suffix; `Worker.get_csv_filename()` mirrors
-       the datalog names (serial `<ts>_<overtone>.csv`, multiscan `<ts>_multi_.csv`, calibration "").
+       the datalog names (serial `<ts>_F<n>.csv`, multiscan `<ts>_multi.csv`, calibration "").
      - **3c status pill theme-aware + state dot — DONE** (see CHANGELOG): `_status_pill(key)`
        helper (standby follows the theme; warn/err/ok keep yellow/red/green with dark text),
        `● Program Status: …` texts, re-applied on theme switch via `_status_key`.

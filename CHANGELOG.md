@@ -102,7 +102,7 @@ Conventional Commits. Versions are marked by Git tags.
   CSV filename is shown in the sidebar (new runtime `lblLogFile` label, middle-elided with the full
   name as tooltip, accent-colored via theme QSS) and appended to the window title; both are cleared
   on Stop. A new `Worker.get_csv_filename()` getter mirrors the names composed by the datalog loop
-  (serial: `<ts>_<overtone>.csv`, multiscan: `<ts>_multi_.csv`; calibration returns an empty string
+  (serial: `<ts>_F<n>.csv`, multiscan: `<ts>_multi.csv`; calibration returns an empty string
   → label hidden). Adapted from openQCM Q-1 v3.0.
 - **GUI theme-aware program status pill (Phase 3c of the GUI redesign)** — the `infostatus` label
   is now styled through a `_status_pill(key)` helper (`standby`/`warn`/`err`/`ok`): the standby
@@ -303,6 +303,27 @@ Conventional Commits. Versions are marked by Git tags.
   doing on its own.
 
 ### Changed
+- **Datalog file names follow the openQCM Q-1 v3.0 rule** — `2026-Jul-29_17-03-49_multi_.csv`
+  becomes `2026-08-28_09-48-00_multi.csv`, and a single-overtone run
+  `2026-Jul-28_19-34-16_fundamental.csv` becomes `2026-08-28_09-48-00_F0.csv`. Three changes,
+  the first two ported from Q-1 `b6fd052`:
+  - `Constants.csv_default_prefix` `%Y-%b-%d_%H-%M-%S` → **`%Y-%m-%d_%H-%M-%S`**: a numeric month
+    makes the alphabetical order the chronological one, which `Jul` before `Jun` did not.
+  - `common/switcher.py` overtone labels `fundamental` / `3th Overtone` / … → **`F0 F3 F5 F7 F9`**,
+    so the name no longer carries a space. In NEXT these labels reach nothing but the file names —
+    `Worker.get_overtone()` has no caller in the UI — so the rename is confined to storage.
+  - the multiscan label `multi_` → **`multi`** (the trailing underscore was a separator with
+    nothing after it). Not covered by the Q-1 rule: Q-1 has no multiscan mode.
+  Older logs keep their names and stay readable: nothing parses a datalog file name — Datalog View
+  decides the format from the row width, not from the file it was given.
+- ⚠️ **The datalog timestamp is composed in one place again** — `Worker.start()` read a **local
+  copy** of the format string (`csv_default_prefix = "%Y-%b-%d_%H-%M-%S"` in `worker.py`) rather
+  than `Constants.csv_default_prefix`, so changing the constant alone renamed nothing. It now reads
+  the constant. Related: `Constants.csv_filename` and `Constants.csv_sweeps_export_path` were built
+  by an `strftime` **in the class body**, i.e. at import time, and carried the moment the app was
+  launched instead of the moment START was pressed; both are removed, and the raw-sweep dump path
+  (development only, `export_enabled=False`) is composed in `store_data` from the run's own
+  timestamp — as Q-1 does.
 - **GUI palette reduction — Start/Stop toggle now blue/brown** — moving toward a two-color palette
   (openQCM blue `#008EC0` + brown `#DD8E6B`): the Start/Stop toggle is **blue when idle (Start)**
   and **brown when running (Stop)** instead of red. Added `brown` / `brown_hover` palette keys
