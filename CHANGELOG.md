@@ -303,12 +303,10 @@ Conventional Commits. Versions are marked by Git tags.
   doing on its own.
 
 ### Changed
-- **The overtone chips lose the gap between them** — `horizontalLayout_2` goes from 3 px of spacing
-  to 0. The five split whatever the row does not spend, so those four gaps were costing 2.4 px per
-  chip: measured, chips go 50 → **52** at a 260 px row, 64 → **66** at 330 and 78 → **80** at 400,
-  and the sidebar container's minimum drops 435 → 423. Touching, the five read as one segmented
-  control. It is the only slack the row had — what is left is the cards' margins and the sidebar
-  width, `chip = (sidebar - 48) / 5`.
+- **Reverted: the overtone chips keep their 3 px gap** — closing it to 0 bought 2 px of chip
+  (50 → 52 at a 260 px row, 64 → 66 at 330, 78 → 80 at 400) and was not worth how five touching
+  pills looked. The measurement stays in HANDOFF §3 so the trade is on record: that gap is the only
+  slack in the row, and it is worth 2.4 px per chip.
 - **Reverted: the overtone chips go back to stretching** — pinning them at a fixed width with the
   slack in the gaps (`1347bae`, widened to 72 px in `e70af23`) worked mechanically and was rejected
   on looks: at a wide sidebar five fixed chips with 80 px gaps read as five islands. Second attempt,

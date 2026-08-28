@@ -364,11 +364,8 @@ frame may still show around it; on Windows it does not.
 
 ### The overtone chips, and why they still stretch
 
-`F1 F3 F5 F7 F9` in the Measurement Setup card share whatever width the sidebar has, with no gap
-between them: each is 52 px at a 260 px row, 66 at 330, 80 at 400. The gaps used to be 3 px, and
-since the five split what the row does not spend, those four gaps cost 2.4 px per chip — the only
-slack the row had. What is left is the cards' own margins (8 + 9 px a side) and the sidebar width
-itself: **`chip = (sidebar - 48) / 5`**, which is the whole arithmetic of this row. Pinning them so a wider
+`F1 F3 F5 F7 F9` in the Measurement Setup card share whatever width the sidebar has: each is
+50 px at a 260 px row, 64 at 330, 78 at 400, with the gaps fixed at 3. Pinning them so a wider
 sidebar buys **spacing** instead has now been tried twice and reverted twice — `1e587d7`, and again
 on 2026-08-28. The second attempt worked mechanically and was rejected on looks: at a wide sidebar
 five fixed chips with 80 px gaps read as five islands, which is worse than five wide buttons.
@@ -386,8 +383,11 @@ What the two attempts established, so a third does not rediscover it:
   is the row's minimum plus 48), and **every pixel of chip costs five of container minimum** — which
   is the budget for tuning it, against the clipping in §5.
 - ⚠️ **Five equal chips spanning the row are already the widest those chips can be.** Nothing else
-  is in the row, so pinning a width can only make them *narrower* than the row would give and move
+  is in that row, so pinning a width can only make them *narrower* than the row would give and move
   the difference into gaps. Wider chips means a wider sidebar, or nothing.
+- The 3 px between them is worth 2.4 px of chip (12 px over five). Closing it to 0 was tried on
+  2026-08-28 and put back the same day: 52 / 66 / 80 px chips at rows of 260 / 330 / 400 against
+  50 / 64 / 78, and touching pills read worse than the two pixels were worth.
 - Packing the chips left with **one trailing spacer**, the treatment the temperature buttons get, is
   the variant neither attempt tried. It keeps them grouped instead of scattered.
 
