@@ -5,6 +5,25 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Changed — the impedance panels say which line is a fit (2026-08-28)
+
+Both panels drew the measurement as a continuous line, and the admittance panel drew the fitted
+circle as a second line in the same colour. Nothing on screen said which was which.
+
+The measured series are **samples** now, in both panels: `pen=None` with a size-3 symbol, the same
+way Raw Data View draws its raw sweep. The only line left in either panel is the fitted circle,
+which is the point — a fit worth drawing over data has to be distinguishable from it.
+
+Each panel carries a legend: *measured* in Conductance, *measured* and *BVD circle fit* in the
+admittance locus. ⚠️ **The legend keys are empty proxy items created with the panels**, not the real
+series: those are rebuilt on every START, so a legend fed from them would gain a duplicate entry per
+acquisition. Verified that the entry count stays at two across a rebuild, and that an all-NaN
+`setData` — the path a deselected overtone takes — still raises nothing now that the item is a
+scatter.
+
+There is no fit in the Conductance panel and none is added here: the Lorentzian (FIT 2) lives in the
+live admittance-fit window, and this panel shows G(f) as measured.
+
 ### Fixed — the fit window's chrome ignored the dark theme (2026-08-28)
 
 Its plots followed the theme after the previous commit; the frame around them did not. The window

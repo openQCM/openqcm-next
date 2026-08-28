@@ -725,15 +725,21 @@ class MainWindow(QtGui.QMainWindow):
                 for idx in range(self._overtones_number_all):
                     self._plt0_multiline[idx] = self._plt0.plot(pen = Constants.plot_color_multi[idx])
 
-                # VER 0.1.6G impedance panel: one conductance curve and one
-                # admittance-locus curve per overtone, same colours as above
+                # VER 0.1.6G impedance panel: one conductance series and one
+                # admittance-locus series per overtone, same colours as above.
+                # Both are drawn as SAMPLES, not as lines: what the panel shows
+                # is measured points, and the only line in it is a fit. Reading
+                # that off the plot is the whole reason the fitted circle is
+                # worth drawing over the locus at all.
                 for idx in range(self._overtones_number_all):
                     self._pltG_multiline[idx] = self._pltG.plot(
-                        pen = pg.mkPen(color = Constants.plot_color_multi[idx],
-                                       width = Constants.plot_line_width))
+                        pen = None, symbol = 'o', symbolSize = 3,
+                        symbolPen = None,
+                        symbolBrush = Constants.plot_color_multi[idx])
                     self._pltGB_multiline[idx] = self._pltGB.plot(
-                        pen = pg.mkPen(color = Constants.plot_color_multi[idx],
-                                       width = Constants.plot_line_width))
+                        pen = None, symbol = 'o', symbolSize = 3,
+                        symbolPen = None,
+                        symbolBrush = Constants.plot_color_multi[idx])
                     self._pltGB_fitline[idx] = self._pltGB.plot(
                         pen = pg.mkPen(color = Constants.plot_color_multi[idx],
                                        width = 1, style = QtCore.Qt.DashLine))
@@ -1947,6 +1953,15 @@ class MainWindow(QtGui.QMainWindow):
         # menu AND the ViewBox one, which is the one right-click actually raises
         self._pltG.setMenuEnabled(False)
         self._pltG.scene().contextMenu = None
+        # Legend keys, not curves: they hold no data and exist only to show what
+        # a dot means. Built here, with the panel, rather than beside the real
+        # series -- those are recreated on every START, and a legend fed from
+        # them would gain a duplicate entry each time.
+        self._pltG.addLegend(offset = (-10, 10))
+        self._pltG.plot(pen = None, symbol = 'o', symbolSize = 3,
+                        symbolPen = None,
+                        symbolBrush = Constants.plot_color_multi[0],
+                        name = "measured")
 
         # admittance locus B vs G — 1:1 aspect so a circle looks like a circle
         self._pltGB = self.ui.pltGB.addPlot(row=0, col=0,
@@ -1959,6 +1974,17 @@ class MainWindow(QtGui.QMainWindow):
         # menu AND the ViewBox one, which is the one right-click actually raises
         self._pltGB.setMenuEnabled(False)
         self._pltGB.scene().contextMenu = None
+        # same two legend keys: dots are the measurement, the dashed line is the
+        # circle fitted to it (see _fit_circle_taubin, and the note there on how
+        # it differs from the live fit window)
+        self._pltGB.addLegend(offset = (-10, 10))
+        self._pltGB.plot(pen = None, symbol = 'o', symbolSize = 3,
+                         symbolPen = None,
+                         symbolBrush = Constants.plot_color_multi[0],
+                         name = "measured")
+        self._pltGB.plot(pen = pg.mkPen(color = Constants.plot_color_multi[0],
+                                        width = 1, style = QtCore.Qt.DashLine),
+                         name = "BVD circle fit")
 
         # VER 0.1.2
         # editing pyqtgraph context menu
