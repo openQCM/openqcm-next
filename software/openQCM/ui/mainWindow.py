@@ -2765,9 +2765,29 @@ class MainWindow(QtGui.QMainWindow):
                 # dynamic-range corner and pull the locus out of round, and past
                 # about one half-bandwidth that deviation is systematic rather
                 # than sporadic — so no amount of outlier rejection recovers it,
-                # only knowing where the trustworthy data is. Restricting the
-                # fit to |f - f_r| <= 1 Gamma reproduces the offline reference
-                # within a few percent in both air and liquid.
+                # only knowing where the trustworthy data is.
+                #
+                # ⚠️ This is NOT the same estimate as the live fit window, and
+                # the two are meant to stay side by side. That one fits the
+                # whole published band with a geometric (orthogonal-distance)
+                # least squares; this one fits the core with Taubin plus
+                # trimming. Measured on the archived air sweep, both starting
+                # from the same array: this circle comes out SMALLER every time,
+                # by 0.9 % (n=5) to 10.1 % (n=1) in radius, so the R1 it implies
+                # would read 0.9 % to 11.3 % high — which is why nothing reads a
+                # number off it.
+                #
+                # ⚠️ The cause is the DOMAIN, not the algorithm: the geometric
+                # estimator restricted to the same core gives -9.9 % of that
+                # -10.1 %, while Taubin plus trimming on the whole band gives
+                # -3.8 %. It matters only because the measured locus is not a
+                # circle — radial residual 1.5 % to 4.3 % of r, smooth and
+                # systematic — and the disagreement scales with that residual
+                # across the overtones (R2 = 0.92). So the difference between
+                # the two overlays is a model-error diagnostic, which is the
+                # reason for keeping both. Full analysis, with the
+                # decomposition and the residual against frequency:
+                # research/admittance-circle-fit/.
                 if self._pltGB_fitline[idx] is None:
                     continue
                 fit = None

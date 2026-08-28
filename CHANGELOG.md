@@ -5,6 +5,54 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Changed — the live admittance-fit window follows the theme (2026-08-28)
+
+`ui/impedanceFitWindow.py` was never connected to `ui/theme.py`. It drew on
+`Constants.plot_background_color`, a fixed `(25, 25, 25)`, with the matplotlib
+default palette — `#1f77b4` / `#2ca02c` / `#d62728` — while every other panel followed the
+interface. Now it reads `theme.PLOT[theme]`: background `(43, 43, 43)` on dark and `#f2f4f7` on
+light, axis pen and text pen from `palette["axis"]`, titles from `palette["title"]`, measured G, B
+and locus in `Constants.plot_color_multi[n]` (the same blue ramp as the main plots), fits and the
+`f_s` marker in `#f44336` — the red Raw Data View gives its peak, for the same reason: the derived
+quantity drawn over the measurement.
+
+⚠️ **The `parent` was the visible half.** It was opened as `ImpedanceFitWindow(worker, n)` with no
+parent, so it inherited no application style sheet and its frame and table stayed in the platform's
+own colours while the rest of the GUI was dark. It is now opened with `theme_name` and `parent=self`
+plus `Qt.Window`, which is what keeps a parented widget a window of its own — the same construction
+Raw Data View uses. It is not given `WA_DeleteOnClose`: unlike Raw Data View it is cached in
+`self._window_fit` and reused, so deleting it on close would leave a dangling reference. Being
+cached, it is now rebuilt on a theme switch as well as on a change in overtone count, since the
+palette is read when the plots are built.
+
+Numerically nothing moved: driven headless on the archived sweeps, the restyled window reports
+R1 = 37.36 / 24.97 / 53.15 / 80.00 / 129.71 ohm, identical to an independent computation.
+
+### Docs — the two circle fits, measured (2026-08-28)
+
+`research/admittance-circle-fit/`: analysis, figures, the PDF, and
+`compare_circle_fits.py`, which runs both estimators on one archived sweep so the numbers can be
+reproduced.
+
+The impedance panel and the fit window draw **different circles from the same buffers** — radius
+0.9 % (n=5) to 10.1 % (n=1) apart, the panel's always smaller, so the R1 it implies would read up
+to 11.3 % high. Both are kept on purpose.
+
+⚠️ **The cause is the domain, not the algorithm**, and the comment in `_update_impedance_panel`
+that guessed otherwise is corrected. Restricting the *geometric* estimator to the same `+-1` half
+width gives -9.9 % of the -10.1 %; Taubin plus trimming on the whole band gives -3.8 %. The domain
+matters only because the measured locus **is not a circle**: its radial residual is 1.5 % to 4.3 %
+of the radius, smooth and systematic (+10 % at resonance, -7 % at `+-1` half width on the
+fundamental, turning points exactly at the core boundary), and the disagreement scales with it
+across the five overtones — R2 = 0.92, slope 3.0. Where the BVD circle describes the data the two
+agree to 0.9 %.
+
+⚠️ The same comment had claimed the core fit "reproduces the offline reference within a few
+percent in both air and liquid". On the fundamental of this sweep it is 10 %, in air.
+
+Neither estimate reaches the datalog: both views are display-only and the logged values still come
+from the approximate formula in `MultiscanProcess`.
+
 ### Carried from `main` — the real-time time axis is the Q-1 one (2026-08-28)
 
 `c13f45e`, applied clean on `constants.py`, `mainWindow.py` and `dataLogView.py`. The four live axes
