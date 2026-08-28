@@ -5,6 +5,16 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — no gap between the overtone chips (2026-08-28)
+
+`e247885`, code applied clean. `horizontalLayout_2` goes from 3 px of spacing to 0: the five chips
+split whatever the row does not spend, so the four gaps were costing 2.4 px per chip. Verified here
+after the cherry-pick: chips 52 / 60 / 66 / 80 at rows of 260 / 300 / 330 / 400, against 50 / 58 /
+64 / 78 before, and the app imports.
+
+That exhausts the row. What is left is the cards' margins and the sidebar width itself:
+`chip = (sidebar - 48) / 5`.
+
 ### Reverted — the overtone chips stretch again (2026-08-28)
 
 `ea105f8` carried over, code only; the documentation files conflicted as usual and the branch keeps
