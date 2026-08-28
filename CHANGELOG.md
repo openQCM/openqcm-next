@@ -5,6 +5,22 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — the chips are 72 px wide (2026-08-28)
+
+`e70af23`, code applied clean; the two documentation files conflicted, as they always do here, and
+the branch keeps its own. `OVERTONE_CHIP_WIDTH` goes 64 → **72** and `sidebarPane`'s maximum
+400 → **520**.
+
+⚠️ **The second half is not optional.** The width is honoured only while `5*W + 12` fits the row:
+72 px per chip needs a 372 px row, and behind a 400 px pane maximum the layout squeezed them
+straight back down — raising the constant alone changed nothing on screen. Verified here after the
+cherry-pick: chips 72 with gaps 3 and 20 at rows of 372 and 440, still 64 at 330 and 48 at 250.
+
+⚠️ **520 is a maximum, not a default.** `mainSplitter.setSizes([280, 700, 380])` is unchanged, so
+the sidebar opens at 280 px — a ~232 px row, chips at ~44 — and has to be dragged wider before the
+72 px shows. The container's minimum is `row minimum + 48`, measured, so a sidebar of **420 px** is
+what it takes to see them at full width without dragging.
+
 ### Carried from `main` — the overtone chips stop stretching (2026-08-28)
 
 `1347bae`, applied clean. Each chip is pinned at 64 px with a **`Fixed`** size policy and a stretch
