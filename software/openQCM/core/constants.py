@@ -1,8 +1,6 @@
 from enum import Enum
 import numpy as np
 from pyqtgraph import AxisItem
-import time
-import datetime 
 
 from openQCM.common.architecture import Architecture,OSType
 
@@ -938,94 +936,74 @@ class Constants:
 
 
 
-'''
 ###############################################################################
-#  Provides a date-time aware axis
-###############################################################################    
-class DateAxis(AxisItem):
-    
+#  Provides an elapsed-time axis
+###############################################################################
+
+def format_elapsed_seconds(t):
+    """Elapsed seconds as SS / M:SS / H:MM:SS. Negative values clamp to zero.
+
+    The one definition of the format. Datalog View reads it too: it holds the
+    same run in relative seconds, and a reader who has just seen 5:00 on the
+    instrument should not have to translate 0:05:00 there.
     """
-    A tool that provides a date-time aware axis. It is implemented as an AxisItem 
-    that interprets positions as UNIX timestamps (i.e. seconds since 1970). 
-    The labels and the tick positions are dynamically adjusted depending on the range.
+    if t < 0:
+        t = 0
+    if t >= 3600:
+        return "{}:{:02d}:{:02d}".format(int(t // 3600), int((t % 3600) // 60), int(t % 60))
+    if t >= 60:
+        return "{}:{:02d}".format(int(t // 60), int(t % 60))
+    return "{}".format(int(t))
+
+
+# VER 0.1.6 ported from openQCM Q-1 v3.0, which replaced the seconds axis with
+# this one. The plotted x values stay epoch microseconds; only the tick labels
+# are relative, so nothing about the buffers or the datalog moves.
+class ElapsedTimeAxis(AxisItem):
+    """
+    Format elapsed time relative to a start reference as SS / M:SS / H:MM:SS.
+
+    The reference is latched once with `set_start_time(value)`, in the same
+    unit as the plotted values (epoch microseconds), and cleared with
+    `reset_start_time()` when a new acquisition starts. While it is unset the
+    axis draws **empty** labels: the alternative is to print the epoch, which
+    is what the previous seconds axis did for the whole warm-up.
     """
 
+    TS_MULT_us = 1e6
+
     def __init__(self, *args, **kwargs):
-        AxisItem.__init__(self, *args, **kwargs)
-        self._oldAxis = None
-    
+        super(ElapsedTimeAxis, self).__init__(*args, **kwargs)
+        self._start_time = None
+
     def tickStrings(self, values, scale, spacing):
-        ret = []
-        ep = datetime.datetime(1970,1,1,0,0,0)
-        tonow = (datetime.datetime.utcnow()- ep).total_seconds()
-        if not values:
-            return []
-        if spacing >= 31622400:  #366days
-            fmt = "%Y"
-        elif spacing >= 2678400: #31days
-            fmt = "%Y %b"
-        elif spacing >= 86400:   #1day
-            fmt = "%b/%d"
-        elif spacing >= 3600:    #1h
-            fmt = "%b/%d-%Hh"
-        elif spacing >= 60:      #1m
-            fmt = "%H:%M"
-        elif spacing >= 1:       #1s
-            fmt = "%H:%M:%S"
-        else: # less than 2s (show microseconds)
-            #fmt = "%S.%f"""
-            fmt = '[+%fms]'  # explicitly relative to last second   
-        for x in values:
+        try:
+            if not len(values):
+                return []
+            if self._start_time is None:
+                return [''] * len(values)
+
+            return [format_elapsed_seconds(
+                        (float(v) - float(self._start_time)) / self.TS_MULT_us)
+                    for v in values]
+        except Exception:
+            return [''] * len(values)
+
+    def set_start_time(self, start_time):
+        """Latch the reference once, ignoring None and NaN."""
+        if self._start_time is None and start_time is not None:
             try:
-                ret.append(time.strftime(fmt, time.localtime(x*.1+tonow))) #time.localtime(x*.1+tonow)
-            except ValueError:  # Windows can't handle dates before 1970
-                ret.append('')
-            except:
-                ret.append('')    
-        return ret
-'''
-###############################################################################
-#  Provides a date-time aware axis
-###############################################################################
+                val = float(start_time)
+                if not np.isnan(val):
+                    self._start_time = val
+            except (ValueError, TypeError):
+                pass
 
-# VER 0.1.6 modify the DateAxis class to display time in seconds on plot time axis
-class DateAxis(AxisItem): 
-    def __init__(self, *args, **kwargs):
-        super(DateAxis, self).__init__(*args, **kwargs)
-        # VER 0.1.6 Add an attribute for the time format. By default, set it to None.
-        self.time_format = kwargs.get('time_format', None)
-        # add the attribute start time. By default, set it to None.
-        self.start_time = kwargs.get('start_time', None)
-        
-        # self.setLabel('Time (H:M:S)')
-        
-        # VER 0.1.6 TODO use caching tick strings to improve performances 
-        # especially for frequently updated charts or those with many data points. 
-          
-    def tickStrings(self, values, scale, spacing):    
-        TS_MULT_us = 1e6
-
-        if self.time_format == 'seconds':
-            # Calculate the elapsed time relative to the start time
-            if self.start_time is not None:
-                return [f"{int(float(value)/TS_MULT_us - self.start_time)}" for value in values]
-            else:
-                return [f"{int(float(value)/TS_MULT_us)}" for value in values]
-        elif self.time_format == 'hms':
-            # Format time as hours, minutes, and seconds
-            if self.start_time is not None:
-                return [str(datetime.timedelta(seconds=int(float(value)/TS_MULT_us - self.start_time))) for value in values]
-            else:
-                return [str(datetime.timedelta(seconds=int(float(value)/TS_MULT_us))) for value in values]
-        else:
-            # Default format (or handle other formats here)
-            try:
-                return [(datetime.datetime.utcfromtimestamp(float(value)/TS_MULT_us)).strftime("%H:%M:%S") for value in values]
-            except:
-                return ['']
+    def reset_start_time(self):
+        """Clear the reference so the next acquisition latches its own."""
+        self._start_time = None
 
 
-        
 ###############################################################################
 #  Provides a non scientific axis notation
 ###############################################################################  
