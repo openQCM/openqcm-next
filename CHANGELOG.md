@@ -5,6 +5,29 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — datalog file names follow the Q-1 rule (2026-08-28)
+
+`00481a1`, applied clean: `switcher.py` was already identical on the two branches, and
+`constants.py` / `worker.py` / `DATA_FORMAT_sweep_data.md` auto-merged around the impedance work.
+
+`2026-Jul-29_17-03-49_multi_.csv` becomes `2026-08-28_09-56-55_multi.csv`, and a single-overtone run
+`2026-Jul-28_19-34-16_fundamental.csv` becomes `..._F0.csv`. The prefix is `%Y-%m-%d_%H-%M-%S`, so
+the alphabetical order of `logged_data/` is the chronological one — `Jul` sorted before `Jun` — and
+the switcher labels are `F0 F3 F5 F7 F9`, which also takes the space out of the file name. The
+multiscan label loses its trailing underscore, a separator with nothing after it; that part is not
+from Q-1, which has no multiscan mode.
+
+⚠️ Two copies of the name would have defeated the rename and are gone with it: `Worker.start()` held
+its own copy of the format string, so editing the constant renamed nothing, and
+`Constants.csv_filename` / `csv_sweeps_export_path` were `strftime` calls **in the class body**,
+carrying the moment the module was imported rather than the moment START was pressed. The raw-sweep
+dump path now derives from the run's own timestamp inside `store_data`.
+
+Nothing on this branch reads a datalog file name — the conductance viewer works from `g<n>.txt` in
+`sweep_data/`, which this does not touch. Verified here after the cherry-pick, not only on `main`:
+`py_compile`, the app imports, no reference left to either removed constant anywhere in the
+branch-only code, and the names recomposed for every mode.
+
 ### Carried from `main` — the sidebar width attempt, tried and reverted (2026-08-27)
 
 `f995a8e` reverts it (one conflict again on the three-pane `setSizes`, back to `[280, 700, 380]`).
