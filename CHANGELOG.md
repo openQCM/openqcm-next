@@ -5,6 +5,22 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — the overtone chips stop stretching (2026-08-28)
+
+`1347bae`, applied clean. Each chip is pinned at 64 px with a **`Fixed`** size policy and a stretch
+sits between one chip and the next, so widening the sidebar buys **spacing** rather than five wider
+buttons. Verified here after the cherry-pick, on both themes, by driving the row layout directly:
+chips 64 px with gaps of 3 / 15 / 25 / 35 at rows of 330 / 380 / 420 / 460, and the app imports.
+
+⚠️ Pinning these was tried on this branch before (`22c7bff`, `22c249e`) and reverted in `f995a8e`.
+What sank it was `setFixedWidth` on its own: `theme.qss` carries `min-width: 0px` on the chip rule
+and a style-sheet min-width beats the widget's own minimum, so the layout item's minimum stays at
+8 px however wide the button claims to be. The `Fixed` policy is what stops the row **stretching**
+them, and below a 330 px row they are still allowed to shrink — which is why the narrow sidebar
+does not clip any worse than before. The row's minimum falls from 387 px to 332 and the sidebar
+container's from 435 to 380, so the clipping recorded on 2026-08-27 is 55 px smaller, not gone: the
+pane still allows 260.
+
 ### Fixed — the impedance panel curves were built in two places (2026-08-28)
 
 The previous two commits changed the conductance and locus series and nothing happened on screen.
