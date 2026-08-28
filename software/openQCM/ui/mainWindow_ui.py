@@ -387,15 +387,8 @@ class Ui_MainWindow(object):
         self.line_2 = self._hline(self.sidebarContainer, "line_2")
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
-        # No spacing between the chips. They share the row's width, so every
-        # pixel of gap is a pixel taken off all five: at 3 px the four gaps cost
-        # 12, which is 2.4 px per chip. Measured, chips go 50 -> 52 at a 260 px
-        # row, 64 -> 66 at 330 and 78 -> 80 at 400. It is the only slack in the
-        # row -- what is left is the cards' own margins (8 + 9 px a side) and
-        # the sidebar width itself, and chip = (sidebar - 48) / 5 from there.
-        # Touching, the five read as one segmented control rather than as five
-        # buttons that happen to be adjacent.
-        self.horizontalLayout_2.setSpacing(0)
+        # tight row so the 5 chips take the least horizontal room possible
+        self.horizontalLayout_2.setSpacing(3)
         self.horizontalLayout_2.setContentsMargins(0, 0, 0, 0)
         radio_texts = ("1st", "3rd", "5th", "7th", "9th")
         self.overtone_buttons = []
