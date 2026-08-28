@@ -32,6 +32,19 @@ APP_ICON = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)),
                  "..", "res", "icon", "favicon.png"))
 
+# Overtone quick-select chips: a width they keep, and gaps that grow instead.
+# 64 px is what the row already gave each chip once it had room -- measured by
+# driving the row layout, 64/64/64/63/63 at 330 px -- so nothing is made
+# smaller than it was. Above that the stretches between the chips take the
+# slack, and a wider sidebar buys spacing rather than five wider buttons.
+#
+# ⚠️ Below 330 px of row the chips still shrink, and that is deliberate: the
+# style sheet's min-width: 0px lets them, and the alternative is a row that
+# refuses to fit and clips the card it lives in. Narrow sidebar, small chips,
+# exactly as before; wide sidebar, chips at 64 and air between them.
+OVERTONE_CHIP_WIDTH = 64
+OVERTONE_CHIP_GAP = 3          # the minimum gap; the stretches grow from here
+
 
 class Ui_MainWindow(object):
 
@@ -388,11 +401,17 @@ class Ui_MainWindow(object):
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
         # tight row so the 5 chips take the least horizontal room possible
-        self.horizontalLayout_2.setSpacing(3)
+        self.horizontalLayout_2.setSpacing(OVERTONE_CHIP_GAP)
         self.horizontalLayout_2.setContentsMargins(0, 0, 0, 0)
         radio_texts = ("1st", "3rd", "5th", "7th", "9th")
         self.overtone_buttons = []
-        for name, label, rtext in zip(overtones, overtone_labels, radio_texts):
+        for i, (name, label, rtext) in enumerate(
+                zip(overtones, overtone_labels, radio_texts)):
+            # A stretch between one chip and the next, so a wider sidebar buys
+            # SPACING and not chip width. Between them only: the first chip
+            # stays flush left and the last flush right, as the row does today.
+            if i:
+                self.horizontalLayout_2.addStretch(1)
             # legacy radio: hidden, still the source of truth for scan_selector
             radio = QtWidgets.QRadioButton(rtext, self.sidebarContainer)
             radio.setObjectName("radioBtn_" + name)
@@ -406,6 +425,15 @@ class Ui_MainWindow(object):
             btn.setProperty("overtoneBtn", True)
             btn.setCheckable(True)
             btn.setFixedHeight(24)
+            btn.setFixedWidth(OVERTONE_CHIP_WIDTH)
+            # ⚠️ Fixed, not setFixedWidth alone. theme.qss carries
+            # min-width: 0px on the chip rule and a style-sheet min-width beats
+            # the widget's own minimum -- measured, the item minimum is 8 px
+            # however wide the button says it is, which is how the first attempt
+            # at pinning these reported 75 and rendered 42. The Fixed policy is
+            # what stops the row STRETCHING them, which is the half that matters.
+            btn.setSizePolicy(QtWidgets.QSizePolicy.Fixed,
+                              QtWidgets.QSizePolicy.Fixed)
             btn.setToolTip("Overtone " + label)
             setattr(self, "overtoneBtn_" + name, btn)
             self.horizontalLayout_2.addWidget(btn)
