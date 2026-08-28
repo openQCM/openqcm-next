@@ -5,6 +5,15 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Reverted — the overtone chips keep their 3 px gap (2026-08-28)
+
+`847e87a` carried over, code only. Closing the gap bought 2 px of chip and was not worth how five
+touching pills looked. Verified here after the revert: spacing 3, chips 50 / 64 / 78 at rows of
+260 / 330 / 400, app imports.
+
+This closes the overtone-chip work for now. The row is back exactly as it was this morning, and
+everything the day's attempts measured is on `main` in HANDOFF §3.
+
 ### Carried from `main` — no gap between the overtone chips (2026-08-28)
 
 `e247885`, code applied clean. `horizontalLayout_2` goes from 3 px of spacing to 0: the five chips
