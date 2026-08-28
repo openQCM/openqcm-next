@@ -5,6 +5,29 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Fixed — the fit window's chrome ignored the dark theme (2026-08-28)
+
+Its plots followed the theme after the previous commit; the frame around them did not. The window
+is a plain `QWidget`, and the application sheet gives a background to `QMainWindow`, `QDialog` and
+`#centralwidget` only — none of which it is.
+
+⚠️ **A background rule that misses is not a neutral omission.** `QWidget {{ color: … }}` matched
+anyway, so the window took the dark theme's pale text on the platform's light background: the
+"freeze" label nearly invisible and the table unreadable, worse than either theme on its own.
+Anything added as a top-level `QWidget` rather than a `QDialog` lands in the same hole.
+
+Three changes:
+
+- `ui/theme.py` names `QWidget#impedanceFitWindow` beside the other window classes, and the window
+  sets the sheet on itself as well — the same belt-and-braces `ChevronComboBox` uses for its popup,
+  which is a top-level container the window's sheet does not reach either.
+- **Tables had no rule at all.** `QTableView` / `QTableWidget`, `QHeaderView::section` and
+  `QTableCornerButton::section` are styled now, so a table keeps the panel colour instead of the
+  platform's white base under inherited pale text. This is the only table in the application today.
+- The green / amber / red of the `rms` and `masked` columns are **two sets, one per theme**: the
+  inks chosen against white are muddy on the `#37393b` panel. One `_grade()` decides all of them.
+  The status line and the footnote take `palette["muted"]` instead of a hard-coded `#888`.
+
 ### Changed — the live admittance-fit window follows the theme (2026-08-28)
 
 `ui/impedanceFitWindow.py` was never connected to `ui/theme.py`. It drew on

@@ -95,8 +95,14 @@ def qss(p):
     /* QDialog is here because the auxiliary views (Raw Data View, Peak Data
        View, Datalog View) are dialogs: without it their pyqtgraph canvases went
        dark while the window around them stayed at the platform default, which
-       left the grey info label on top of them barely readable. */
-    QMainWindow, QDialog, QWidget#centralwidget {{ background: {window}; }}
+       left the grey info label on top of them barely readable.
+       ⚠️ The live admittance-fit window is a plain QWidget, not a QDialog, so it
+       matches none of these by class and is named instead. A background rule
+       that misses is not a neutral omission: QWidget below sets the text colour
+       regardless, so the window ends up with the dark theme's pale text on the
+       platform's light background, which is worse than either theme. */
+    QMainWindow, QDialog, QWidget#centralwidget,
+    QWidget#impedanceFitWindow {{ background: {window}; }}
     QWidget {{ color: {text}; }}
     QLabel {{ background: transparent; color: {text}; }}
 
@@ -229,6 +235,20 @@ def qss(p):
     /* State banner keeps its inline light background; force dark text so it
        stays readable on the dark theme too. */
     QLabel#label_Temperature_state {{ color: #222222; }}
+
+    /* Tables. Nothing styled them before the fit window brought one, and a
+       QTableWidget left alone keeps the platform's white base while QWidget
+       above has already made its text pale. */
+    QTableView, QTableWidget {{ background: {panel}; alternate-background-color: {window};
+        color: {text}; gridline-color: {border};
+        border: 1px solid {border}; border-radius: 6px;
+        selection-background-color: {accent}; selection-color: {accent_text}; }}
+    QHeaderView {{ background: {window}; }}
+    QHeaderView::section {{ background: {window}; color: {muted};
+        border: none; border-bottom: 1px solid {border};
+        border-right: 1px solid {border}; padding: 4px 6px; }}
+    QTableCornerButton::section {{ background: {window};
+        border: none; border-bottom: 1px solid {border}; }}
 
     QTabWidget::pane {{ border: 1px solid {border}; background: {panel};
         border-radius: 6px; top: -1px; }}

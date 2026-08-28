@@ -199,6 +199,15 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         # while the rest of the GUI follows the theme.
         self.theme = theme_name if theme_name in theme.PLOT else "light"
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.Window)
+        # ⚠️ Its own sheet, not the parent's. The application sheet is set on the
+        # main window and reaches this one, but its background rules are written
+        # for QMainWindow / QDialog / #centralwidget and this is none of them:
+        # the text colour arrived and the background did not, which is how the
+        # window ended up pale-on-white. Naming it and setting the sheet here
+        # covers both cases, the way ChevronComboBox does for its popup.
+        self.setObjectName("impedanceFitWindow")
+        self.setStyleSheet(theme.qss(theme.palette(self.theme)))
+        self._palette = theme.palette(self.theme)
         self._seq = [None] * self.overtones
         self._theta = [None] * self.overtones        # rotation cache, per overtone
         self._last = [None] * self.overtones         # last fit result, per overtone
@@ -215,7 +224,7 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         self.chkPause.toggled.connect(self._on_pause)
 
         self.lblStatus = QtWidgets.QLabel("waiting for data")
-        self.lblStatus.setStyleSheet("color: #888;")
+        self.lblStatus.setStyleSheet("color: %s;" % self._palette["muted"])
 
         top = QtWidgets.QHBoxLayout()
         top.addWidget(self.chkPause)
@@ -281,7 +290,7 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
             "published spectra have a constant baseline removed, which is exactly "
             "what C0 does.")
         note.setWordWrap(True)
-        note.setStyleSheet("color: #888; font-size: 11px;")
+        note.setStyleSheet("color: %s; font-size: 11px;" % self._palette["muted"])
 
         lay = QtWidgets.QVBoxLayout(self)
         lay.addLayout(top)
@@ -317,6 +326,15 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
             self._timer.stop()
         elif self.isVisible():
             self._timer.start(Constants.IMPEDANCE_FIT_UPDATE_MS)
+
+    # Green / amber / red for a "is this trustworthy" reading. Two sets: the
+    # dark table is #37393b, on which the light theme's inks are muddy.
+    GRADES = {"light": ("#2e7d32", "#ef6c00", "#c62828"),
+              "dark": ("#81c784", "#ffb74d", "#ef9a9a")}
+
+    def _grade(self, value, good, fair):
+        ok, warn, bad = self.GRADES[self.theme]
+        return ok if value < good else warn if value < fair else bad
 
     def _current_index(self):
         """The overtone on screen: the current tab, or None if there is none."""
@@ -431,17 +449,15 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         # indicator on screen. 2 % is the clean-air figure, 5 % is the
         # acceptance threshold the offset estimator itself uses.
         rms = 100.0 * a1["rms_rel"]
-        colour = ("#2e7d32" if rms < 2.0 else
-                  "#ef6c00" if rms < 5.0 else "#c62828")
+        colour = self._grade(rms, 2.0, 5.0)
         self.table.item(idx, 8).setForeground(QtGui.QColor(colour))
         # and the masked fraction. Thresholds from measurement, not taste: at 20 %
         # dropped the two Gamma estimators already disagree by 20 % (air, 9th
         # overtone, 2026-07-28) because the surviving arc no longer pins FIT 2's
         # background nor FIT 1's rotation. The circle residual keeps looking fine
         # while that happens, so this column is the warning, not the rms.
-        mcol = ("#888888" if not masked else
-                "#2e7d32" if masked < 10.0 else
-                "#ef6c00" if masked < 20.0 else "#c62828")
+        mcol = (self._palette["muted"] if not masked
+                else self._grade(masked, 10.0, 20.0))
         self.table.item(idx, 2).setForeground(QtGui.QColor(mcol))
 
     def _draw_selected(self):
