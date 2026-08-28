@@ -1,7 +1,6 @@
 from enum import Enum
 import numpy as np
 from pyqtgraph import AxisItem
-from time import strftime, localtime
 import time
 import datetime 
 
@@ -780,7 +779,7 @@ class Constants:
         slash = "/"
        
     csv_delimiter = "," # for splitting data of the serial port and CSV file storage
-    csv_default_prefix = "%Y-%b-%d_%H-%M-%S"#"%H-%M-%S-%d-%b-%Y" # Hour-Minute-Second-month-day-Year
+    csv_default_prefix = "%Y-%m-%d_%H-%M-%S" # datalog timestamp: YYYY-MM-DD_hh-mm-ss
     csv_extension = "csv"
     txt_extension = "txt"
     csv_export_path = "logged_data"
@@ -795,8 +794,9 @@ class Constants:
     # anything: OPENQCM_SWEEP_DUMP=1 python3 run.py
     dev_sweep_dump = False
     
-    csv_filename = (strftime(csv_default_prefix, localtime())) #+'_DataLog')
-    csv_sweeps_export_path = "{}{}{}".format(csv_export_path,slash,csv_filename)
+    # No datalog name is composed here: a name built in the class body carries
+    # the time the module was imported, not the time START was pressed. The
+    # acquisition composes it in Worker.start() from csv_default_prefix.
     csv_sweeps_filename = "sweep"
     
     # Calibration: scan (WRITE for @5MHz and @10MHz QCS) path: 'common\'

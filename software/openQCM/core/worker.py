@@ -314,9 +314,10 @@ class Worker:
             self._parser_process.start()
             
             # VER 0.1.2
-            # format the log data file 
-            csv_default_prefix = "%Y-%b-%d_%H-%M-%S"
-            self._csv_filename = (strftime(csv_default_prefix, localtime()))
+            # format the log data file: one fresh timestamp per START press.
+            # The format lives in Constants; a local copy of it here is how the
+            # two drift apart without anything on screen saying so.
+            self._csv_filename = strftime(Constants.csv_default_prefix, localtime())
             
             return True
         
@@ -803,10 +804,9 @@ class Worker:
           #if self._export:
           
           # Storing calculated data with the format: timestamp,resonance frequency,dissipation
-          # filenameCSV = "{}_{}".format(Constants.csv_filename, self._overtone_name)
           
           # VER 0.1.2 
-          # init the new datalog file in single mode
+          # init the new datalog file in single mode: <ts>_F<n>.csv
           filenameCSV = "{}_{}".format(self._csv_filename, self._overtone_name)
           
           # VER 0.1.4 TODO time controlled sampling time in sigle mode 
@@ -817,7 +817,10 @@ class Worker:
               # Storing acquired sweeps
               filename = "{}_{}_{}".format(Constants.csv_sweeps_filename, self._overtone_name,self._count)
               #filename = "{}_{}".format(Constants.csv_sweeps_filename,self._count)
-              path = "{}_{}".format(Constants.csv_sweeps_export_path, self._overtone_name) 
+              # the run's own timestamp, not the one the module was imported at
+              sweep_export_path = "{}{}{}".format(Constants.csv_export_path,
+                                                  Constants.slash, self._csv_filename)
+              path = "{}_{}".format(sweep_export_path, self._overtone_name) 
               #FileStorage.CSV_sweeps_save(filename, path, self._readFREQ, self._data1_buffer, self._data2_buffer)
               FileStorage.TXT_sweeps_save(filename, path, self._readFREQ, self._data1_buffer, self._data2_buffer)
           self._count+=1
@@ -827,11 +830,10 @@ class Worker:
         elif  self._source == SourceType.multiscan:
            
             # LOG MULTI DATA FILE 
-            # filenameCSV = "{}_{}".format(Constants.csv_filename, "multi_")
             
             # VER 0.1.2
-            # init the new datalog file in single mode
-            filenameCSV = "{}_{}".format(self._csv_filename, "multi_")
+            # init the new datalog file in multi mode: <ts>_multi.csv
+            filenameCSV = "{}_{}".format(self._csv_filename, "multi")
 
             # TODO change the way the file is logged , there are duplicate in the data file 
             # FileStorage.CSVsave_Multi(filenameCSV, Constants.csv_export_path, time() - self._timestart, self._d3_store, self._F_store, self._D_store)
@@ -949,7 +951,7 @@ class Worker:
     ###########################################################################
     def get_csv_filename(self):
         # Phase 3d: mirrors the names composed in the storing loop below
-        # (serial: "<ts>_<overtone>", multiscan: "<ts>_multi_"); calibration
+        # (serial: "<ts>_F<n>", multiscan: "<ts>_multi"); calibration
         # writes no datalog, so it reports an empty string.
         if not self._csv_filename:
             return ""
@@ -957,7 +959,7 @@ class Worker:
             return "{}_{}.{}".format(self._csv_filename, self._overtone_name,
                                      Constants.csv_extension)
         if self._source == SourceType.multiscan:
-            return "{}_{}.{}".format(self._csv_filename, "multi_",
+            return "{}_{}.{}".format(self._csv_filename, "multi",
                                      Constants.csv_extension)
         return ""
 

@@ -9,7 +9,7 @@
 captured during a multiscan acquisition. Each file is the full amplitude + phase
 response of one resonance vs. frequency — the un-fitted data from which the
 software later extracts resonance frequency and dissipation (the values that end
-up in `logged_data/*_multi_.csv`).
+up in `logged_data/*_multi.csv`).
 
 Written by `openQCM/processors/Multiscan.py` via
 `FileStorage.TXT_sweeps_save` (which calls `numpy.savetxt`).
