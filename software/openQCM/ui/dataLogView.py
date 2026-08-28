@@ -31,7 +31,7 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from openQCM.core.constants import Constants
+from openQCM.core.constants import Constants, format_elapsed_seconds
 from openQCM.core import logAnalysis
 from openQCM.common.logger import Logger as Log
 from openQCM.ui import theme
@@ -65,20 +65,25 @@ COLOR_WINDOW_FINAL = (255, 152, 0)
 
 
 class RelativeTimeAxis(pg.AxisItem):
-    """Seconds since the start of the run, shown as h:mm:ss.
+    """Seconds since the start of the run, shown as SS / M:SS / H:MM:SS.
 
-    Constants.DateAxis is not reused here: it interprets its values as epoch
-    microseconds, and a log records the relative time already in seconds. Scaling
-    the data by 1e6 to fit that axis would leave the x values in a unit that
-    nothing else in this window uses.
+    Constants.ElapsedTimeAxis is not reused here: it interprets its values as
+    epoch microseconds and subtracts a latched reference, while a log records the
+    relative time already in seconds. Scaling the data by 1e6 to fit that axis
+    would leave the x values in a unit that nothing else in this window uses.
+
+    The *format* is the same one the live plots use, on purpose: the two windows
+    show the same run, and a reader who has just seen `5:00` on the instrument
+    should not have to translate `0:05:00` here. It is the split Q-1 makes as
+    well, with a second axis class of its own for the log viewer.
     """
 
     def tickStrings(self, values, scale, spacing):
         out = []
         for value in values:
             try:
-                out.append(str(datetime.timedelta(seconds=int(float(value)))))
-            except (ValueError, OverflowError):
+                out.append(format_elapsed_seconds(float(value)))
+            except (ValueError, TypeError, OverflowError):
                 out.append("")
         return out
 
@@ -613,5 +618,5 @@ class DataLogViewDialog(QtWidgets.QDialog):
         used = window.stop - window.start
         self.lbl_reference.setText(
             "zero at {}  (sample {} of {}, mean of {})".format(
-                str(datetime.timedelta(seconds=int(log.time_s[index]))),
+                format_elapsed_seconds(log.time_s[index]),
                 index + 1, log.time_s.size, used))

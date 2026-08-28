@@ -22,7 +22,7 @@ except:
 
 from openQCM.core.worker import Worker
 from openQCM.processors.Serial import SerialProcess
-from openQCM.core.constants import Constants, SourceType, DateAxis, NonScientificAxis
+from openQCM.core.constants import Constants, SourceType, ElapsedTimeAxis, NonScientificAxis
 from openQCM.ui.popUp import PopUp
 from openQCM.ui import theme
 from openQCM.ui.plotMenu import PlotMenu
@@ -91,8 +91,8 @@ class SecondWindow(QtGui.QWidget):
     def __init__(self):
         super(SecondWindow, self).__init__()
     
-        # VER 0.1.6 set x axis as seconds and disable SI prefix, same format as main window
-        date_axis = DateAxis(orientation='bottom',  time_format='seconds')
+        # VER 0.1.6 elapsed time, disable SI prefix, same format as main window
+        date_axis = ElapsedTimeAxis(orientation='bottom')
         date_axis.enableAutoSIPrefix(False)
         
         # create the second plot
@@ -108,8 +108,7 @@ class SecondWindow(QtGui.QWidget):
         
         # Set labels and title
         self.graphWidget.setLabel('left', 'TEC current', units='mA')
-        # self.graphWidget.setLabel('bottom', 'Time', units='hh:mm:ss')
-        self.graphWidget.setLabel('bottom', 'Time (Sec)')
+        self.graphWidget.setLabel('bottom', 'Time (hh:mm:ss)')
         self.graphWidget.setTitle('TEC current Real-Time Plot', size = '16pt')
         
         # Adjusting window size:
@@ -133,9 +132,9 @@ class SecondWindow(QtGui.QWidget):
         self.x = x_s    
         self.y = y_s
         
-        # Update x-axis start time if provided
+        # Update x-axis start time if provided (epoch microseconds)
         if start_time is not None:
-            self.graphWidget.getAxis('bottom').start_time = start_time
+            self.graphWidget.getAxis('bottom').set_start_time(start_time)
             
         self.plotData.setData(self.x, self.y)
          
@@ -729,6 +728,14 @@ class MainWindow(QtGui.QMainWindow):
                 self.clear()
 
 
+            # VER 0.1.6 the elapsed-time axes latch their reference from the
+            # first samples of this run: clear the previous one here, so a second
+            # acquisition does not count from the first one's start.
+            self.start_time = None
+            self._xaxis.reset_start_time()
+            self._xaxisD.reset_start_time()
+            self._xaxisT.reset_start_time()
+
             # SET TIMER UPDATE
             # -----------------------------------------------------------------
             self._timer_plot.start(Constants.plot_update_ms)
@@ -869,17 +876,9 @@ class MainWindow(QtGui.QMainWindow):
         except:
             pass    
          
-        # VER 0.1.6 TODO reset x time to zero     
-# =============================================================================
-#         self.start_time = 0
-#         # VER 0.1.6 TODO set the start time after the clear 
-#         self._xaxis.start_time = self.start_time
-#         self._xaxisD.start_time = self.start_time
-#         self._xaxisT.start_time = self.start_time 
-#         
-#         self._plt2_line.setData(self._numpy_nan_signal, self._numpy_nan_signal)
-#         self._pltD_line.setData(self._numpy_nan_signal, self._numpy_nan_signal)
-# =============================================================================
+        # VER 0.1.6 the elapsed-time reference is cleared in start(), not here:
+        # the finished run stays on screen after STOP and its ticks have to keep
+        # meaning something.
         
 
     ###########################################################################
@@ -1907,7 +1906,7 @@ class MainWindow(QtGui.QMainWindow):
         self._yaxis.enableAutoSIPrefix(False)
         #self._yaxis.setTickSpacing(levels=[(280, 0),(25, 0), (10, 0)]) #(20,1, None)
         # VER 0.1.6 TODO
-        self._xaxis = DateAxis(orientation='bottom', time_format='seconds')
+        self._xaxis = ElapsedTimeAxis(orientation='bottom')
 
         '''
         TODO 2m 
@@ -1917,8 +1916,7 @@ class MainWindow(QtGui.QMainWindow):
         self._yaxisD.enableAutoSIPrefix(False)
         #self._yaxis.setTickSpacing(levels=[(280, 0),(25, 0), (10, 0)]) #(20,1, None)
         # VER 0.1.6 TODO
-        # self._xaxisD = DateAxis(orientation='bottom')
-        self._xaxisD = DateAxis(orientation='bottom', time_format='seconds')
+        self._xaxisD = ElapsedTimeAxis(orientation='bottom')
         
 
 
@@ -1936,9 +1934,9 @@ class MainWindow(QtGui.QMainWindow):
 #         self._plt2.setLabel('bottom', 'Time',units='s')
 # =============================================================================
         
-        # VER 0.1.6 set x axis as sec and disable SI prefix 
+        # VER 0.1.6 set x axis as h:m:s and disable SI prefix 
         self._xaxis.enableAutoSIPrefix(False)
-        self._plt2.setLabel('bottom', 'Time (Sec)')
+        self._plt2.setLabel('bottom', 'Time (hh:mm:ss)')
        
         # VER 0.1.6 optimize the frequency real time plot 
         # self._plt2.setLabel('left', 'Resonance Frequency', units='Hz', color = Constants.plot_title_color, **{'font-size':'10pt'})
@@ -1975,7 +1973,7 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
         # VER 0.1.6 set x axis as h:m:s
         self._xaxisD.enableAutoSIPrefix(False)
-        self._pltD.setLabel('bottom', 'Time (Sec)')
+        self._pltD.setLabel('bottom', 'Time (hh:mm:ss)')
         
         # VER 0.1.6 optimize the dissipation real time plot 
         # self._pltD.setLabel('left', 'Dissipation', units='', color = Constants.plot_title_color, **{'font-size':'10pt'})
@@ -2015,7 +2013,7 @@ class MainWindow(QtGui.QMainWindow):
 
         # Configures elements of the PyQtGraph plots: temperature
         
-        self._xaxisT = DateAxis(orientation='bottom', time_format='seconds')
+        self._xaxisT = ElapsedTimeAxis(orientation='bottom')
         self._xaxisT.enableAutoSIPrefix(False)
         self._plt4 = self.ui.plt.addPlot(row=0, col=1, title= title3, axisItems={'bottom': self._xaxisT})
         # self._plt4.showGrid(x=True, y=True)
@@ -2035,7 +2033,7 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
         # VER 0.1.6 set x axis as h:m:s
         self._plt4.getAxis('bottom').enableAutoSIPrefix(False)
-        self._plt4.setLabel('bottom', 'Time (Sec)')
+        self._plt4.setLabel('bottom', 'Time (hh:mm:ss)')
         
         # VER 0.1.6 optimize the temperature real time plot 
         # self._plt4.setLabel('left', 'Temperature', units='°C', color = Constants.plot_title_color, **{'font-size':'10pt'})
@@ -2583,13 +2581,16 @@ class MainWindow(QtGui.QMainWindow):
 #                        self.start_time = (datetime.datetime.now() - epoch).total_seconds()
 #                        print (self.start_time, time_arr[0]/1e6)
 # =============================================================================
-                       # set the start time 
-                       # self._xaxis.start_time = self.start_time with a litle help of my friends -1e6
-                       
-                       self.start_time = time_arr[0]/1e6
-                       self._xaxis.start_time = time_arr[0]/1e6
-                       self._xaxisD.start_time = time_arr[0]/1e6
-                       self._xaxisT.start_time = time_arr[0]/1e6
+                       # set the start time, in epoch microseconds -- the unit
+                       # the axes plot in, and the one multiscan uses below.
+                       # nanmin, not time_arr[0]: RingBuffer.get_all() returns the
+                       # newest sample first and pads the tail with NaN, so index 0
+                       # is the most recent point, not the oldest. An all-NaN buffer
+                       # gives NaN, which set_start_time ignores.
+                       self.start_time = np.nanmin(time_arr)
+                       self._xaxis.set_start_time(self.start_time)
+                       self._xaxisD.set_start_time(self.start_time)
+                       self._xaxisT.set_start_time(self.start_time)
                        
                if str(vector1[0])=='nan' and not self._ser_error1 and not self._ser_error2:
                   label1 = 'processing...'
@@ -2915,10 +2916,10 @@ class MainWindow(QtGui.QMainWindow):
                 
                 # VER 0.1.6 TODO wait ?
                 
-                # VER 0.1.6 TODO set the start time after the clear 
-                self._xaxis.start_time = self.start_time/1e6
-                self._xaxisD.start_time = self.start_time/1e6
-                self._xaxisT.start_time = self.start_time/1e6
+                # VER 0.1.6 set the start time after the clear
+                self._xaxis.set_start_time(self.start_time)
+                self._xaxisD.set_start_time(self.start_time)
+                self._xaxisT.set_start_time(self.start_time)
                 
                 # VER 0.1.2
                 # Optimize and update infobar and infostatus in multiscan mode
@@ -3489,7 +3490,7 @@ class MainWindow(QtGui.QMainWindow):
                     self.second_window.update_plot(
                         self.worker.get_t3_buffer(),
                         self.worker.get_data_current_tec_buffer(),
-                        start_time = self.start_time/1e6
+                        start_time = self.start_time
                     )
                 except AttributeError:
                     pass
@@ -3983,7 +3984,7 @@ class MainWindow(QtGui.QMainWindow):
                   self.second_window.update_plot(
                       self.worker.get_t3_buffer(),
                       self.worker.get_data_current_tec_buffer(),
-                      start_time = self.start_time/1e6
+                      start_time = self.start_time
                   )
                except AttributeError:
                   pass
@@ -4420,7 +4421,7 @@ class MainWindow(QtGui.QMainWindow):
         if info is None or not info["c1"].isVisible():
             return
         x1, x2 = sorted((info["c1"].value(), info["c2"].value()))
-        # the time axis carries epoch microseconds (see Constants.DateAxis)
+        # the time axis carries epoch microseconds (see Constants.ElapsedTimeAxis)
         text = "Δt: {:.1f} s".format((x2 - x1) / 1e6)
         try:
             t, y = self._cursor_series(info["kind"])
