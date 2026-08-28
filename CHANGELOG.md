@@ -303,6 +303,21 @@ Conventional Commits. Versions are marked by Git tags.
   doing on its own.
 
 ### Changed
+- **The overtone chips keep their width; the sidebar buys spacing instead** — `F1 F3 F5 F7 F9` grew
+  with the sidebar (50 px at a 260 px row, 78 at 400) while the gaps between them stayed at 3.
+  Each chip is now pinned at `OVERTONE_CHIP_WIDTH` = 64 with a **`Fixed`** size policy, and a
+  stretch between one chip and the next takes the slack: measured by driving the row layout
+  directly, 64 px chips with gaps of 3 / 10 / 20 at rows of 330 / 360 / 400.
+  - 64 px is what the row already gave each chip at 330, so nothing ends up smaller than it was.
+  - ⚠️ **`setFixedWidth` alone does not pin them**, which is what defeated the first attempt (tried
+    and reverted in `1e587d7`): `theme.qss` carries `min-width: 0px` on the chip rule, a style-sheet
+    min-width beats the widget's own minimum, and the layout item's minimum stays at 8 px however
+    wide the button claims to be. The `Fixed` policy is what stops the row stretching them.
+  - ⚠️ **Below a 330 px row they still shrink**, deliberately: the alternative is a row that refuses
+    to fit, and this sidebar clips rather than scrolls. At 260 the chips are 50 px, before and
+    after — no regression at the narrow end, which is where the previous attempt died.
+  - The row's minimum drops from 387 px to 332 and the sidebar container's from 435 to 380, so the
+    clipping known since 2026-08-27 is **reduced by 55 px, not fixed**: the pane still allows 260.
 - **The real-time plots use the openQCM Q-1 elapsed-time axis** — the four live axes (frequency,
   dissipation, temperature, TEC current) printed bare seconds under a `Time (Sec)` label; they now
   print `0 / 45 / 2:00 / 5:00 / 1:02:05` under **`Time (hh:mm:ss)`**, byte-identical to what Q-1's

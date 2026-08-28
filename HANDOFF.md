@@ -362,6 +362,37 @@ both objects directly. The popup list is deliberately square-cornered — it is 
 rounded background leaves the window's own colour showing at the corners. On macOS a light native
 frame may still show around it; on Windows it does not.
 
+### The overtone chips: a fixed width, and gaps that grow
+
+`F1 F3 F5 F7 F9` in the Measurement Setup card. Widening the sidebar adds **spacing between them**,
+not width: each chip is pinned at `OVERTONE_CHIP_WIDTH` = 64 px with a `Fixed` size policy, and a
+stretch sits between one chip and the next so the slack lands in the gaps. Measured by driving the
+row layout directly (`QLayout.setGeometry`, no `show()`, which segfaults offscreen):
+
+| row width | before | after |
+|---|---|---|
+| 260 | chips 50, gaps 3 | chips 50, gaps 3 |
+| 330 | chips 64, gaps 3 | chips 64, gaps 3 |
+| 360 | chips 70, gaps 3 | chips 64, **gaps 10** |
+| 400 | chips 78, gaps 3 | chips 64, **gaps 20** |
+
+64 px is not a taste: it is what the row already gave each chip at 330 px, so nothing is smaller
+than it was.
+
+⚠️ **`setFixedWidth` alone does not pin these buttons.** `theme.qss` carries `min-width: 0px` on the
+chip rule, and a style-sheet min-width beats the widget's own minimum — measured, the layout item
+reports a minimum of 8 px however wide the button says it is, which is how the first attempt
+(reverted) came to report 75 and render 42. What stops the row **stretching** them is the `Fixed`
+size policy, and that is the half that matters here.
+
+⚠️ **They still shrink below a 330 px row, on purpose.** The alternative is a row that refuses to
+fit, and this sidebar clips rather than scrolls (below). Narrow sidebar, small chips, exactly as
+before; wide sidebar, chips at 64 and air between them.
+
+The row's own minimum drops from 387 px to 332, and the sidebar container's from 435 to 380 — so
+this loosens the clipping described in §5 by 55 px instead of adding to it. It does not fix it: the
+pane still allows 260.
+
 ### The status bar: one dot, plain text
 
 The machine state is the **colour of one dot** (`statusIndicator`), as in Q-1 v3.0: grey disconnected,

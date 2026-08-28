@@ -76,11 +76,10 @@ processo Qt. I `QDialog` invece si mostrano e si catturano senza problemi.
 
 - ⚠️ **`Constants.environment = 3` su entrambi i rami**, da riportare a **10**
   prima di qualsiasi build di produzione. Motivo ormai solo metrologico.
-- **Larghezza dei pill delle armoniche**: tentata e revertita. Una larghezza fissa
-  deve entrare nella sidebar più stretta (~44 px a 260, illeggibile), una comoda
-  impedisce alla riga di restringersi e le card vengono **tagliate** — la scroll
-  area è `widgetResizable` con la barra orizzontale spenta, quindi non scorre, taglia.
-  Il minimo del contenuto è 371 px contro i 300 del default: difetto preesistente.
+- ⚠️ **Sidebar tagliata**: il contenuto chiede **380 px**, il pannello ne concede
+  260 al minimo. La scroll area è `widgetResizable` con la barra orizzontale
+  spenta, quindi non scorre: **taglia**. Difetto preesistente, ridotto (era 435)
+  dai pill a larghezza fissa, non risolto.
 - **`plot_color_multi_g`** (solo ramo): palette esadecimale dei grafici di
   conduttanza, copia di una lista blu più vecchia, mai allineata alle due rampe.
 - Copia benigna di `savitzky_golay` in `sweep_data/plot_conductance.py` (ramo).
