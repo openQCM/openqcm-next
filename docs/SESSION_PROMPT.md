@@ -87,7 +87,6 @@ processo Qt. I `QDialog` invece si mostrano e si catturano senza problemi.
 - `polyfit` in tre copie: `Multiscan.baseline_correction`,
   `Serial.baseline_correction`, `Calibration.baseline_estimation`.
 - Zeri spinti ai grafici durante il warm-up del Multiscan.
-- Due classi `DateAxis` in `constants.py`, la seconda oscura la prima.
 
 ## Una differenza fra i rami che è voluta
 

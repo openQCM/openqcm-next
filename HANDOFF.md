@@ -278,6 +278,46 @@ quantity on the two. The divisor's docstring repeats this at the point where som
 tempted to "fix" it, and the verification suite reads which contract it is checking from the
 environment so the same gates run on both worktrees.
 
+### The time axis of the real-time plots
+
+`Constants.ElapsedTimeAxis`, ported from Q-1 v3.0 on 2026-08-28. The plotted x values stay **epoch
+microseconds** — buffers, datalog and Δ cursors are untouched; only the tick labels are relative:
+
+    0    45    2:00    5:00    1:02:05        (SS under a minute, M:SS under an hour, H:MM:SS above)
+
+The reference is latched **once** per run with `set_start_time()` (which ignores `None` and NaN) and
+cleared in `start()` with `reset_start_time()`. Four axes use it: frequency, dissipation,
+temperature and the TEC-current window.
+
+⚠️ **Before the reference is latched the axis draws empty labels, and that is the point.** The
+previous axis (`DateAxis(time_format='seconds')`, now removed) printed `int(value/1e6)` in that
+state — the raw epoch, `1787904318` — for the whole warm-up, because in single mode the reference is
+only taken when `_ser_control` reaches `Constants.environment`. An axis that says nothing is better
+than an axis that says 1787904318.
+
+⚠️ **The reset belongs to `start()`, not to `stop()`.** The finished run stays on screen after STOP
+and its ticks have to keep meaning something; clearing there would blank the labels of the plot the
+user is still reading. There was a commented-out block in `stop()` proposing exactly that.
+
+⚠️ **`self.start_time` is in microseconds in both modes now.** It used to be seconds in single mode
+and microseconds in multiscan, and the four calls to `SecondWindow.update_plot` compensated by
+dividing by 1e6 in two of them. One unit, four identical call sites.
+
+⚠️ **The reference is `np.nanmin(buffer)`, not `buffer[0]`.** `RingBuffer.get_all()` returns the
+**newest** sample at index 0 and pads the tail with NaN — measured: three appends into a buffer of
+five give `[30 20 10 nan nan]`, and its own comment saying "from the oldest to the newest" is wrong.
+Q-1 takes the first non-NaN in array order, which is the newest valid sample; it works there because
+it runs when the buffer holds one point. `nanmin` is the oldest timestamp actually present, which is
+what the label means, and it is what the multiscan path already did. An all-NaN buffer yields NaN,
+which the setter ignores.
+
+Datalog View keeps its own `RelativeTimeAxis` — a log records relative time in seconds already, so
+it would have to be scaled by 1e6 to feed this axis — but **not its own format**: both call
+`Constants.format_elapsed_seconds`, the one definition, and so does the "zero at …" readout under
+the reference cursor. The two windows show the same run, and a reader who has just seen `5:00` on
+the instrument should not have to translate `0:05:00`. Q-1 makes the same split, with a second axis
+class for its log viewer and the same format in it.
+
 ### `ui/plotMenu.py` — the plot right-click menu, once
 
 Grid off, then Auto-scale / Reset zoom / mouse mode / grid / Export. **Every panel in the

@@ -303,6 +303,39 @@ Conventional Commits. Versions are marked by Git tags.
   doing on its own.
 
 ### Changed
+- **The real-time plots use the openQCM Q-1 elapsed-time axis** — the four live axes (frequency,
+  dissipation, temperature, TEC current) printed bare seconds under a `Time (Sec)` label; they now
+  print `0 / 45 / 2:00 / 5:00 / 1:02:05` under **`Time (hh:mm:ss)`**, byte-identical to what Q-1's
+  `ElapsedTimeAxis` produces on the same inputs. The plotted x values are unchanged — still epoch
+  microseconds — so the buffers, the datalog and the Δ cursors do not move; only the tick labels are
+  relative. `Constants.DateAxis` (and the older commented-out copy of it above, which was **inside a
+  `'''` string** and never shadowed anything, contrary to the note in HANDOFF) is replaced by
+  `Constants.ElapsedTimeAxis`; `import time` / `import datetime` go with it, as nothing else in
+  `constants.py` used them. Two `CLEANUP_PLAN.md` items are closed by this.
+  - ⚠️ **The axis draws empty labels until its reference is latched.** The seconds axis printed
+    `int(value/1e6)` in that state — the raw epoch, measured as `1787904318` — and in single mode
+    the reference is only taken when `_ser_control` reaches `Constants.environment`, so that is what
+    the whole warm-up showed.
+  - ⚠️ **The reference is cleared in `start()`, not in `stop()`** (a commented-out block in `stop()`
+    proposed the latter). The finished run stays on screen after STOP and its ticks have to keep
+    meaning something. Without any reset a second acquisition counted from the first one's start.
+  - ⚠️ **`set_start_time()` ignores `None` and NaN and latches once.** The previous code assigned
+    `.start_time` directly; a NaN reference made `tickStrings` raise `ValueError` out of the paint
+    path, verified on the old class.
+  - ⚠️ **The reference is `np.nanmin(buffer)`, not `buffer[0]`.** `RingBuffer.get_all()` returns the
+    **newest** sample at index 0 and pads the tail with NaN (measured: three appends into a buffer
+    of five give `[30 20 10 nan nan]`), so index 0 was the most recent point, not the oldest. The
+    multiscan path already used `nanmin`; single mode now does too.
+  - ⚠️ **`self.start_time` is in microseconds in both modes.** It was seconds in single mode and
+    microseconds in multiscan, and two of the four `SecondWindow.update_plot` calls divided by 1e6
+    to compensate. One unit, four identical call sites.
+- **Datalog View prints the same times as the live plots** — its `RelativeTimeAxis` formatted through
+  `datetime.timedelta` (`0:00:45`, `0:05:00`) while the plots of the same run now print `45`, `5:00`.
+  The axis class stays separate, because a log holds relative **seconds** and feeding
+  `ElapsedTimeAxis` would mean scaling the data by 1e6 into a unit nothing else in that window uses;
+  the **format** does not. Both, and the "zero at …" readout under the reference cursor, call the new
+  `Constants.format_elapsed_seconds` — one definition rather than the third copy of the same six
+  lines. Q-1 makes the same split, with a second axis class for its log viewer.
 - **Datalog file names follow the openQCM Q-1 v3.0 rule** — `2026-Jul-29_17-03-49_multi_.csv`
   becomes `2026-08-28_09-48-00_multi.csv`, and a single-overtone run
   `2026-Jul-28_19-34-16_fundamental.csv` becomes `2026-08-28_09-48-00_F0.csv`. Three changes,
