@@ -170,12 +170,12 @@ error are more informative than one number that looks authoritative.
 ```bash
 cd software
 QT_QPA_PLATFORM=offscreen python3 \
-  ../research/admittance-circle-fit/compare_circle_fits.py <dir>
+  ../research/admittance-circle-fit/compare_circle_fits.py openQCM/sweep_data
 ```
 
-`<dir>` holds `g1.txt … g9.txt` as written by the sweep dump. Copy them out of
-the repository before use: `software/openQCM/sweep_data/` is overwritten by every
-acquisition.
+The argument is a directory of `g1.txt … g9.txt` as written by the sweep dump,
+and defaults to the path above. Those files are overwritten by every
+acquisition, so pass a copy when the numbers have to stay put.
 
 The script rebuilds the admittance with the offline `admittance()`, applies the
 AD8302 ratio mask and the `+-3` half-width clip that `MultiscanProcess` applies,

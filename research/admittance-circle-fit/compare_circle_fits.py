@@ -7,20 +7,26 @@ buffers and draw two different circles. This script reproduces both on archived
 sweeps so the difference can be measured instead of argued about.
 
     cd software
-    python3 ../research/admittance-circle-fit/compare_circle_fits.py <dir-with-g1.txt...>
+    QT_QPA_PLATFORM=offscreen python3 \
+        ../research/admittance-circle-fit/compare_circle_fits.py openQCM/sweep_data
 
-<dir> holds the g<n>.txt written by the sweep dump. COPY THEM OUT OF THE REPO
-FIRST: openQCM/sweep_data/ is overwritten by every acquisition.
+The argument is a directory of g<n>.txt written by the sweep dump, and defaults
+to openQCM/sweep_data. Those are overwritten by every acquisition, so pass a copy
+when the numbers have to stay put:
+
+    cp openQCM/sweep_data/g*.txt ~/qcm_sweeps/air_2026-08-28/
 
 Qt is needed only because the GUI estimator is a static method on MainWindow;
-nothing is shown. Run it headless with QT_QPA_PLATFORM=offscreen, and hold the
-QApplication in a name or the process segfaults with no output at all.
+nothing is shown. Two traps, both already paid for: hold the QApplication in a
+name or the process segfaults with no output at all, and import pyqtgraph before
+creating it or it prints a graphics-system warning on every run.
 """
 import importlib.util
 import os
 import sys
 
 import numpy as np
+import pyqtgraph                                         # before QApplication
 from PyQt5.QtWidgets import QApplication
 
 _app = QApplication.instance() or QApplication([])       # must stay referenced
