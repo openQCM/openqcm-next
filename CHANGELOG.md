@@ -5,6 +5,23 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Reverted — the overtone chips stretch again (2026-08-28)
+
+`ea105f8` carried over, code only; the documentation files conflicted as usual and the branch keeps
+its own. Pinning the chips (`6949237`, widened in `15694d4`) is undone: they share the sidebar's
+width again — 50 px at a 260 px row, 64 at 330, 78 at 400, gaps fixed at 3 — and `sidebarPane`'s
+maximum is back to 400.
+
+It worked mechanically and was rejected on looks: at a wide sidebar five fixed chips separated by
+80 px read as five islands. Second attempt on this branch, second revert; the first was `f995a8e`.
+What both attempts established is on `main` in HANDOFF §3, "The overtone chips, and why they still
+stretch" — the style-sheet `min-width: 0px` that defeats `setFixedWidth`, the `5*W + 12 <= row`
+rule, the sidebar's 48 px inset, the five-to-one cost of chip width against the container minimum,
+and the variant nobody has tried yet: chips packed left behind a single trailing spacer.
+
+Verified here after the revert: chips back to stretching on both themes, row minimum 387, container
+minimum 435, app imports.
+
 ### Carried from `main` — the chips are 72 px wide (2026-08-28)
 
 `e70af23`, code applied clean; the two documentation files conflicted, as they always do here, and
