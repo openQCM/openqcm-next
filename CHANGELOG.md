@@ -5,6 +5,21 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — the firmware check accepts the prototype build (2026-08-31)
+
+`b890039`, code applied clean; only the changelog conflicted and the branch keeps its own. The
+no-TEC board answers `0.1.5b-TEST` and the check was exact string equality, so it raised the
+firmware-update warning on every connect — on a firmware that speaks the whole protocol, `'S'`
+included.
+
+The rule is now `_firmware_is_current()`, one function instead of the four copies it had in
+`get_firmware_version`. ⚠️ `Constants.accept_test_firmware` is a **development switch, to set to
+`False` before a production build**: a shipped instrument must not accept a prototype firmware
+without saying so.
+
+Verified here after the cherry-pick, on both positions: on, `0.1.5b` and `0.1.5b-TEST` pass and
+`0.1.5a` does not; off, only `0.1.5b` passes. App imports.
+
 ### Carried from `main` — the menu bar is homologous with Q-1 v3.0 (2026-08-31)
 
 `9ec5f2e`. One conflict, in `Tools`, and it is the good kind: `main` added *Check Firmware Version*
