@@ -255,6 +255,36 @@ acquisition buffer; **observable plots default to Y autorange** in development
 (ported from Q-1 v3.0 — Stop now interruptible mid-sweep, clean shutdown); **GUI theme system
 dark/light** (`ui/theme.py` + View → Theme menu, Phase 0 of the GUI redesign) — all see §5 and CHANGELOG.
 
+### Asking the board a question while it may still be talking
+
+⚠️ **The board sweeps once per command and reads serial only at the top of `loop()`**, so a sweep
+runs to completion whatever the host does. Stopping an acquisition kills the host's child process;
+the **board keeps sending** for the rest of the sweep — about 1.8 s per overtone on this instrument.
+A question asked in that window comes back answered with `amplitude;phase` data.
+
+`reset_input_buffer()` does not help: it empties what has arrived, not what is still coming. Three
+things fix it, and all three are needed.
+
+- **`_drain_serial()`** waits for the line to fall silent (`serial_quiet_ms` = 250) before every
+  query, giving up after `serial_quiet_timeout_s` = 6 s. It runs inside `_serial_query`, so every
+  command benefits. Simulated against a board streaming for 1.8 s: 1360 bytes drained, then the real
+  answer parsed.
+- **`'Q'` ends the sweep in progress** (firmware 0.1.5c). `_reacquire_serial_lock` sends it, which
+  turns the wait into milliseconds. ⚠️ Only when the reported version is one that knows the letter:
+  on older firmware `'Q'` has no branch and falls into the sweep parser, where `atol("Q")` is 0 and
+  the board sets off on a scan from 0 Hz. That is the failure Q-1 documented for its own `'F'`, and
+  it is why the firmware gives `'Q'` an explicit no-op branch at the top level too.
+- **`_board_busy()`** keeps a busy board from being reported as an old one. An unrecognised reply used
+  to reach the "no firmware information" branch, which answers *Please update firmware version* — the
+  wrong problem to send someone looking for. Two signs, either is enough: the port never fell silent,
+  or the answer carries a semicolon, which no version and no identification number does and every
+  sweep line does.
+
+⚠️ **A peak detection ends without going through `stop()`** — the completion path calls only
+`_enable_ui(True)` — so it is the one place that has to call `_reacquire_serial_lock()` itself.
+Without it the GUI never takes the port back and the two device queries stay greyed out until the
+user disconnects and reconnects.
+
 ### The machine identification number, and where it lives
 
 `firmware/openQCM_Next_SerialNumber/` writes it into the Teensy EEPROM. Flashed once per board,

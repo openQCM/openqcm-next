@@ -40,7 +40,19 @@ class Constants:
     
     # VER 0.1.5 Firmware version compatible with the current application
     # check for more information the arduino source code attached
-    FW_VERSION = '0.1.5b'
+    FW_VERSION = '0.1.5c'
+
+    # VER 0.1.5c the board sweeps once per command and reads serial only at the
+    # top of its loop, so a sweep runs to completion whatever the host does.
+    # Measured on this instrument: about 1.8 s per overtone, acquisition and
+    # processing together. Before asking the board anything the GUI waits for
+    # the line to fall silent for serial_quiet_ms, giving up after
+    # serial_quiet_timeout_s -- generous against 1.8 s, and short enough that a
+    # genuinely stuck board is reported as busy rather than waited on.
+    serial_quiet_ms = 250
+    serial_quiet_timeout_s = 6.0
+    # 'Q' ends a sweep in progress (firmware 0.1.5c and later)
+    serial_stop_sweep = b'Q\n'
 
     ##########################################################################
     # ⚠️ DEV ONLY -- SET accept_test_firmware = False BEFORE A PRODUCTION     #

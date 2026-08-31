@@ -1304,6 +1304,7 @@ class MainWindow(QtGui.QMainWindow):
 
                 # firmware version: first non-empty line of the reply
                 firmware_version_current = _first_reply_line(read_serial)
+                self._firmware_version = firmware_version_current
                 # the raw reply, because the branches below that raise the
                 # update warning print nothing, and then a wrong answer and no
                 # answer at all look identical from the outside
@@ -1311,6 +1312,17 @@ class MainWindow(QtGui.QMainWindow):
                     repr(read_serial)))
                 Log.i(TAG, "Firmware version response: {}".format(
                     repr(read_serial)))
+
+                # VER 0.1.5c a board still finishing a sweep is not a board
+                # with old firmware, and must not be reported as one
+                if self._board_busy(firmware_version_current):
+                    print (TAG, "Board still busy: firmware check skipped")
+                    Log.w(TAG, "Board still busy: firmware check skipped")
+                    if not autoMode:
+                        PopUp.warning(self, Constants.app_title,
+                                      "The board is still sending measurement "
+                                      "data.\nWait a moment and try again.")
+                    return
 
                 # no firmware information
                 if (firmware_version_current == ""):
@@ -1368,6 +1380,7 @@ class MainWindow(QtGui.QMainWindow):
 
                 # firmware version: first non-empty line of the reply
                 firmware_version_current = _first_reply_line(read_serial)
+                self._firmware_version = firmware_version_current
                 # the raw reply, because the branches below that raise the
                 # update warning print nothing, and then a wrong answer and no
                 # answer at all look identical from the outside
@@ -1375,6 +1388,17 @@ class MainWindow(QtGui.QMainWindow):
                     repr(read_serial)))
                 Log.i(TAG, "Firmware version response: {}".format(
                     repr(read_serial)))
+
+                # VER 0.1.5c a board still finishing a sweep is not a board
+                # with old firmware, and must not be reported as one
+                if self._board_busy(firmware_version_current):
+                    print (TAG, "Board still busy: firmware check skipped")
+                    Log.w(TAG, "Board still busy: firmware check skipped")
+                    if not autoMode:
+                        PopUp.warning(self, Constants.app_title,
+                                      "The board is still sending measurement "
+                                      "data.\nWait a moment and try again.")
+                    return
                 
                 # no firmware information 
                 if (firmware_version_current == ""): 
@@ -1553,6 +1577,21 @@ class MainWindow(QtGui.QMainWindow):
     ###########################################################################
     # Enables or disables the UI elements of the window.
     ###########################################################################
+    def _board_busy(self, response):
+        """True when the reply cannot be trusted because the board was talking.
+
+        ⚠️ The distinction matters more than it looks. An unrecognised reply
+        used to reach the "no firmware information" branch, which answers with
+        *Please update firmware version* -- so a board mid-sweep was reported as
+        a board with old firmware, and the operator went looking for the wrong
+        problem. Two signs, either is enough: the port never fell silent before
+        the question, or the answer carries a semicolon, which no version and no
+        identification number does but every sweep sample line does.
+        """
+        if not getattr(self, "_quiet_before_query", True):
+            return True
+        return ";" in (response or "")
+
     def _can_query_device(self):
         """True when the GUI itself can talk to the board right now.
 
@@ -2040,6 +2079,15 @@ class MainWindow(QtGui.QMainWindow):
         print(TAG, "Board number response: '{}' (raw {})".format(
             response, repr(reply)))
         Log.i(TAG, "Board number response: '{}'".format(response))
+
+        if self._board_busy(response):
+            print(TAG, "Board still busy: number query skipped")
+            Log.w(TAG, "Board still busy: number query skipped")
+            if not auto_mode:
+                PopUp.warning(self, Constants.app_title,
+                              "The board is still sending measurement data.\n"
+                              "Wait a moment and try again.")
+            return
 
         if response == "NO_SERIAL":
             # the board answers, the EEPROM was never written
@@ -2578,6 +2626,18 @@ class MainWindow(QtGui.QMainWindow):
         except Exception as e:
             print(TAG, "Warning: could not re-acquire serial port: {}".format(str(e)))
             Log.w(TAG, "Could not re-acquire serial port: {}".format(str(e)))
+            # VER 0.1.5c firmware 0.1.5c ends the sweep in progress on 'Q',
+            # which turns "wait out the rest of a sweep" into a few
+            # milliseconds. On an older firmware the letter has no branch and
+            # would be read as a sweep command, so it is only sent when the
+            # reported version is one that knows it -- and the drain in
+            # _serial_query covers the rest either way.
+            try:
+                if self._serial_lock is not None and _firmware_is_current(
+                        getattr(self, "_firmware_version", "")):
+                    self._serial_lock.write(Constants.serial_stop_sweep)
+            except Exception as e:
+                print(TAG, "Warning: stop-sweep command failed: {}".format(e))
         finally:
             # ⚠️ Here, not in stop(): stop() calls _enable_ui BEFORE
             # worker.stop() and a second before the port comes back, so the
@@ -2604,10 +2664,52 @@ class MainWindow(QtGui.QMainWindow):
             Log.e(TAG, "Serial write error: {}".format(str(e)))
             return False
 
+    def _drain_serial(self, quiet_ms=None, timeout_s=None):
+        """Read and discard until the board stops talking. Returns True if it did.
+
+        ⚠️ reset_input_buffer() is not enough on its own. It empties what has
+        arrived, not what is still coming, and the board keeps streaming the
+        rest of its sweep after the host has stopped listening -- so a question
+        asked right after a Stop comes back answered with amplitude;phase data,
+        which the firmware check then reports as a version to update. This waits
+        for a real silence instead.
+        """
+        if self._serial_lock is None:
+            return False
+        quiet = (Constants.serial_quiet_ms if quiet_ms is None else quiet_ms) / 1000.0
+        limit = (Constants.serial_quiet_timeout_s if timeout_s is None else timeout_s)
+        started = time.time()
+        last_byte = time.time()
+        dropped = 0
+        while True:
+            try:
+                n = self._serial_lock.inWaiting()
+            except Exception:
+                return False
+            if n:
+                try:
+                    dropped += len(self._serial_lock.read(n))
+                except Exception:
+                    return False
+                last_byte = time.time()
+            elif time.time() - last_byte >= quiet:
+                if dropped:
+                    print(TAG, "Drained {} bytes before the port went quiet"
+                          .format(dropped))
+                return True
+            if time.time() - started > limit:
+                print(TAG, "Port still busy after {:.0f} s ({} bytes drained)"
+                      .format(limit, dropped))
+                Log.w(TAG, "Port still busy after {:.0f} s".format(limit))
+                return False
+            sleep(0.02)
+
     def _serial_query(self, payload, wait=0.4):
         # Write a command on the persistent connection and read the reply.
         if not self._serial_connected or self._serial_lock is None:
             return ""
+        # nothing sensible can be read while the board is still mid-sweep
+        self._quiet_before_query = self._drain_serial()
         try:
             self._serial_lock.reset_input_buffer()
             self._serial_lock.write(payload)
@@ -3403,6 +3505,11 @@ class MainWindow(QtGui.QMainWindow):
 # =============================================================================
                self._timer_plot.stop()
                self._enable_ui(True)
+               # VER 0.1.5c a peak detection ends here, not through stop(), so
+               # this is the only place that can give the port back to the GUI.
+               # Without it the two device queries stay greyed out until the
+               # user disconnects and reconnects.
+               self._reacquire_serial_lock()
                self.worker.stop()
                
                time.sleep(1)

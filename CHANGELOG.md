@@ -1096,6 +1096,34 @@ that file is touched.
 ## [Unreleased] — `main`
 
 ### Added
+- **Firmware 0.1.5c: `'Q'` ends a sweep in progress** — `firmware/openQCM_Next_py_0.1.5c_teensy/`
+  and `..._0.1.5c_TEST_teensy/`, the 0.1.5b pair kept as the previous step. The board sweeps once per
+  command and reads serial only at the top of `loop()`, so a sweep ran to completion whatever the
+  host did; `'Q'` stops it at the next whole sample and the measurement still terminates with the
+  contracted `temperature;status;error;s` line.
+  - The poll sits at the **end** of a sweep iteration, so the break never lands mid-line, and it
+    consumes only the `'Q'` line — any other character is left for the parser at the top of `loop()`.
+  - ⚠️ `'Q'` also gets a **top-level no-op branch**: anything unrecognised falls through to the sweep
+    parser, where `atol("Q")` is 0 and the board sets off on a scan from 0 Hz that wedges it for
+    minutes — the failure Q-1 documented for its own `'F'`.
+  - Both compile for `teensy:avr:teensy40`; `Constants.FW_VERSION` moves to `0.1.5c` with them.
+
+### Fixed
+- **A question asked while the board is still talking is answered with sweep data** — after a Stop
+  the board keeps sending for the rest of its sweep (~1.8 s per overtone), and
+  `reset_input_buffer()` empties what has arrived, not what is still coming. The firmware check read
+  `amplitude;phase` lines and reported them as *Please update firmware version*.
+  - `_drain_serial()` waits for 250 ms of silence before every query, inside `_serial_query`, giving
+    up after 6 s. `_reacquire_serial_lock` also sends `'Q'` now — but only to a firmware that knows
+    it, since on an older one the letter would start a 0 Hz scan.
+  - `_board_busy()` reports a busy board as busy: *The board is still sending measurement data* and
+    not as a firmware to update. Two signs, either enough — the port never fell silent, or the answer
+    carries a semicolon.
+  - Simulated against a board streaming for 1.8 s: 1360 bytes drained and the real answer parsed; a
+    board that never stops is reported busy after 6 s instead of answering with a sweep line.
+- **A finished peak detection gives the port back** — its completion path calls only `_enable_ui`,
+  never `stop()`, so the GUI never re-acquired the handle and the two device queries stayed greyed
+  out until the user disconnected and reconnected.
 - **Machine identification number: firmware 0.1.5b as its own folders, and the host side** —
   - `firmware/openQCM_Next_py_0.1.5b_teensy/` and `..._0.1.5b_TEST_teensy/` carry the `'S'` command.
     ⚠️ The **`0.1.5a` pair is restored to exactly what it was and kept**, to be deleted later: the
