@@ -88,6 +88,20 @@ processo Qt. I `QDialog` invece si mostrano e si catturano senza problemi.
 
 ### Il resto
 
+- ⚠️ **Da provare ancora sulla scheda di test**, quattro scenari del numero
+  identificativo e del firmware. Verificati: numero valido (`S/N 1900`, titolo,
+  popup) e le due voci grigie a porta chiusa e in acquisizione. **Non ancora
+  verificati:**
+  - **firmware precedente a `0.1.5b`** → nessuna risposta a `'S'` → l'avviso deve
+    dire *serve firmware più recente*, non altro;
+  - **EEPROM azzerata** → `NO_SERIAL` → `S/N not programmed`;
+  - **scheda occupata oltre i 6 s** → deve dire *The board is still sending
+    measurement data*, mai *update firmware*;
+  - **`'Q'` sulla variante `0.1.5c-TEST`** (sulla macchina vera è provato).
+  Servono due sketch usa-e-getta che azzerano il magic byte e che rileggono i
+  quattro byte grezzi: **non sono nel repository** e vanno riscritti (una
+  ventina di righe ciascuno, `EEPROM.read`/`write` sugli indirizzi in
+  `HANDOFF.md`).
 - ⚠️ **Firmware: tre coppie in `firmware/`.** La corrente è **`0.1.5c`** (`'S'` e
   `'Q'`); `0.1.5b` e `0.1.5a` sono superate e **vanno cancellate** quando nessuna
   scheda le monta più. La variante `-TEST` senza TEC resta finché la scheda
