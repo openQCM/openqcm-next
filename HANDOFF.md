@@ -273,8 +273,18 @@ compile time (`/100`, `%100`), so the two cannot disagree. A `#error` rejects an
 range — verified, it fires at 99 and at 25600. An existing number is never overwritten without a
 `Y` on the serial monitor.
 
-The verification line the host will parse is `SERIALNUMBER = 2052`: a plain integer, no dash, no
+The verification line the programmer prints is `SERIALNUMBER = 2052`: a plain integer, no dash, no
 leading zeros on the series.
+
+**The operational firmware only reads it.** Command `'S'` replies with the number (`1920`) or with
+`NO_SERIAL` when the magic byte is absent — it never invents or writes one. Both operational
+sketches carry it, production and the no-TEC TEST variant, and both went to **`0.1.5b`** with it.
+
+⚠️ **`Constants.FW_VERSION` moves with the firmware.** The host compares the reply to `'F'` against
+that string **exactly** and pops a firmware-update warning on any difference, so a version bump that
+stops at the sketch turns into a warning on every connect. It is `'0.1.5b'` now. The TEST variant
+answers `0.1.5b-TEST`, which by design does not match — the prototype board has always raised that
+warning.
 
 ⚠️ The copy of the programmer in the Q-1 repository is still **v2.0**, which writes the same bytes
 but prints the obsolete dashed form. The specification calls for v2.1 there. Until that is updated
@@ -288,9 +298,10 @@ no-TEC board those blocking Serial1 reads stall the sweep), and the temperature 
 (`25.00 °C` baseline + slow ±`0.05 °C` wobble; `#define USE_INTERNAL_TEMP` switches to the real
 Teensy 4.0 die temperature). The DDS/ADC sweep engine and the host wire format are unchanged
 (`temperature;status(0);error(0);s`), so **no software change is needed** and TEC commands are
-accepted as no-ops. **Do not build features on this variant — it exists only for the current test
-board and will be deleted once that board is retired.** Production firmware stays
-`firmware/openQCM_Next_py_0.1.5a_teensy/`.
+accepted as no-ops. **Do not build features on this variant.** It exists for a prototype board and
+will be deleted once that board is retired — but it is **kept in step with production while that
+board is in use**: a change to the host/firmware protocol goes into both sketches, as the `'S'`
+command did on 2026-08-31. Production firmware stays `firmware/openQCM_Next_py_0.1.5a_teensy/`.
 
 ## 4. `impedance-analysis` branch (0.1.6G) — detail
 

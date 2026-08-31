@@ -1030,6 +1030,19 @@ that file is touched.
 ## [Unreleased] — `main`
 
 ### Added
+- **Machine identification number: the `'S'` command, in both operational firmwares** — the board
+  reports its number over serial, `1920`, or `NO_SERIAL` when the EEPROM has never been programmed.
+  It only ever reads: an unprogrammed board is reported as such and nothing is written to it.
+  - The branch sits beside `'F'` in both sketches — production and the no-TEC TEST variant, which is
+    kept in step with production while the prototype board is in use. `'S'` was free: the protocol
+    uses T C P I D X A L F E and a sweep command starts with a digit.
+  - Both firmwares go to **`0.1.5b`** (`0.1.5b-TEST` for the variant), and ⚠️ **`Constants.FW_VERSION`
+    moves with them**: the host compares the `'F'` reply against that string exactly and pops a
+    firmware-update warning on any difference, so a bump that stopped at the sketch would warn on
+    every connect.
+  - `OPENQCM_SERIALNUMBER` is set to **1920** — series 19, unit 20 — the current hardware.
+  - Verified: all three sketches compile for `teensy:avr:teensy40` (programmer 35856 bytes,
+    production 55056, TEST 45500).
 - **Machine identification number: the programmer sketch** —
   `firmware/openQCM_Next_SerialNumber/`, ported from the Q-1 tool and written to the shared
   serial-number format specification. It writes four bytes into the Teensy EEPROM — magic `0xA5`,

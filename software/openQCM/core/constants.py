@@ -40,7 +40,7 @@ class Constants:
     
     # VER 0.1.5 Firmware version compatible with the current application
     # check for more information the arduino source code attached
-    FW_VERSION = '0.1.5a'
+    FW_VERSION = '0.1.5b'
     
     ###################
     # PLOT parameters #
