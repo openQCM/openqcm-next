@@ -5,6 +5,14 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — disabled menu entries look disabled (2026-08-31)
+
+`b9d1398`. The two device queries were unclickable and still painted like every other entry.
+⚠️ Once a style sheet sets a colour on `QMenu`, Qt stops applying its own disabled palette to the
+items, so `QMenu::item:disabled` has to be written out; `QMenu::item:selected:disabled` goes with it
+so the highlight stops following the cursor over an entry that would do nothing. Applies to every
+menu in the application.
+
 ### Carried from `main` — the device queries need an open port (2026-08-31)
 
 `ff90b6b`. *Check Firmware Version* and *Check Board Serial Number* talk to the board over the
