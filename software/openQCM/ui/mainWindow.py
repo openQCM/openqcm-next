@@ -59,6 +59,22 @@ from openQCM.sweep_data import plot_sweep_spline
 _BOARD_SERIAL_RE = re.compile(r'^\d{3,5}$')
 
 
+def _first_reply_line(text):
+    """The first non-empty line of a board reply, stripped.
+
+    ⚠️ Not text.rstrip('\r\n'), which was the rule here and only strips the
+    TRAILING terminator: a leading blank line, or a second line after the one
+    that matters, survives it and then fails an exact comparison for a reason
+    nothing on screen explains. Every query goes through this now -- firmware
+    version and identification number both.
+    """
+    for line in (text or "").splitlines():
+        line = line.strip()
+        if line:
+            return line
+    return ""
+
+
 def _firmware_is_current(version):
     """True when the board reports a firmware this software expects.
 
@@ -1242,8 +1258,15 @@ class MainWindow(QtGui.QMainWindow):
                 # query firmware version over the persistent connection
                 read_serial += self._serial_query(b'F\n')
 
-                # firmare version from serial read strip new line char
-                firmware_version_current = read_serial.rstrip('\r\n')
+                # firmware version: first non-empty line of the reply
+                firmware_version_current = _first_reply_line(read_serial)
+                # the raw reply, because the branches below that raise the
+                # update warning print nothing, and then a wrong answer and no
+                # answer at all look identical from the outside
+                print (TAG, "Firmware version response: {}".format(
+                    repr(read_serial)))
+                Log.i(TAG, "Firmware version response: {}".format(
+                    repr(read_serial)))
 
                 # no firmware information
                 if (firmware_version_current == ""):
@@ -1299,8 +1322,15 @@ class MainWindow(QtGui.QMainWindow):
                 # query firmware version over the persistent connection
                 read_serial += self._serial_query(b'F\n')
 
-                # firmare version from serial read strip new line char
-                firmware_version_current = read_serial.rstrip('\r\n')
+                # firmware version: first non-empty line of the reply
+                firmware_version_current = _first_reply_line(read_serial)
+                # the raw reply, because the branches below that raise the
+                # update warning print nothing, and then a wrong answer and no
+                # answer at all look identical from the outside
+                print (TAG, "Firmware version response: {}".format(
+                    repr(read_serial)))
+                Log.i(TAG, "Firmware version response: {}".format(
+                    repr(read_serial)))
                 
                 # no firmware information 
                 if (firmware_version_current == ""): 
@@ -1914,14 +1944,9 @@ class MainWindow(QtGui.QMainWindow):
                               "\n\nError: {}".format(e))
             return
 
-        # the reply may arrive with the line terminator, or with nothing at all
-        response = ""
-        for line in (reply or "").splitlines():
-            line = line.strip()
-            if line:
-                response = line
-                break
-        print(TAG, "Board number response: '{}'".format(response))
+        response = _first_reply_line(reply)
+        print(TAG, "Board number response: '{}' (raw {})".format(
+            response, repr(reply)))
         Log.i(TAG, "Board number response: '{}'".format(response))
 
         if response == "NO_SERIAL":

@@ -809,6 +809,15 @@ Conventional Commits. Versions are marked by Git tags.
     series' palest entry a measured distance from the light panel.
 
 ### Fixed
+- **A board reply is read as its first non-empty line, everywhere** — the firmware-version check used
+  `read_serial.rstrip('\r\n')`, which strips only the **trailing** terminator. A leading blank line
+  survives it, so `'\r\n0.1.5b-TEST\r\n'` compared as `'\r\n0.1.5b-TEST'` and raised the
+  firmware-update warning; measured, the old rule fails on exactly that shape while the new one does
+  not. `_first_reply_line()` is now the single parsing rule for the firmware version and for the
+  identification number, which already read replies that way.
+- ⚠️ **The branches that raise the update warning printed nothing**, so a wrong answer and no answer
+  at all were indistinguishable from the outside. Both now log the raw reply, `repr()` included, and
+  the serial-number query prints the raw bytes beside the parsed value.
 - **`PopUp.info` does not exist in NEXT** — the board-number query raised `AttributeError` the first
   time the menu entry was clicked with a programmed board. `info()` is a Q-1 method; NEXT's
   equivalent is `info_not_blocking()`, and the call was ported without checking. ⚠️ The reason it
