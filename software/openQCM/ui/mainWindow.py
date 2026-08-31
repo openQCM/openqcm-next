@@ -66,6 +66,27 @@ from openQCM.sweep_data import plot_conductance
 # so three to five digits and nothing else. The old dashed form is not accepted.
 _BOARD_SERIAL_RE = re.compile(r'^\d{3,5}$')
 
+
+def _firmware_is_current(version):
+    """True when the board reports a firmware this software expects.
+
+    Exact equality with Constants.FW_VERSION, plus -- while
+    Constants.accept_test_firmware is on -- the same version carrying the
+    '-TEST' suffix the no-TEC prototype firmware appends.
+
+    ⚠️ One place, because the check appears four times in
+    get_firmware_version, and a rule spelled out four times is a rule that
+    drifts. The switch is a development one: a shipped instrument must not
+    accept a prototype firmware without saying so.
+    """
+    if not version:
+        return False
+    if version == Constants.FW_VERSION:
+        return True
+    return (Constants.accept_test_firmware
+            and version == Constants.FW_VERSION
+                           + Constants.FW_VERSION_TEST_SUFFIX)
+
 TAG = ""#"[MainWindow]"
 
 # VER 0.1.6 init the SecondWindow class
@@ -1274,7 +1295,7 @@ class MainWindow(QtGui.QMainWindow):
                             self._run_firmware_updater()
 
                 # previous old firmware installed
-                elif (firmware_version_current != Constants.FW_VERSION):
+                elif (not _firmware_is_current(firmware_version_current)):
                     # VER 0.1.4 popup a warning  
                     upgrade_firmware = PopUp.warning_exec(self, "FIRMWARE UPDATE", "Please update firmware version " + str(Constants.FW_VERSION) + 
                                                           ". Press Yes button to continue the firmware update procedure")
@@ -1290,8 +1311,11 @@ class MainWindow(QtGui.QMainWindow):
                                                                         ". Press Yes button to continue the firmware update procedure")
                  
                 # firmware is update to the lates version    
-                elif (firmware_version_current == Constants.FW_VERSION):
-                    print ("Firmware Version " +  str(Constants.FW_VERSION))
+                elif (_firmware_is_current(firmware_version_current)):
+                    # the reported string, not the expected one: on the
+                    # prototype board they differ, and the operator has to see
+                    # which firmware actually answered
+                    print ("Firmware Version " + str(firmware_version_current))
             
             except: 
                 print ("Warning: Unable to open serial port. Please check device connection.")
@@ -1328,7 +1352,7 @@ class MainWindow(QtGui.QMainWindow):
                             self._run_firmware_updater()
                 
                 # previous old firmware installed
-                elif (firmware_version_current != Constants.FW_VERSION):
+                elif (not _firmware_is_current(firmware_version_current)):
                     # VER 0.1.4 popup a warning  
                     upgrade_firmware = PopUp.warning_exec(self, "FIRMWARE UPDATE", "Please update firmware version " + str(Constants.FW_VERSION) + 
                                                           ". Press Yes button to continue the firmware update procedure")
@@ -1345,10 +1369,10 @@ class MainWindow(QtGui.QMainWindow):
                  
                 # VER 0.1.5 if the firmware is update send a feedback message 
                 # firmware is update to the lates version    
-                elif (firmware_version_current == Constants.FW_VERSION):
-                    print ("Firmware Version " +  str(Constants.FW_VERSION))
+                elif (_firmware_is_current(firmware_version_current)):
+                    print ("Firmware Version " + str(firmware_version_current))
                     PopUp.info_not_blocking_rtf(self, "Firmware Information", 
-                    "Firmware Version " +  str(Constants.FW_VERSION) + "<br>" + 
+                    "Firmware Version " +  str(firmware_version_current) + "<br>" + 
                     "openQCM Next installed the most recent firmware. " + "<br>"  + 
                     "For more info please visit " + "<br>"  + 
                     "<a href='https://openqcm.com/openqcm-next-software/'>openQCM NEXT Firmware webpage</a>"

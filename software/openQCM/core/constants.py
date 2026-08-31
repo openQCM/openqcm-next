@@ -41,6 +41,18 @@ class Constants:
     # VER 0.1.5 Firmware version compatible with the current application
     # check for more information the arduino source code attached
     FW_VERSION = '0.1.5b'
+
+    ##########################################################################
+    # ⚠️ DEV ONLY -- SET accept_test_firmware = False BEFORE A PRODUCTION     #
+    # BUILD. The no-TEC prototype board runs the TEST firmware, which reports #
+    # '<FW_VERSION>-TEST'. The version check is exact string equality, so     #
+    # without this the prototype raises the firmware-update warning on every  #
+    # connect. The variant answers every command the production firmware      #
+    # does -- the suffix says which board is on the bench, not that the       #
+    # protocol is older. A shipped instrument must not accept it silently.    #
+    ##########################################################################
+    FW_VERSION_TEST_SUFFIX = '-TEST'
+    accept_test_firmware = True
     
     ###################
     # PLOT parameters #
