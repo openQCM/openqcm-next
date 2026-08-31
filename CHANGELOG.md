@@ -5,6 +5,25 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — firmware 0.1.5c stops a sweep (2026-08-31)
+
+`b79b066`. The board sweeps once per command and reads serial only at the top of `loop()`, so after
+a Stop it kept sending for the rest of the sweep — about 1.8 s per overtone — and a question asked
+in that window came back answered with `amplitude;phase` data, which the firmware check reported as
+*Please update firmware version*.
+
+New firmware pair `0.1.5c`, the `0.1.5b` one kept: `'Q'` ends the sweep in progress at the next
+whole sample. ⚠️ It also gets a top-level no-op branch, because anything unrecognised falls into the
+sweep parser where `atol("Q")` is 0 and the board starts a scan from 0 Hz.
+
+Host: `_drain_serial()` waits for silence before every query, `_reacquire_serial_lock` sends `'Q'`
+to a firmware that knows it, and `_board_busy()` reports a busy board as busy instead of as an old
+one. A finished peak detection now gives the port back — its completion path never went through
+`stop()`.
+
+Verified here after the cherry-pick: both 0.1.5c sketches compile, `Constants.FW_VERSION` is
+`0.1.5c`, the app imports.
+
 ### Carried from `main` — the device queries come back in standby (2026-08-31)
 
 `24be1c2`. After a Stop or a finished peak detection the two Tools entries stayed greyed out, so
