@@ -5,6 +5,21 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — a board reply is its first non-empty line (2026-08-31)
+
+`7a92f6d`. The firmware check kept raising the update warning on the prototype board even after the
+`-TEST` version was accepted, and the cause was upstream of the comparison: the reply was parsed
+with `rstrip('\r\n')`, which strips only the **trailing** terminator, so a leading blank line
+survived and `'\r\n0.1.5b-TEST\r\n'` compared as `'\r\n0.1.5b-TEST'`.
+
+`_first_reply_line()` is the single parsing rule now, for the firmware version and for the
+identification number — the second already read replies this way, which is why that path never
+showed the fault. ⚠️ The branches that raise the warning printed nothing, so a wrong answer and no
+answer were indistinguishable; both log the raw reply now.
+
+Verified here after the cherry-pick: `'0.1.5b-TEST\r\n'` and `'\r\n0.1.5b-TEST\r\n'` both parse
+and pass, `'0.1.5a'` and `''` do not.
+
 ### Carried from `main` — the firmware check accepts the prototype build (2026-08-31)
 
 `b890039`, code applied clean; only the changelog conflicted and the branch keeps its own. The
