@@ -6,6 +6,23 @@ Conventional Commits. Versions are marked by Git tags.
 ## [Unreleased] — `main`
 
 ### Added
+- **Machine identification number: firmware 0.1.5b as its own folders, and the host side** —
+  - `firmware/openQCM_Next_py_0.1.5b_teensy/` and `..._0.1.5b_TEST_teensy/` carry the `'S'` command.
+    ⚠️ The **`0.1.5a` pair is restored to exactly what it was and kept**, to be deleted later: the
+    previous commit had bumped `FW_VERSION` inside folders named `0.1.5a`, which left a sketch
+    reporting a version its own directory contradicted.
+  - **Host**: `Tools > Check Board Serial Number`, plus the same query run silently on connect.
+    Three outcomes, distinguished on purpose — no valid answer is a firmware older than 0.1.5b,
+    `NO_SERIAL` is an unprogrammed EEPROM, anything matching `^\d{3,5}$` within 100–25599 is the
+    number. Shown under the brand (`lblSerialNumber`, themed) and in the window title.
+  - ⚠️ The window title has **two independent suffixes** — the board number from connect, the
+    datalog filename from START — so it is composed in one place, `_window_title()`. Writing either
+    straight into `setWindowTitle` erases the other.
+  - Verified: all five sketches compile for `teensy:avr:teensy40`; the restored 0.1.5a pair is
+    byte-identical to its previous state; and `_query_serial_number` driven against a stub gives
+    `1920` → S/N shown and title `openQCM NEXT [1920]`, `NO_SERIAL` → "not programmed",
+    empty / `0.1.5b` / `99999` → treated as no answer, and a reply with a leading blank line still
+    parses. With a log open the title composes as `openQCM NEXT [1920] — <file>.csv`.
 - **Machine identification number: the `'S'` command, in both operational firmwares** — the board
   reports its number over serial, `1920`, or `NO_SERIAL` when the EEPROM has never been programmed.
   It only ever reads: an unprogrammed board is reported as such and nothing is written to it.
