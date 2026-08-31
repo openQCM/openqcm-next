@@ -809,6 +809,14 @@ Conventional Commits. Versions are marked by Git tags.
     series' palest entry a measured distance from the light panel.
 
 ### Fixed
+- **Disabled menu entries look disabled** — the two device queries were correctly unclickable and
+  still painted like every other entry, which reads as a bug rather than as a state. ⚠️ Once a style
+  sheet sets a colour on `QMenu`, Qt stops applying its own disabled palette to the items, so it has
+  to be said: `QMenu::item:disabled` in `disabled_text` (`#9aa0a6` light, `#7c8085` dark), plus
+  `QMenu::item:selected:disabled` so the highlight stops following the cursor over an entry that
+  would do nothing — an item that lights up and then ignores the click is worse than one that never
+  lights up. `QMenuBar::item:disabled` goes with them. It applies to every menu in the application,
+  not only these two entries.
 - **The two device queries are greyed out unless the board can answer them** — *Check Firmware
   Version* and *Check Board Serial Number* talk to the board over the persistent serial handle, so
   they need an open port and an idle acquisition; while a measurement runs, the child process owns
