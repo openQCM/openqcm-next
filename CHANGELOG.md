@@ -5,6 +5,20 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — the device queries come back in standby (2026-08-31)
+
+`24be1c2`. After a Stop or a finished peak detection the two Tools entries stayed greyed out, so
+neither the firmware version nor the board number could be asked for again without reconnecting.
+
+⚠️ `stop()` calls `_enable_ui` **before** `worker.stop()` and a second before
+`_reacquire_serial_lock()`, so the menu state it computed was out of date. The refresh moves into
+`_reacquire_serial_lock()`, where every path that regains the port ends. ⚠️ And `_serial_connected`
+was the wrong test: `start()` hands the port over by **closing the handle without dropping the
+reference**. `_can_query_device()` asks whether the handle is open and the worker idle, and drives
+both the menu and the two guards.
+
+Verified here after the cherry-pick across the six lifecycle states, and the app imports.
+
 ### Carried from `main` — disabled menu entries look disabled (2026-08-31)
 
 `b9d1398`. The two device queries were unclickable and still painted like every other entry.
