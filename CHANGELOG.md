@@ -6,6 +6,21 @@ Conventional Commits. Versions are marked by Git tags.
 ## [Unreleased] — `main`
 
 ### Added
+- **Machine identification number: the programmer sketch** —
+  `firmware/openQCM_Next_SerialNumber/`, ported from the Q-1 tool and written to the shared
+  serial-number format specification. It writes four bytes into the Teensy EEPROM — magic `0xA5`,
+  series, unit high, unit low, big-endian — **the Q-1 layout byte for byte**, so a board programmed
+  by either tool reads correctly in both.
+  - The format is **`SSNN`, one compact integer with no separator**: series 20 unit 52 is `2052`,
+    and the board after `2099` is `2100`. The obsolete `SERIES-NNNN` form appears nowhere.
+  - The operator sets **one macro**, `OPENQCM_SERIALNUMBER`; series and unit are derived at compile
+    time, so they cannot disagree. A `#error` rejects anything outside 100–25599.
+  - An existing number is never overwritten without a `Y` on the serial monitor.
+  - Verified: compiles clean for `teensy:avr:teensy40`; the range guard fires at both 99 and 25600;
+    and the format expressions, compiled and run on the host, give `100 / 2052 / 2099 / 2100 /
+    25599` with the EEPROM round trip intact.
+  - ⚠️ `OPENQCM_SERIALNUMBER` is currently the placeholder **100** — set it to the real number
+    before programming the first board.
 - ⚠️ **TEST-ONLY firmware variant (no-TEC board)** — _internal, temporary; to be removed._
   New Teensy sketch `firmware/openQCM_Next_py_0.1.5a_TEST_teensy/` (version `0.1.5a-TEST`)
   for a special openQCM NEXT board built for testing that **does not mount the

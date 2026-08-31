@@ -537,6 +537,31 @@ plumbed into the GUI process** (`consume_queue_P_multi`, which also closed an un
 swallowed `UnboundLocalError`); **outlier rejection made a property of the average instead of a
 coincidence of the buffer length** (`core/averaging.py`) — all see §5 and CHANGELOG.
 
+### The machine identification number, and where it lives
+
+`firmware/openQCM_Next_SerialNumber/` writes it into the Teensy EEPROM. Flashed once per board,
+then the operational firmware goes on top — the EEPROM survives the reflash.
+
+Four bytes, **the layout the Q-1 uses, byte for byte**, so a board is read correctly by either
+tool: `[0]` magic `0xA5`, `[1]` series, `[2]` unit high, `[3]` unit low, big-endian.
+
+⚠️ **The format is `SSNN`, one compact integer with no separator** — series without leading zeros,
+unit always two digits: series 20 unit 52 is `2052`, and the board after `2099` is `2100`, series 21
+unit 00. `sprintf(buf, "%u%02u", series, unit)`. Valid range 100–25599. The older `SERIES-NNNN`
+form (`20-0055`) is obsolete and must not appear in firmware, serial output, logs or GUI.
+
+The operator sets **one macro**, `OPENQCM_SERIALNUMBER`; series and unit are derived from it at
+compile time (`/100`, `%100`), so the two cannot disagree. A `#error` rejects anything outside the
+range — verified, it fires at 99 and at 25600. An existing number is never overwritten without a
+`Y` on the serial monitor.
+
+The verification line the host will parse is `SERIALNUMBER = 2052`: a plain integer, no dash, no
+leading zeros on the series.
+
+⚠️ The copy of the programmer in the Q-1 repository is still **v2.0**, which writes the same bytes
+but prints the obsolete dashed form. The specification calls for v2.1 there. Until that is updated
+the two sketches agree on the EEPROM and disagree on what they print.
+
 ### ⚠️ TEST-ONLY firmware variant (no-TEC board) — temporary, will be removed
 `firmware/openQCM_Next_py_0.1.5a_TEST_teensy/` (`0.1.5a-TEST`) is a **throwaway internal
 variant** for a special bench board that **does not mount the TEC section**. It is a copy of the
