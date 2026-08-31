@@ -290,6 +290,12 @@ Three outcomes, and they are not the same thing — no valid answer at all is a 
 100–25599 is the number. It goes under the brand in the sidebar (`lblSerialNumber`) and into the
 window title.
 
+⚠️ **NEXT's `PopUp` has no `info()`** — that is a Q-1 method, and the port used it: the success path
+raised `AttributeError` the first time the menu entry was clicked. The NEXT equivalent is
+`info_not_blocking()`. It survived verification because every outcome had been exercised with
+`auto_mode=True`, the mode that skips all four popups. Driving a dialog-bearing path headlessly
+needs `PopUp` swapped for a recorder anyway — `PopUp.warning` is modal and hangs the run.
+
 ⚠️ **The window title has two independent suffixes** — the board number, which arrives on connect,
 and the datalog filename, which arrives on START — so it is composed in one place,
 `_window_title()`. Writing either of them straight into `setWindowTitle` is how one erases the

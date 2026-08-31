@@ -1962,8 +1962,12 @@ class MainWindow(QtGui.QMainWindow):
             print(TAG, "Board identification number: {}".format(response))
             Log.i(TAG, "Board identification number: {}".format(response))
             if not auto_mode:
-                PopUp.info(self, Constants.app_title,
-                           "Board identification number: {}".format(response))
+                # info_not_blocking, not info: NEXT's PopUp has no info(). That
+                # is a Q-1 method, and porting the call without checking is how
+                # the success path raised AttributeError on the first click.
+                PopUp.info_not_blocking(self, Constants.app_title,
+                                        "Board identification number: {}"
+                                        .format(response))
 
     ###########################################################################
     # Configures specific elements of the PyQtGraph plots.

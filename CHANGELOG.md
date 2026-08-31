@@ -1372,6 +1372,14 @@ that file is touched.
   unchanged.
 
 ### Fixed
+- **`PopUp.info` does not exist in NEXT** — the board-number query raised `AttributeError` the first
+  time the menu entry was clicked with a programmed board. `info()` is a Q-1 method; NEXT's
+  equivalent is `info_not_blocking()`, and the call was ported without checking. ⚠️ The reason it
+  survived verification: every path was exercised with `auto_mode=True`, which is precisely the mode
+  that **skips all four popups**. The regression check now runs `auto_mode=False` with `PopUp`
+  replaced by a recorder — `PopUp.warning` is modal and would otherwise hang a headless run — and
+  asserts that every method it names exists on the real class: `info_not_blocking` on success,
+  `warning` for a blank EEPROM, for no answer, for a closed port and for a running acquisition.
 - **Application icon now loads on all platforms** — it was set from non-resolving paths:
   `app.py` used the Windows-only `'\icon\favicon.ico'`, and the window icon + sidebar brand logo
   used the cwd-relative `"favicon.png"`, so no icon appeared on macOS/Linux (or whenever the app
