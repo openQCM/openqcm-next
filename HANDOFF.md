@@ -566,6 +566,15 @@ The command arrived with **`0.1.5b`**, which is its own pair of folders:
 is kept, untouched, and is the one to delete later** — a folder named for a version whose firmware
 reports a different one is the kind of thing that costs an afternoon on a bench.
 
+⚠️ **Both menu queries are greyed out unless the board can answer** — `_enable_device_queries()`,
+called from `_enable_ui` and from the two branches that move the connection state. They talk to the
+board over the persistent handle, so they need an open port and an idle acquisition: while a
+measurement runs the child process owns the port. Disconnected, the firmware query used to run
+anyway and come back empty, which that code reads as "no firmware information" and answers with
+*Please update firmware version* — a closed port reported as an out-of-date board, which is the
+wrong problem to go looking for. The runtime guards inside both methods stay: a menu item can be
+reached by a shortcut, and the automatic query on connect does not go through the menu at all.
+
 **The host side**: `Tools > Check Board Serial Number`, and the same query run silently on connect.
 Three outcomes, and they are not the same thing — no valid answer at all is a firmware older than
 0.1.5b, `NO_SERIAL` is a board whose EEPROM was never written, anything matching `^\d{3,5}$` inside
