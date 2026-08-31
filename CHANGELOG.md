@@ -61,7 +61,9 @@ Conventional Commits. Versions are marked by Git tags.
     moves with them**: the host compares the `'F'` reply against that string exactly and pops a
     firmware-update warning on any difference, so a bump that stopped at the sketch would warn on
     every connect.
-  - `OPENQCM_SERIALNUMBER` is set to **1920** — series 19, unit 20 — the current hardware.
+  - `OPENQCM_SERIALNUMBER` is **1900** — series 19, unit 00. It was 1920 when the sketch was
+    written; the current value went in on 2026-08-31 inside the 0.1.5c commit, which staged the
+    whole firmware directory and does not mention it. Recorded here instead.
   - Verified: all three sketches compile for `teensy:avr:teensy40` (programmer 35856 bytes,
     production 55056, TEST 45500).
 - **Machine identification number: the programmer sketch** —
