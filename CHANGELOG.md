@@ -5,6 +5,20 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — the device queries need an open port (2026-08-31)
+
+`ff90b6b`. *Check Firmware Version* and *Check Board Serial Number* talk to the board over the
+persistent handle. ⚠️ Disconnected, the firmware query ran anyway and came back empty, which that
+code reads as "no firmware information" and answers with *Please update firmware version* — a closed
+port reported as an out-of-date board.
+
+Both entries are greyed out unless the port is open and the acquisition idle (while a measurement
+runs the child process owns the port), and `get_firmware_version` gets the not-connected guard the
+serial-number query already had. The runtime guards stay in both: a shortcut can reach a menu item,
+and the automatic query on connect never goes through the menu.
+
+Verified here after the cherry-pick on the three states, and the app imports.
+
 ### Carried from `main` — a board reply is its first non-empty line (2026-08-31)
 
 `7a92f6d`. The firmware check kept raising the update warning on the prototype board even after the
