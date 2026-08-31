@@ -76,7 +76,7 @@
 #define MAGIC_BYTE  0xA5
 
 /**************** CONFIGURE THIS BEFORE EACH BOARD *******************/
-#define OPENQCM_SERIALNUMBER   1920   // SSNN: series * 100 + unit
+#define OPENQCM_SERIALNUMBER   1900   // SSNN: series * 100 + unit
 /*********************************************************************/
 
 /* One macro, two fields: the split is the format's own arithmetic and is done
