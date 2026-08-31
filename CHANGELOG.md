@@ -1402,6 +1402,21 @@ that file is touched.
   unchanged.
 
 ### Fixed
+- **The two device queries are greyed out unless the board can answer them** — *Check Firmware
+  Version* and *Check Board Serial Number* talk to the board over the persistent serial handle, so
+  they need an open port and an idle acquisition; while a measurement runs, the child process owns
+  the port.
+  - ⚠️ Disconnected, the firmware query ran anyway and came back empty, which that code reads as "no
+    firmware information" and answers with ***Please update firmware version*** — a closed port
+    reported as an out-of-date board, and the wrong problem to go looking for. It now has the same
+    not-connected guard the serial-number query already had.
+  - `_enable_device_queries()` is called from `_enable_ui` and from both branches that move the
+    connection state, so the menu follows Start.
+  - The runtime guards stay: a menu item can be reached by a shortcut, and the automatic query on
+    connect never goes through the menu.
+  - Verified on the three states: disconnected and acquiring both grey the entries and both methods
+    warn if reached anyway; connected and idle, the firmware query answers with its information
+    popup.
 - **A board reply is read as its first non-empty line, everywhere** — the firmware-version check used
   `read_serial.rstrip('\r\n')`, which strips only the **trailing** terminator. A leading blank line
   survives it, so `'\r\n0.1.5b-TEST\r\n'` compared as `'\r\n0.1.5b-TEST'` and raised the

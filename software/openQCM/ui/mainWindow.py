@@ -1275,6 +1275,19 @@ class MainWindow(QtGui.QMainWindow):
     def get_firmware_version(self, autoMode):
         # query the device over the persistent connection (opened on Connect)
 
+        # VER 0.1.5b no port, no question. Without this the query returns an
+        # empty string and the branch below reads that as "no firmware
+        # information", which answers a closed port with *Please update
+        # firmware version* -- the wrong problem, and the one the operator then
+        # goes looking for.
+        if not self._serial_connected or self._serial_lock is None:
+            if not autoMode:
+                PopUp.warning(self, Constants.app_title,
+                              "Serial port not connected.\n"
+                              "Connect to the device first.")
+            print(TAG, "Firmware version query skipped: not connected")
+            return
+
         # init the byte at port and read serlai string
         byte_at_port = 0
         read_serial = ""
@@ -1537,6 +1550,27 @@ class MainWindow(QtGui.QMainWindow):
     ###########################################################################
     # Enables or disables the UI elements of the window.
     ###########################################################################
+    def _enable_device_queries(self):
+        """Grey out the two menu queries unless the board can actually answer.
+
+        ⚠️ Both talk to the board over the persistent handle, so both need an
+        open port and an idle acquisition -- while a measurement runs the child
+        process owns the port. Disconnected, the query used to reach the
+        firmware check anyway and come back empty, which that code reads as "no
+        firmware information" and answers with *Please update firmware version*:
+        a closed port reported as an out-of-date board.
+
+        The runtime guards inside the two methods stay: a menu item can also be
+        triggered by a shortcut, and the automatic query on connect does not go
+        through the menu at all.
+        """
+        idle = not (self.worker is not None and self.worker.is_running())
+        can_ask = bool(self._serial_connected) and idle
+        for name in ("actionFirmware", "actionSerialNumber"):
+            act = getattr(self.ui, name, None)
+            if act is not None:
+                act.setEnabled(can_ask)
+
     def _enable_ui(self, enabled):
 
         #:param enabled: The value to be set for the UI elements :type enabled: bool
@@ -1561,6 +1595,8 @@ class MainWindow(QtGui.QMainWindow):
         # Phase 3a: pButton_Start is a single Start/Stop toggle — keep it usable
         # while running (to act as Stop); gate only on the active connection.
         self.ui.pButton_Start.setEnabled(self._serial_connected)
+        # the two device queries follow the same rule as Start
+        self._enable_device_queries()
         # reflect the running state on the toggle (enabled True == idle)
         _running = not enabled
         # minimalist outline glyphs: ▷ play (start), □ square (stop)
@@ -2448,6 +2484,7 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.pButton_Refresh.setEnabled(False)
             self.ui.pButton_Start.setEnabled(True)
             self.ui.pButton_Tswitch_ON.setEnabled(True)
+            self._enable_device_queries()
             self.ui.label_COM_status.setText("Connected: {}".format(port))
             self.ui.label_COM_status.setToolTip("Connected: {}".format(port))
             self._set_status("standby", "Standby")
@@ -2479,6 +2516,7 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.pButton_Refresh.setEnabled(True)
             self.ui.pButton_Start.setEnabled(False)
             self.ui.pButton_Tswitch_ON.setEnabled(False)
+            self._enable_device_queries()
             self.ui.label_COM_status.setText("Disconnected")
             self._show_board_serial(None)
             self._set_status("disconnected", "Standby")
