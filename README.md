@@ -115,7 +115,12 @@ A legacy `FindPeak` routine remains available as a fallback.
 ### Hardware Integration
 
 - **Teensy 4.0** microcontroller firmware (see [`firmware/`](firmware/)); USB-CDC serial link at 115200 baud, 8N1
-- Frequency sweep command protocol (`start;stop;step`) with a magnitude/phase ADC data stream
+- Frequency sweep command protocol (`start;stop;step`) with a magnitude/phase ADC data stream, and
+  single-letter commands beside it: `F` firmware version, `S` machine identification number,
+  `Q` end the sweep in progress, plus the TEC set
+- **Machine identification number** stored in the Teensy EEPROM, written once per board by
+  `firmware/openQCM_Next_SerialNumber/` and read back by the software (Tools → Check Board Serial
+  Number). Format `SSNN`, one compact integer: series 19 unit 20 is `1920`
 - **TEC (thermo-electric) current monitoring** and temperature/PID control commands
 - Bundled platform-specific firmware update tools (Teensy Loader for macOS/Windows) under [`software/openQCM/firmware_update/`](software/openQCM/firmware_update/)
 
@@ -295,7 +300,8 @@ Selected planned work (non-exhaustive):
   and a few minor layout refinements.
 - Port selected backend improvements from the mature **openQCM Q-1** codebase: **disconnected-sensor
   detection**, **tracking safety** (auto-disable/resume), and peak-detection validations.
-- Harden the **firmware version check** for older firmware (range-priming + reply validation).
+- Retire the superseded firmware folders (`0.1.5a`, `0.1.5b`) once no board runs them; `0.1.5c` is
+  the current pair, and the no-TEC `-TEST` variant is kept while the prototype board is in use.
 - Merge the `impedance-analysis` feature once stabilized (make the conductance method selectable
   rather than hardwired). The exact complex-impedance formula is **done** and is the published path
   on that branch; what remains is the selector, reference-load calibration for metrological use, and

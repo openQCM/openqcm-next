@@ -74,13 +74,32 @@ processo Qt. I `QDialog` invece si mostrano e si catturano senza problemi.
 
 ## Cose aperte
 
-- ⚠️ **`Constants.environment = 3` su entrambi i rami**, da riportare a **10**
-  prima di qualsiasi build di produzione. Motivo ormai solo metrologico.
-- **Larghezza dei pill delle armoniche**: tentata e revertita. Una larghezza fissa
-  deve entrare nella sidebar più stretta (~44 px a 260, illeggibile), una comoda
-  impedisce alla riga di restringersi e le card vengono **tagliate** — la scroll
-  area è `widgetResizable` con la barra orizzontale spenta, quindi non scorre, taglia.
-  Il minimo del contenuto è 371 px contro i 300 del default: difetto preesistente.
+### Tre interruttori da rimettere prima di una build di produzione
+
+- ⚠️ **`Constants.environment = 3`** su entrambi i rami → **10**. Motivo ormai
+  solo metrologico.
+- ⚠️ **`Constants.accept_test_firmware = True`** → **`False`**. Fa passare il
+  firmware `-TEST` della scheda prototipo; uno strumento spedito non deve
+  accettarlo in silenzio.
+- ⚠️ **`Constants.plot_reassert_yrange_freq_diss = False`** → **`True`** quando
+  l'asse verticale di frequenza e dissipazione sarà sistemato.
+
+### Il resto
+
+- ⚠️ **Firmware: tre coppie in `firmware/`.** La corrente è **`0.1.5c`** (`'S'` e
+  `'Q'`); `0.1.5b` e `0.1.5a` sono superate e **vanno cancellate** quando nessuna
+  scheda le monta più. La variante `-TEST` senza TEC resta finché la scheda
+  prototipo è in uso.
+- ⚠️ **`firmware_update/` spedisce l'immagine `0.1.5`**, due versioni indietro.
+- ⚠️ **`OPENQCM_SERIALNUMBER` diverge fra i due worktree**: 1900 su `main` (non
+  committato) e 1920 sul ramo. Da decidere e allineare.
+- ⚠️ **Sidebar tagliata**: il contenuto chiede **435 px**, il pannello ne concede
+  260 al minimo e 400 al massimo. La scroll area è `widgetResizable` con la barra
+  orizzontale spenta, quindi non scorre: **taglia**. Difetto preesistente.
+- **Larghezza dei pill delle armoniche**: tentata **due volte** e revertita due
+  volte. Quello che si è imparato sta in `HANDOFF.md`, "The overtone chips, and
+  why they still stretch", inclusa la variante mai provata: chip impaccati a
+  sinistra con **un solo spaziatore in coda**.
 - **`plot_color_multi_g`** (solo ramo): palette esadecimale dei grafici di
   conduttanza, copia di una lista blu più vecchia, mai allineata alle due rampe.
 - Copia benigna di `savitzky_golay` in `sweep_data/plot_conductance.py` (ramo).

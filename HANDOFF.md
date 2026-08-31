@@ -309,10 +309,18 @@ leading zeros on the series.
 **The operational firmware only reads it.** Command `'S'` replies with the number (`1920`) or with
 `NO_SERIAL` when the magic byte is absent — it never invents or writes one.
 
-The command arrived with **`0.1.5b`**, which is its own pair of folders:
-`openQCM_Next_py_0.1.5b_teensy/` and `openQCM_Next_py_0.1.5b_TEST_teensy/`. ⚠️ **The `0.1.5a` pair
-is kept, untouched, and is the one to delete later** — a folder named for a version whose firmware
-reports a different one is the kind of thing that costs an afternoon on a bench.
+The command arrived with `0.1.5b`; the current pair is **`0.1.5c`**, which added `'Q'`. Each
+version is its own pair of folders, production and no-TEC `-TEST`:
+
+| folder | state |
+|---|---|
+| `openQCM_Next_py_0.1.5c_teensy` + `_TEST_` | ⭐ **current** — `'S'` and `'Q'`, what `Constants.FW_VERSION` expects |
+| `openQCM_Next_py_0.1.5b_teensy` + `_TEST_` | superseded — `'S'` only. Delete once no board runs it |
+| `openQCM_Next_py_0.1.5a_teensy` + `_TEST_` | superseded — neither. Delete once no board runs it |
+
+⚠️ **A version bump means a new folder, not an edit in place.** A folder named for a version whose
+firmware reports a different one is the kind of thing that costs an afternoon on a bench — it
+happened once here already, on 2026-08-31, and was undone the same day.
 
 ⚠️ **A disabled menu entry needs its colour said explicitly.** Once the style sheet sets a colour on
 `QMenu`, Qt stops applying its own disabled palette to the items, so an entry that cannot be clicked
@@ -361,7 +369,7 @@ other.
 
 ⚠️ **`Constants.FW_VERSION` moves with the firmware.** The host compares the reply to `'F'` against
 that string and pops a firmware-update warning when it does not match, so a version bump that stops
-at the sketch turns into a warning on every connect. It is `'0.1.5b'` now.
+at the sketch turns into a warning on every connect. It is `'0.1.5c'` now.
 
 ⚠️ **Every reply is parsed by `_first_reply_line()`, not by `rstrip('\r\n')`.** That was the rule
 for the firmware version and it only strips the **trailing** terminator: a leading blank line, or a
@@ -372,7 +380,7 @@ wrong answer and no answer at all looked identical from outside — they log the
 The comparison is `_firmware_is_current()`, **one function** — the check appears four times in
 `get_firmware_version` and a rule spelled out four times is a rule that drifts. It accepts
 `FW_VERSION` and, while `Constants.accept_test_firmware` is on, `FW_VERSION + '-TEST'`: the
-prototype board answers `0.1.5b-TEST` and used to raise the update warning on every connect, though
+prototype board answers `0.1.5c-TEST` and used to raise the update warning on every connect, though
 it speaks the whole protocol. The suffix says which board is on the bench, not that the firmware is
 older.
 
@@ -386,9 +394,9 @@ but prints the obsolete dashed form. The specification calls for v2.1 there. Unt
 the two sketches agree on the EEPROM and disagree on what they print.
 
 ### ⚠️ TEST-ONLY firmware variant (no-TEC board) — temporary, will be removed
-`firmware/openQCM_Next_py_0.1.5a_TEST_teensy/` (`0.1.5a-TEST`) is a **throwaway internal
+`firmware/openQCM_Next_py_0.1.5c_TEST_teensy/` (`0.1.5c-TEST`) is a **throwaway internal
 variant** for a special bench board that **does not mount the TEC section**. It is a copy of the
-production `0.1.5a` firmware with all MTD415T/Serial1, MCP9808, fan and TEC-pin code removed (on a
+production firmware of the same version with all MTD415T/Serial1, MCP9808, fan and TEC-pin code removed (on a
 no-TEC board those blocking Serial1 reads stall the sweep), and the temperature field **simulated**
 (`25.00 °C` baseline + slow ±`0.05 °C` wobble; `#define USE_INTERNAL_TEMP` switches to the real
 Teensy 4.0 die temperature). The DDS/ADC sweep engine and the host wire format are unchanged
@@ -396,7 +404,8 @@ Teensy 4.0 die temperature). The DDS/ADC sweep engine and the host wire format a
 accepted as no-ops. **Do not build features on this variant.** It exists for a prototype board and
 will be deleted once that board is retired — but it is **kept in step with production while that
 board is in use**: a change to the host/firmware protocol goes into both sketches, as the `'S'`
-command did on 2026-08-31. Production firmware stays `firmware/openQCM_Next_py_0.1.5a_teensy/`.
+`'S'` and `'Q'` commands did on 2026-08-31. Production firmware is
+`firmware/openQCM_Next_py_0.1.5c_teensy/`.
 
 ## 4. `impedance-analysis` branch (0.1.6G) — detail
 
@@ -790,8 +799,11 @@ Quick wins:
   pipeline (no new plumbing). Threshold `100` is Q-1's (its bandwidth is FWHM `0.707·f_max`); ours
   uses `f_max - THRESHOLD_DB` (0.3 dB), so the value **must be validated/tuned on hardware** with a
   physically disconnected sensor. Optional first step: synthetic Lorentzian-vs-noise check offline.
-- **Robust firmware query**: add range-priming (`1;1;1\n`) + reply-format validation in
-  `ui/mainWindow.py` (adapt the regex to the `0.1.5a` version format) to survive older firmware.
+- ~~**Robust firmware query**~~ — done on 2026-08-31, though not the way this line proposed. Q-1's
+  range-priming answers a different failure (a firmware that misparses `'F'` as a sweep command);
+  ours was a board still streaming the rest of its sweep. The cure is `_drain_serial()`, the `'Q'`
+  command and `_board_busy()`; see the section "Asking the board a question while it may still be
+  talking".
 - **Firmware updater .hex fix**: `firmware_update/` ships the `0.1.5` image (POT 180) while the
   software expects `0.1.5a` (POT 240) → ship the `0.1.5a` image (already in `firmware/`).
 
