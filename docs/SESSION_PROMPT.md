@@ -74,8 +74,29 @@ processo Qt. I `QDialog` invece si mostrano e si catturano senza problemi.
 
 ## Cose aperte
 
-- ⚠️ **`Constants.environment = 3` su entrambi i rami**, da riportare a **10**
-  prima di qualsiasi build di produzione. Motivo ormai solo metrologico.
+### Tre interruttori da rimettere prima di una build di produzione
+
+- ⚠️ **`Constants.environment = 3`** su entrambi i rami → **10**. Motivo ormai
+  solo metrologico.
+- ⚠️ **`Constants.accept_test_firmware = True`** → **`False`**. Fa passare il
+  firmware `-TEST` della scheda prototipo; uno strumento spedito non deve
+  accettarlo in silenzio.
+- ⚠️ **`Constants.plot_reassert_yrange_freq_diss = False`** → **`True`** quando
+  l'asse verticale di frequenza e dissipazione sarà sistemato. Ora i due
+  pannelli non vengono più reinquadrati a ogni sweep, così uno zoom manuale
+  resta.
+
+### Il resto
+
+- ⚠️ **Firmware: tre coppie in `firmware/`.** La corrente è **`0.1.5c`** (`'S'` e
+  `'Q'`); `0.1.5b` e `0.1.5a` sono superate e **vanno cancellate** quando nessuna
+  scheda le monta più. La variante `-TEST` senza TEC resta finché la scheda
+  prototipo è in uso.
+- ⚠️ **`firmware_update/` spedisce l'immagine `0.1.5`**, due versioni indietro:
+  chi usa l'updater incluso finisce su un firmware che il software gli chiede
+  subito di aggiornare.
+- ⚠️ **`OPENQCM_SERIALNUMBER` diverge fra i due worktree**: 1900 su `main` (non
+  committato) e 1920 sul ramo. Da decidere e allineare.
 - ⚠️ **Sidebar tagliata**: il contenuto chiede **435 px**, il pannello ne concede
   260 al minimo e 400 al massimo. La scroll area è `widgetResizable` con la barra
   orizzontale spenta, quindi non scorre: **taglia**. Difetto preesistente.
