@@ -305,6 +305,12 @@ other.
 that string and pops a firmware-update warning when it does not match, so a version bump that stops
 at the sketch turns into a warning on every connect. It is `'0.1.5b'` now.
 
+⚠️ **Every reply is parsed by `_first_reply_line()`, not by `rstrip('\r\n')`.** That was the rule
+for the firmware version and it only strips the **trailing** terminator: a leading blank line, or a
+second line after the one that matters, survives it and then fails an exact comparison for a reason
+nothing on screen explains. The branches that raise the update warning printed nothing either, so a
+wrong answer and no answer at all looked identical from outside — they log the raw reply now.
+
 The comparison is `_firmware_is_current()`, **one function** — the check appears four times in
 `get_firmware_version` and a rule spelled out four times is a rule that drifts. It accepts
 `FW_VERSION` and, while `Constants.accept_test_firmware` is on, `FW_VERSION + '-TEST'`: the
