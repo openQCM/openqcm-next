@@ -23,6 +23,7 @@ except:
 from openQCM.core.worker import Worker
 from openQCM.processors.Serial import SerialProcess
 from openQCM.core.constants import Constants, SourceType, ElapsedTimeAxis, NonScientificAxis
+
 from openQCM.ui.popUp import PopUp
 # A diagnostic view must never stop the application from starting.
 try:
@@ -59,6 +60,11 @@ from openQCM.sweep_data import plot_sweep_spline
 
 from openQCM.sweep_data import plot_conductance
 
+
+# VER 0.1.5b the identification number as the board reports it: one compact
+# integer, SSNN, no separator. Valid range 100-25599 (series 1-255, unit 00-99),
+# so three to five digits and nothing else. The old dashed form is not accepted.
+_BOARD_SERIAL_RE = re.compile(r'^\d{3,5}$')
 
 TAG = ""#"[MainWindow]"
 
@@ -392,6 +398,8 @@ class MainWindow(QtGui.QMainWindow):
         
         # VER 0.1.4 toolbar menu bar 
         self.ui.actionFirmware.triggered.connect(lambda: self.get_firmware_version(False))
+        self.ui.actionSerialNumber.triggered.connect(
+            lambda: self._query_serial_number(auto_mode=False))
 # =============================================================================
 #         self.ui.actionFirmware.triggered.connect(self.dummy)
 # =============================================================================
@@ -434,6 +442,7 @@ class MainWindow(QtGui.QMainWindow):
 
         # GUI redesign R1: the programmatic UI (ui/mainWindow_ui.py) builds the
         # single-window shell directly; here we only bind the runtime state.
+        self._board_serial = None       # SSNN read from the board EEPROM
         self._setup_log_filename_label()
         self._install_system_log()
 
@@ -1830,6 +1839,20 @@ class MainWindow(QtGui.QMainWindow):
         self._window_title_base = self.windowTitle()
         self.lblLogFile = self.ui.lblLogFile
 
+    def _window_title(self, filename=None):
+        """Compose the window title: name, board number, datalog.
+
+        One place, because the two suffixes arrive from unrelated events -- the
+        board answers 'S' on connect, the filename appears on START -- and
+        composing them where they arrive is how one erases the other.
+        """
+        title = self._window_title_base
+        if self._board_serial:
+            title = "{} [{}]".format(title, self._board_serial)
+        if filename:
+            title = "{} — {}".format(title, filename)
+        return title
+
     def _show_log_filename(self, filename):
         """Show/clear the datalog filename in the sidebar and window title."""
         if filename:
@@ -1839,12 +1862,108 @@ class MainWindow(QtGui.QMainWindow):
                 "Log: " + filename, QtCore.Qt.ElideMiddle, width))
             self.lblLogFile.setToolTip(filename)
             self.lblLogFile.show()
-            self.setWindowTitle("{} — {}".format(self._window_title_base, filename))
         else:
             self.lblLogFile.clear()
             self.lblLogFile.setToolTip("")
             self.lblLogFile.hide()
-            self.setWindowTitle(self._window_title_base)
+        self._current_log_filename = filename
+        self.setWindowTitle(self._window_title(filename))
+
+    def _show_board_serial(self, serial_number):
+        """Put the board number under the brand and into the window title."""
+        self._board_serial = serial_number
+        if serial_number:
+            self.ui.lblSerialNumber.setText("S/N {}".format(serial_number))
+            self.ui.lblSerialNumber.show()
+        else:
+            self.ui.lblSerialNumber.clear()
+            self.ui.lblSerialNumber.hide()
+        self.setWindowTitle(
+            self._window_title(getattr(self, "_current_log_filename", None)))
+
+    ###########################################################################
+    # VER 0.1.5b machine identification number
+    ###########################################################################
+    def _query_serial_number(self, auto_mode=False):
+        """Ask the board for its identification number (serial command 'S').
+
+        The firmware reads four bytes of EEPROM and answers SSNN -- 1920 -- or
+        NO_SERIAL when the board has never been programmed. Three outcomes, and
+        they mean different things: no valid answer at all is a firmware older
+        than 0.1.5b, NO_SERIAL is a board whose EEPROM was never written, and
+        anything else is the number.
+
+        auto_mode runs it silently, which is how the connect path uses it: a
+        popup on every connect would be noise.
+        """
+        if self.worker is not None and self.worker.is_running():
+            if not auto_mode:
+                PopUp.warning(self, Constants.app_title,
+                              "Cannot read the board number during an "
+                              "acquisition.\nStop it first.")
+            return
+
+        if not self._serial_connected or self._serial_lock is None:
+            if not auto_mode:
+                PopUp.warning(self, Constants.app_title,
+                              "Serial port not connected.\n"
+                              "Connect to the device first.")
+            return
+
+        try:
+            reply = self._serial_query(b'S\n')
+        except Exception as e:
+            print(TAG, "Board number query failed: {}".format(e))
+            Log.e(TAG, "Board number query failed: {}".format(e))
+            if not auto_mode:
+                PopUp.warning(self, Constants.app_title,
+                              "Failed to communicate with the device."
+                              "\n\nError: {}".format(e))
+            return
+
+        # the reply may arrive with the line terminator, or with nothing at all
+        response = ""
+        for line in (reply or "").splitlines():
+            line = line.strip()
+            if line:
+                response = line
+                break
+        print(TAG, "Board number response: '{}'".format(response))
+        Log.i(TAG, "Board number response: '{}'".format(response))
+
+        if response == "NO_SERIAL":
+            # the board answers, the EEPROM was never written
+            self._show_board_serial(None)
+            self.ui.lblSerialNumber.setText("S/N not programmed")
+            self.ui.lblSerialNumber.show()
+            if not auto_mode:
+                PopUp.warning(self, Constants.app_title,
+                              "This board has no identification number.\n\n"
+                              "Its EEPROM has never been written by the "
+                              "SerialNumber programmer sketch.")
+            else:
+                Log.w(TAG, "Board EEPROM not programmed (NO_SERIAL)")
+
+        elif not (_BOARD_SERIAL_RE.match(response)
+                  and 100 <= int(response) <= 25599):
+            # no answer, or sweep bytes from a firmware that does not know 'S'
+            self._show_board_serial(None)
+            if not auto_mode:
+                PopUp.warning(self, Constants.app_title,
+                              "The firmware did not answer the board number "
+                              "request.\n\nThis needs firmware {} or later."
+                              "\nUpdate it from Tools > Check Firmware "
+                              "Version.".format(Constants.FW_VERSION))
+            else:
+                Log.w(TAG, "Firmware does not support the board number query")
+
+        else:
+            self._show_board_serial(response)
+            print(TAG, "Board identification number: {}".format(response))
+            Log.i(TAG, "Board identification number: {}".format(response))
+            if not auto_mode:
+                PopUp.info(self, Constants.app_title,
+                           "Board identification number: {}".format(response))
 
     ###########################################################################
     # Configures specific elements of the PyQtGraph plots.
@@ -2284,6 +2403,10 @@ class MainWindow(QtGui.QMainWindow):
             Log.i(TAG, "Connected to serial port {}".format(port))
             # Firmware version check on connection (moved here from app startup)
             self.get_firmware_version(True)
+            # VER 0.1.5b and the board's own identification number, silently:
+            # it is printed on nothing else, so the GUI is where it becomes
+            # visible at all.
+            self._query_serial_number(auto_mode=True)
         else:
             # ---- DISCONNECT ----
             if self._serial_lock is not None:
@@ -2304,6 +2427,7 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.pButton_Start.setEnabled(False)
             self.ui.pButton_Tswitch_ON.setEnabled(False)
             self.ui.label_COM_status.setText("Disconnected")
+            self._show_board_serial(None)
             self._set_status("disconnected", "Standby")
             self._set_message("disconnected")
             print(TAG, "Disconnected from serial port")

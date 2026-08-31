@@ -257,6 +257,9 @@ def qss(p):
         border-top-left-radius: 6px; border-top-right-radius: 6px; }}
     QTabBar::tab:selected {{ background: {panel}; color: {accent}; font-weight: bold; }}
 
+    /* Machine identification number, under the brand */
+    QLabel#lblSerialNumber {{ color: {muted}; font-size: 11px; }}
+
     /* Datalog filename label (Phase 3d) */
     QLabel#lblLogFile {{ color: {accent}; font-weight: bold; }}
 

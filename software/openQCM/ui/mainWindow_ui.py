@@ -259,8 +259,12 @@ class Ui_MainWindow(object):
         self.menuTools.addAction(self.actionConductance_Data)
         self.menuTools.addAction(self.actionImpedance_Fit)
         self.menuTools.addAction(self.actionTEC_current)
+        self.actionSerialNumber = QtWidgets.QAction("Check Board Serial Number",
+                                                    MainWindow)
+        self.actionSerialNumber.setObjectName("actionSerialNumber")
         self.menuTools.addSeparator()
         self.menuTools.addAction(self.actionFirmware)
+        self.menuTools.addAction(self.actionSerialNumber)
 
         # Help (existing actions re-homed from the old Info menu)
         self.menuHelp = QtWidgets.QMenu("Help", self.menuBar)
@@ -328,8 +332,15 @@ class Ui_MainWindow(object):
         # allow wrapping so the rich-text brand does not force a wide minimum
         # width on the whole sidebar (it was pinning ~459 px otherwise)
         self.label_2.setWordWrap(True)
+        # VER 0.1.5b machine identification number, filled in once the board
+        # answers 'S'. Hidden until then: an empty line under the brand would be
+        # a gap nobody can explain.
+        self.lblSerialNumber = QtWidgets.QLabel(self.groupBox_2)
+        self.lblSerialNumber.setObjectName("lblSerialNumber")
+        self.lblSerialNumber.hide()
         self.gridLayout_8.addWidget(self.label, 0, 0, 1, 1)
         self.gridLayout_8.addWidget(self.label_2, 0, 1, 1, 1)
+        self.gridLayout_8.addWidget(self.lblSerialNumber, 1, 0, 1, 2)
         sb.addWidget(self.groupBox_2)
 
         # --- Serial Connection card (R2) -------------------------------- #

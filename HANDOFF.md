@@ -277,8 +277,23 @@ The verification line the programmer prints is `SERIALNUMBER = 2052`: a plain in
 leading zeros on the series.
 
 **The operational firmware only reads it.** Command `'S'` replies with the number (`1920`) or with
-`NO_SERIAL` when the magic byte is absent — it never invents or writes one. Both operational
-sketches carry it, production and the no-TEC TEST variant, and both went to **`0.1.5b`** with it.
+`NO_SERIAL` when the magic byte is absent — it never invents or writes one.
+
+The command arrived with **`0.1.5b`**, which is its own pair of folders:
+`openQCM_Next_py_0.1.5b_teensy/` and `openQCM_Next_py_0.1.5b_TEST_teensy/`. ⚠️ **The `0.1.5a` pair
+is kept, untouched, and is the one to delete later** — a folder named for a version whose firmware
+reports a different one is the kind of thing that costs an afternoon on a bench.
+
+**The host side**: `Tools > Check Board Serial Number`, and the same query run silently on connect.
+Three outcomes, and they are not the same thing — no valid answer at all is a firmware older than
+0.1.5b, `NO_SERIAL` is a board whose EEPROM was never written, anything matching `^\d{3,5}$` inside
+100–25599 is the number. It goes under the brand in the sidebar (`lblSerialNumber`) and into the
+window title.
+
+⚠️ **The window title has two independent suffixes** — the board number, which arrives on connect,
+and the datalog filename, which arrives on START — so it is composed in one place,
+`_window_title()`. Writing either of them straight into `setWindowTitle` is how one erases the
+other.
 
 ⚠️ **`Constants.FW_VERSION` moves with the firmware.** The host compares the reply to `'F'` against
 that string **exactly** and pops a firmware-update warning on any difference, so a version bump that
