@@ -19,6 +19,7 @@ radios) are created but hidden.
 """
 
 import os
+import webbrowser
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from pyqtgraph import GraphicsLayoutWidget
@@ -176,22 +177,43 @@ class Ui_MainWindow(object):
         self.actionRaw_Data.setObjectName("actionRaw_Data")
         self.actionTEC_current = QtWidgets.QAction("Tec Current", MainWindow)
         self.actionTEC_current.setObjectName("actionTEC_current")
+        # Q-1 v3.0 groups Tools as viewers first, then the device queries
+        # below a separator, and keeps the firmware check here rather than under
+        # Help. The two viewers NEXT has and Q-1 does not sit with the viewers.
+        # ⚠️ Check Board Serial Number belongs immediately after the firmware
+        # check when it is implemented; that is where Q-1 puts it.
+        self.actionFirmware = QtWidgets.QAction("Check Firmware Version",
+                                                MainWindow)
+        self.actionFirmware.setObjectName("actionFirmware")
         self.menuTools.addAction(self.actionRawDataView)
         self.menuTools.addAction(self.actionPeakDataView)
         self.menuTools.addAction(self.actionRaw_Data)
         self.menuTools.addAction(self.actionTEC_current)
+        self.menuTools.addSeparator()
+        self.menuTools.addAction(self.actionFirmware)
 
         # Help (existing actions re-homed from the old Info menu)
         self.menuHelp = QtWidgets.QMenu("Help", self.menuBar)
         self.menuHelp.setObjectName("menuHelp")
-        self.actionHelp = QtWidgets.QAction("Help", MainWindow)
+        # Named for what the handlers do, which is also what Q-1 v3.0 calls
+        # them: actionHelp opens the software page, actionSoftware asks the web
+        # for the current version. The object names do not move -- Qt reaches
+        # these through connect() and by string, so only the labels change.
+        self.actionHelp = QtWidgets.QAction("Website", MainWindow)
         self.actionHelp.setObjectName("actionHelp")
-        self.actionFirmware = QtWidgets.QAction("Firmware Info", MainWindow)
-        self.actionFirmware.setObjectName("actionFirmware")
-        self.actionSoftware = QtWidgets.QAction("Software Info", MainWindow)
+        self.actionEmailSupport = QtWidgets.QAction("Email Support", MainWindow)
+        self.actionEmailSupport.setObjectName("actionEmailSupport")
+        self.actionEmailSupport.triggered.connect(
+            lambda: webbrowser.open("mailto:info@openqcm.com"))
+        self.actionSoftware = QtWidgets.QAction("Check for Updates…",
+                                                MainWindow)
         self.actionSoftware.setObjectName("actionSoftware")
         self.menuHelp.addAction(self.actionHelp)
-        self.menuHelp.addAction(self.actionFirmware)
+        self.menuHelp.addAction(self.actionEmailSupport)
+        self.menuHelp.addSeparator()
+        # ⚠️ Download Update belongs immediately after this one when it is
+        # implemented; that is where Q-1 puts it. The controller adds a
+        # separator and About below.
         self.menuHelp.addAction(self.actionSoftware)
 
         for menu in (self.menuFile, self.menuView, self.menuTools, self.menuHelp):

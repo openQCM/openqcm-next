@@ -1520,6 +1520,35 @@ class MainWindow(QtGui.QMainWindow):
         menu_view = getattr(self.ui, "menuView", None)
         if menu_view is None:
             menu_view = self.menuBar().addMenu("View")
+        # Order taken from Q-1 v3.0: what the window shows first, what the plots
+        # show next, then the theme last behind a separator. Same entries as
+        # before -- only the order and the grouping move.
+        # Fase 5: panel visibility toggles (Sidebar, Status bar)
+        self._act_view_sidebar = QtGui.QAction("Sidebar", self)
+        self._act_view_sidebar.setCheckable(True)
+        self._act_view_sidebar.setChecked(True)
+        self._act_view_sidebar.toggled.connect(self._toggle_sidebar)
+        menu_view.addAction(self._act_view_sidebar)
+        self._act_view_statusbar = QtGui.QAction("Status Bar", self)
+        self._act_view_statusbar.setCheckable(True)
+        self._act_view_statusbar.setChecked(True)
+        self._act_view_statusbar.toggled.connect(self._toggle_statusbar)
+        menu_view.addAction(self._act_view_statusbar)
+        # Phase 4: Δ Cursors, Grid (frequency / dissipation panels).
+        # Grid lives here because pyqtgraph's own right-click menu has no grid
+        # entry, and the custom right-click menu that used to carry it is gone.
+        # Q-1 has no Grid entry, so it sits beside the cursors, which is the
+        # other plot-display toggle.
+        self._act_cursors = QtGui.QAction("Δ Cursors (F / D)", self)
+        self._act_cursors.setCheckable(True)
+        self._act_cursors.toggled.connect(self._toggle_all_cursors)
+        menu_view.addAction(self._act_cursors)
+        self._act_grid = QtGui.QAction("Grid", self)
+        self._act_grid.setCheckable(True)
+        self._act_grid.toggled.connect(self._toggle_all_grids)
+        menu_view.addAction(self._act_grid)
+
+        menu_view.addSeparator()
         theme_menu = menu_view.addMenu("Theme")
         group = QtGui.QActionGroup(self)
         group.setExclusive(True)
@@ -1538,30 +1567,6 @@ class MainWindow(QtGui.QMainWindow):
         if _btn is not None:
             _btn.clicked.connect(lambda: self._apply_theme(
                 "dark" if self._theme == "light" else "light"))
-        # Phase 4: View > Grid, Δ Cursors (frequency / dissipation panels).
-        # Grid lives here because pyqtgraph's own right-click menu has no grid
-        # entry, and the custom right-click menu that used to carry it is gone.
-        menu_view.addSeparator()
-        self._act_grid = QtGui.QAction("Grid", self)
-        self._act_grid.setCheckable(True)
-        self._act_grid.toggled.connect(self._toggle_all_grids)
-        menu_view.addAction(self._act_grid)
-        self._act_cursors = QtGui.QAction("Δ Cursors (F / D)", self)
-        self._act_cursors.setCheckable(True)
-        self._act_cursors.toggled.connect(self._toggle_all_cursors)
-        menu_view.addAction(self._act_cursors)
-        # Fase 5: View > panel visibility toggles (Sidebar, Status bar)
-        menu_view.addSeparator()
-        self._act_view_sidebar = QtGui.QAction("Sidebar", self)
-        self._act_view_sidebar.setCheckable(True)
-        self._act_view_sidebar.setChecked(True)
-        self._act_view_sidebar.toggled.connect(self._toggle_sidebar)
-        menu_view.addAction(self._act_view_sidebar)
-        self._act_view_statusbar = QtGui.QAction("Status bar", self)
-        self._act_view_statusbar.setCheckable(True)
-        self._act_view_statusbar.setChecked(True)
-        self._act_view_statusbar.toggled.connect(self._toggle_statusbar)
-        menu_view.addAction(self._act_view_statusbar)
 
     ###########################################################################
     # VER 0.1.6 Fase 5 — Help / View menu handlers

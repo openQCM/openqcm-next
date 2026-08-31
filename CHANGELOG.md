@@ -303,6 +303,22 @@ Conventional Commits. Versions are marked by Git tags.
   doing on its own.
 
 ### Changed
+- **The menu bar is homologous with openQCM Q-1 v3.0** — same four menus, same grammar inside each,
+  verified by dumping both menu trees at runtime (one process per tree; two openQCM packages in one
+  Qt process segfault).
+  - **View** is reordered to Q-1's: panels first (*Sidebar*, *Status Bar*), then the plot toggles
+    (*Δ Cursors*, *Grid*), then *Theme* last behind a separator. It used to open with Theme.
+  - **Tools** gains *Check Firmware Version*, below a separator after the viewers, which is where
+    Q-1 keeps it — it was *Firmware Info* under Help.
+  - **Help** becomes *Website* · *Email Support* ― *Check for Updates…* ― *About*. The labels now say
+    what the handlers do: `actionHelp` opens the software page, `actionSoftware` runs
+    `get_web_info()`. *Email Support* is new, a `mailto:info@openqcm.com`, the address Q-1 uses.
+  - ⚠️ **No objectName changed**: Qt reaches these actions through `connect()` and by string, so
+    this is a relabelling, not a rewiring.
+  - Deliberate differences, recorded in HANDOFF §3: *Grid* is NEXT-only; *Sidebar* keeps NEXT's
+    vocabulary against Q-1's *Left Panel*; *Measurement Parameters* and *User Guide* have no NEXT
+    implementation and were not added as dead entries. *Check Board Serial Number* and *Download
+    Update* are planned, and their position is already marked in the builder.
 - **Reverted: the overtone chips keep their 3 px gap** — closing it to 0 bought 2 px of chip
   (50 → 52 at a 260 px row, 64 → 66 at 330, 78 → 80 at 400) and was not worth how five touching
   pills looked. The measurement stays in HANDOFF §3 so the trade is on record: that gap is the only

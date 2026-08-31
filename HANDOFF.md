@@ -391,6 +391,41 @@ What the two attempts established, so a third does not rediscover it:
 - Packing the chips left with **one trailing spacer**, the treatment the temperature buttons get, is
   the variant neither attempt tried. It keeps them grouped instead of scattered.
 
+### The menu bar, homologous with Q-1 v3.0
+
+Same four menus in the same order, and within each the same grammar as Q-1 — verified by dumping
+both menu trees at runtime, one process per tree (two openQCM packages in one Qt process segfault).
+
+| menu | NEXT |
+|---|---|
+| File | Open Log… ― Quit |
+| View | Sidebar · Status Bar · Δ Cursors (F / D) · Grid ― Theme › (Light, Dark) |
+| Tools | Raw Data View · Peak Data View · Raw Data (from sweep files) · Tec Current ― Check Firmware Version |
+| Help | Website · Email Support ― Check for Updates… ― About openQCM NEXT |
+
+The correspondence is by **handler, not by label**: `actionFirmware` runs `get_firmware_version()`,
+which is Q-1's *Check Firmware Version* and lives under **Tools** there, not under Help;
+`actionSoftware` runs `get_web_info()`, which is Q-1's *Check for Updates…*; `actionHelp` opens the
+software page, Q-1's *Website*. The labels moved to say what the code does.
+
+⚠️ **No objectName changed.** Qt reaches these actions through `connect()` and by string, so a
+rename is a label change only — the rule from `CLEANUP_PLAN.md` §0.
+
+Four differences that are deliberate, not drift:
+
+- **Grid** is NEXT-only: pyqtgraph's own right-click menu has no grid entry. It sits beside the
+  cursors, the other plot-display toggle.
+- **Sidebar**, not Q-1's *Left Panel*: the codebase says sidebar everywhere (`sidebarPane`,
+  `sidebarScroll`, `sidebarContainer`), and a menu label disagreeing with all of it is worse than
+  disagreeing with Q-1. Same reasoning for **Δ Cursors (F / D)**, which names the two panels it
+  toggles, and for the **Light / Dark** submenu entries, where Q-1's "Light Theme" repeats the name
+  of the submenu they sit in.
+- **Measurement Parameters** and **User Guide** are Q-1-only: NEXT has no such dialog and no second
+  URL. Nothing was added as a dead entry.
+- Two entries are planned, with their position already fixed by Q-1: **Check Board Serial Number**
+  immediately after *Check Firmware Version* in Tools, and **Download Update** immediately after
+  *Check for Updates…* in Help. Both are marked in `_build_menubar`.
+
 ### The status bar: one dot, plain text
 
 The machine state is the **colour of one dot** (`statusIndicator`), as in Q-1 v3.0: grey disconnected,
