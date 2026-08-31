@@ -276,6 +276,17 @@ def qss(p):
     QMenuBar::item:selected {{ background: {accent}; color: {accent_text}; }}
     QMenu {{ background: {panel}; color: {text}; border: 1px solid {border}; }}
     QMenu::item:selected {{ background: {accent}; color: {accent_text}; }}
+    /* ⚠️ A disabled entry needs saying explicitly. Once a style sheet sets a
+       colour on QMenu, Qt stops applying its own disabled palette to the
+       items, so an entry that cannot be clicked still looks like one that can
+       -- which reads as a bug rather than as a state. The second rule stops
+       the highlight following the cursor over an entry that would do nothing:
+       an item that lights up and then ignores the click is worse than one that
+       never lights up. */
+    QMenu::item:disabled {{ color: {disabled_text}; }}
+    QMenu::item:selected:disabled {{ background: transparent;
+        color: {disabled_text}; }}
+    QMenuBar::item:disabled {{ color: {disabled_text}; }}
 
     QProgressBar {{ background: {field_bg}; color: {text}; border: 1px solid {border};
         border-radius: 8px; text-align: center; }}

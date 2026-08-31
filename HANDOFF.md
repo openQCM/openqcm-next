@@ -284,6 +284,13 @@ The command arrived with **`0.1.5b`**, which is its own pair of folders:
 is kept, untouched, and is the one to delete later** — a folder named for a version whose firmware
 reports a different one is the kind of thing that costs an afternoon on a bench.
 
+⚠️ **A disabled menu entry needs its colour said explicitly.** Once the style sheet sets a colour on
+`QMenu`, Qt stops applying its own disabled palette to the items, so an entry that cannot be clicked
+still *looks* like one that can — which reads as a bug rather than as a state. `QMenu::item:disabled`
+and `QMenu::item:selected:disabled` are in `theme.qss` for that; the second stops the highlight
+following the cursor over an entry that would do nothing, because an item that lights up and then
+ignores the click is worse than one that never lights up.
+
 ⚠️ **Both menu queries are greyed out unless the board can answer** — `_enable_device_queries()`,
 called from `_enable_ui` and from the two branches that move the connection state. They talk to the
 board over the persistent handle, so they need an open port and an idle acquisition: while a
