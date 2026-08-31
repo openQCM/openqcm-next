@@ -5,6 +5,13 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Docs — the board number is 1900 here too (2026-08-31)
+
+`OPENQCM_SERIALNUMBER` is **1900** (series 19, unit 00) in both worktrees. It arrived on this branch
+with the `0.1.5c` cherry-pick, which is to say inside a commit about stopping a sweep — that commit
+staged the whole firmware directory and says nothing about the number. The SESSION_PROMPT item
+warning that the two worktrees diverge is therefore wrong and is removed.
+
 ### Carried from `main` — firmware 0.1.5c stops a sweep (2026-08-31)
 
 `b79b066`. The board sweeps once per command and reads serial only at the top of `loop()`, so after

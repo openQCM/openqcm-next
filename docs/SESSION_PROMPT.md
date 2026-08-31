@@ -91,8 +91,6 @@ processo Qt. I `QDialog` invece si mostrano e si catturano senza problemi.
   scheda le monta più. La variante `-TEST` senza TEC resta finché la scheda
   prototipo è in uso.
 - ⚠️ **`firmware_update/` spedisce l'immagine `0.1.5`**, due versioni indietro.
-- ⚠️ **`OPENQCM_SERIALNUMBER` diverge fra i due worktree**: 1900 su `main` (non
-  committato) e 1920 sul ramo. Da decidere e allineare.
 - ⚠️ **Sidebar tagliata**: il contenuto chiede **435 px**, il pannello ne concede
   260 al minimo e 400 al massimo. La scroll area è `widgetResizable` con la barra
   orizzontale spenta, quindi non scorre: **taglia**. Difetto preesistente.
