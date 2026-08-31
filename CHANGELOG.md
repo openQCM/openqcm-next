@@ -5,6 +5,28 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — the menu bar is homologous with Q-1 v3.0 (2026-08-31)
+
+`9ec5f2e`. One conflict, in `Tools`, and it is the good kind: `main` added *Check Firmware Version*
+below a separator while this branch had already added *Conductance Data* and *Impedance Fit (live)*.
+Resolved by keeping both — the branch's two impedance views join the viewer group, the firmware
+check stays below the separator where Q-1 puts it. The two documentation files conflicted as usual
+and the branch keeps its own.
+
+`View` is reordered to Q-1's shape (panels, plot toggles, separator, Theme), `Help` becomes
+*Website* · *Email Support* ― *Check for Updates…* ― *About*, and no objectName changed anywhere.
+
+Verified here after the cherry-pick, dumping the menu tree at runtime:
+
+```
+Tools -> Raw Data View · Peak Data View · Raw Data (from sweep files) ·
+         Conductance Data · Impedance Fit (live) · Tec Current ―
+         Check Firmware Version
+```
+
+⚠️ The branch's two impedance entries have no Q-1 counterpart and are not meant to acquire one: they
+sit with the viewers, which is where Q-1's grammar puts a view.
+
 ### Reverted — the overtone chips keep their 3 px gap (2026-08-28)
 
 `847e87a` carried over, code only. Closing the gap bought 2 px of chip and was not worth how five
