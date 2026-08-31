@@ -35,6 +35,26 @@
 
    HISTORY CHANGES
    --------------------------------------------------------------------------------
+   version      0.1.5b
+   version tag  // VER 0.1.5b
+   date         2026-08-31
+
+   MACHINE IDENTIFICATION NUMBER
+   - Read the identification number of the board over serial communication
+      COMMAND     RESPONSE
+      'S'         SSNN, e.g. 1920, or NO_SERIAL when the board has none
+     The number lives in four bytes of Teensy EEPROM written once per board by
+     firmware/openQCM_Next_SerialNumber. This firmware only READS it: if the
+     magic byte is missing it reports NO_SERIAL and never invents or writes one.
+     EEPROM layout, shared byte for byte with the openQCM Q-1:
+        [0] MAGIC 0xA5   [1] SERIES   [2] UNIT HIGH   [3] UNIT LOW  (big-endian)
+     Format is SSNN, one compact integer with no separator: series without
+     leading zeros, unit always two digits, sprintf("%u%02u", series, unit).
+     Series 19 unit 20 is 1920, and the board after 2099 is 2100. The older
+     SERIES-NNNN form is obsolete and appears nowhere.
+   - FW_VERSION goes to 0.1.5b. The host compares this string exactly and offers a
+     firmware update when it differs, so Constants.FW_VERSION moves with it.
+
    version      0.1.5a
    version tag  // VER 0.1.5a
    date         2024-02-19 
@@ -154,6 +174,17 @@
 
 /************************** LIBRARIES **************************/
 #include <Wire.h>
+
+// VER 0.1.5b
+// MACHINE IDENTIFICATION NUMBER, four bytes of EEPROM written by
+// firmware/openQCM_Next_SerialNumber. Layout shared with the openQCM Q-1.
+#include <EEPROM.h>
+#define ADDR_MAGIC        0
+#define ADDR_SERIES       1
+#define ADDR_SERIAL_HIGH  2
+#define ADDR_SERIAL_LOW   3
+#define MAGIC_BYTE        0xA5
+
 // libraries included in /src folder
 #include "src/Adafruit_MCP9808.h"
 # include "src/ADC/ADC.h"
@@ -177,7 +208,7 @@
 #define MTD415T_TIME_SEC_STARTUP  1000
 
 // VER 0.1.4 define firmware version
-#define FW_VERSION "0.1.5a"
+#define FW_VERSION "0.1.5b"
 
 
 /*************************** VARIABLE DECLARATION ***************************/
@@ -859,6 +890,24 @@ void loop()
       // VER 0.1.5a
       blink_a();
       
+    }
+
+    // VER 0.1.5b
+    // READ the machine identification number from EEPROM
+    // character 'S'  ->  SSNN (e.g. 1920), or NO_SERIAL
+    else if (buf[0] == 'S') {
+      if (EEPROM.read(ADDR_MAGIC) == MAGIC_BYTE) {
+        byte series = EEPROM.read(ADDR_SERIES);
+        uint16_t unit = ((uint16_t)EEPROM.read(ADDR_SERIAL_HIGH) << 8)
+                      | EEPROM.read(ADDR_SERIAL_LOW);
+        char snBuf[16];
+        // one compact integer, no separator: the format is the specification's
+        sprintf(snBuf, "%u%02u", series, unit);
+        Serial.println(snBuf);
+      } else {
+        // never invent a number for an unprogrammed board
+        Serial.println("NO_SERIAL");
+      }
     }
 
     // VER 0.1.5
