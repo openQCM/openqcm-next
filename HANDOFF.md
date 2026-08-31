@@ -291,8 +291,20 @@ and `QMenu::item:selected:disabled` are in `theme.qss` for that; the second stop
 following the cursor over an entry that would do nothing, because an item that lights up and then
 ignores the click is worse than one that never lights up.
 
-⚠️ **Both menu queries are greyed out unless the board can answer** — `_enable_device_queries()`,
-called from `_enable_ui` and from the two branches that move the connection state. They talk to the
+⚠️ **Both menu queries are greyed out unless the board can answer** — `_can_query_device()` is the
+single predicate, and it drives **both** the menu state and the two methods' own guards, so a greyed
+entry and a refused query cannot disagree about what the instrument is doing.
+
+It is not `_serial_connected`. `start()` hands the port to the acquisition process by **closing the
+handle without dropping the reference**, so `_serial_lock is not None` stays true while the child
+owns the port; whether it is **open** is what decides, together with the run state.
+
+⚠️ **The refresh belongs to `_reacquire_serial_lock()`, not to `stop()`.** `stop()` calls
+`_enable_ui` *before* `worker.stop()` and a second before the port comes back, so the menu state it
+computes is a second out of date — after a Stop or a finished peak detection the entries stayed grey
+even though the instrument was in standby. Every path that regains the port ends in
+`_reacquire_serial_lock`, which is the one place that sees the true state; handing the port over in
+`start()` greys them immediately for the same reason. They talk to the
 board over the persistent handle, so they need an open port and an idle acquisition: while a
 measurement runs the child process owns the port. Disconnected, the firmware query used to run
 anyway and come back empty, which that code reads as "no firmware information" and answers with

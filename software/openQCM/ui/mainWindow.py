@@ -566,6 +566,8 @@ class MainWindow(QtGui.QMainWindow):
         # (The level-1 lock file stays held by the GUI.)
         if self._serial_lock is not None and self._serial_lock.isOpen():
             self._serial_lock.close()
+            # the port now belongs to the acquisition process
+            self._enable_device_queries()
 
         # SINGLE
         # ---------------------------------------------------------------------
@@ -1280,12 +1282,13 @@ class MainWindow(QtGui.QMainWindow):
         # information", which answers a closed port with *Please update
         # firmware version* -- the wrong problem, and the one the operator then
         # goes looking for.
-        if not self._serial_connected or self._serial_lock is None:
+        if not self._can_query_device():
             if not autoMode:
                 PopUp.warning(self, Constants.app_title,
-                              "Serial port not connected.\n"
-                              "Connect to the device first.")
-            print(TAG, "Firmware version query skipped: not connected")
+                              "Serial port not available.\n"
+                              "Connect to the device, and stop the acquisition "
+                              "first.")
+            print(TAG, "Firmware version query skipped: port not available")
             return
 
         # init the byte at port and read serlai string
@@ -1550,6 +1553,27 @@ class MainWindow(QtGui.QMainWindow):
     ###########################################################################
     # Enables or disables the UI elements of the window.
     ###########################################################################
+    def _can_query_device(self):
+        """True when the GUI itself can talk to the board right now.
+
+        ⚠️ Not just `_serial_connected`: start() hands the port to the
+        acquisition process by CLOSING the handle without dropping the
+        reference, so `_serial_lock is not None` stays true while the child
+        owns the port. Whether it is OPEN is what decides.
+
+        The same predicate drives the menu state and the two query methods, so
+        a greyed-out entry and a refused query can never disagree about what
+        the instrument is doing.
+        """
+        if not self._serial_connected or self._serial_lock is None:
+            return False
+        try:
+            if not self._serial_lock.isOpen():
+                return False
+        except Exception:
+            return False
+        return not (self.worker is not None and self.worker.is_running())
+
     def _enable_device_queries(self):
         """Grey out the two menu queries unless the board can actually answer.
 
@@ -1564,8 +1588,7 @@ class MainWindow(QtGui.QMainWindow):
         triggered by a shortcut, and the automatic query on connect does not go
         through the menu at all.
         """
-        idle = not (self.worker is not None and self.worker.is_running())
-        can_ask = bool(self._serial_connected) and idle
+        can_ask = self._can_query_device()
         for name in ("actionFirmware", "actionSerialNumber"):
             act = getattr(self.ui, name, None)
             if act is not None:
@@ -1993,11 +2016,13 @@ class MainWindow(QtGui.QMainWindow):
                               "acquisition.\nStop it first.")
             return
 
-        if not self._serial_connected or self._serial_lock is None:
+        if not self._can_query_device():
             if not auto_mode:
                 PopUp.warning(self, Constants.app_title,
-                              "Serial port not connected.\n"
-                              "Connect to the device first.")
+                              "Serial port not available.\n"
+                              "Connect to the device, and stop the acquisition "
+                              "first.")
+            print(TAG, "Board number query skipped: port not available")
             return
 
         try:
@@ -2553,6 +2578,14 @@ class MainWindow(QtGui.QMainWindow):
         except Exception as e:
             print(TAG, "Warning: could not re-acquire serial port: {}".format(str(e)))
             Log.w(TAG, "Could not re-acquire serial port: {}".format(str(e)))
+        finally:
+            # ⚠️ Here, not in stop(): stop() calls _enable_ui BEFORE
+            # worker.stop() and a second before the port comes back, so the
+            # menu state it computes is a second out of date. Every path that
+            # regains the port ends here -- Stop, a peak detection finishing,
+            # an acquisition ending by itself -- so this is the one place that
+            # sees the true state.
+            self._enable_device_queries()
 
     def _serial_write(self, payload):
         # Write a command on the persistent connection. Requires an active

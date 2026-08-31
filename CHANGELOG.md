@@ -1424,6 +1424,23 @@ that file is touched.
   unchanged.
 
 ### Fixed
+- **The device queries come back in standby** — after a Stop or a finished peak detection the two
+  Tools entries stayed greyed out, so the firmware version and the board number could not be asked
+  for again without disconnecting.
+  - ⚠️ **Ordering**: `stop()` calls `_enable_ui` *before* `worker.stop()` and a full second before
+    `_reacquire_serial_lock()`, so the menu state it computed was a second out of date. The refresh
+    moves into `_reacquire_serial_lock()` — every path that regains the port ends there — and
+    `start()` greys them the moment it hands the port over.
+  - ⚠️ **`_serial_connected` was the wrong test**: `start()` hands the port over by **closing the
+    handle without dropping the reference**, so `_serial_lock is not None` stays true while the child
+    process owns the port. `_can_query_device()` asks whether the handle is **open** and whether the
+    worker is idle, and it now drives both the menu state and the two methods' guards — a greyed
+    entry and a refused query can no longer disagree.
+  - The refusal message says what to do about either cause: *Connect to the device, and stop the
+    acquisition first.*
+  - Verified across the lifecycle: disconnected, acquiring, stopped-but-port-not-back and
+    connected-without-a-handle all grey the entries; connected in standby and stopped-with-the-port-
+    re-acquired enable them.
 - **Disabled menu entries look disabled** — the two device queries were correctly unclickable and
   still painted like every other entry, which reads as a bug rather than as a state. ⚠️ Once a style
   sheet sets a colour on `QMenu`, Qt stops applying its own disabled palette to the items, so it has
