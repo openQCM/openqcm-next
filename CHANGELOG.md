@@ -348,6 +348,19 @@ Conventional Commits. Versions are marked by Git tags.
   doing on its own.
 
 ### Changed
+- **The firmware check accepts the prototype's `-TEST` firmware** — the no-TEC board answers
+  `0.1.5b-TEST` and the check was exact string equality, so it raised the update warning on every
+  connect even though that firmware speaks the whole protocol, the new `'S'` command included.
+  - The rule is now `_firmware_is_current()`, **one function**: it appeared four times in
+    `get_firmware_version`, and a rule written four times is a rule that drifts.
+  - ⚠️ **`Constants.accept_test_firmware` is a development switch, to set to `False` before a
+    production build** — a shipped instrument must not accept a prototype firmware silently. It sits
+    under a banner next to `FW_VERSION`; off, the check rejects `-TEST` again.
+  - The two "firmware is current" messages now print **the version the board reported**, not the one
+    the software expected. On the prototype they differ, and the popup used to claim `0.1.5b` while
+    the board had answered `0.1.5b-TEST`.
+  - Verified on both switch positions: on, `0.1.5b` and `0.1.5b-TEST` pass while `0.1.5a`,
+    `0.1.5a-TEST`, `''` and `0.1.5b-test` do not; off, only `0.1.5b` passes.
 - **The menu bar is homologous with openQCM Q-1 v3.0** — same four menus, same grammar inside each,
   verified by dumping both menu trees at runtime (one process per tree; two openQCM packages in one
   Qt process segfault).

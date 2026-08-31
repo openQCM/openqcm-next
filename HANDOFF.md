@@ -584,10 +584,20 @@ and the datalog filename, which arrives on START — so it is composed in one pl
 other.
 
 ⚠️ **`Constants.FW_VERSION` moves with the firmware.** The host compares the reply to `'F'` against
-that string **exactly** and pops a firmware-update warning on any difference, so a version bump that
-stops at the sketch turns into a warning on every connect. It is `'0.1.5b'` now. The TEST variant
-answers `0.1.5b-TEST`, which by design does not match — the prototype board has always raised that
-warning.
+that string and pops a firmware-update warning when it does not match, so a version bump that stops
+at the sketch turns into a warning on every connect. It is `'0.1.5b'` now.
+
+The comparison is `_firmware_is_current()`, **one function** — the check appears four times in
+`get_firmware_version` and a rule spelled out four times is a rule that drifts. It accepts
+`FW_VERSION` and, while `Constants.accept_test_firmware` is on, `FW_VERSION + '-TEST'`: the
+prototype board answers `0.1.5b-TEST` and used to raise the update warning on every connect, though
+it speaks the whole protocol. The suffix says which board is on the bench, not that the firmware is
+older.
+
+⚠️ **`accept_test_firmware` is a development switch — set it to `False` before a production build.**
+A shipped instrument must not accept a prototype firmware without saying so. It sits next to
+`FW_VERSION` in `constants.py`, under a banner, and turning it off is one line: the check then
+rejects `-TEST` and everything else that is not an exact match.
 
 ⚠️ The copy of the programmer in the Q-1 repository is still **v2.0**, which writes the same bytes
 but prints the obsolete dashed form. The specification calls for v2.1 there. Until that is updated
