@@ -2,7 +2,7 @@
 
 > Technical starting point to continue development of the software and of the
 > `impedance-analysis` branch. Working language: Italian in chat, English in the repo.
-> Last updated: 2026-08-27.
+> Last updated: 2026-09-01.
 >
 > Starting a new session: paste [`docs/SESSION_PROMPT.md`](docs/SESSION_PROMPT.md)
 > as the first message. It is a shortcut into this file, not a replacement for it.
@@ -323,6 +323,44 @@ things fix it, and all three are needed.
 `_enable_ui(True)` — so it is the one place that has to call `_reacquire_serial_lock()` itself.
 Without it the GUI never takes the port back and the two device queries stay greyed out until the
 user disconnects and reconnects.
+
+### A firmware update kills the handle, and the window has to know
+
+Reprogramming the Teensy **re-enumerates the USB device**. macOS tears the device node down and
+recreates it, so the persistent handle the GUI holds is dead from that moment: every read raises
+`OSError(6, 'Device not configured')`.
+
+⚠️ **The port name does not change.** Measured on 2026-09-01: `/dev/tty.usbmodem131313201` before
+the update and the same string after. So the combo box still lists the right entry, the label still
+says *Connected*, and nothing on screen suggests anything happened — the handle onto that name is
+simply gone. That is what made the fault read as a firmware problem instead of a connection one.
+
+⚠️ **`_can_query_device()` cannot detect this**, and no amount of tightening will make it. pyserial's
+`isOpen()` returns the `is_open` flag, set by `open()` and cleared by `close()`; it never probes the
+device. After a re-enumeration the flag is still `True`, so the menu entry stays enabled and the
+query goes ahead. Only an actual read finds out.
+
+`_drain_serial` therefore returns **three** outcomes, not a boolean:
+
+| outcome | what happened | how long it takes | what the operator is told |
+|---|---|---|---|
+| `DRAIN_QUIET` | the port fell silent | the backlog, then 250 ms | nothing, the query proceeds |
+| `DRAIN_BUSY` | it never fell silent | the full 6 s timeout | *the board is still sending data*, wait |
+| `DRAIN_LINK_LOST` | the handle raised | ~0 ms | *the connection was lost*, reconnect |
+
+⚠️ **The elapsed time is the observable, and it is printed for that reason alone.** The two failures
+used to collapse into one `False`, and the count of drained bytes cannot separate them — the clock
+can, by four orders of magnitude. This is the same lesson as `'Q'`, one layer out: a wrong outcome
+that looked right because its fallback produced a plausible message.
+
+`_board_busy()` now claims busy only for `DRAIN_BUSY`; `_link_lost()` covers the third case and
+`_report_link_lost()` takes the window to Disconnected, because a GUI claiming *Connected* over a
+port that is gone is the state that produced the wrong diagnosis in the first place.
+
+And the updater does not wait to be told: `_run_firmware_updater()` gives the handle up as it
+launches the loader. The launcher returns when the loader is **on screen**, not when the board has
+been flashed, so there is nothing to wait for and nothing to detect — the connection is forfeit the
+moment the operator starts. Declaring it there is cheaper and more honest than discovering it later.
 
 ### The machine identification number, and where it lives
 
@@ -868,10 +906,25 @@ Quick wins:
 - ~~**Robust firmware query**~~ — done on 2026-08-31, though not the way this line proposed. Q-1's
   range-priming answers a different failure (a firmware that misparses `'F'` as a sweep command);
   ours was a board still streaming the rest of its sweep. The cure is `_drain_serial()`, the `'Q'`
-  command and `_board_busy()`; see the section "Asking the board a question while it may still be
-  talking".
-- **Firmware updater .hex fix**: `firmware_update/` ships the `0.1.5` image (POT 180) while the
-  software expects `0.1.5a` (POT 240) → ship the `0.1.5a` image (already in `firmware/`).
+  command and `_board_busy()`; see §3, "Asking the board a question while it may still be talking".
+- ~~**Firmware updater .hex is two versions behind**~~ — done on 2026-09-01. `firmware_update/`
+  now carries both `0.1.5c` images and `_firmware_image()` chooses between them from the version the
+  board just reported, so the loader opens with the image already in it. What follows is kept
+  because the reasoning is the reusable part. The folder used to ship the `0.1.5` image (POT 180)
+  while the software expected **`0.1.5c`** (`'S'` and `'Q'`), so anyone who ran the
+  bundled updater landed on a firmware the software would immediately ask them to update.
+  ⚠️ **Still to verify: the whole procedure under Windows**, before a production build. Only the
+  macOS branch has been run on hardware (2026-09-01, prototype board `0.1.5a-TEST` → `0.1.5c-TEST`).
+  The Windows branch hands the image to `TyUploader.exe` through `subprocess.Popen`, because
+  `os.startfile` takes no arguments — a different call, on a different loader, never executed.
+  ⚠️ **Corrected 2026-09-01**: this line used to say the `0.1.5c` image was *already built*. It was
+  not — and **no `-TEST` variant had ever been built either**; only `0.1.5a` and `0.1.5b` non-TEST
+  carried a `.hex`. Both `0.1.5c` images have now been built (`teensy:avr 1.58.1`, FLASH 55 120 B
+  and 45 500 B) and live beside their sketches. What is still open is the swap inside
+  `firmware_update/`, and the question underneath it: the loader is opened with **no file**, so the
+  operator picks the image by hand out of a folder whose only `.hex` is the wrong version and, on a
+  prototype, the wrong variant. The software already knows which it wants — it has just read the
+  reported version, `-TEST` suffix included — and `open -a Teensy.app <hex>` would hand it over.
 
 Backend backlog ported from the more mature **openQCM Q-1** sibling codebase (its CHANGELOG is the
 roadmap). ⚠️ Each Q-1-inspired change needs a **detailed plan + explicit approval before coding**
@@ -918,6 +971,14 @@ selectable).
 - **GUI can't be tested headless**: run static checks (`python -m py_compile ...` and
   `python -c "from openQCM.app import OPENQCM"` from `software/`), then leave the on-device smoke test
   to a human.
+- ⚠️ **A `QMessageBox` window title is discarded on macOS.** Measured: `setWindowTitle("FIRMWARE
+  UPDATE")` followed by `windowTitle()` returns `''` — **before** `show()`, so it is not the
+  platform plugin, it is Qt applying the macOS convention that an alert has no title. Every
+  `PopUp.*` call in this application passes a title, and on macOS **none of them is displayed**.
+  The consequence is a rule, not a curiosity: the *message* has to carry everything the operator
+  needs, because the word that would have named the dialog is not on screen. Do not fix this by
+  putting the title back — it cannot be put back; put it in the text.
+
 - **Every change goes into `CHANGELOG.md`** (unless explicitly told not to, e.g. a fix that just
   restores pre-existing behavior); keep the **README** aligned with substantial changes. Commits use
   Conventional Commits + a `Co-Authored-By` trailer.

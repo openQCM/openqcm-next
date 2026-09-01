@@ -1122,6 +1122,14 @@ that file is touched.
 ## [Unreleased] — `main`
 
 ### Added
+- **The `0.1.5c` firmware images exist** — `firmware/openQCM_Next_py_0.1.5c_teensy/` and
+  `..._0.1.5c_TEST_teensy/` now carry their `.ino.TEENSY40.hex`, built with the `teensy:avr 1.58.1`
+  core (FLASH 55 120 B and 45 500 B). ⚠️ HANDOFF §5 claimed the 0.1.5c image was *already built*;
+  it was not, and **no `-TEST` variant had ever been built** — only `0.1.5a` and `0.1.5b` non-TEST
+  carried a hex. Without them the update procedure cannot put a current firmware on a board, and on
+  a no-TEC prototype the only image in `firmware_update/` is the wrong variant as well as three
+  versions old.
+
 - **The two device queries log which path asked** — `[auto]` beside the reply when it is the
   handshake that runs at connection, `[menu]` when it is the operator's check from Tools. One word,
   and it is what distinguishes a board that answers nothing from a board nobody asked.
@@ -1150,6 +1158,73 @@ that file is touched.
   - Both compile for `teensy:avr:teensy40`; `Constants.FW_VERSION` moves to `0.1.5c` with them.
 
 ### Fixed
+- **A board that had just re-enumerated was reported as a board still sweeping** — after a
+  firmware update the Teensy re-enumerates the USB device, so the handle the window is holding
+  points at a device node that no longer exists and every read raises `OSError(6, 'Device not
+  configured')`. `_drain_serial` caught that and returned the same `False` it returns for a board
+  that never fell silent, `_board_busy` read the `False` and answered *The board is still sending
+  measurement data. Wait a moment and try again.* — advice that cannot work, because waiting does
+  not revive a dead handle. The only thing that did was Disconnect/Connect, which the message never
+  mentions.
+  - ⚠️ **The two failures were always distinguishable and the code threw the distinction away.**
+    `_drain_serial` now returns one of three outcomes — `DRAIN_QUIET`, `DRAIN_BUSY`,
+    `DRAIN_LINK_LOST` — and prints the elapsed time on the lost-link path. Measured against fake
+    handles: a dead handle raises on the first `inWaiting()` in **0 ms**, a board that never stops
+    burns the **whole 6 s timeout**. Same `False` before, four orders of magnitude apart on the
+    clock.
+  - `_board_busy` claims busy only for `DRAIN_BUSY`; the new `_link_lost()` covers the other case
+    and `_report_link_lost()` gives it its own message — *the connection to the board was lost […]
+    press Connect to reconnect* — and takes the window to Disconnected, so the state matches the
+    port. Wired into both firmware-version blocks and the board-number query.
+  - ⚠️ `_can_query_device()` could not have caught this and still cannot: pyserial's `isOpen()`
+    returns the `is_open` flag, which stays `True` after the device node underneath it is gone.
+    Only a real read finds out. That is why the menu entry was enabled and the query went ahead.
+  - Verified on hardware on 2026-09-01, downgrading a prototype board to `0.1.5a-TEST` and updating
+    it from the software. ⚠️ **The port name does not change across the re-enumeration** on macOS
+    (`/dev/tty.usbmodem131313201` before and after), so a reconnect finds the same entry in the
+    list — but the handle onto it is still dead, which is exactly what made the fault confusing.
+
+- **The firmware updater is launched observably, and gives the port back** — three defects in
+  `_run_firmware_updater`, all found by running the procedure rather than reading it.
+  - The path was built from **`os.getcwd()`**, so the updater only opened when the application
+    happened to be started from `software/`. Now resolved from the module, like `APP_ICON`.
+  - The launch was **silent whichever way it went**: `os.startfile` raises and `open` returns a
+    non-zero exit code, and neither was looked at, so a procedure that did nothing read exactly
+    like one that worked. It now logs the target and whether it exists, and reports a failed launch
+    instead of appearing to succeed.
+  - It kept the serial handle across an operation that is **guaranteed** to invalidate it. The
+    launcher returns as soon as the loader is on screen, not when the board has been flashed, so
+    there is nothing to wait for and nothing to detect: the connection is forfeit the moment the
+    operator starts. The window now says so and goes to Disconnected.
+  - The disconnect body moved out of `_toggle_serial_connection` into `_disconnect_serial(message)`,
+    because the button is no longer the only thing that can end a connection and eleven widgets
+    have to move together.
+
+- **The updater hands the loader the right image instead of opening it empty** — `firmware_update/`
+  now carries both `0.1.5c` hex files, and `_firmware_image()` picks between them from the version
+  the board has just reported: the `-TEST` suffix of a no-TEC prototype selects the TEST image, and
+  anything else the production one. The file name is **derived from `Constants.FW_VERSION`**, never
+  written out, because the image and the version the check demands are the same fact — spelling it
+  twice is how the folder came to ship `0.1.5` while the dialog asked for `0.1.5c`, so the operator
+  updated and was immediately asked to update again.
+  - ⚠️ Before this, the loader opened with **no file** and the operator browsed a folder whose only
+    `.hex` was three versions old and, on a prototype, the wrong variant as well: 172 890 B of TEST
+    image against 201 707 B of TEC image, and nothing on screen to say which one belonged there.
+  - `Teensy.app` declares **no** `CFBundleDocumentTypes`, so this was checked rather than assumed:
+    the binary implements `application:openFile:`, which is what `open -a` sends. Verified against
+    Teensy Loader 1.52 — `open` returns 0 and the loader comes up with the image loaded.
+  - A missing image is not fatal: the loader still opens empty, exactly as before, and the log says
+    which file was looked for. On macOS a non-zero `open -a` with the image retries without it, so
+    the procedure can never end up worse than it was.
+  - The disconnection is also **announced in a dialog** — *Disconnected from serial port. Firmware
+    update in progress. Reconnect when it is done.* Redundant with the status bar and the Connect
+    button by design: at that moment the operator is looking at the Teensy Loader in another
+    application, and coming back to a window that quietly stopped being connected is how the next
+    query gets blamed on the board. Non-blocking, because the loader is what needs the hands.
+  - ⚠️ **Verified on macOS only.** The Windows branch drives `TyUploader.exe` with the image as an
+    argument through `subprocess.Popen` instead of `os.startfile`, which cannot pass one, and that
+    path has not been run. It has to be checked before a production build.
+
 - **`'Q'` was never sent: the stop-sweep write sat in the wrong branch** — it was inside the
   `except` of `_reacquire_serial_lock`, so it could only run when re-opening the port **failed**, and
   a failed `_open_serial_lock` raises with the handle still closed, so even then the write itself
