@@ -1150,6 +1150,22 @@ that file is touched.
   - Both compile for `teensy:avr:teensy40`; `Constants.FW_VERSION` moves to `0.1.5c` with them.
 
 ### Fixed
+- **`'Q'` was never sent: the stop-sweep write sat in the wrong branch** — it was inside the
+  `except` of `_reacquire_serial_lock`, so it could only run when re-opening the port **failed**, and
+  a failed `_open_serial_lock` raises with the handle still closed, so even then the write itself
+  would have failed. On the normal path — the port comes back, which is every real Stop — the letter
+  never left the host. The whole of firmware 0.1.5c's stop-sweep branch was unreachable from the
+  software.
+  - It survived four bench sessions because the outcome was right anyway: the drain in
+    `_serial_query` waits out the tail on its own, which is exactly what it was built to do for
+    boards that do not know `'Q'`. The feature was dead and the symptom was cured by its fallback.
+  - The bench log is what gave it away: `Drained 7172 bytes` on a `0.1.5c-TEST` board, the same
+    count to the byte as on a `0.1.5b` board — the firmware `'Q'` is deliberately withheld from.
+    A working `'Q'` cannot leave the tail the same length as no `'Q'` at all.
+  - Moved to the success path, and it now prints `Stop-sweep sent to firmware <version>`. Without
+    that line the fix is not observable at the bench: both states end with a correct answer, and only
+    the drained byte count separates them.
+
 - **A question asked while the board is still talking is answered with sweep data** — after a Stop
   the board keeps sending for the rest of its sweep (~1.8 s per overtone), and
   `reset_input_buffer()` empties what has arrived, not what is still coming. The firmware check read
