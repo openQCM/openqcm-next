@@ -130,14 +130,21 @@ processo Qt. I `QDialog` invece si mostrano e si catturano senza problemi.
   piedi non è più che `'Q'` venga ignorato: è che **quando arriva lo sweep è già
   finito** e quei 7172 byte siano arretrato già trasmesso, seduto nel buffer del
   sistema operativo, che nessuna lettera può richiamare indietro.
-  La misura che decide è il **tempo**, non il conteggio, ed è per questo che il
-  drain ora stampa entrambi: se svuota i 7172 byte in un tempo pari alla sola
-  finestra di silenzio (~250 ms) erano già lì, e `'Q'` in questo scenario non ha
-  niente da tagliare — il drain è il meccanismo vero e `'Q'` serve solo se lo Stop
-  arriva mentre la scheda sta ancora spazzolando. Se invece il drain dura un
-  secondo e passa, la scheda trasmetteva ancora e `'Q'` è stato davvero ignorato.
-  ⚠️ Nel primo caso non c'è niente da correggere nel firmware: c'è da correggere
-  quello che questo documento e il CHANGELOG promettono a `'Q'`.
+  **Misurato, e l'esito è il primo caso: 414 ms totali di cui 268 di sola
+  finestra di silenzio.** I 7172 byte sono usciti in ~146 ms, sette giri di un
+  loop che campiona ogni 20 ms: su USB CDC vuol dire che erano già nel buffer.
+  Una scheda ancora in sweep avrebbe superato i 1500 ms.
+  ⚠️ **Quindi `'Q'` non accorcia niente dopo uno Stop, e la colpa non è del
+  firmware** — il poll è corretto e al posto giusto. È la sequenza: il genitore
+  riprende la porta solo dopo che il figlio l'ha rilasciata, e il figlio la
+  rilascia a sweep concluso, quindi `'Q'` trova sempre una scheda ferma. Un `'Q'`
+  tempestivo dovrebbe partire **dal figlio**, e il suo intero premio sono quei
+  ~146 ms: la finestra di silenzio da 250 ms è incondizionata e resta comunque.
+  Non vale la ristrutturazione del percorso di Stop.
+  `'Q'` resta — è la primitiva giusta, costa una scrittura, non fa danno — ma
+  **il meccanismo che recupera davvero la porta è il drain**, ed è sempre stato
+  lui. Questa prova è chiusa: quello che restava da verificare era la promessa,
+  e la promessa era sbagliata.
   ⚠️ **Scheda occupata oltre i 6 s** (*The board is still sending measurement
   data*) non si forza al banco: il tetto è 6 s contro uno sweep di ~1.8 s. È
   verificato in simulazione. Se un giorno compare davvero, la scheda è appesa.
