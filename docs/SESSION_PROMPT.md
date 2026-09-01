@@ -21,6 +21,14 @@ Lavoriamo su **openQCM NEXT**. Prima di toccare qualsiasi cosa leggi `HANDOFF.md
 `CHANGELOG.md` sotto `## [Unreleased]`. Non fidarti della tua memoria del codice:
 leggi il file prima di modificarlo.
 
+## Da dove si riparte
+
+L'ultimo blocco di lavoro — **numero identificativo macchina** (sketch
+programmatore, comando firmware `'S'`, lato host, voce di menu, sidebar, titolo
+finestra) e **firmware 0.1.5c** — è **chiuso e verificato su hardware**. Non ci
+sono prove pendenti. Le cose aperte qui sotto sono precedenti a quel lavoro,
+tranne i tre interruttori di build.
+
 ## Come lavoro
 
 - **Parla italiano in chat, scrivi in inglese nel repo** — commit, documentazione,
@@ -29,6 +37,13 @@ leggi il file prima di modificarlo.
   il mio ok.
 - **Misura invece di dedurre.** Se un tuo risultato precedente si rivela
   sbagliato, dillo esplicitamente con i numeri.
+- ⚠️ **Una funzione con un ripiego che produce lo stesso esito corretto va
+  strumentata, o non è verificabile.** Il comando `'Q'` è rimasto codice morto
+  per quattro sessioni di banco perché il drain rimediava da solo: la prova
+  passava comunque. Se aggiungi qualcosa che ha una via di riserva, aggiungi
+  anche l'osservabile che distingue le due strade — e che sia un **numero**, non
+  un "ha funzionato": lì il numero era 7172 byte identici al byte, ed è l'unica
+  cosa che ha tradito il buco.
 - Gli artifact che produci durante il lavoro sul codice devono essere **file
   markdown con le figure incorporate**.
 - Dopo ogni commit+push su `main`, **allinea `HANDOFF.md` e `CHANGELOG.md`**.
@@ -86,63 +101,25 @@ processo Qt. I `QDialog` invece si mostrano e si catturano senza problemi.
 
 ### Il resto
 
-- **Prove di banco del numero identificativo.** Provato il 2026-09-01 sulla
-  macchina con firmware `0.1.5c` e scheda 1900: **tutte le vie di ritorno in
-  standby funzionano** — connesso e fermo, dopo una peak detection conclusa,
-  dopo Start/Stop in singola, dopo Start/Stop in multiscan. La multiscan è il
-  caso più severo: cinque sweep, quindi il peggiore per il drain e per `'Q'`.
-  Provata anche la **strada di riserva** su scheda degradata a `0.1.5b-TEST`: lì
-  `'Q'` non viene mandato — su un firmware che non lo conosce partirebbe una
-  scansione da 0 Hz — e **il solo drain basta**, 7172 byte drenati, con risposta
-  corretta in singola, in multiscan e dopo una peak detection.
-  Provata poi la scheda degradata a **`0.1.5a-TEST`**, che `'S'` non lo conosce
-  affatto: non risponde nulla e l'avviso dice *serve firmware più recente*, che è
-  la sola cosa che deve dire. ⚠️ Non basta `0.1.5b` per questa prova: quello `'S'`
-  lo conosce già.
-  ⚠️ **Falso allarme già chiuso, da non riaprire.** In quel log la riga
-  `Board number response: '' (raw '')` compare **due volte** dopo una sola
-  connessione, e sembra un doppione. Non lo è: le due chiamate distano **2,24 s**
-  e sono l'interrogazione automatica alla connessione e il controllo manuale da
-  `Tools` che la procedura chiede subito dopo. Si somigliano solo perché una
-  scheda `0.1.5a` non risponde a nessuna delle due. Da qui l'etichetta
-  `[auto]`/`[menu]` accanto alla risposta, che è rimasta. `actionSerialNumber` è
-  connessa **una volta sola**, non esiste nessun `trigger()` nel repository,
-  l'azione non ha scorciatoia né `MenuRole` e la menu bar non è nativa: quella
-  voce non può partire se non da un clic.
-  Provata infine la **EEPROM azzerata** su `0.1.5c-TEST`: `NO_SERIAL` alla
-  connessione e dal menu, sidebar `S/N not programmed`, titolo senza numero.
-  Lo sketch usa-e-getta che azzera il magic byte **non sta nel repository** di
-  proposito — uno strumento che cancella l'identità di una scheda non va lasciato
-  in giro — e va riscritto ogni volta (venti righe, `EEPROM.write(0, 0x00)`, gli
-  indirizzi sono in `HANDOFF.md`).
-  ⚠️ **Resta da provare `'Q'`, e le prove fatte finora non contano.** Fino al
-  2026-09-01 la scrittura di `'Q'` stava nel ramo `except` di
-  `_reacquire_serial_lock`, quindi non è **mai** partita: quello che il banco ha
-  misurato è sempre stato il drain. Il segnale che l'ha smascherata è nel log —
-  `Drained 7172 bytes` su una scheda `0.1.5c-TEST`, lo stesso conteggio **al
-  byte** di una `0.1.5b`, che è il firmware a cui `'Q'` è negato apposta.
-  Rimesso sul percorso giusto e riprovato: la riga
-  `Stop-sweep sent to firmware 0.1.5c-TEST` **compare**, quindi la lettera esce
-  davvero dall'host — ma il drain resta **7172 byte, identico al byte**. Il poll
-  nel firmware è al posto giusto e consuma solo la riga `'Q'`, quindi l'ipotesi in
-  piedi non è più che `'Q'` venga ignorato: è che **quando arriva lo sweep è già
-  finito** e quei 7172 byte siano arretrato già trasmesso, seduto nel buffer del
-  sistema operativo, che nessuna lettera può richiamare indietro.
-  **Misurato, e l'esito è il primo caso: 414 ms totali di cui 268 di sola
-  finestra di silenzio.** I 7172 byte sono usciti in ~146 ms, sette giri di un
-  loop che campiona ogni 20 ms: su USB CDC vuol dire che erano già nel buffer.
-  Una scheda ancora in sweep avrebbe superato i 1500 ms.
-  ⚠️ **Quindi `'Q'` non accorcia niente dopo uno Stop, e la colpa non è del
-  firmware** — il poll è corretto e al posto giusto. È la sequenza: il genitore
-  riprende la porta solo dopo che il figlio l'ha rilasciata, e il figlio la
-  rilascia a sweep concluso, quindi `'Q'` trova sempre una scheda ferma. Un `'Q'`
-  tempestivo dovrebbe partire **dal figlio**, e il suo intero premio sono quei
-  ~146 ms: la finestra di silenzio da 250 ms è incondizionata e resta comunque.
-  Non vale la ristrutturazione del percorso di Stop.
-  `'Q'` resta — è la primitiva giusta, costa una scrittura, non fa danno — ma
-  **il meccanismo che recupera davvero la porta è il drain**, ed è sempre stato
-  lui. Questa prova è chiusa: quello che restava da verificare era la promessa,
-  e la promessa era sbagliata.
+- **Prove di banco del numero identificativo: finite.** Tutti e sette gli scenari
+  girati su hardware il 2026-09-01, tabella in `HANDOFF.md` §3 *Bench
+  verification*. Non c'è niente da rifare, e rifarli costa un downgrade di
+  firmware e una cancellazione di EEPROM a testa.
+  ⚠️ **Due esiti sembrano guasti e non lo sono**, così non si riaprono: la riga
+  `Board number response: '' (raw '')` che compare **due volte** su una scheda
+  `0.1.5a` sono l'interrogazione alla connessione e il controllo manuale dal
+  menu, a 2,24 s di distanza — per questo la riga porta `[auto]` o `[menu]`; e la
+  riga del drain **assente** è l'esito migliore, non uno mancante, perché si
+  stampa solo se ha buttato via qualcosa.
+  ⚠️ **`'Q'` non accorcia niente dopo uno Stop, ed è misurato**: 414 ms di drain
+  di cui 268 di sola finestra di silenzio, i 7172 byte usciti in ~146 ms, cioè
+  già in buffer. Non è colpa del firmware — è la sequenza: il genitore riprende
+  la porta solo dopo che il figlio l'ha rilasciata, e il figlio la rilascia a
+  sweep concluso, quindi la lettera trova sempre una scheda ferma. Un `'Q'`
+  tempestivo dovrebbe partire dal figlio e varrebbe quei ~146 ms. **Il meccanismo
+  vero è il drain**, e `'Q'` resta solo perché è la primitiva giusta e costa una
+  scrittura. Se qualcuno si chiede perché sembra non fare niente, la risposta è
+  qui e non è "il firmware lo ignora".
   ⚠️ **Scheda occupata oltre i 6 s** (*The board is still sending measurement
   data*) non si forza al banco: il tetto è 6 s contro uno sweep di ~1.8 s. È
   verificato in simulazione. Se un giorno compare davvero, la scheda è appesa.

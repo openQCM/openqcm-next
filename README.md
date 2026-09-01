@@ -120,7 +120,9 @@ A legacy `FindPeak` routine remains available as a fallback.
   `Q` end the sweep in progress, plus the TEC set
 - **Machine identification number** stored in the Teensy EEPROM, written once per board by
   `firmware/openQCM_Next_SerialNumber/` and read back by the software (Tools → Check Board Serial
-  Number). Format `SSNN`, one compact integer: series 19 unit 20 is `1920`
+  Number). Format `SSNN`, one compact integer: series 19 unit 20 is `1920`. Verified on hardware
+  across every case — a programmed board, an unwritten EEPROM (`NO_SERIAL`), and a firmware too old
+  to know the command
 - **TEC (thermo-electric) current monitoring** and temperature/PID control commands
 - Bundled platform-specific firmware update tools (Teensy Loader for macOS/Windows) under [`software/openQCM/firmware_update/`](software/openQCM/firmware_update/)
 
