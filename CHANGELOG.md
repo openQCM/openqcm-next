@@ -1129,9 +1129,12 @@ that file is touched.
   contracted `temperature;status;error;s` line.
   - The poll sits at the **end** of a sweep iteration, so the break never lands mid-line, and it
     consumes only the `'Q'` line — any other character is left for the parser at the top of `loop()`.
-  - ⚠️ `'Q'` also gets a **top-level no-op branch**: anything unrecognised falls through to the sweep
-    parser, where `atol("Q")` is 0 and the board sets off on a scan from 0 Hz that wedges it for
-    minutes — the failure Q-1 documented for its own `'F'`.
+  - `'Q'` also gets a **top-level no-op branch**, so the letter does not fall through to the sweep
+    parser and silently overwrite `freq_start`. ⚠️ **Corrected 2026-09-01**: this entry first said an
+    unrecognised letter sets the board off on a scan from 0 Hz. It does not — `message` is latched
+    only after the **third** field, so a single letter never begins a sweep. That is Q-1's failure,
+    not ours, and the hardware says so: a `0.1.5a` board, which has no branch for `'S'`, answers
+    nothing and keeps working.
   - Both compile for `teensy:avr:teensy40`; `Constants.FW_VERSION` moves to `0.1.5c` with them.
 
 ### Fixed

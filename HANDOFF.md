@@ -272,8 +272,13 @@ things fix it, and all three are needed.
 - **`'Q'` ends the sweep in progress** (firmware 0.1.5c). `_reacquire_serial_lock` sends it, which
   turns the wait into milliseconds. ⚠️ Only when the reported version is one that knows the letter:
   on older firmware `'Q'` has no branch and falls into the sweep parser, where `atol("Q")` is 0 and
-  the board sets off on a scan from 0 Hz. That is the failure Q-1 documented for its own `'F'`, and
-  it is why the firmware gives `'Q'` an explicit no-op branch at the top level too.
+  `freq_start` is silently overwritten. ⚠️ **It does not start a scan** — `message` is latched only
+  after the **third** field, so a single letter never begins a sweep, and every real sweep command
+  re-sends all three. That is the difference from Q-1, whose parser did latch and whose `'F'` really
+  could set the board off from 0 Hz; the note here claimed ours behaved the same way, and it was
+  wrong. Verified on hardware 2026-09-01: a `0.1.5a` board, which has no branch for `'S'`, answers
+  nothing and keeps working. The firmware still gives `'Q'` an explicit no-op branch, because not
+  clobbering `freq_start` costs nothing.
   **The fallback is verified on hardware** (2026-09-01, a board deliberately downgraded to
   `0.1.5b-TEST`): no `'Q'` is sent, the drain alone does the work — `Drained 7172 bytes before the
   port went quiet`, about 0.6 s of wire time at 115200 baud — and the firmware version and the board
