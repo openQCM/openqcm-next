@@ -1158,6 +1158,23 @@ that file is touched.
   - Both compile for `teensy:avr:teensy40`; `Constants.FW_VERSION` moves to `0.1.5c` with them.
 
 ### Fixed
+- **The sampling time read 0 for the whole of every single-frequency run** — `Worker.store_data()`
+  updated `time_elapsed` **only in its multiscan branch**; the single branch never touched it, and
+  carried a `# VER 0.1.4 TODO time controlled sampling time in sigle mode` where the work should
+  have gone. The value stayed at its initial `0`, so the status bar's `S:` looked like a broken
+  field rather than an unimplemented one.
+  - Single mode writes a datalog row on **every** call — the time-controlled sampling of multiscan
+    is still a TODO there — so the interval is simply the time since the previous write. The first
+    write has no predecessor and leaves the value alone.
+  - Measured against a simulated 1.8 s sweep: `0` before the first write, then **1.81, 1.81,
+    1.80 s**. It was `0, 0, 0, 0`.
+  - ⚠️ **And multiscan stops truncating it.** It computed `int((now - time_pre)/1e6)` while the GUI
+    formats the value with `"{0:.1f}"` — a format that is only meaningful for a float — so a 1.8 s
+    interval was reported as `1`, off by 45%. Display-only: the datalog's own relative-time column
+    is computed separately and is untouched.
+  - The new reference is `_last_datalog_write`, in **seconds**, and deliberately not multiscan's
+    `time_pre`, which is epoch microseconds. Same trap as `_timestart`.
+
 - **"Time elapsed" was showing the sampling interval, on its own row** — two changes that turned out
   to be one thing.
   - ⚠️ **The number was the wrong quantity.** `Worker.get_time_elapsed()` returns

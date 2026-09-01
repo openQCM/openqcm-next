@@ -182,6 +182,11 @@ class Worker:
         # _timestart would move the datalog's relative-time column in both
         # processors. One private, unambiguous reference instead.
         self._run_started = None
+
+        # VER 0.1.6 when the previous datalog row was written, in SECONDS, for
+        # the single-mode sampling interval. Multiscan keeps its own time_pre
+        # in epoch microseconds; the two are not interchangeable.
+        self._last_datalog_write = None
         # init a ring buffer of corresponding size 
         # VER 0.1.4 TODO checkthe default smapling time 
         SAMPLING_TIME_DEFAULT = 7
@@ -333,6 +338,7 @@ class Worker:
             # development and 10 in production, and a readout frozen at 0 for
             # the first 15-20 s of a run looks broken rather than warming up.
             self._run_started = time()
+            self._last_datalog_write = None
 
             return True
         
@@ -824,8 +830,19 @@ class Worker:
           # init the new datalog file in single mode: <ts>_F<n>.csv
           filenameCSV = "{}_{}".format(self._csv_filename, self._overtone_name)
           
-          # VER 0.1.4 TODO time controlled sampling time in sigle mode 
-          
+          # VER 0.1.6 the sampling interval, which this branch never computed.
+          # ⚠️ Only the multiscan branch below touched time_elapsed, so the
+          # readout -- the status bar's "S:" -- sat at 0 for the whole of every
+          # single-frequency run, and looked like a broken field rather than an
+          # unimplemented one. In this mode a row is written on every call (the
+          # time-controlled sampling of multiscan is still a TODO here), so the
+          # interval is just the time since the previous write. The first write
+          # has no predecessor and leaves the value alone.
+          _now = time()
+          if self._last_datalog_write is not None:
+              self.time_elapsed = _now - self._last_datalog_write
+          self._last_datalog_write = _now
+
           FileStorage.CSVsave(filenameCSV, Constants.csv_export_path, time() - self._timestart, self._d3_store, self._d1_store, self._d2_store)
 
           if self._export:   
@@ -877,7 +894,11 @@ class Worker:
                 ts_mult=1e6
                 time_current = (int((datetime.datetime.now() - epoch).total_seconds()*ts_mult))
                 
-                self.time_elapsed = int((time_current - self.time_pre)/_millisec)
+                # ⚠️ Not int(): the GUI formats this with "{0:.1f}", which is
+                # only meaningful for a float, and truncating a 1.8 s interval
+                # to 1 misreports it by 45%. Display-only value -- the datalog's
+                # own relative-time column is computed separately below.
+                self.time_elapsed = (time_current - self.time_pre)/_millisec
                 
                 # VER 0.1.4
                 # default / maximum sampling rate 
