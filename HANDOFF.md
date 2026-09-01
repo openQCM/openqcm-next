@@ -563,6 +563,10 @@ things fix it, and all three are needed.
   on older firmware `'Q'` has no branch and falls into the sweep parser, where `atol("Q")` is 0 and
   the board sets off on a scan from 0 Hz. That is the failure Q-1 documented for its own `'F'`, and
   it is why the firmware gives `'Q'` an explicit no-op branch at the top level too.
+  **The fallback is verified on hardware** (2026-09-01, a board deliberately downgraded to
+  `0.1.5b-TEST`): no `'Q'` is sent, the drain alone does the work — `Drained 7172 bytes before the
+  port went quiet`, about 0.6 s of wire time at 115200 baud — and the firmware version and the board
+  number both come back correct afterwards, in single mode, in multiscan and after a peak detection.
 - **`_board_busy()`** keeps a busy board from being reported as an old one. An unrecognised reply used
   to reach the "no firmware information" branch, which answers *Please update firmware version* — the
   wrong problem to send someone looking for. Two signs, either is enough: the port never fell silent,
