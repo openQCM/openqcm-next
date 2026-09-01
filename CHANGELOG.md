@@ -1158,6 +1158,28 @@ that file is touched.
   - Both compile for `teensy:avr:teensy40`; `Constants.FW_VERSION` moves to `0.1.5c` with them.
 
 ### Fixed
+- **Single-measurement plots started 4–6 s late** — the relative time axis called zero the first
+  sweep *acquired*, not the first datum *displayed*.
+  - `Serial.elaborate` pushes a timestamp on **every** sweep but a NaN value until
+    `_k >= environment`, since no trimmed mean exists before the circular buffer has filled. The
+    origin was `np.nanmin(t1_buffer)` — the oldest timestamp, belonging to sweep 0, a sample that is
+    never drawn — so the first visible point sat at `environment × sweep_period`. **Measured 5.4 s**
+    for `environment = 3` and a 1.8 s sweep, matching the reported 4–6 s; at the production value of
+    **10** it would be 15–20 s.
+  - `_first_valid_timestamp()` takes the oldest sample that actually carries a datum — the last of
+    the leading non-NaN run, array order running backwards in time — and that becomes zero. First
+    point: **+5.4 s → +0.0 s**.
+  - It is retried each tick instead of firing once on `_ser_control == environment`: the counter and
+    the samples reach the GUI on different queues, so the tick that sees the counter need not be the
+    tick that sees the datum.
+  - ⚠️ **This reverses a deliberate choice** recorded in `HANDOFF.md` §3, taken on the reading that
+    zero means "acquisition started". Zero now means "first measurement shown". The section has been
+    rewritten rather than edited, so the next reader does not restore `nanmin` as a fix.
+  - ⚠️ **And the note claiming multiscan already used `nanmin` over the buffer was wrong.** Multiscan
+    takes `buffer[0]`, the *newest* sample, **per overtone**, then `nanmin` **across overtones** — a
+    minimum over overtones, not over time. That is why it never showed the offset. Single mode now
+    behaves the same way; multiscan is untouched.
+
 - **The sampling time read 0 for the whole of every single-frequency run** — `Worker.store_data()`
   updated `time_elapsed` **only in its multiscan branch**; the single branch never touched it, and
   carried a `# VER 0.1.4 TODO time controlled sampling time in sigle mode` where the work should

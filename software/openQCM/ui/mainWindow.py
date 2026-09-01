@@ -2151,6 +2151,29 @@ class MainWindow(QtGui.QMainWindow):
             title = "{} — {}".format(title, filename)
         return title
 
+    def _first_valid_timestamp(self, values, times):
+        """Timestamp of the OLDEST sample that actually carries a datum.
+
+        ⚠️ RingBuffer.get_all() returns the **newest** sample at index 0 and
+        pads the tail with NaN, so array order runs backwards in time. The
+        warm-up samples -- real timestamps, NaN values, because no mean exists
+        until the circular buffer has filled -- therefore sit at the HIGH
+        indices, behind the valid ones. The oldest datum actually drawn is the
+        last element of the leading run of non-NaN values, and that is the
+        instant the relative axis should call zero.
+
+        Returns None while nothing valid has arrived yet, so the caller can try
+        again on the next tick instead of latching a reference to a sample the
+        user will never see.
+        """
+        oldest = None
+        for i in range(len(values)):
+            if np.isnan(values[i]):
+                break
+            if not np.isnan(times[i]):
+                oldest = times[i]
+        return oldest
+
     def _show_log_filename(self, filename):
         """Show/clear the datalog filename in the sidebar and window title.
 
@@ -3457,27 +3480,39 @@ class MainWindow(QtGui.QMainWindow):
                # progressbar
                if self._ser_control<=Constants.environment:
                    self._completed = self._ser_control * 100 / Constants.environment
-                   # VER 0.1.6 save the start time 
-                   # self.start_time = time.time()  
-                   if self._ser_control == Constants.environment:
-                       time_arr = self.worker.get_t1_buffer()
-# =============================================================================
-#                        import datetime
-#                        epoch= datetime.datetime(1970, 1, 1, 0, 0)
-#                        self.start_time = (datetime.datetime.now() - epoch).total_seconds()
-#                        print (self.start_time, time_arr[0]/1e6)
-# =============================================================================
-                       # set the start time, in epoch microseconds -- the unit
-                       # the axes plot in, and the one multiscan uses below.
-                       # nanmin, not time_arr[0]: RingBuffer.get_all() returns the
-                       # newest sample first and pads the tail with NaN, so index 0
-                       # is the most recent point, not the oldest. An all-NaN buffer
-                       # gives NaN, which set_start_time ignores.
-                       self.start_time = np.nanmin(time_arr)
-                       self._xaxis.set_start_time(self.start_time)
-                       self._xaxisD.set_start_time(self.start_time)
-                       self._xaxisT.set_start_time(self.start_time)
-                       
+
+               # VER 0.1.6 the axis origin is the first DISPLAYED datum, in
+               # epoch microseconds -- the unit the axes plot in.
+               #
+               # ⚠️ This replaces np.nanmin(t1_buffer), which was the oldest
+               # timestamp in the buffer and therefore sweep 0. Serial.elaborate
+               # pushes a timestamp on EVERY sweep but a NaN value until
+               # `_k >= environment`, so the oldest timestamp belongs to a
+               # sample that is never drawn, and the first point that IS drawn
+               # landed at `environment x sweep_period` on the axis: measured at
+               # 4-6 s with environment = 3, and 15-20 s at the production 10.
+               #
+               # ⚠️ nanmin was a deliberate choice, recorded in HANDOFF S3, on
+               # the reading that zero means "acquisition started". It is
+               # reversed on purpose: zero now means "first measurement shown",
+               # which is what multiscan has always done a few hundred lines
+               # below -- it takes buffer[0], the newest sample, at exactly the
+               # moment the warm-up ends. The two modes agreed on the wording
+               # and disagreed on the instant.
+               #
+               # Retried every tick until a datum exists, rather than fired once
+               # on `_ser_control == environment`: the counter and the data
+               # arrive on different queues, so the tick that sees the counter
+               # need not be the tick that sees the sample.
+               if self.start_time is None:
+                   origin = self._first_valid_timestamp(
+                       vector1, self.worker.get_t1_buffer())
+                   if origin is not None:
+                       self.start_time = origin
+                       self._xaxis.set_start_time(origin)
+                       self._xaxisD.set_start_time(origin)
+                       self._xaxisT.set_start_time(origin)
+
                if str(vector1[0])=='nan' and not self._ser_error1 and not self._ser_error2:
                   label1 = 'processing...'
                   label2 = 'processing...'
