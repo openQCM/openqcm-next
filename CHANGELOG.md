@@ -42,6 +42,23 @@ Conventional Commits. Versions are marked by Git tags.
   - Both compile for `teensy:avr:teensy40`; `Constants.FW_VERSION` moves to `0.1.5c` with them.
 
 ### Fixed
+- **The datalog name in the sidebar was cut with room to spare** — `_show_log_filename` elided the
+  text against `lblLogFile.width()`, but it runs while the label is still **hidden**, and a widget
+  that has never been laid out carries Qt's default 100 px. So the width was always
+  `max(140, 100 - 8)` = **140 px**, whatever the sidebar was doing.
+  - Measured with the real font: `Log: 20260901_153045_multi.csv` is **224 px** and fits whole from
+    **244 px**, while the sidebar pane is **260–400 px**. The name was being truncated inside a
+    panel that had room for all of it, at every width.
+  - The second half of the fault was that the width is not a constant either: the sidebar is a
+    splitter pane, and nothing re-elided when it was dragged.
+  - `ui/widgets.ElidedLabel` now owns it — it keeps the full string, re-elides on resize, on show
+    (the label is filled while hidden, and being shown does not have to change the geometry) and on
+    font change (the theme makes it bold, and bold is wider), and always carries the whole text in
+    its tooltip. Horizontal size policy `Ignored`, for the same reason `label_COM_status` has it: a
+    long name must not widen the sidebar.
+  - ⚠️ The eliding must not come back to the caller. The caller cannot know the width — that is the
+    whole defect, and it is now stated in `_show_log_filename`'s docstring.
+
 - **A board that had just re-enumerated was reported as a board still sweeping** — after a
   firmware update the Teensy re-enumerates the USB device, so the handle the window is holding
   points at a device node that no longer exists and every read raises `OSError(6, 'Device not

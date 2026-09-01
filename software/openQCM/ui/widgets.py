@@ -46,6 +46,80 @@ def paint_chevron(painter, colour, left, top, width, pointing_up=False):
     painter.drawPath(path)
 
 
+class ElidedLabel(QtWidgets.QLabel):
+    """A QLabel that elides its own text to the width it actually has.
+
+    ⚠️ Why this is a widget and not a call to ``QFontMetrics.elidedText`` at the
+    call site, which is what it replaces. The caller cannot know the width. The
+    datalog label is **hidden** when it is filled, and a widget that has never
+    been laid out still carries Qt's default 100 px — so the name was elided to
+    ``max(140, 100 - 8)`` = 140 px inside a panel offering 244, and cut with
+    room to spare. Measured: ``Log: 20260901_153045_multi.csv`` is 224 px and
+    fits whole from 244 px on, while the sidebar is 260–400 px wide. The second
+    half of the problem is that the width is not fixed either — dragging the
+    splitter changed it and nothing re-elided.
+
+    ``setText`` keeps the whole string, the widget re-elides on every resize,
+    and the tooltip always carries the full text.
+
+    The horizontal size policy is ``Ignored`` for the same reason
+    ``label_COM_status`` uses it: a long name must not be able to widen the
+    sidebar it lives in.
+    """
+
+    def __init__(self, parent=None, mode=QtCore.Qt.ElideMiddle):
+        super(ElidedLabel, self).__init__(parent)
+        self._full_text = ""
+        self._elide_mode = mode
+        self.setMinimumWidth(0)
+        self.setSizePolicy(QtWidgets.QSizePolicy.Ignored,
+                           self.sizePolicy().verticalPolicy())
+
+    def setText(self, text):
+        self._full_text = text or ""
+        self.setToolTip(self._full_text)
+        self._elide()
+
+    def fullText(self):
+        return self._full_text
+
+    def clear(self):
+        self._full_text = ""
+        self.setToolTip("")
+        super(ElidedLabel, self).clear()
+
+    def resizeEvent(self, event):
+        super(ElidedLabel, self).resizeEvent(event)
+        self._elide()
+
+    def showEvent(self, event):
+        # ⚠️ Not redundant with resizeEvent. This label is filled while hidden
+        # and shown afterwards, and being shown does not necessarily change the
+        # geometry -- so without this the text stays elided to whatever width
+        # the widget happened to have before it was ever laid out.
+        super(ElidedLabel, self).showEvent(event)
+        self._elide()
+
+    def changeEvent(self, event):
+        # A theme switch changes the font: QSS makes this label bold, and bold
+        # is wider, so the string that fitted before may not fit now.
+        if event.type() in (QtCore.QEvent.FontChange,
+                            QtCore.QEvent.StyleChange):
+            self._elide()
+        super(ElidedLabel, self).changeEvent(event)
+
+    def _elide(self):
+        width = self.width()
+        if width <= 0:
+            # not laid out yet: keep the whole string rather than invent a
+            # width. The first resizeEvent elides it properly.
+            super(ElidedLabel, self).setText(self._full_text)
+            return
+        metrics = QtGui.QFontMetrics(self.font())
+        super(ElidedLabel, self).setText(
+            metrics.elidedText(self._full_text, self._elide_mode, width))
+
+
 class _Chevroned(object):
     """Colour pair, set from the palette by MainWindow._apply_theme."""
 
