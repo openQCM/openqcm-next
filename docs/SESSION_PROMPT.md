@@ -91,10 +91,15 @@ processo Qt. I `QDialog` invece si mostrano e si catturano senza problemi.
   standby funzionano** — connesso e fermo, dopo una peak detection conclusa,
   dopo Start/Stop in singola, dopo Start/Stop in multiscan. La multiscan è il
   caso più severo: cinque sweep, quindi il peggiore per il drain e per `'Q'`.
+  Provata anche la **strada di riserva** su scheda degradata a `0.1.5b-TEST`: lì
+  `'Q'` non viene mandato — su un firmware che non lo conosce partirebbe una
+  scansione da 0 Hz — e **il solo drain basta**, 7172 byte drenati, con risposta
+  corretta in singola, in multiscan e dopo una peak detection.
   **Restano da provare**, tutti su scheda dedicata perché richiedono di
   degradarla:
-  - **firmware precedente a `0.1.5b`** → nessuna risposta a `'S'` → l'avviso deve
-    dire *serve firmware più recente*, non altro;
+  - **firmware `0.1.5a`** → nessuna risposta a `'S'` → l'avviso deve dire *serve
+    firmware più recente*, non altro. ⚠️ Non basta `0.1.5b`: quello `'S'` lo
+    conosce già;
   - **EEPROM azzerata** → `NO_SERIAL` → `S/N not programmed`;
   - **`'Q'` sulla variante `0.1.5c-TEST`** sulla scheda prototipo.
   Serve uno sketch usa-e-getta che azzera il magic byte: **non è nel repository**
