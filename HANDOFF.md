@@ -303,13 +303,34 @@ user is still reading. There was a commented-out block in `stop()` proposing exa
 and microseconds in multiscan, and the four calls to `SecondWindow.update_plot` compensated by
 dividing by 1e6 in two of them. One unit, four identical call sites.
 
-⚠️ **The reference is `np.nanmin(buffer)`, not `buffer[0]`.** `RingBuffer.get_all()` returns the
-**newest** sample at index 0 and pads the tail with NaN — measured: three appends into a buffer of
-five give `[30 20 10 nan nan]`, and its own comment saying "from the oldest to the newest" is wrong.
-Q-1 takes the first non-NaN in array order, which is the newest valid sample; it works there because
-it runs when the buffer holds one point. `nanmin` is the oldest timestamp actually present, which is
-what the label means, and it is what the multiscan path already did. An all-NaN buffer yields NaN,
-which the setter ignores.
+⚠️ **`RingBuffer.get_all()` returns the *newest* sample at index 0** and pads the tail with NaN —
+measured: three appends into a buffer of five give `[30 20 10 nan nan]`, and its own comment saying
+"from the oldest to the newest" is wrong. Array order runs backwards in time, which is the trap
+under everything below.
+
+⚠️ **The reference is the first datum *shown*, not the first sweep *acquired*** — changed on
+2026-09-01, and this reverses what this section said before, so the reasoning is kept.
+
+`Serial.elaborate` pushes a timestamp on **every** sweep but a NaN value until `_k >= environment`,
+because no trimmed mean exists before the circular buffer has filled. The reference used to be
+`np.nanmin(t1_buffer)` — the oldest timestamp present, which belongs to sweep 0, a sample that is
+never drawn. So the first point that *is* drawn landed at `environment × sweep_period`: **measured
+5.4 s** with `environment = 3` and a 1.8 s sweep, and 15–20 s at the production value of 10. The
+operator sees a run that starts several seconds late.
+
+`_first_valid_timestamp()` takes the last element of the leading run of non-NaN **values** — the
+oldest sample that actually carries a datum — and that instant becomes zero. It returns `None` while
+nothing valid has arrived, and the caller retries on the next tick rather than latching onto a
+sample nobody will see; the old code fired once on `_ser_control == environment`, which assumes the
+counter and the data reach the GUI on the same tick, and they travel on different queues.
+
+⚠️ **And the claim that multiscan already used `nanmin` over the buffer was wrong.** Multiscan takes
+`buffer[0]` — the *newest* sample — **per overtone**, and only then `nanmin` **across the five
+overtones**. That is a minimum over overtones, not over time, and it is why multiscan never showed
+the offset: it has always latched onto the first valid datum, and it calls `clear()` immediately
+after. The two modes agreed on the wording and disagreed on the instant. Single mode now matches.
+
+An all-NaN buffer yields no reference, and `set_start_time` ignores NaN in any case.
 
 Datalog View keeps its own `RelativeTimeAxis` — a log records relative time in seconds already, so
 it would have to be scaled by 1e6 to feed this axis — but **not its own format**: both call
