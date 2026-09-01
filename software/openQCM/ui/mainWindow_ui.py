@@ -392,8 +392,17 @@ class Ui_MainWindow(object):
         self._label(self.sidebarContainer, "time_indicator", "0")
         self.gridLayout_5.addWidget(self.sampling_time_lbl, 0, 0, 1, 1)
         self.gridLayout_5.addWidget(self.cBox_sampling_time, 1, 0, 1, 1)
-        self.gridLayout_5.addWidget(self.time_lbl, 2, 0, 1, 1)
-        self.gridLayout_5.addWidget(self.time_indicator, 3, 0, 1, 1)
+        # elapsed-time readout: label left, live value on the right margin.
+        # The same QHBoxLayout + addStretch(1) shape as the temperature readout
+        # above, so the two live numbers of the sidebar sit on the same margin
+        # instead of each row inventing its own arrangement. They already share
+        # one QSS rule (QLabel#indicator_temperature, QLabel#time_indicator);
+        # the layout was the only thing that still differed.
+        _elapsed_row = QtWidgets.QHBoxLayout()
+        _elapsed_row.addWidget(self.time_lbl)
+        _elapsed_row.addStretch(1)
+        _elapsed_row.addWidget(self.time_indicator)
+        self.gridLayout_5.addLayout(_elapsed_row, 2, 0, 1, 1)
         # Fine-tuning: hide the datalog sampling-time selector from the GUI for
         # now (kept created and functional — the controller still reads/enables
         # it; acquisition uses the default sampling time). "Time elapsed" stays.

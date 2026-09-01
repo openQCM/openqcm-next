@@ -3103,10 +3103,16 @@ class MainWindow(QtGui.QMainWindow):
 #         print ("THE TIMER IS NOW ")
 #         print (self.worker.get_time_elapsed())
 # =============================================================================
-        time_value = float("{0:.1f}".format(self.worker.get_time_elapsed()))        
-        self.ui.time_indicator.setText(str(time_value))
-        # R2: bottom-bar sampling/elapsed-time mirror
-        self.ui.statusSampValue.setText("S: {} s".format(time_value))
+        # ⚠️ Two different quantities under two different labels, and they used
+        # to be one. get_time_elapsed() is the sampling INTERVAL -- seconds
+        # between datalog writes -- which is exactly what the status bar's "S:"
+        # means, and never what the sidebar's "Time elapsed" promised. The
+        # sidebar now reads the run's own clock.
+        sampling_value = float("{0:.1f}".format(self.worker.get_time_elapsed()))
+        elapsed_value = float("{0:.1f}".format(self.worker.get_run_elapsed()))
+        self.ui.time_indicator.setText(str(elapsed_value))
+        # R2: bottom-bar sampling-interval mirror
+        self.ui.statusSampValue.setText("S: {} s".format(sampling_value))
 
         #### SINGLE check 
         # --------------------------------------------------------------------

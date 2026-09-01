@@ -161,6 +161,15 @@ class Worker:
         # VER 0.1.4
         self._sampling_time = sampling_time
         self.time_elapsed = 0
+
+        # VER 0.1.6 wall-clock start of the run, in SECONDS.
+        # ⚠️ Deliberately not _timestart, which is seconds in single mode and
+        # epoch microseconds in multiscan -- the same unit split HANDOFF warns
+        # about for start_time. A readout that must work in both modes cannot
+        # be built on a value whose unit depends on the mode, and unifying
+        # _timestart would move the datalog's relative-time column in both
+        # processors. One private, unambiguous reference instead.
+        self._run_started = None
         # init a ring buffer of corresponding size 
         # VER 0.1.4 TODO checkthe default smapling time 
         SAMPLING_TIME_DEFAULT = 7
@@ -305,7 +314,13 @@ class Worker:
             # The format lives in Constants; a local copy of it here is how the
             # two drift apart without anything on screen saying so.
             self._csv_filename = strftime(Constants.csv_default_prefix, localtime())
-            
+
+            # VER 0.1.6 and one fresh elapsed-time origin with it. Measured
+            # from START, not from the first datum: the warm-up is 3 sweeps in
+            # development and 10 in production, and a readout frozen at 0 for
+            # the first 15-20 s of a run looks broken rather than warming up.
+            self._run_started = time()
+
             return True
         
         else:
@@ -864,8 +879,24 @@ class Worker:
     
     # VER 0.1.4
     def get_time_elapsed (self):
+        # ⚠️ This is the SAMPLING INTERVAL -- seconds between two datalog
+        # writes -- and not how long the run has been going. The name is
+        # historical; the status bar's "S:" is the honest label for it. For the
+        # run's elapsed time use get_run_elapsed() below.
         # print ("HELLO WORLD")
         return (self.time_elapsed)
+
+    # VER 0.1.6
+    def get_run_elapsed(self):
+        """Seconds since START, or 0.0 before a run has begun.
+
+        Kept apart from get_time_elapsed() on purpose. The sidebar says "Time
+        elapsed" and was showing the sampling interval, which in single mode is
+        never computed at all -- so that readout sat at 0 for the whole run.
+        """
+        if self._run_started is None:
+            return 0.0
+        return time() - self._run_started
     
     
     ###########################################################################

@@ -42,6 +42,25 @@ Conventional Commits. Versions are marked by Git tags.
   - Both compile for `teensy:avr:teensy40`; `Constants.FW_VERSION` moves to `0.1.5c` with them.
 
 ### Fixed
+- **"Time elapsed" was showing the sampling interval, on its own row** — two changes that turned out
+  to be one thing.
+  - ⚠️ **The number was the wrong quantity.** `Worker.get_time_elapsed()` returns
+    `(now - time_pre) / 1e6`, and `time_pre` is reset after **every datalog write** — so it is the
+    interval between two samples, not how long the run has been going. The status bar's `S:` is the
+    honest label for it; the sidebar's *Time elapsed (sec)* never was. New `get_run_elapsed()`
+    returns seconds since START and feeds the sidebar; `S:` keeps the interval. Two labels, two
+    quantities, where there had been one value under both.
+  - ⚠️ It is measured from **START, not from the first datum**: the warm-up is 3 sweeps in
+    development and 10 in production, and a readout frozen at 0 for the first 15–20 s of a run reads
+    as broken rather than as warming up.
+  - ⚠️ It does **not** reuse `_timestart`, which is seconds in single mode and epoch microseconds in
+    multiscan — the same unit split `HANDOFF.md` §3 records for `start_time`. A readout that has to
+    work in both modes cannot rest on a value whose unit depends on the mode, and unifying
+    `_timestart` would move the datalog's relative-time column in both processors.
+  - The readout now sits **on one row with its label**, right-aligned, using the same
+    `QHBoxLayout` + `addStretch(1)` shape as the temperature readout. The two already shared a QSS
+    rule; the layout was the only thing that still differed.
+
 - **The datalog name in the sidebar was cut with room to spare** — `_show_log_filename` elided the
   text against `lblLogFile.width()`, but it runs while the label is still **hidden**, and a widget
   that has never been laid out carries Qt's default 100 px. So the width was always
