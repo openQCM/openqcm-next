@@ -2702,8 +2702,16 @@ class MainWindow(QtGui.QMainWindow):
                 last_byte = time.time()
             elif time.time() - last_byte >= quiet:
                 if dropped:
-                    print(TAG, "Drained {} bytes before the port went quiet"
-                          .format(dropped))
+                    # ⚠️ The elapsed time is what says where those bytes came
+                    # from, and the count alone cannot. Backlog already sitting
+                    # in the OS buffer reads out in a few ms and then the quiet
+                    # window runs out the clock; a board still sweeping trickles
+                    # bytes in for as long as it takes. Same count, opposite
+                    # meaning -- and only the second case is one 'Q' can shorten.
+                    print(TAG, "Drained {} bytes in {:.0f} ms ({:.0f} ms of it "
+                          "waiting for silence) before the port went quiet"
+                          .format(dropped, (time.time() - started) * 1000,
+                                  (time.time() - last_byte) * 1000))
                 return True
             if time.time() - started > limit:
                 print(TAG, "Port still busy after {:.0f} s ({} bytes drained)"
