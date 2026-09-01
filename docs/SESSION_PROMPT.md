@@ -123,10 +123,21 @@ processo Qt. I `QDialog` invece si mostrano e si catturano senza problemi.
   misurato è sempre stato il drain. Il segnale che l'ha smascherata è nel log —
   `Drained 7172 bytes` su una scheda `0.1.5c-TEST`, lo stesso conteggio **al
   byte** di una `0.1.5b`, che è il firmware a cui `'Q'` è negato apposta.
-  Ora che è sul percorso giusto, l'osservabile è duplice: la riga
-  `Stop-sweep sent to firmware 0.1.5c-TEST` deve comparire dopo ogni Stop, e il
-  conteggio del drain deve **scendere** sotto i 7172. Se resta lì, `'Q'` continua
-  a non avere effetto e il problema è nel firmware, non nell'host.
+  Rimesso sul percorso giusto e riprovato: la riga
+  `Stop-sweep sent to firmware 0.1.5c-TEST` **compare**, quindi la lettera esce
+  davvero dall'host — ma il drain resta **7172 byte, identico al byte**. Il poll
+  nel firmware è al posto giusto e consuma solo la riga `'Q'`, quindi l'ipotesi in
+  piedi non è più che `'Q'` venga ignorato: è che **quando arriva lo sweep è già
+  finito** e quei 7172 byte siano arretrato già trasmesso, seduto nel buffer del
+  sistema operativo, che nessuna lettera può richiamare indietro.
+  La misura che decide è il **tempo**, non il conteggio, ed è per questo che il
+  drain ora stampa entrambi: se svuota i 7172 byte in un tempo pari alla sola
+  finestra di silenzio (~250 ms) erano già lì, e `'Q'` in questo scenario non ha
+  niente da tagliare — il drain è il meccanismo vero e `'Q'` serve solo se lo Stop
+  arriva mentre la scheda sta ancora spazzolando. Se invece il drain dura un
+  secondo e passa, la scheda trasmetteva ancora e `'Q'` è stato davvero ignorato.
+  ⚠️ Nel primo caso non c'è niente da correggere nel firmware: c'è da correggere
+  quello che questo documento e il CHANGELOG promettono a `'Q'`.
   ⚠️ **Scheda occupata oltre i 6 s** (*The board is still sending measurement
   data*) non si forza al banco: il tetto è 6 s contro uno sweep di ~1.8 s. È
   verificato in simulazione. Se un giorno compare davvero, la scheda è appesa.
