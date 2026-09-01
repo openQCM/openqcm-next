@@ -83,23 +83,6 @@ def _first_reply_line(text):
     return ""
 
 
-def _query_origin(auto_mode):
-    """Which path asked the board: the automatic one, or the menu — and who.
-
-    ⚠️ Diagnostic. On 2026-09-01 a bench run logged the identification-number
-    reply twice for a single connection, and the two known call sites -- the
-    connect branch and the menu action -- cannot account for it. The caller's
-    name is what settles whether there is a third path or the line was simply
-    printed twice. Remove it once that is known.
-    """
-    try:
-        import sys as _sys
-        caller = _sys._getframe(2).f_code.co_name
-    except Exception:
-        caller = "?"
-    return "%s from %s" % ("auto" if auto_mode else "menu", caller)
-
-
 def _firmware_is_current(version):
     """True when the board reports a firmware this software expects.
 
@@ -1326,7 +1309,7 @@ class MainWindow(QtGui.QMainWindow):
                 # update warning print nothing, and then a wrong answer and no
                 # answer at all look identical from the outside
                 print (TAG, "Firmware version response: {} [{}]".format(
-                    repr(read_serial), _query_origin(autoMode)))
+                    repr(read_serial), "auto" if autoMode else "menu"))
                 Log.i(TAG, "Firmware version response: {}".format(
                     repr(read_serial)))
 
@@ -1402,7 +1385,7 @@ class MainWindow(QtGui.QMainWindow):
                 # update warning print nothing, and then a wrong answer and no
                 # answer at all look identical from the outside
                 print (TAG, "Firmware version response: {} [{}]".format(
-                    repr(read_serial), _query_origin(autoMode)))
+                    repr(read_serial), "auto" if autoMode else "menu"))
                 Log.i(TAG, "Firmware version response: {}".format(
                     repr(read_serial)))
 
@@ -2094,7 +2077,7 @@ class MainWindow(QtGui.QMainWindow):
 
         response = _first_reply_line(reply)
         print(TAG, "Board number response: '{}' (raw {}) [{}]".format(
-            response, repr(reply), _query_origin(auto_mode)))
+            response, repr(reply), "auto" if auto_mode else "menu"))
         Log.i(TAG, "Board number response: '{}'".format(response))
 
         if self._board_busy(response):
