@@ -1122,6 +1122,11 @@ that file is touched.
 ## [Unreleased] — `main`
 
 ### Added
+- ⚠️ **Diagnostic: the two device queries log which path asked** — `[auto from _toggle_serial_connection]`
+  or `[menu from <lambda>]` beside the reply. A bench run on 2026-09-01 logged the
+  identification-number reply **twice for a single connection**, and the two known call sites — the
+  connect branch and the menu action — cannot account for it. The caller's name settles whether
+  there is a third path or the line is simply printed twice. **Remove this once that is known.**
 - **Firmware 0.1.5c: `'Q'` ends a sweep in progress** — `firmware/openQCM_Next_py_0.1.5c_teensy/`
   and `..._0.1.5c_TEST_teensy/`, the 0.1.5b pair kept as the previous step. The board sweeps once per
   command and reads serial only at the top of `loop()`, so a sweep ran to completion whatever the
