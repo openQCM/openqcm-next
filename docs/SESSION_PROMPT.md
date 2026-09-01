@@ -111,13 +111,22 @@ processo Qt. I `QDialog` invece si mostrano e si catturano senza problemi.
   connessa **una volta sola**, non esiste nessun `trigger()` nel repository,
   l'azione non ha scorciatoia né `MenuRole` e la menu bar non è nativa: quella
   voce non può partire se non da un clic.
-  **Resta da provare**, su scheda dedicata perché richiede di degradarla:
-  - **EEPROM azzerata** → `NO_SERIAL` → `S/N not programmed`;
-  - **`'Q'` sulla variante `0.1.5c-TEST`** sulla scheda prototipo.
-  Serve uno sketch usa-e-getta che azzera il magic byte: **non è nel repository**
-  di proposito — uno strumento che cancella l'identità di una scheda non va
-  lasciato in giro — e va riscritto (venti righe, `EEPROM.write(0, 0x00)`, gli
+  Provata infine la **EEPROM azzerata** su `0.1.5c-TEST`: `NO_SERIAL` alla
+  connessione e dal menu, sidebar `S/N not programmed`, titolo senza numero.
+  Lo sketch usa-e-getta che azzera il magic byte **non sta nel repository** di
+  proposito — uno strumento che cancella l'identità di una scheda non va lasciato
+  in giro — e va riscritto ogni volta (venti righe, `EEPROM.write(0, 0x00)`, gli
   indirizzi sono in `HANDOFF.md`).
+  ⚠️ **Resta da provare `'Q'`, e le prove fatte finora non contano.** Fino al
+  2026-09-01 la scrittura di `'Q'` stava nel ramo `except` di
+  `_reacquire_serial_lock`, quindi non è **mai** partita: quello che il banco ha
+  misurato è sempre stato il drain. Il segnale che l'ha smascherata è nel log —
+  `Drained 7172 bytes` su una scheda `0.1.5c-TEST`, lo stesso conteggio **al
+  byte** di una `0.1.5b`, che è il firmware a cui `'Q'` è negato apposta.
+  Ora che è sul percorso giusto, l'osservabile è duplice: la riga
+  `Stop-sweep sent to firmware 0.1.5c-TEST` deve comparire dopo ogni Stop, e il
+  conteggio del drain deve **scendere** sotto i 7172. Se resta lì, `'Q'` continua
+  a non avere effetto e il problema è nel firmware, non nell'host.
   ⚠️ **Scheda occupata oltre i 6 s** (*The board is still sending measurement
   data*) non si forza al banco: il tetto è 6 s contro uno sweep di ~1.8 s. È
   verificato in simulazione. Se un giorno compare davvero, la scheda è appesa.

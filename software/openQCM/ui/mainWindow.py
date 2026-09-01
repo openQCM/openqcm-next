@@ -2540,21 +2540,29 @@ class MainWindow(QtGui.QMainWindow):
             return
         try:
             self._open_serial_lock(self._connected_port)
-        except Exception as e:
-            print(TAG, "Warning: could not re-acquire serial port: {}".format(str(e)))
-            Log.w(TAG, "Could not re-acquire serial port: {}".format(str(e)))
             # VER 0.1.5c firmware 0.1.5c ends the sweep in progress on 'Q',
             # which turns "wait out the rest of a sweep" into a few
             # milliseconds. On an older firmware the letter has no branch and
             # would be read as a sweep command, so it is only sent when the
             # reported version is one that knows it -- and the drain in
             # _serial_query covers the rest either way.
+            # ⚠️ This belongs to the path where the port opened. It sat in the
+            # except branch until 2026-09-01, where it could not run: a failed
+            # _open_serial_lock raises and leaves the handle closed, so the
+            # write would have failed too. 'Q' was never transmitted, and the
+            # bench log said so -- the drain reported the same 7172 bytes as on
+            # a 0.1.5b board, which is the firmware 'Q' is deliberately
+            # withheld from. The count is what to watch when this is tested.
             try:
-                if self._serial_lock is not None and _firmware_is_current(
-                        getattr(self, "_firmware_version", "")):
+                if _firmware_is_current(getattr(self, "_firmware_version", "")):
                     self._serial_lock.write(Constants.serial_stop_sweep)
+                    print(TAG, "Stop-sweep sent to firmware {}".format(
+                        self._firmware_version))
             except Exception as e:
                 print(TAG, "Warning: stop-sweep command failed: {}".format(e))
+        except Exception as e:
+            print(TAG, "Warning: could not re-acquire serial port: {}".format(str(e)))
+            Log.w(TAG, "Could not re-acquire serial port: {}".format(str(e)))
         finally:
             # ⚠️ Here, not in stop(): stop() calls _enable_ui BEFORE
             # worker.stop() and a second before the port comes back, so the
