@@ -558,8 +558,10 @@ things fix it, and all three are needed.
   query, giving up after `serial_quiet_timeout_s` = 6 s. It runs inside `_serial_query`, so every
   command benefits. Simulated against a board streaming for 1.8 s: 1360 bytes drained, then the real
   answer parsed.
-- **`'Q'` ends the sweep in progress** (firmware 0.1.5c). `_reacquire_serial_lock` sends it, which
-  turns the wait into milliseconds. ⚠️ Only when the reported version is one that knows the letter:
+- **`'Q'` ends the sweep in progress** (firmware 0.1.5c). `_reacquire_serial_lock` sends it.
+  ⚠️ **Measured at the bench 2026-09-01, it saves nothing here, and the numbers are below.** Keep it
+  anyway — it is the right primitive and costs one write — but do not count on it. ⚠️ Only when the
+  reported version is one that knows the letter:
   on older firmware `'Q'` has no branch and falls into the sweep parser, where `atol("Q")` is 0 and
   `freq_start` is silently overwritten. ⚠️ **It does not start a scan** — `message` is latched only
   after the **third** field, so a single letter never begins a sweep, and every real sweep command
@@ -569,9 +571,37 @@ things fix it, and all three are needed.
   nothing and keeps working. The firmware still gives `'Q'` an explicit no-op branch, because not
   clobbering `freq_start` costs nothing.
   **The fallback is verified on hardware** (2026-09-01, a board deliberately downgraded to
-  `0.1.5b-TEST`): no `'Q'` is sent, the drain alone does the work — `Drained 7172 bytes before the
-  port went quiet`, about 0.6 s of wire time at 115200 baud — and the firmware version and the board
-  number both come back correct afterwards, in single mode, in multiscan and after a peak detection.
+  `0.1.5b-TEST`): no `'Q'` is sent, the drain alone does the work — `Drained 7172 bytes` — and the
+  firmware version and the board number both come back correct afterwards, in single mode, in
+  multiscan and after a peak detection.
+
+  ⚠️ **And then the same 7172 bytes appeared with `'Q'` working, which is how the following was
+  found.** Two defects, one after the other, and the second is the one that matters:
+
+  1. The `'Q'` write sat inside the **`except`** of `_reacquire_serial_lock`, so it could only run
+     when re-opening the port *failed* — and a failed `_open_serial_lock` raises with the handle
+     still closed, so even there the write would have failed. **`'Q'` had never been transmitted.**
+     Four bench sessions passed over it because the drain produced the right answer regardless: the
+     feature was dead and its own fallback hid the symptom. Moved to the success path, where it now
+     logs `Stop-sweep sent to firmware <version>`.
+  2. With it genuinely transmitting, the drain reported **7172 bytes again, the same to the byte**.
+     The drain now logs its duration, and that is what explains it: **414 ms total, 268 ms of which
+     is the unconditional quiet window**. The bytes read out in ~146 ms — seven turns of a loop
+     polling every 20 ms — so on USB CDC they were already buffered; a board still sweeping would
+     have run past 1500 ms.
+
+  The firmware is not at fault: its poll is correct and correctly placed, at the end of an iteration
+  so a break never lands mid-line. **The sequence is what makes the letter late.** The parent regains
+  the port only after the child releases it, and the child releases it once the board has finished,
+  so `'Q'` always arrives to an idle board. A timely one would have to be sent by the **child**, and
+  its entire prize is those ~146 ms, since the 250 ms quiet window stays either way. Not worth
+  restructuring the stop path for — but if anyone ever wonders why `'Q'` seems to do nothing, this
+  is why, and the answer is not "the firmware ignores it".
+
+  ⚠️ **The drain is the mechanism that recovers the port, and always was.** Read the two numbers on
+  its line together: a total close to the quiet window alone means backlog, a total far above it
+  means the board is still talking. The count on its own cannot tell those apart, which is exactly
+  how this went unnoticed.
 - **`_board_busy()`** keeps a busy board from being reported as an old one. An unrecognised reply used
   to reach the "no firmware information" branch, which answers *Please update firmware version* — the
   wrong problem to send someone looking for. Two signs, either is enough: the port never fell silent,
@@ -604,8 +634,9 @@ range — verified, it fires at 99 and at 25600. An existing number is never ove
 The verification line the programmer prints is `SERIALNUMBER = 2052`: a plain integer, no dash, no
 leading zeros on the series.
 
-**The operational firmware only reads it.** Command `'S'` replies with the number (`1920`) or with
-`NO_SERIAL` when the magic byte is absent — it never invents or writes one.
+**The operational firmware only reads it.** Command `'S'` replies with the number (`1900` on both
+worktrees' sketch) or with `NO_SERIAL` when the magic byte is absent — it never invents or writes
+one.
 
 The command arrived with `0.1.5b`; the current pair is **`0.1.5c`**, which added `'Q'`. Each
 version is its own pair of folders, production and no-TEC `-TEST`:
@@ -668,6 +699,32 @@ other.
 ⚠️ **`Constants.FW_VERSION` moves with the firmware.** The host compares the reply to `'F'` against
 that string and pops a firmware-update warning when it does not match, so a version bump that stops
 at the sketch turns into a warning on every connect. It is `'0.1.5c'` now.
+
+#### Bench verification — complete, 2026-09-01
+
+Every scenario has been run on hardware. Recorded because re-running them costs a board downgrade
+and an EEPROM wipe each.
+
+| scenario | board | result |
+|---|---|---|
+| number valid, connected and idle | 1900, `0.1.5c` | popup, `S/N 1900` in the sidebar, `[1900]` in the title |
+| the two entries greyed | — | greyed while disconnected and while acquiring, active when idle; the number stays in the title throughout |
+| standby after a Stop | 1900, `0.1.5c` | both entries answer at once, single and multiscan |
+| standby after a peak detection | 1900, `0.1.5c` | answers without a reconnect — the path that does not go through `stop()` |
+| firmware that does not know `'S'` | `0.1.5a-TEST` | empty reply → *needs firmware 0.1.5c or later*, and nothing else |
+| EEPROM cleared | `0.1.5c-TEST`, magic byte zeroed | `NO_SERIAL` → `S/N not programmed`, no number in the title |
+| `'Q'` on the no-TEC variant | `0.1.5c-TEST` | the letter is sent and logged; it saves nothing — see the measurement above |
+
+⚠️ Two of these look like failures in the log and are not. A `0.1.5a` board prints
+`Board number response: '' (raw '')` **twice** for one connection — that is the connect handshake
+and then the operator's own menu check, 2.24 s apart, which is why the line carries `[auto]` or
+`[menu]`. And a drain line that does **not** appear at all is the best outcome, not a missing one:
+it prints only when it discarded something.
+
+The sketch that clears the magic byte is deliberately **not** in the repository — a tool that erases
+a board's identity should not be lying around — so it gets rewritten each time. Twenty lines:
+`EEPROM.write(0, 0x00)` guarded by a read of the same byte, then a `MAGIC = 0x..` line every three
+seconds so the serial monitor confirms it.
 
 ⚠️ **Every reply is parsed by `_first_reply_line()`, not by `rstrip('\r\n')`.** That was the rule
 for the firmware version and it only strips the **trailing** terminator: a leading blank line, or a
