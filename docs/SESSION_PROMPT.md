@@ -88,20 +88,24 @@ processo Qt. I `QDialog` invece si mostrano e si catturano senza problemi.
 
 ### Il resto
 
-- ⚠️ **Da provare ancora sulla scheda di test**, quattro scenari del numero
-  identificativo e del firmware. Verificati: numero valido (`S/N 1900`, titolo,
-  popup) e le due voci grigie a porta chiusa e in acquisizione. **Non ancora
-  verificati:**
+- **Prove di banco del numero identificativo.** Provato il 2026-09-01 sulla
+  macchina con firmware `0.1.5c` e scheda 1900: **tutte le vie di ritorno in
+  standby funzionano** — connesso e fermo, dopo una peak detection conclusa,
+  dopo Start/Stop in singola, dopo Start/Stop in multiscan. La multiscan è il
+  caso più severo: cinque sweep, quindi il peggiore per il drain e per `'Q'`.
+  **Restano da provare**, tutti su scheda dedicata perché richiedono di
+  degradarla:
   - **firmware precedente a `0.1.5b`** → nessuna risposta a `'S'` → l'avviso deve
     dire *serve firmware più recente*, non altro;
   - **EEPROM azzerata** → `NO_SERIAL` → `S/N not programmed`;
-  - **scheda occupata oltre i 6 s** → deve dire *The board is still sending
-    measurement data*, mai *update firmware*;
-  - **`'Q'` sulla variante `0.1.5c-TEST`** (sulla macchina vera è provato).
-  Servono due sketch usa-e-getta che azzerano il magic byte e che rileggono i
-  quattro byte grezzi: **non sono nel repository** e vanno riscritti (una
-  ventina di righe ciascuno, `EEPROM.read`/`write` sugli indirizzi in
-  `HANDOFF.md`).
+  - **`'Q'` sulla variante `0.1.5c-TEST`** sulla scheda prototipo.
+  Serve uno sketch usa-e-getta che azzera il magic byte: **non è nel repository**
+  di proposito — uno strumento che cancella l'identità di una scheda non va
+  lasciato in giro — e va riscritto (venti righe, `EEPROM.write(0, 0x00)`, gli
+  indirizzi sono in `HANDOFF.md`).
+  ⚠️ **Scheda occupata oltre i 6 s** (*The board is still sending measurement
+  data*) non si forza al banco: il tetto è 6 s contro uno sweep di ~1.8 s. È
+  verificato in simulazione. Se un giorno compare davvero, la scheda è appesa.
 - ⚠️ **Firmware: tre coppie in `firmware/`.** La corrente è **`0.1.5c`** (`'S'` e
   `'Q'`); `0.1.5b` e `0.1.5a` sono superate e **vanno cancellate** quando nessuna
   scheda le monta più. La variante `-TEST` senza TEC resta finché la scheda
