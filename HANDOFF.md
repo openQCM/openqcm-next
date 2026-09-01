@@ -85,6 +85,7 @@ Add a line here whenever you decide to skip one, so the next person can tell "ch
 | `da81e2b` | restores `Calibration.py`'s CRLF endings, which a script on `main` had normalised by accident. This branch never had them normalised -- the same mistake was caught here before the commit -- so the file is already CRLF and the patch has nothing to do. |
 | `e39c0ca`, `a855587` | `main`'s own CHANGELOG for the Datalog View round. |
 | `ab3722a`, `6935826` | `main`'s own CHANGELOG/HANDOFF for the 2026-07-29 round. Branch-specific notes live here instead. |
+| `bdc53fa` | corrects `main`'s CHANGELOG entry for the programmer sketch from `1920` to `1900`, and drops a SESSION_PROMPT item. This branch already says it, in its own words, at the top of its CHANGELOG — the number arrived here inside the `0.1.5c` cherry-pick and the note explains that. ⚠️ Checked on 2026-09-01 because `git cherry` still lists it `+` and it was in neither table, which is precisely the ambiguity these tables exist to remove. One loose end left alone: the historical entry further down this CHANGELOG still reads `1920`, so the file states both numbers in two places. |
 
 ⚠️ **`git cherry` also keeps showing `+` for a commit that was ported but needed conflict
 resolution**, because it compares patch-ids and the resolved patch is not the original one. On
