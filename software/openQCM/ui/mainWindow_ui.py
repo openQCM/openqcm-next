@@ -25,7 +25,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from pyqtgraph import GraphicsLayoutWidget
 
 from openQCM.ui.widgets import (ChevronComboBox, ChevronSpinBox,
-                                ChevronDoubleSpinBox)
+                                ChevronDoubleSpinBox, ElidedLabel)
 
 # Application icon, resolved absolutely from this module (robust to the launch
 # working directory — the old relative "favicon.png" only loaded from cwd).
@@ -581,7 +581,10 @@ class Ui_MainWindow(object):
         bottom.setSpacing(6)
         self.verticalLayout = QtWidgets.QVBoxLayout()
         self.verticalLayout.setObjectName("verticalLayout")
-        self.lblLogFile = QtWidgets.QLabel(self.sidebarPane)
+        # ElidedLabel, not QLabel: it is filled while hidden, so the caller
+        # has no width to elide against, and the sidebar is draggable so the
+        # width it would find is not final anyway. See ui/widgets.py.
+        self.lblLogFile = ElidedLabel(self.sidebarPane)
         self.lblLogFile.setObjectName("lblLogFile")
         self.lblLogFile.hide()
         self.verticalLayout.addWidget(self.lblLogFile)

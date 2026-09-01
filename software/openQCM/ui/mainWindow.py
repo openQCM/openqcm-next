@@ -2152,13 +2152,17 @@ class MainWindow(QtGui.QMainWindow):
         return title
 
     def _show_log_filename(self, filename):
-        """Show/clear the datalog filename in the sidebar and window title."""
+        """Show/clear the datalog filename in the sidebar and window title.
+
+        ⚠️ The eliding is the label's own job now (ui/widgets.ElidedLabel) and
+        must not come back here. This method runs while the label is still
+        hidden, so the width it could measure is Qt's default 100 px, not the
+        260-400 px the sidebar actually gives it -- the name was cut to 140 px
+        with 244 available. And the sidebar is draggable, so even a correct
+        width measured here would be stale as soon as the splitter moved.
+        """
         if filename:
-            metrics = QtGui.QFontMetrics(self.lblLogFile.font())
-            width = max(140, self.lblLogFile.width() - 8)
-            self.lblLogFile.setText(metrics.elidedText(
-                "Log: " + filename, QtCore.Qt.ElideMiddle, width))
-            self.lblLogFile.setToolTip(filename)
+            self.lblLogFile.setText("Log: " + filename)
             self.lblLogFile.show()
         else:
             self.lblLogFile.clear()
