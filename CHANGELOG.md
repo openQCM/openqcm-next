@@ -1294,7 +1294,10 @@ that file is touched.
     moves with them**: the host compares the `'F'` reply against that string exactly and pops a
     firmware-update warning on any difference, so a bump that stopped at the sketch would warn on
     every connect.
-  - `OPENQCM_SERIALNUMBER` is set to **1920** — series 19, unit 20 — the current hardware.
+  - `OPENQCM_SERIALNUMBER` is **1900** — series 19, unit 00. It read 1920 when the sketch was
+    written and this entry said so until 2026-09-01; the current value reached this branch
+    inside the `0.1.5c` cherry-pick, which staged the whole firmware directory and says
+    nothing about the number. See the note at the top of this file.
   - Verified: all three sketches compile for `teensy:avr:teensy40` (programmer 35856 bytes,
     production 55056, TEST 45500).
 - **Machine identification number: the programmer sketch** —
