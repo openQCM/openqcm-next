@@ -2623,19 +2623,23 @@ class MainWindow(QtGui.QMainWindow):
             return
         try:
             self._open_serial_lock(self._connected_port)
-            # VER 0.1.5c firmware 0.1.5c ends the sweep in progress on 'Q',
-            # which turns "wait out the rest of a sweep" into a few
-            # milliseconds. On an older firmware the letter has no branch and
-            # would be read as a sweep command, so it is only sent when the
-            # reported version is one that knows it -- and the drain in
-            # _serial_query covers the rest either way.
-            # ⚠️ This belongs to the path where the port opened. It sat in the
-            # except branch until 2026-09-01, where it could not run: a failed
-            # _open_serial_lock raises and leaves the handle closed, so the
-            # write would have failed too. 'Q' was never transmitted, and the
-            # bench log said so -- the drain reported the same 7172 bytes as on
-            # a 0.1.5b board, which is the firmware 'Q' is deliberately
-            # withheld from. The count is what to watch when this is tested.
+            # VER 0.1.5c firmware 0.1.5c ends the sweep in progress on 'Q'.
+            # On an older firmware the letter has no branch, so it is only sent
+            # when the reported version is one that knows it.
+            #
+            # ⚠️ Measured at the bench 2026-09-01, and it does NOT shorten the
+            # tail after a Stop: 7172 bytes drained with 'Q' and 7172 without,
+            # the same to the byte. The reason is this method's position in the
+            # sequence, not the firmware -- the parent regains the port only
+            # after the child releases it, and the child releases it once the
+            # board has finished sweeping, so the letter always arrives to an
+            # idle board and those bytes are backlog already in the OS buffer.
+            # The drain below is what actually recovers the port; 'Q' is kept
+            # because it is the right primitive and costs one write, not
+            # because it is doing anything here. A timely 'Q' would have to be
+            # sent by the child, and could save at most the ~146 ms of readout
+            # -- the 250 ms quiet window is unconditional -- which is why the
+            # stop path has not been restructured around it.
             try:
                 if _firmware_is_current(getattr(self, "_firmware_version", "")):
                     self._serial_lock.write(Constants.serial_stop_sweep)

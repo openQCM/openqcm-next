@@ -1165,6 +1165,17 @@ that file is touched.
   - Moved to the success path, and it now prints `Stop-sweep sent to firmware <version>`. Without
     that line the fix is not observable at the bench: both states end with a correct answer, and only
     the drained byte count separates them.
+  - ⚠️ **And with it working, `'Q'` turns out not to shorten anything here.** Same board, same
+    Stop, `Stop-sweep sent` in the log: still 7172 bytes. The drain now reports its duration too, and
+    that is what settles it — **414 ms, of which 268 ms is the unconditional quiet window**. The
+    7172 bytes read out in ~146 ms, seven turns of a loop that polls every 20 ms, which on USB CDC
+    means they were already in the buffer. A board still sweeping would have taken past 1500 ms.
+  - The cause is the **sequence**, not the firmware, whose poll is correct and correctly placed. The
+    parent regains the port only after the child releases it, and the child releases it once the
+    board has finished, so `'Q'` always reaches an idle board. A timely one would have to be sent by
+    the child, and its whole prize is those ~146 ms. The stop path is not being restructured for
+    that. `'Q'` stays — right primitive, one write, harmless — but the claim that it turns waiting
+    out a sweep into milliseconds was mine and the bench did not support it.
 
 - **A question asked while the board is still talking is answered with sweep data** — after a Stop
   the board keeps sending for the rest of its sweep (~1.8 s per overtone), and
