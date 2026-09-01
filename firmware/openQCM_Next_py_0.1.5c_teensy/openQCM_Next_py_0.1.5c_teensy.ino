@@ -55,10 +55,13 @@
    - The sweep loop polls Serial at the END of each iteration, so the break
      never lands in the middle of a printed line, and consumes only the 'Q'
      line: any other character is left for the parser at the top of loop().
-   - ⚠️ 'Q' also has a top-level branch that does nothing. It has to: anything
-     unrecognised falls through to the sweep parser, where atol("Q") is 0,
-     freq_start becomes 0 and the board sets off on a scan from 0 Hz that wedges
-     it for minutes. That is the failure openQCM Q-1 documented for its own 'F'.
+   - 'Q' also has a top-level branch that does nothing, which is worth having:
+     without it the letter falls through to the sweep parser and silently
+     overwrites freq_start. ⚠️ It does NOT start a scan -- message is latched
+     only after the THIRD field, so a single letter never begins a sweep. That
+     is the difference from openQCM Q-1, whose parser did latch and whose 'F'
+     really could set the board off from 0 Hz; the claim that ours behaves the
+     same way was wrong and is corrected here.
    - FW_VERSION goes to 0.1.5c, and Constants.FW_VERSION moves with it.
 
    version      0.1.5b
@@ -922,10 +925,14 @@ void loop()
     // STOP an ongoing sweep. Reaching this branch means there is no sweep to
     // stop -- the one in progress is polled inside its own loop -- so there is
     // nothing to do here.
-    // ⚠️ The branch has to exist all the same: anything unrecognised falls
-    // through to the sweep parser below, where atol("Q") is 0, freq_start
-    // becomes 0 and the board sets off on a scan from 0 Hz that wedges it for
-    // minutes. That is the failure openQCM Q-1 documented for its own 'F'.
+    // ⚠️ The branch is worth having all the same: without it 'Q' falls through
+    // to the sweep parser below, where atol("Q") is 0 and freq_start is
+    // silently overwritten. It does NOT start a scan -- message is latched only
+    // after the THIRD field, so a single letter never begins a sweep, and every
+    // real sweep command re-sends all three. That is the difference from
+    // openQCM Q-1, whose parser did latch and whose 'F' really could set the
+    // board off from 0 Hz. Verified on hardware 2026-09-01: a 0.1.5a board,
+    // which has no branch for 'S', answers nothing and keeps working.
     else if (buf[0] == 'Q') {
       // no-op
     }
