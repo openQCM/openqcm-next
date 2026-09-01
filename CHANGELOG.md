@@ -6,11 +6,18 @@ Conventional Commits. Versions are marked by Git tags.
 ## [Unreleased] — `main`
 
 ### Added
-- ⚠️ **Diagnostic: the two device queries log which path asked** — `[auto from _toggle_serial_connection]`
-  or `[menu from <lambda>]` beside the reply. A bench run on 2026-09-01 logged the
-  identification-number reply **twice for a single connection**, and the two known call sites — the
-  connect branch and the menu action — cannot account for it. The caller's name settles whether
-  there is a third path or the line is simply printed twice. **Remove this once that is known.**
+- **The two device queries log which path asked** — `[auto]` beside the reply when it is the
+  handshake that runs at connection, `[menu]` when it is the operator's check from Tools. One word,
+  and it is what distinguishes a board that answers nothing from a board nobody asked.
+  - It settled the open question of 2026-09-01, when a bench run appeared to log the
+    identification-number reply **twice for a single connection**. A temporary diagnostic printing
+    the caller frames and the clock showed the two calls **2.24 s apart**, tagged `auto` and `menu`:
+    the handshake, then the manual check that the bench procedure prescribes at that exact point. Two
+    events, not one delivered twice. They read alike only because a `0.1.5a` board, which has no
+    branch for `'S'`, answers nothing to either.
+  - Ruled out along the way, and worth not re-deriving: `actionSerialNumber` is connected **once**,
+    in `__init__`; the repository contains no `trigger()` call at all; the action carries no shortcut
+    and no `MenuRole`, and the menu bar is not native. Nothing but a click can fire it.
 - **Firmware 0.1.5c: `'Q'` ends a sweep in progress** — `firmware/openQCM_Next_py_0.1.5c_teensy/`
   and `..._0.1.5c_TEST_teensy/`, the 0.1.5b pair kept as the previous step. The board sweeps once per
   command and reads serial only at the top of `loop()`, so a sweep ran to completion whatever the

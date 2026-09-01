@@ -97,11 +97,21 @@ processo Qt. I `QDialog` invece si mostrano e si catturano senza problemi.
   `'Q'` non viene mandato — su un firmware che non lo conosce partirebbe una
   scansione da 0 Hz — e **il solo drain basta**, 7172 byte drenati, con risposta
   corretta in singola, in multiscan e dopo una peak detection.
-  **Restano da provare**, tutti su scheda dedicata perché richiedono di
-  degradarla:
-  - **firmware `0.1.5a`** → nessuna risposta a `'S'` → l'avviso deve dire *serve
-    firmware più recente*, non altro. ⚠️ Non basta `0.1.5b`: quello `'S'` lo
-    conosce già;
+  Provata poi la scheda degradata a **`0.1.5a-TEST`**, che `'S'` non lo conosce
+  affatto: non risponde nulla e l'avviso dice *serve firmware più recente*, che è
+  la sola cosa che deve dire. ⚠️ Non basta `0.1.5b` per questa prova: quello `'S'`
+  lo conosce già.
+  ⚠️ **Falso allarme già chiuso, da non riaprire.** In quel log la riga
+  `Board number response: '' (raw '')` compare **due volte** dopo una sola
+  connessione, e sembra un doppione. Non lo è: le due chiamate distano **2,24 s**
+  e sono l'interrogazione automatica alla connessione e il controllo manuale da
+  `Tools` che la procedura chiede subito dopo. Si somigliano solo perché una
+  scheda `0.1.5a` non risponde a nessuna delle due. Da qui l'etichetta
+  `[auto]`/`[menu]` accanto alla risposta, che è rimasta. `actionSerialNumber` è
+  connessa **una volta sola**, non esiste nessun `trigger()` nel repository,
+  l'azione non ha scorciatoia né `MenuRole` e la menu bar non è nativa: quella
+  voce non può partire se non da un clic.
+  **Resta da provare**, su scheda dedicata perché richiede di degradarla:
   - **EEPROM azzerata** → `NO_SERIAL` → `S/N not programmed`;
   - **`'Q'` sulla variante `0.1.5c-TEST`** sulla scheda prototipo.
   Serve uno sketch usa-e-getta che azzera il magic byte: **non è nel repository**
