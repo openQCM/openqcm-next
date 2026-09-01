@@ -95,6 +95,16 @@ def _firmware_is_current(version):
             and version == Constants.FW_VERSION
                            + Constants.FW_VERSION_TEST_SUFFIX)
 
+# _drain_serial outcomes. Three, not two: "the board never stopped talking" and
+# "the handle raised" are opposite faults with opposite remedies -- wait, or
+# reconnect -- and collapsing them into a single False is what reported a board
+# that had just re-enumerated after a firmware update as a board still sweeping.
+# The number that separates them is the elapsed time: a dead handle raises in
+# ~0 ms, a busy board burns the whole 6 s timeout.
+DRAIN_QUIET = "quiet"
+DRAIN_BUSY = "busy"
+DRAIN_LINK_LOST = "link-lost"
+
 TAG = ""#"[MainWindow]"
 
 # VER 0.1.6 init the SecondWindow class
@@ -1285,6 +1295,13 @@ class MainWindow(QtGui.QMainWindow):
                 Log.i(TAG, "Firmware version response: {}".format(
                     repr(read_serial)))
 
+                # VER 0.1.6 a dead handle is not a busy board, and it is
+                # checked first: after a firmware update the device
+                # re-enumerates and every read raises instead of answering
+                if self._link_lost():
+                    self._report_link_lost("Firmware version query", autoMode)
+                    return
+
                 # VER 0.1.5c a board still finishing a sweep is not a board
                 # with old firmware, and must not be reported as one
                 if self._board_busy(firmware_version_current):
@@ -1360,6 +1377,13 @@ class MainWindow(QtGui.QMainWindow):
                     repr(read_serial), "auto" if autoMode else "menu"))
                 Log.i(TAG, "Firmware version response: {}".format(
                     repr(read_serial)))
+
+                # VER 0.1.6 a dead handle is not a busy board, and it is
+                # checked first: after a firmware update the device
+                # re-enumerates and every read raises instead of answering
+                if self._link_lost():
+                    self._report_link_lost("Firmware version query", autoMode)
+                    return
 
                 # VER 0.1.5c a board still finishing a sweep is not a board
                 # with old firmware, and must not be reported as one
@@ -1468,40 +1492,127 @@ class MainWindow(QtGui.QMainWindow):
         elif ((self.worker.is_running() == True) and (autoMode == False)):
             PopUp.warning_not_blocking(self, "Firmware information","Warning: unable to get firmware information during a measurement session")
     
+    def _firmware_image(self, directory):
+        """The .hex this software wants on the board, right variant included.
+
+        ⚠️ Derived from Constants.FW_VERSION, never spelled out. The image and
+        the version the check demands are the same fact, and a hard-coded file
+        name is how the folder ended up shipping `0.1.5` while the software
+        asked for `0.1.5c` -- the operator updated, and was asked to update
+        again by the same dialog.
+
+        The variant follows what the board has just answered. A no-TEC
+        prototype reports the '-TEST' suffix, and handing it the TEC image
+        would flash a firmware for hardware it does not have. When the board
+        answered nothing at all the production image is the safe guess, and the
+        log says which one was chosen either way.
+
+        Returns None when the image is not there, which is not fatal: the
+        loader still opens, just empty, exactly as it always did.
+        """
+        reported = getattr(self, "_firmware_version", "") or ""
+        variant = ("_TEST"
+                   if reported.endswith(Constants.FW_VERSION_TEST_SUFFIX)
+                   else "")
+        name = "openQCM_Next_py_{}{}_teensy.ino.TEENSY40.hex".format(
+            Constants.FW_VERSION, variant)
+        path = directory + name
+        if os.path.exists(path):
+            print(TAG, "Firmware image: {} (board reported {})"
+                  .format(name, repr(reported)))
+            Log.i(TAG, "Firmware image: {}".format(name))
+            return path
+        print(TAG, "Firmware image {} not found in {} -- the loader will open "
+              "with no file".format(name, directory))
+        Log.w(TAG, "Firmware image {} not found".format(name))
+        return None
+
     def _run_firmware_updater(self):
         import os, sys, subprocess
-        directory = os.getcwd()
-        # print (directory)
-        
-        # print ("OS directory separator" , os.sep)
-        # directory 
-# =============================================================================
-#         if Architecture.get_os() is (OSType.linux or OSType.macosx):
-#             # print ("MAC_OS_X")
-#             dir_separator = "/"
-# 
-#         elif Architecture.get_os() is OSType.windows:
-#             # print("WINDOWS")
-#             dir_separator = "\\"
-#         else:
-#             # print ("OTHER_OS")
-#             dir_separator = "/"
-# =============================================================================
-        # OS directory seprator 
-        # How to use "/" (directory separator) in both Linux and Windows in Python?
-        # https://stackoverflow.com/a/16011083/4030282
-        dir_separator = os.sep
-        
-        directory_firmware_update = directory + dir_separator + "openQCM" + dir_separator + "firmware_update" + dir_separator
+        # ⚠️ Resolved from this module, not from os.getcwd(). The old path
+        # only existed when the application happened to be started from
+        # `software/`; from a launcher, a packaged build, or any other
+        # directory the updater silently did not open at all. Same fix and
+        # same reason as APP_ICON in mainWindow_ui.
+        directory_firmware_update = os.path.normpath(
+            os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "..", "firmware_update")) + os.sep
         
         exe_name = "TyUploader.exe"
         app_name = "Teensy.app"
       
-        if sys.platform == "win32":
-            os.startfile(directory_firmware_update + exe_name)
-        else:
-            opener = "open" if sys.platform == "darwin" else "xdg-open"
-            subprocess.call([opener, (directory_firmware_update + app_name)])
+        # ⚠️ The launch used to be silent whichever way it went. os.startfile
+        # raises and `open` returns a non-zero code, and neither was looked
+        # at, so a procedure that did nothing read exactly like one that
+        # worked -- there was no line in the log either way.
+        target = directory_firmware_update + (exe_name
+                                              if sys.platform == "win32"
+                                              else app_name)
+        print(TAG, "Firmware updater: {} (present: {})"
+              .format(target, os.path.exists(target)))
+        Log.i(TAG, "Firmware updater: {}".format(target))
+        # ⚠️ The loader used to open with no file, so the operator picked the
+        # image by hand out of a folder whose only .hex was the wrong version
+        # and, on a prototype, the wrong variant too. The software already knows
+        # which one it wants -- it has just read the reported version, suffix
+        # included -- so it hands it over. Teensy.app declares no document type
+        # but does implement application:openFile:, which is what `open -a`
+        # sends; verified on Teensy Loader 1.52.
+        image = self._firmware_image(directory_firmware_update)
+        try:
+            if sys.platform == "win32":
+                if image:
+                    subprocess.Popen([target, image])
+                else:
+                    os.startfile(target)
+            elif sys.platform == "darwin":
+                argv = (["open", "-a", target, image] if image
+                        else ["open", target])
+                rc = subprocess.call(argv)
+                if rc != 0 and image:
+                    # passing the file is the improvement, not the requirement:
+                    # fall back to the old behaviour rather than fail outright
+                    print(TAG, "Firmware updater: open -a with the image "
+                          "exited {}, retrying without it".format(rc))
+                    Log.w(TAG, "Firmware updater: retrying without the image")
+                    rc = subprocess.call(["open", target])
+                if rc != 0:
+                    raise OSError("open exited with code {}".format(rc))
+            else:
+                rc = subprocess.call(["xdg-open", target])
+                if rc != 0:
+                    raise OSError("xdg-open exited with code {}".format(rc))
+        except Exception as e:
+            print(TAG, "Firmware updater not launched: {}".format(str(e)))
+            Log.e(TAG, "Firmware updater not launched: {}".format(str(e)))
+            PopUp.warning(self, Constants.app_title,
+                          "The firmware updater could not be launched.\n\n"
+                          "{}".format(target))
+            return
+
+        # ⚠️ Reprogramming the board re-enumerates the USB device, so from
+        # here the handle this window holds is dead -- not maybe, always.
+        # And the launcher returns as soon as the loader is on screen, not
+        # when the board has been flashed, so there is nothing to wait for
+        # and nothing to detect: the connection is forfeit the moment the
+        # operator starts. Saying so now is what stops the next query from
+        # reading ENXIO off a stale handle and reporting it as a board
+        # still sending measurement data.
+        if self._serial_connected:
+            self._disconnect_serial(
+                "firmware update in progress -- reconnect when it is done")
+            # ⚠️ The status bar already says it and the Connect button has
+            # already flipped back, so this dialog is redundant by design --
+            # and it is here anyway. The operator's attention is on the Teensy
+            # Loader in another application at this moment, not on our status
+            # bar, and coming back to a window that silently stopped being
+            # connected is how the next query gets blamed on the board.
+            # Non-blocking: the loader is what needs the hands right now.
+            PopUp.info_not_blocking(
+                self, "FIRMWARE UPDATE",
+                "Disconnected from serial port.\n\n"
+                "Firmware update in progress.\n"
+                "Reconnect when it is done.")
 
             
     ###########################################################################
@@ -1556,13 +1667,48 @@ class MainWindow(QtGui.QMainWindow):
         used to reach the "no firmware information" branch, which answers with
         *Please update firmware version* -- so a board mid-sweep was reported as
         a board with old firmware, and the operator went looking for the wrong
-        problem. Two signs, either is enough: the port never fell silent before
-        the question, or the answer carries a semicolon, which no version and no
-        identification number does but every sweep sample line does.
+        problem. Two signs, either is enough: the drain timed out with the port
+        still talking, or the answer carries a semicolon, which no version and
+        no identification number does but every sweep sample line does.
+
+        ⚠️ A handle that *raised* is not one of the two. It used to be, because
+        the drain returned the same False for both, and that is how a board
+        which had just re-enumerated after a firmware update was reported as a
+        board still sweeping. See _link_lost().
         """
-        if not getattr(self, "_quiet_before_query", True):
+        if getattr(self, "_last_drain", DRAIN_QUIET) == DRAIN_BUSY:
             return True
         return ";" in (response or "")
+
+    def _link_lost(self):
+        """True when the last query found a dead handle, not a busy board.
+
+        ⚠️ _can_query_device() cannot catch this: pyserial's isOpen()
+        returns the is_open flag, which stays True after the device node
+        underneath it has gone. Only an actual read finds out.
+        """
+        return getattr(self, "_last_drain", DRAIN_QUIET) == DRAIN_LINK_LOST
+
+    def _report_link_lost(self, what, auto_mode):
+        """Say the link is gone, and make the GUI state match.
+
+        ⚠️ Not "the board is still sending measurement data". That
+        message tells the operator to wait, and waiting never revives a
+        handle whose device node is gone -- which is what a firmware update
+        leaves behind every single time, because reprogramming the Teensy
+        re-enumerates the USB device. The remedy is a reconnect, so the
+        window goes to Disconnected and says so.
+        """
+        print(TAG, "{}: serial link lost, the board re-enumerated or was "
+              "unplugged".format(what))
+        Log.w(TAG, "{}: serial link lost".format(what))
+        self._disconnect_serial("connection to the board lost")
+        if not auto_mode:
+            PopUp.warning(self, Constants.app_title,
+                          "The connection to the board was lost.\n\n"
+                          "This is expected right after a firmware update: "
+                          "the board\nreappears as a new device. Press "
+                          "Connect to reconnect.")
 
     def _can_query_device(self):
         """True when the GUI itself can talk to the board right now.
@@ -2049,6 +2195,10 @@ class MainWindow(QtGui.QMainWindow):
             response, repr(reply), "auto" if auto_mode else "menu"))
         Log.i(TAG, "Board number response: '{}'".format(response))
 
+        if self._link_lost():
+            self._report_link_lost("Board number query", auto_mode)
+            return
+
         if self._board_busy(response):
             print(TAG, "Board still busy: number query skipped")
             Log.w(TAG, "Board still busy: number query skipped")
@@ -2489,30 +2639,45 @@ class MainWindow(QtGui.QMainWindow):
             self._query_serial_number(auto_mode=True)
         else:
             # ---- DISCONNECT ----
-            if self._serial_lock is not None:
-                try:
-                    self._serial_lock.close()
-                except Exception:
-                    pass
-                self._serial_lock = None
-            self._release_port_lock()
-            self._serial_connected = False
-            self._connected_port = None
-            self.ui.pButton_Connect.setText("Connect")
-            self.ui.pButton_Connect.setProperty("connected", False)
-            self.ui.pButton_Connect.style().unpolish(self.ui.pButton_Connect)
-            self.ui.pButton_Connect.style().polish(self.ui.pButton_Connect)
-            self.ui.cBox_Port.setEnabled(True)
-            self.ui.pButton_Refresh.setEnabled(True)
-            self.ui.pButton_Start.setEnabled(False)
-            self.ui.pButton_Tswitch_ON.setEnabled(False)
-            self._enable_device_queries()
-            self.ui.label_COM_status.setText("Disconnected")
-            self._show_board_serial(None)
-            self._set_status("disconnected", "Standby")
-            self._set_message("disconnected")
-            print(TAG, "Disconnected from serial port")
-            Log.i(TAG, "Disconnected from serial port")
+            self._disconnect_serial()
+
+    def _disconnect_serial(self, message="disconnected"):
+        """Drop the persistent handle and put the window back in Disconnected.
+
+        ⚠️ Lifted out of _toggle_serial_connection because the button is no
+        longer the only thing that can end a connection: a firmware update
+        re-enumerates the board and forfeits the handle without anyone
+        pressing anything. Eleven widgets have to move together, and a
+        second copy of that list is how a window ends up claiming Connected
+        over a port that no longer exists.
+
+        `message` reaches the status bar, so the reason survives to the
+        operator instead of a bare "disconnected".
+        """
+        if self._serial_lock is not None:
+            try:
+                self._serial_lock.close()
+            except Exception:
+                pass
+            self._serial_lock = None
+        self._release_port_lock()
+        self._serial_connected = False
+        self._connected_port = None
+        self.ui.pButton_Connect.setText("Connect")
+        self.ui.pButton_Connect.setProperty("connected", False)
+        self.ui.pButton_Connect.style().unpolish(self.ui.pButton_Connect)
+        self.ui.pButton_Connect.style().polish(self.ui.pButton_Connect)
+        self.ui.cBox_Port.setEnabled(True)
+        self.ui.pButton_Refresh.setEnabled(True)
+        self.ui.pButton_Start.setEnabled(False)
+        self.ui.pButton_Tswitch_ON.setEnabled(False)
+        self._enable_device_queries()
+        self.ui.label_COM_status.setText("Disconnected")
+        self._show_board_serial(None)
+        self._set_status("disconnected", "Standby")
+        self._set_message(message)
+        print(TAG, "Disconnected from serial port ({})".format(message))
+        Log.i(TAG, "Disconnected from serial port ({})".format(message))
 
     def _open_serial_lock(self, port):
         # Open the persistent, exclusive serial handle held by the GUI while
@@ -2594,7 +2759,9 @@ class MainWindow(QtGui.QMainWindow):
             return False
 
     def _drain_serial(self, quiet_ms=None, timeout_s=None):
-        """Read and discard until the board stops talking. Returns True if it did.
+        """Read and discard until the board stops talking.
+
+        Returns DRAIN_QUIET, DRAIN_BUSY or DRAIN_LINK_LOST.
 
         ⚠️ reset_input_buffer() is not enough on its own. It empties what has
         arrived, not what is still coming, and the board keeps streaming the
@@ -2604,7 +2771,7 @@ class MainWindow(QtGui.QMainWindow):
         for a real silence instead.
         """
         if self._serial_lock is None:
-            return False
+            return DRAIN_LINK_LOST
         quiet = (Constants.serial_quiet_ms if quiet_ms is None else quiet_ms) / 1000.0
         limit = (Constants.serial_quiet_timeout_s if timeout_s is None else timeout_s)
         started = time.time()
@@ -2613,13 +2780,13 @@ class MainWindow(QtGui.QMainWindow):
         while True:
             try:
                 n = self._serial_lock.inWaiting()
-            except Exception:
-                return False
+            except Exception as e:
+                return self._drain_link_lost(e, started)
             if n:
                 try:
                     dropped += len(self._serial_lock.read(n))
-                except Exception:
-                    return False
+                except Exception as e:
+                    return self._drain_link_lost(e, started)
                 last_byte = time.time()
             elif time.time() - last_byte >= quiet:
                 if dropped:
@@ -2633,20 +2800,35 @@ class MainWindow(QtGui.QMainWindow):
                           "waiting for silence) before the port went quiet"
                           .format(dropped, (time.time() - started) * 1000,
                                   (time.time() - last_byte) * 1000))
-                return True
+                return DRAIN_QUIET
             if time.time() - started > limit:
                 print(TAG, "Port still busy after {:.0f} s ({} bytes drained)"
                       .format(limit, dropped))
                 Log.w(TAG, "Port still busy after {:.0f} s".format(limit))
-                return False
+                return DRAIN_BUSY
             sleep(0.02)
+
+    def _drain_link_lost(self, error, started):
+        """The handle raised mid-drain: the device is gone, not busy.
+
+        ⚠️ The elapsed time is the observable, and it is printed for that
+        reason alone. A board still sweeping keeps the drain alive for the
+        full 6 s timeout; a re-enumerated one raises on the first
+        inWaiting(), in about a millisecond. Without the number in the log
+        the two failures read the same, which is how one got reported as
+        the other for a whole firmware update.
+        """
+        print(TAG, "Serial link lost after {:.0f} ms: {}"
+              .format((time.time() - started) * 1000, str(error)))
+        Log.w(TAG, "Serial link lost: {}".format(str(error)))
+        return DRAIN_LINK_LOST
 
     def _serial_query(self, payload, wait=0.4):
         # Write a command on the persistent connection and read the reply.
         if not self._serial_connected or self._serial_lock is None:
             return ""
         # nothing sensible can be read while the board is still mid-sweep
-        self._quiet_before_query = self._drain_serial()
+        self._last_drain = self._drain_serial()
         try:
             self._serial_lock.reset_input_buffer()
             self._serial_lock.write(payload)
