@@ -20,18 +20,24 @@ arrays the live impedance panel draws -- so this view *cannot* disagree with the
 instrument. Do not add a local inversion of the divider here, however convenient:
 that is precisely how a viewer starts showing a spectrum the datalog never saw.
 
-The overlay is the published pair, not a fresh measurement:
+The overlay is the measurement itself, not a fresh one:
 
 * the peak marker sits at ``f_r`` from ``get_fr_G_buffer``;
-* the band is drawn as ``f_r ± Γ`` from ``get_gamma_G_buffer``, Γ being the half
-  bandwidth at half height (Johannsmann, *Sensors* 2021, 21, 3490 §2).
+* the band is drawn between the **two frequencies where the conductance actually
+  crosses half height**, from ``get_band_G_buffer``, with a line at that height.
 
-⚠️ ``f_r ± Γ`` is deliberately symmetric, and the two real half-height crossings
-are not. Γ is published as their average -- see ``_half_bandwidth_G_exact`` in
-processors/Multiscan.py -- and the crossings themselves are not published, so
-drawing them would mean re-deriving them here. The region shows the quantity the
-instrument reports; the marker heights are read off the measured curve at those
-two frequencies, which is a lookup, not a second measurement.
+⚠️ **Those two crossings are not symmetric about f_r, and drawing them as if they
+were is wrong on screen even when the number is right.** Γ is published as their
+half-difference (Johannsmann, *Sensors* 2021, 21, 3490 §2), and the peak is
+skewed by the residual C0 branch -- which is why the measurement went two-sided
+in the first place. This view first drew ``f_r ∓ Γ``, and on a real fundamental
+in air that put the markers at 16.5 S and 10.2 S against a half height of
+13.49 S. The crossings now travel from the acquisition process along with Γ, so
+the picture shows what was measured.
+
+If the sweep window held no crossing on one side -- damped loads, where Γ reaches
+kilohertz and the window is sized for air -- that side arrives as NaN and the
+view falls back to ``f_r ∓ Γ`` for it, and says so in the header.
 """
 
 import numpy as np
@@ -148,12 +154,20 @@ class _OvertoneTab(QtWidgets.QWidget):
         self.band.setVisible(False)
         self.plt_g.addItem(self.band)
 
-        # the two band frequencies, f_r -/+ Gamma, at the height of the curve
+        # the height at which the band was measured: with the crossings on it,
+        # the whole construction can be checked by eye in one glance
+        self.half_line = pg.InfiniteLine(
+            pos=0, angle=0, movable=False,
+            pen=pg.mkPen("#4caf50", width=1, style=QtCore.Qt.DotLine))
+        self.half_line.setVisible(False)
+        self.plt_g.addItem(self.half_line)
+
+        # the two frequencies where G crosses half height
         self.band_points = pg.ScatterPlotItem(
             size=9, symbol="o", pen=pg.mkPen("#ffffff", width=1.0),
             brush=pg.mkBrush("#4caf50"))
         self.plt_g.addItem(self.band_points)
-        legend.addItem(self.band_points, "f_r ∓ Γ")
+        legend.addItem(self.band_points, "half height")
 
         self.peak = pg.ScatterPlotItem(
             size=11, symbol="d", pen=pg.mkPen("#ffffff", width=1.2),
@@ -189,6 +203,7 @@ class _OvertoneTab(QtWidgets.QWidget):
 
     def clear_overlay(self):
         self.band.setVisible(False)
+        self.half_line.setVisible(False)
         self.peak.setData(x=[], y=[])
         self.band_points.setData(x=[], y=[])
 
@@ -258,6 +273,16 @@ class ImpedanceDataViewDialog(QtWidgets.QDialog):
             b = _as_sweep(worker.get_B_exact_buffer(index))
             f_res = _scalar(worker.get_fr_G_buffer(index))
             gamma = _scalar(worker.get_gamma_G_buffer(index))
+            try:
+                f_left, f_right, half_level = worker.get_band_G_buffer(index)
+            except (AttributeError, TypeError, ValueError, IndexError):
+                # a worker from before the crossings travelled, or a buffer not
+                # yet shaped. ⚠️ Caught HERE and not by the outer handler on
+                # purpose: the crossings are an overlay, and losing them must
+                # not stop G and B from being drawn -- letting this escape made
+                # a missing band buffer blank the whole pane, including the
+                # "waiting for data" message.
+                f_left = f_right = half_level = float("nan")
         except (AttributeError, IndexError, TypeError) as error:
             # a worker that has been stopped, or a buffer list not yet sized
             Log.d(TAG, "buffers unavailable: {}".format(error))
@@ -284,12 +309,27 @@ class ImpedanceDataViewDialog(QtWidgets.QDialog):
                     freq.size))
             return
 
-        # The overlay is the PUBLISHED pair. The heights are read off the
-        # measured curve at those frequencies -- a lookup on data already in
-        # hand, not a second measurement.
-        edges = np.array([f_res - gamma, f_res + gamma], dtype=float)
+        # ⚠️ The band is drawn between the crossings the instrument MEASURED,
+        # which are not symmetric about f_r. Only where a side is missing --
+        # the window held no crossing there -- does it fall back to f_r ∓ Γ for
+        # that side, and the header says so.
+        guessed = []
+        if not np.isfinite(f_left):
+            f_left, _ = f_res - gamma, guessed.append("left")
+        if not np.isfinite(f_right):
+            f_right, _ = f_res + gamma, guessed.append("right")
+
+        edges = np.array([f_left, f_right], dtype=float)
         g_peak = float(np.interp(f_res, freq, g))
-        g_edges = np.interp(edges, freq, g)
+        # heights: the measured level where it travelled, otherwise read off the
+        # curve. Both are lookups on data already in hand, not a measurement.
+        if np.isfinite(half_level):
+            g_edges = np.array([half_level, half_level], dtype=float)
+            pane.half_line.setValue(float(half_level))
+            pane.half_line.setVisible(True)
+        else:
+            g_edges = np.interp(edges, freq, g)
+            pane.half_line.setVisible(False)
 
         pane.peak.setData(x=[f_res], y=[g_peak])
         pane.band_points.setData(x=edges, y=g_edges)
@@ -297,18 +337,21 @@ class ImpedanceDataViewDialog(QtWidgets.QDialog):
         pane.band.setVisible(True)
         pane.frame_once(f_res, gamma, float(freq[0]), float(freq[-1]))
 
-        outside = ""
+        notes = ""
+        if guessed:
+            notes += "  |  {} edge from f_r ∓ Γ (no crossing in window)".format(
+                " and ".join(guessed))
         if edges[0] < freq[0] or edges[1] > freq[-1]:
             # Γ wider than the acquired window: happens on damped loads, where
             # the window is sized for air. Say so rather than draw a band edge
             # pinned to the end of the array.
-            outside = "  |  BAND WIDER THAN THE ACQUIRED WINDOW"
+            notes += "  |  BAND WIDER THAN THE ACQUIRED WINDOW"
 
         pane.info.setText(
             "f_r {:.1f} Hz  |  Γ {:.1f} Hz  |  D = 2Γ/f_r = {:.2f} ppm"
-            "  |  G max {:.4g} S  |  {} samples{}".format(
+            "  |  G max {:.4g} S  |  half {:.4g} S  |  {} samples{}".format(
                 f_res, gamma, 2.0 * gamma / f_res * 1e6, g_peak,
-                freq.size, outside))
+                g_edges[0], freq.size, notes))
 
     ###########################################################################
     def closeEvent(self, event):

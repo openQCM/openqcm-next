@@ -5,6 +5,31 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Fixed — the drawn band was a symmetric guess, not the measured one (2026-09-02)
+
+Impedance Data View drew `f_r ∓ Γ`. The two half-height crossings Γ is measured from are **not**
+symmetric about `f_r` — the peak is skewed by the residual C0 branch, which is the whole reason the
+measurement went two-sided in July — so the markers sat off the half height even though the number
+was right. On a real fundamental in air: **16.5 S and 10.2 S against a half height of 13.49 S**.
+
+- `_half_bandwidth_G_exact` now returns a `GBand(bandwidth, f_left, f_right, half_level)` instead of
+  a bare float. It already computed all four; three were discarded. **`bandwidth` is unchanged**, so
+  no published value moves.
+- The crossings and the half-height level (in raw G units — the search runs on the baseline-
+  subtracted curve, so the level has to carry the baseline back) travel as three trailing fields on
+  the GB message. ⚠️ The consumer's `len(data) > N` guards already existed for exactly this, and an
+  8-field payload from an older producer still works: verified, the crossings stay NaN.
+- The view draws the measured crossings and a dotted line at the half height, so the construction
+  can be checked by eye. Where a side has no crossing in the window — damped loads, where Γ reaches
+  kilohertz and the window is sized for air — that side alone falls back to `f_r ∓ Γ` and the header
+  says which.
+- Verified on a peak with two deliberately different half-widths (90 Hz left, 42 Hz right, so the
+  crossings are known analytically): Γ comes out **65.7 Hz** against the exact 66.0, the crossings
+  land within 0.3 Hz, and the markers sit on the half-height line to 1e-9. The old symmetric drawing
+  on the same curve gives **17.59 S and 7.82 S against 13.54** — the shape of the reported symptom.
+- ⚠️ A malformed band buffer now degrades to "no crossings" instead of aborting the whole pane
+  update. Letting it escape to the outer handler blanked G and B as well, message included.
+
 ### Added — Tools > Impedance Data View (2026-09-02)
 
 `ui/impedanceDataView.py`, a live view of the two impedance spectra, one tab per overtone, built to

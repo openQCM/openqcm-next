@@ -1,4 +1,5 @@
 import multiprocessing
+from collections import namedtuple
 from openQCM.core.ringBuffer import RingBuffer
 from openQCM.core.constants import Constants
 from openQCM.core import resonance
@@ -7,6 +8,27 @@ from openQCM.common import sweepDump as SweepDump
 from openQCM.common.logger import Logger as Log
 from openQCM.common.switcher import Overtone_Switcher_5MHz, Overtone_Switcher_10MHz
 from time import time
+
+# What _half_bandwidth_G_exact found, not just the number it publishes.
+#
+# ⚠️ The crossings used to be computed and thrown away, and the only thing that
+# left the function was their half-difference. A viewer drawing `f_r ± Gamma`
+# then shows a SYMMETRIC interval, while the real crossings are not symmetric --
+# the peak is skewed by the residual C0 branch, which is the whole reason the
+# measurement went two-sided in the first place. On a real fundamental in air
+# that put the two markers at 16.5 S and 10.2 S against a half height of
+# 13.49 S: the published number was right and the picture was not.
+#
+# `bandwidth` is unchanged and stays what is published. The rest is what the
+# picture needs: the two frequencies where the curve actually crosses half
+# height, and that height in RAW G units (the search runs on the
+# baseline-subtracted curve, so the level has to carry the baseline back).
+GBand = namedtuple("GBand", "bandwidth f_left f_right half_level")
+
+
+def _nan_if_none(value):
+    """None travels badly through a float payload; NaN says the same thing."""
+    return float("nan") if value is None else float(value)
 import serial
 from serial.tools import list_ports
 import numpy as np
@@ -273,7 +295,7 @@ class MultiscanProcess(multiprocessing.Process):
             R0, X0 = self._RX_exact(V_mag, phase_folded)
             G0 = self._G_exact(R0, X0)
             i0 = int(np.nanargmax(G0 - np.average(G0[:min(100, len(G0))])))
-            hw = self._half_bandwidth_G_exact(G0, freq)
+            hw = self._half_bandwidth_G_exact(G0, freq).bandwidth
             half = max(3.0 * abs(hw), 60.0)
             band = np.abs(freq - freq[i0]) <= half
             if band.sum() < 40:
@@ -327,9 +349,11 @@ class MultiscanProcess(multiprocessing.Process):
     # VER 0.1.6G resonance frequency and half-bandwidth from the EXACT
     # conductance. This is what the pipeline publishes now.
     def parameters_finder_impedance_exact(self, freq, G_conductance):
+        # returns the peak index, the resonance frequency and a GBand: the
+        # published half bandwidth plus the crossings it was measured from
         idx_max, fr = self._Freq_G(G_conductance, freq)
-        bw = self._half_bandwidth_G_exact(G_conductance, freq)
-        return idx_max, fr, bw
+        band = self._half_bandwidth_G_exact(G_conductance, freq)
+        return idx_max, fr, band
 
     # VER 0.1.6G half-bandwidth Gamma at half height of the conductance peak.
     #
@@ -347,13 +371,20 @@ class MultiscanProcess(multiprocessing.Process):
     # crossing on one side — which happens on damped loads, where Gamma reaches
     # kilohertz and the window (LEFT=12000 / RIGHT=6000 Hz) is sized for air.
     def _half_bandwidth_G_exact(self, G_conductance, F_sweep):
+        # ⚠️ Returns a GBand, not a number. `bandwidth` is what is published and
+        # is unchanged; the crossings and the half-height level ride along so a
+        # viewer can draw the band that was measured instead of a symmetric
+        # `f_r ± Gamma`, which the skew of the peak makes visibly wrong.
         n_base = min(100, len(G_conductance))
-        G = np.asarray(G_conductance, dtype=float) - np.average(G_conductance[:n_base])
+        baseline = np.average(G_conductance[:n_base])
+        G = np.asarray(G_conductance, dtype=float) - baseline
         F = np.asarray(F_sweep, dtype=float)
         idx_max = int(np.nanargmax(G))
         half = G[idx_max] / 2.0
         if not np.isfinite(half) or half <= 0:
-            return 0.0
+            return GBand(0.0, None, None, None)
+        # the same height, expressed on the curve the caller has in hand
+        half_level = float(baseline + half)
 
         def _cross(i_lo, i_hi):
             # linear interpolation of the half-height crossing between two
@@ -377,12 +408,15 @@ class MultiscanProcess(multiprocessing.Process):
 
         f_res = F[idx_max]
         if f_left is not None and f_right is not None:
-            return (f_right - f_left) / 2.0
+            return GBand((f_right - f_left) / 2.0, f_left, f_right, half_level)
+        # one-sided fallback: the window holds no crossing on one side, which
+        # happens on damped loads. The side that exists is still reported, so a
+        # viewer can draw the half of the band that was actually seen.
         if f_left is not None:
-            return f_res - f_left
+            return GBand(f_res - f_left, f_left, None, half_level)
         if f_right is not None:
-            return f_right - f_res
-        return 0.0
+            return GBand(f_right - f_res, None, f_right, half_level)
+        return GBand(0.0, None, None, half_level)
     
     # VER 0.1.6G calculate resonance frequency 
     def _Freq_G (self, G_conductance, F_sweep): 
@@ -796,8 +830,9 @@ class MultiscanProcess(multiprocessing.Process):
         R_q_G, X_q_G = self._RX_exact(Vmag_raw_result_fit, phase_corr)
         G_exact_S = self._G_exact(R_q_G, X_q_G)
 
-        (index_peak_fit_G, frequency_resonance_G, half_bandwidth) = \
+        (index_peak_fit_G, frequency_resonance_G, G_band) = \
             self.parameters_finder_impedance_exact(freq_range, G_exact_S)
+        half_bandwidth = G_band.bandwidth
 
         # B is ODD in phi and needs the sign, which comes from undoing the fold.
         # ONLY when there is a fold: on a damped load the true phase never
@@ -908,7 +943,16 @@ class MultiscanProcess(multiprocessing.Process):
                                                 float(f_res),
                                                 float(abs(half_bandwidth)),
                                                 float(phase_offset),
-                                                float(frac)])
+                                                float(frac),
+                                                # ⚠️ the crossings Gamma was
+                                                # measured from, so the viewer
+                                                # draws the band that exists
+                                                # instead of a symmetric
+                                                # f_r ± Gamma. NaN, not None:
+                                                # the consumer float()s them.
+                                                _nan_if_none(G_band.f_left),
+                                                _nan_if_none(G_band.f_right),
+                                                _nan_if_none(G_band.half_level)])
         except Exception as e:
             # The panel is a diagnostic view: never let it break an acquisition.
             print("Warning: exact G/B for the impedance panel failed:", e)

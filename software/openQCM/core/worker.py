@@ -93,6 +93,9 @@ class Worker:
         self._gam_G_buffer = None
         self._delta_G_buffer = None
         self._masked_G_buffer = None
+        # the two half-height crossings Gamma was measured from, and that
+        # height in raw G units: [f_left, f_right, half_level] per overtone
+        self._band_G_buffer = None
         self._GB_seq = None
         
         # data buffers
@@ -629,6 +632,11 @@ class Worker:
             self._delta_G_buffer[idx] = float(data[6])
         if len(data) > 7:
             self._masked_G_buffer[idx] = float(data[7])
+        if len(data) > 10:
+            # f_left, f_right, half-height level; any of them NaN when the
+            # window held no crossing on that side
+            self._band_G_buffer[idx] = (float(data[8]), float(data[9]),
+                                        float(data[10]))
         # bump the per-overtone revision so the GUI can skip untouched curves
         self._GB_seq[idx] += 1
 
@@ -647,6 +655,17 @@ class Worker:
         # percentage of the shipped band dropped by the saturation mask, i.e. how
         # much of this sweep the AD8302 could not measure
         return self._masked_G_buffer[idx]
+
+    def get_band_G_buffer(self, idx = 0):
+        # (f_left, f_right, half_level) of the last sweep of this overtone: the
+        # two frequencies where the conductance crosses half height and that
+        # height in raw G units. NaN where the sweep window held no crossing.
+        #
+        # ⚠️ These are what Gamma was MEASURED from, and they are not symmetric
+        # about f_r -- the peak is skewed by the residual C0 branch. Gamma is
+        # published as their half-difference, so drawing f_r ± Gamma instead
+        # shows an interval that was never measured.
+        return self._band_G_buffer[idx]
 
     def get_GB_seq(self, idx = 0):
         # revision counter of the exact G/B spectrum of one overtone; the panel
@@ -1170,6 +1189,8 @@ class Worker:
         self._gam_G_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
         self._delta_G_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
         self._masked_G_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
+        self._band_G_buffer = [(float('nan'), float('nan'), float('nan'))
+                               for _ in Constants.overtone_dummy]
         self._GB_seq = self._zerolistmaker(len(Constants.overtone_dummy))
         
         # INIT self._F_store and self._D_store list 
