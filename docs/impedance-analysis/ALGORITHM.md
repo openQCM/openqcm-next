@@ -470,10 +470,27 @@ height. It is not Γ, so `2Γ/f_res` cannot be formed from it without redefining
 **Data logged by `main` and by this branch remain incomparable on that column**, now for a reason of
 kind rather than of scale.
 
-⚠️ **Open, raised by this change:** N-SCALE on this branch divides dissipation by the overtone order.
-Eq. (12) says D is *already* the overtone-normalised quantity, so dividing it again yields
-`D/n = 2Γ/(n²f₀)`, which nobody reports. Frequency is unaffected — `Δf/n` is the standard
-normalisation. Left untouched because N-SCALE is the user's decision; see `_nscale_div`.
+**The dissipation panel has a selector, and N-SCALE follows it** (2026-09-02). The buffers and the
+datalog always carry D; the panel can draw either quantity, Γ being recovered exactly as
+`Γ[Hz] = D[ppm]·1e-6·f_res/2` from the resonance frequency measured in the same sweep:
+
+| shown | N-SCALE off | N-SCALE on |
+|---|---|---|
+| frequency | ÷1 | **÷n** |
+| Γ (Hz) | ÷1 | **÷n** |
+| D (10⁻⁶) | ÷1 | **÷1, never** |
+
+`D_n = 2Γ_n/(n f₀)` already carries the overtone scaling through the resonance frequency, so
+dividing it again gives `2Γ/(n²f₀)`, which nobody reports; `ΔΓ/n = (f₀/2)ΔD` is Eq. (12). The rule
+is written out in [`research/qcm_overtone_normalization_note.md`](../../research/qcm_overtone_normalization_note.md).
+
+⚠️ **With SET REF active the reference is converted on its own terms, then subtracted** — converting
+`D − D_ref` instead scales a difference by `f_res` and is wrong by `D_ref·(f − f_ref)/2`. Measured:
+0.0013 Hz for `D_ref` = 25.1 ppm over a 100 Hz shift, 0.97 Hz for a liquid reference of 387 ppm over
+5 kHz. Small, never zero.
+
+⚠️ **The selector is display-only.** `Dissipation_n` in the CSV is D whatever the screen shows —
+a log that depended on a combo box would be unreadable a week later.
 
 ### Open defects that bite exactly here
 

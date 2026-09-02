@@ -304,6 +304,7 @@ class MainWindow(QtGui.QMainWindow):
         # Reference variables
         self._reference_flag = False
         self._nscale = False        # Plot Controls > N-SCALE
+        self._diss_mode = "D"       # dissipation panel: "D" or "G" (Gamma)
         self._vector_reference_frequency = None
         self._vector_reference_dissipation = None
         self._vector_1 = None
@@ -2967,6 +2968,9 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.pButton_Clear.clicked.connect(self.clear)
         self.ui.pButton_Autoscale.clicked.connect(self.autoscale)
         self.ui.pButton_NScale.toggled.connect(self._set_nscale)
+        # the dissipation panel's quantity, which also decides whether
+        # N-SCALE divides that panel at all
+        self.ui.cBox_DissMode.currentIndexChanged.connect(self._set_diss_mode)
         # single Set/Clear Reference toggle (pButton_Reference_Not is hidden)
         self.ui.pButton_Reference.clicked.connect(self._toggle_reference)
         self.ui.pButton_Reference_Not.clicked.connect(self.reference_not)
@@ -3961,9 +3965,11 @@ class MainWindow(QtGui.QMainWindow):
                 self._vector_1 = self._nscaled(
                     overtone_selected,
                     np.array(self.worker.get_d1_buffer()) - self._reference_value_frequency)
-                self._vector_2 = self._nscaled(
+                self._vector_2 = self._dissipation_series(
                     overtone_selected,
-                    np.array(self.worker.get_d2_buffer()) - self._reference_value_dissipation)
+                    self.worker.get_d2_buffer(), self.worker.get_d1_buffer(),
+                    self._reference_value_dissipation,
+                    self._reference_value_frequency)
                 
                 # VER 0.1.6 Do not set the y-range axis 
                 # TODO try to set the minimum and maximum y-range axis 
@@ -4258,9 +4264,12 @@ class MainWindow(QtGui.QMainWindow):
                         y_freq = self._nscaled(
                             idx,
                             np.array( self.worker.get_F_values_buffer(idx) ) - self._reference_value_frequency_array[idx])
-                        y_diss = self._nscaled(
+                        y_diss = self._dissipation_series(
                             idx,
-                            np.array( self.worker.get_D_values_buffer(idx) ) - self._reference_value_dissipation_array[idx])
+                            self.worker.get_D_values_buffer(idx),
+                            self.worker.get_F_values_buffer(idx),
+                            self._reference_value_dissipation_array[idx],
+                            self._reference_value_frequency_array[idx])
                         
                         # VER 0.1.6 do not set the y-range axis 
 
@@ -4529,8 +4538,9 @@ class MainWindow(QtGui.QMainWindow):
 
                y_freq = self._nscaled(overtone_selected,
                                       self.worker.get_d1_buffer())
-               y_diss = self._nscaled(overtone_selected,
-                                      self.worker.get_d2_buffer())
+               y_diss = self._dissipation_series(
+                   overtone_selected,
+                   self.worker.get_d2_buffer(), self.worker.get_d1_buffer())
                
                # VER 0.1.6 do not get max and min 
 # =============================================================================
@@ -4822,8 +4832,10 @@ class MainWindow(QtGui.QMainWindow):
                        # get y frequency and dissipation axis
                        y_freq = self._nscaled(
                            idx, self.worker.get_F_values_buffer(idx))
-                       y_diss = self._nscaled(
-                           idx, self.worker.get_D_values_buffer(idx))
+                       y_diss = self._dissipation_series(
+                           idx,
+                           self.worker.get_D_values_buffer(idx),
+                           self.worker.get_F_values_buffer(idx))
                        
 # =============================================================================
 #                        # frequency
@@ -4994,8 +5006,10 @@ class MainWindow(QtGui.QMainWindow):
     ###########################################################################
     # N-SCALE: every plotted frequency divided by its harmonic order
     ###########################################################################
-    def _nscale_div(self, index):
+    def _nscale_div(self, index, channel="F"):
         """The divisor for overtone ``index``: 1, 3, 5, 7, 9 -- or 1 when off.
+
+        ``channel`` is "F" for frequency and "D" for the dissipation panel.
 
         ⚠️ DISPLAY ONLY. The buffers, the datalog and the status bar carry the
         measured values; this divides what is drawn. The readout cards follow
@@ -5010,29 +5024,109 @@ class MainWindow(QtGui.QMainWindow):
         quantity on the two branches -- and it is the user's call, not this
         file's; do not "fix" one side to match the other.
 
-        ⚠️ OPEN, and raised by the move to D on 2026-09-02. This branch now
-        publishes D = 2*Gamma/f_res. Johannsmann's Eq. (12) reads
-        dGamma/n = (f0/2)*dD, which says D is ALREADY the overtone-normalised
-        quantity -- dividing it by n here normalises it a second time, and
-        D/n = 2*Gamma/(n^2*f0) is not a quantity anyone reports. Frequency is
-        unaffected: df/n is the standard normalisation and stays right.
-        Left exactly as it was because N-SCALE is the user's decision, not
-        this file's. It needs one.
+        ⚠️ SETTLED on 2026-09-02, and the answer depends on what the panel is
+        showing -- which is why `channel` exists:
+
+            frequency  ->  / n     always
+            Gamma      ->  / n     Johannsmann Eq. (12), dGamma/n = (f0/2)*dD
+            D          ->  / 1     never
+
+        D_n = 2*Gamma_n/(n*f0) already carries the overtone scaling through the
+        resonance frequency, so dividing it again would give 2*Gamma/(n^2*f0),
+        which nobody reports. The rule is written out in
+        research/qcm_overtone_normalization_note.md.
         """
         if not self._nscale:
             return 1.0
+        if channel == "D" and self._diss_mode == "D":
+            # ⚠️ D is NOT divided by n, and this is the whole point of the
+            # selector. D_n = 2*Gamma_n/(n*f0) already carries the overtone
+            # scaling through the resonance frequency, so dividing again gives
+            # 2*Gamma/(n^2*f0), a quantity nobody reports. Gamma IS divided:
+            # Johannsmann Eq. (12), dGamma/n = (f0/2)*dD. Frequency always is.
+            # research/qcm_overtone_normalization_note.md states the rule.
+            return 1.0
         return float(2 * int(index) + 1)
 
-    def _nscaled(self, index, values):
+    def _nscaled(self, index, values, channel="F"):
         """``values`` divided by the harmonic order, or untouched when off.
 
         Returned unchanged -- same object, same type -- while N-SCALE is off, so
         the ordinary path is exactly what it was before this control existed.
         """
-        div = self._nscale_div(index)
+        div = self._nscale_div(index, channel)
         if div == 1.0:
             return values
         return np.asarray(values, dtype=float) / div
+
+    def _dissipation_series(self, index, d_values, f_values,
+                            d_reference=0.0, f_reference=0.0):
+        """The dissipation curve as it must be drawn: D in ppm, or Gamma in Hz.
+
+        The buffers always carry **D in units of 1e-6** -- that is what the
+        datalog records, and the selector never changes it. Gamma is recovered
+        here, exactly, from D and the resonance frequency measured in the same
+        sweep:
+
+            Gamma[Hz] = D[ppm] * 1e-6 * f_res / 2
+
+        ⚠️ **Convert first, subtract the reference after.** With SET REF active
+        the caller used to hand over `D - D_ref`; converting that scales a
+        difference by f_res and is wrong by exactly `D_ref*(f - f_ref)/2`. So
+        the reference is converted on its own terms, from the D and f
+        references stored together when the button was pressed.
+
+        Measured, so nobody has to guess whether it matters: with D_ref =
+        25.1 ppm and a 100 Hz shift the two orders differ by **0.0013 Hz**;
+        with D_ref = 387 ppm (a liquid reference) and a 5 kHz shift, by
+        **0.97 Hz** against a Gamma of order a kilohertz. Small, never zero,
+        and free to get right.
+
+        ⚠️ The n-scaling is applied here and asks for channel "D", because
+        whether it divides at all depends on which quantity is on screen.
+        """
+        d = np.asarray(d_values, dtype=float)
+        if self._diss_mode == "G":
+            f = np.asarray(f_values, dtype=float)
+            values = d * 1e-6 * f / 2.0
+            ref = (float(d_reference) * 1e-6 * float(f_reference) / 2.0
+                   if f_reference else 0.0)
+        else:
+            values = d
+            ref = float(d_reference)
+        if ref:
+            values = values - ref
+        return self._nscaled(index, values, channel="D")
+
+    def _diss_axis_label(self):
+        """The dissipation axis caption, for the quantity and the scaling."""
+        base = "Bandwidth \u0393" if self._diss_mode == "G" else "Dissipation"
+        return ("%s / n" % base) if self._nscale_div(1, "D") != 1.0 else base
+
+    def _diss_axis_units(self):
+        return "Hz" if self._diss_mode == "G" else ""
+
+    def _refresh_diss_labels(self):
+        """Axis and card caption follow the selector, together."""
+        self._pltD.setLabel("left", self._diss_axis_label(),
+                            units=self._diss_axis_units())
+        card = getattr(self.ui, "groupDissReadout", None)
+        if card is not None:
+            card.setTitle("Bandwidth \u0393 (Hz)" if self._diss_mode == "G"
+                          else "Dissipation (ppm)")
+
+    def _set_diss_mode(self, index):
+        """Switch the dissipation panel between D and Gamma (display only)."""
+        self._diss_mode = "G" if int(index) == 1 else "D"
+        self._refresh_diss_labels()
+        print(TAG, "Dissipation panel shows {}".format(
+            "Gamma [Hz]" if self._diss_mode == "G" else "D [ppm]"))
+        timer = getattr(self, "_timer_plot", None)
+        if self.worker is not None and (timer is None or not timer.isActive()):
+            try:
+                self._update_plot()
+            except Exception:
+                pass          # nothing acquired yet: the labels are enough
 
     def _set_nscale(self, on):
         self._nscale = bool(on)
@@ -5040,10 +5134,9 @@ class MainWindow(QtGui.QMainWindow):
         self._plt2.setLabel(
             "left", "Resonance Frequency / n" if self._nscale
             else "Resonance Frequency", units="Hz")
-        # ⚠️ branch behaviour: dissipation is scaled here and not on main
-        self._pltD.setLabel(
-            "left", "Dissipation / n" if self._nscale else "Dissipation",
-            units="")
+        # ⚠️ branch behaviour: dissipation is scaled here and not on main --
+        # and only when the panel shows Gamma. _diss_axis_label knows both.
+        self._refresh_diss_labels()
         # the curves are redrawn by the plot timer; when it is not running the
         # panel would keep the old scale until the next acquisition
         timer = getattr(self, "_timer_plot", None)
@@ -5364,6 +5457,7 @@ class MainWindow(QtGui.QMainWindow):
             t = self.worker.get_time_values_buffer(0)
             y = (self.worker.get_F_values_buffer(0) if kind == "F"
                  else self.worker.get_D_values_buffer(0))
+            f_series = self.worker.get_F_values_buffer(0)
         else:
             index = (self._overtones_number_all
                      - self.ui.cBox_Speed.currentIndex() - 1)
@@ -5371,10 +5465,16 @@ class MainWindow(QtGui.QMainWindow):
                  else self.worker.get_t2_buffer())
             y = (self.worker.get_d1_buffer() if kind == "F"
                  else self.worker.get_d2_buffer())
-        # the cursors read the buffers directly, so N-SCALE has to be applied
-        # here too or the readout would print unscaled units under a scaled
-        # curve. ⚠️ BOTH channels on this branch: main scales frequency only.
-        y = self._nscaled(index, y)
+            f_series = self.worker.get_d1_buffer()
+        # the cursors read the buffers directly, so the panel's own treatment
+        # has to be repeated here or the readout would print one quantity under
+        # a curve drawing another. ⚠️ BOTH channels on this branch: main scales
+        # frequency only, and here the dissipation channel also has to honour
+        # the D/Gamma selector.
+        if kind == "F":
+            y = self._nscaled(index, y, channel="F")
+        else:
+            y = self._dissipation_series(index, y, f_series)
         return np.asarray(t, dtype=float), np.asarray(y, dtype=float)
 
     def _update_cursor_delta(self, plot):
@@ -5401,7 +5501,10 @@ class MainWindow(QtGui.QMainWindow):
                     # x1e6 turns that into Hz -- a different quantity, under the
                     # same label. Do not reconcile the two lines by cherry-pick;
                     # see _nscale_div for the other half of this divergence.
-                    text += "   ΔD: {:+.2f} ppm".format(y2 - y1)
+                    if self._diss_mode == "G":
+                        text += "   ΔΓ: {:+.1f} Hz".format(y2 - y1)
+                    else:
+                        text += "   ΔD: {:+.2f} ppm".format(y2 - y1)
         except Exception:
             pass
         xr, yr = plot.getViewBox().viewRange()

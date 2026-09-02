@@ -562,8 +562,10 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   Before that the column held Γ/1e6, a dimensional half width in MHz. Γ is unchanged; only what is
   published from it. ⚠️ The conversion factor is `2e12/f_res` and therefore overtone-dependent, so
   an old datalog cannot be rescaled with one constant. ⚠️ `main` keeps its own quantity (full width
-  at −0.3 dB of the magnitude) and must not be converted. ⚠️ N-SCALE dividing dissipation by n is
-  now open to question: Eq. (12) makes D already overtone-normalised. See `ALGORITHM.md` §9.
+  at −0.3 dB of the magnitude) and must not be converted. ⚠️ The dissipation panel has a
+  **D / Γ selector** (2026-09-02) and N-SCALE follows it: frequency ÷n always, Γ ÷n, **D never** —
+  `D_n = 2Γ_n/(n f₀)` is already overtone-normalised. Display only; the log stays D. See
+  `ALGORITHM.md` §9 and `research/qcm_overtone_normalization_note.md`.
 - ✅ Validated in **air and isopropanol**, on **three central bodies and three sensor modules**.
   In air `f_r` agrees with the offline Lorentzian fit to **0.007–0.32 ppm**; circle residual
   **0.75–2.1 %** of the radius.

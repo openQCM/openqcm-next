@@ -790,6 +790,23 @@ class Ui_MainWindow(object):
             "groupFreqReadout", "Frequency (Hz)", "F")
         self.groupDissReadout = self._build_readout_card(
             "groupDissReadout", "Dissipation (ppm)", "D")
+        # D / Gamma selector, on the right margin of the dissipation card.
+        # The card's layout ends with addStretch(1), so this lands at the edge
+        # without disturbing the five per-overtone cells.
+        #
+        # ⚠️ Two quantities, one measurement: D = 2*Gamma/f_res is what the
+        # datalog records, Gamma is what the paper (Johannsmann 2021 S2) calls
+        # the better parameter. The selector changes the DISPLAY only -- the
+        # log never follows the screen -- and it also decides whether N-SCALE
+        # divides this panel by n. See _dissipation_series and _nscale_div.
+        self.cBox_DissMode = ChevronComboBox(self.groupDissReadout)
+        self.cBox_DissMode.setObjectName("cBox_DissMode")
+        self.cBox_DissMode.addItems(["Dissipation D (ppm)", "Bandwidth \u0393 (Hz)"])
+        self.cBox_DissMode.setToolTip(
+            "What the dissipation panel shows.\n"
+            "D = 2\u0393/f_res, dimensionless, in units of 1e-6.\n"
+            "\u0393 = half bandwidth at half height, in Hz.")
+        self.groupDissReadout.layout().addWidget(self.cBox_DissMode)
 
         # bottom pane: freq readout + freq plot + diss readout + diss plot
         _bottom = QtWidgets.QWidget()

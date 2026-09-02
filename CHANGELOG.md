@@ -5,6 +5,36 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Added — the dissipation panel chooses its quantity, and N-SCALE follows (2026-09-02)
+
+A selector on the dissipation readout card switches the panel between **D (10⁻⁶)** and **Γ (Hz)**.
+It answers the question the previous entry left open, because the right n-scaling depends on which
+of the two is on screen:
+
+| shown | N-SCALE off | N-SCALE on |
+|---|---|---|
+| frequency | ÷1 | **÷n** |
+| Γ (Hz) | ÷1 | **÷n** |
+| D (10⁻⁶) | ÷1 | **÷1, never** |
+
+`D_n = 2Γ_n/(n f₀)` already carries the overtone scaling through the resonance frequency; dividing
+again would give `2Γ/(n²f₀)`. `ΔΓ/n = (f₀/2)ΔD` is Johannsmann's Eq. (12). The rule is written out in
+`research/qcm_overtone_normalization_note.md`.
+
+- **The buffers and the datalog never change.** `Dissipation_n` is D whatever the screen shows — a
+  log that depended on a combo box would be unreadable a week later. Γ is recovered at draw time,
+  exactly, as `Γ[Hz] = D[ppm]·1e-6·f_res/2`, from the resonance frequency measured in the same
+  sweep. No new queue, no worker plumbing.
+- ⚠️ **With SET REF the reference is converted on its own terms and subtracted after.** Converting
+  `D − D_ref` instead scales a *difference* by `f_res` and is wrong by `D_ref·(f − f_ref)/2`.
+  Measured: **0.0013 Hz** for `D_ref` = 25.1 ppm over a 100 Hz shift, **0.97 Hz** for a liquid
+  reference of 387 ppm over 5 kHz, against a Γ of order a kilohertz. Small, never zero.
+- The axis caption and the card title follow the selector, and the caption only says `/ n` when the
+  panel is actually divided — with D selected and N-SCALE on it does not, because it is not.
+- The Δ cursor follows too: `ΔD … ppm` or `ΔΓ … Hz`.
+- `_nscaled`/`_nscale_div` now take the channel they are scaling. Frequency is untouched in every
+  combination: `Δf/n` is the standard normalisation and stays right.
+
 ### Changed — ⚠️ MEASURED VALUES — the dissipation is now D, as Johannsmann defines it (2026-09-02)
 
 `Dissipation_n` used to hold `half_bandwidth/1e6`: **Γ itself** — a *half width*, dimensional, in
@@ -39,10 +69,7 @@ D. The panel's *ppm* label becomes correct without being touched.
   baseline-corrected magnitude*: another curve, another threshold, not a half width at half height,
   so `2Γ/f_res` cannot be formed from it. The two branches stay incomparable on that column — now
   for a reason of kind rather than of scale.
-- ⚠️ **Open, and raised by this change: N-SCALE.** It divides dissipation by the overtone order on
-  this branch. Eq. (12) says D is *already* the overtone-normalised quantity, so dividing again
-  gives `D/n = 2Γ/(n²f₀)`, which nobody reports. Frequency is unaffected. Left exactly as it is —
-  N-SCALE is the user's decision — but it needs one.
+- ~~Open: N-SCALE~~ — **settled the same week**, see the entry above this one.
 - Full reasoning, with the cross-checks: `docs/impedance-analysis/ALGORITHM.md` §9.
 
 ### Docs — the board number is 1900 here too (2026-08-31)
