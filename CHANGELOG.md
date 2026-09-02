@@ -42,6 +42,19 @@ Conventional Commits. Versions are marked by Git tags.
   - Both compile for `teensy:avr:teensy40`; `Constants.FW_VERSION` moves to `0.1.5c` with them.
 
 ### Fixed
+- **UNSET REF wiped the plots and did not unset the reference** — two faults, and the first was
+  hiding the second.
+  - `reference_not()` called `clear()`, so pressing it emptied the panels of a run that was still
+    going. `reference()` has had its own `clear()` commented out for a while; the pair is symmetric
+    again.
+  - ⚠️ **And it never reset the four `_reference_value_*` holders.** All four draw sites subtract
+    them **unconditionally** — not one tests `_reference_flag` — so unsetting lowered the flag,
+    wiped the panels, and redrew exactly the same offset curves from the same buffers. The wipe was
+    what looked like a reset. They are now zeroed, to the same values and shapes `start()` uses, so
+    a run that never had a reference and one that had it removed end up in the same state.
+  - `_labelref1` / `_labelref2` go back to *not set*, which the info window prints beside
+    *Ref. Frequency* and *Ref. Dissipation* and which had kept showing the stale reference.
+
 - **Single-measurement plots started 4–6 s late** — the relative time axis called zero the first
   sweep *acquired*, not the first datum *displayed*.
   - `Serial.elaborate` pushes a timestamp on **every** sweep but a NaN value until

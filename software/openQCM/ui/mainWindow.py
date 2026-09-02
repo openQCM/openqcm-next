@@ -5420,11 +5420,34 @@ class MainWindow(QtGui.QMainWindow):
     # VER 0.1.2
     # add reset reference button / function
     def reference_not (self):
+        """Unset the reference: the curves go back to absolute values.
+
+        ⚠️ **It used to call clear(), and that was hiding a defect rather than
+        undoing anything.** The four `_reference_value_*` holders were never
+        reset here, and all four draw sites subtract them **unconditionally** --
+        none of them tests `_reference_flag`. So unsetting lowered the flag,
+        wiped the panels, and redrew exactly the same offset curves from the
+        same buffers. What looked like a reset was the wipe.
+
+        ⚠️ And clearing is not what the operator asked for: the run is still
+        going and the history on screen is the measurement. `reference()` has
+        had its own `clear()` commented out for that reason; this makes the
+        pair symmetric.
+        """
         print(TAG, "Reference reset!   ", end='\r')
         self._reference_flag = False
-        
-        # clear all
-        self.clear()
+
+        # what actually unsets the reference. Same values and same shapes as
+        # start() uses, so a run that never had a reference and one that had it
+        # removed are in the same state.
+        self._reference_value_frequency = 0
+        self._reference_value_dissipation = 0
+        self._reference_value_frequency_array = [0, 0, 0, 0, 0]
+        self._reference_value_dissipation_array = [0, 0, 0, 0, 0]
+
+        # the info window prints these next to "Ref. Frequency"/"Ref. Dissipation"
+        self._labelref1 = "not set"
+        self._labelref2 = "not set"
 
         # VER 0.1.6 do not set autorange here 
 # =============================================================================
