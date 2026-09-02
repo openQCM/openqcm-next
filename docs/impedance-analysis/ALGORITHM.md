@@ -433,18 +433,47 @@ and `Multiscan.py:1213`:
 self.freq_res_current_array[overtone_number] = freq_range[int(index_peak_fit_G)]
 ```
 
-⚠️ **The column called `Dissipation_n` in the CSV is not a dissipation.** It is
-`half_bandwidth/1e6` — the **half width at half maximum, expressed in MHz**. It is dimensional and
-it is a half width. To get the dimensionless dissipation:
+**`Dissipation_n` is the dissipation factor D, in units of 10⁻⁶** — changed on 2026-09-02 to the
+definition in Johannsmann, Langhoff & Leppin, *Sensors* **2021**, 21, 3490, §2 (transcription of the
+relevant sections in [`research/files_johannsmann_sensors-21-03490/`](../../research/files_johannsmann_sensors-21-03490/johannsmann2021_section2.md)):
 
 ```
-D = 2 · half_bandwidth / f_r          (= FWHM / f_s)
+Gamma = half bandwidth at half height          (the paper's Eq. 8, f~_res = f_res + i*Gamma)
+w     = 2*Gamma                                 full bandwidth
+Q     = f_res / (2*Gamma)
+D     = Q^-1 = 2*Gamma / f_res                  the dissipation factor  <-- this is what we publish
 ```
 
-The naming is inherited from `main`, where the same column held the full width at −0.3 dB of the
-magnitude, also in MHz. That is why the logged numbers dropped 2–4× in air when this branch switched
-the source: the quantity changed from "full width at −0.3 dB of `|H|`" to "half width at half
-maximum of `G`". **Data logged by `main` and by this branch are not comparable on that column.**
+published as `D * 1e6`, which is the 10⁻⁶ unit the paper's Eq. (12) uses.
+
+⚠️ **Until 2026-09-02 the column held `half_bandwidth/1e6`: Γ itself, a *half width*, dimensional,
+in MHz — under a name and a label that both said dissipation.** Γ was never wrong; it is exactly the
+paper's "half bandwidth at half height". It simply is not D. The factor between the two is
+`2e12/f_res`, so it depends on the overtone: ×400 000 at the fundamental, ×44 444 at the 9th. **No
+single constant rescales an old datalog into a new one.**
+
+⚠️ **The change also reconciles the instrument with its own validation.** The air/isopropanol tables
+in `CHANGELOG.md` were already written in D. Read back as `2Γ/f_res` they give Γ = 62.8 Hz at the
+fundamental in air and 2542 Hz at the 9th in isopropanol — which is what `HANDOFF.md` records
+independently ("isopropanol Γ reaches 2.5 kHz", and the 62 Hz band inside an 18 kHz span). Feeding
+those Γ back through `parameters_finder_impedance_exact` and the new formula returns
+**25.12 / 5.60 / 5.40 / 4.90 / 5.60** against the table's 25.1 / 5.6 / 5.4 / 4.9 / 5.6. Before the
+change the published column did not hold the quantity the instrument had been validated against.
+
+Cross-check on the paper's own conversion, Eq. (12) — `ΔΓ/n = (f₀/2)·ΔD`, i.e. 1×10⁻⁶ of D is 2.5 Hz
+of ΔΓ/n at f₀ = 5 MHz: raising Γ by 2.5·n Hz on overtone n moves the published D by +0.995 ppm on
+n = 1, 3 and 9 alike. (The missing 0.5 % is the liquid baseline bias below, not the conversion.)
+
+⚠️ **`main` is NOT converted and must not be.** Its column holds the **full width at −0.3 dB of the
+baseline-corrected magnitude spline** — another curve, another threshold, not a half width at half
+height. It is not Γ, so `2Γ/f_res` cannot be formed from it without redefining the measurement.
+**Data logged by `main` and by this branch remain incomparable on that column**, now for a reason of
+kind rather than of scale.
+
+⚠️ **Open, raised by this change:** N-SCALE on this branch divides dissipation by the overtone order.
+Eq. (12) says D is *already* the overtone-normalised quantity, so dividing it again yields
+`D/n = 2Γ/(n²f₀)`, which nobody reports. Frequency is unaffected — `Δf/n` is the standard
+normalisation. Left untouched because N-SCALE is the user's decision; see `_nscale_div`.
 
 ### Open defects that bite exactly here
 

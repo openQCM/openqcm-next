@@ -5009,6 +5009,15 @@ class MainWindow(QtGui.QMainWindow):
         is metrological -- what the dissipation panel holds is not the same
         quantity on the two branches -- and it is the user's call, not this
         file's; do not "fix" one side to match the other.
+
+        ⚠️ OPEN, and raised by the move to D on 2026-09-02. This branch now
+        publishes D = 2*Gamma/f_res. Johannsmann's Eq. (12) reads
+        dGamma/n = (f0/2)*dD, which says D is ALREADY the overtone-normalised
+        quantity -- dividing it by n here normalises it a second time, and
+        D/n = 2*Gamma/(n^2*f0) is not a quantity anyone reports. Frequency is
+        unaffected: df/n is the standard normalisation and stays right.
+        Left exactly as it was because N-SCALE is the user's decision, not
+        this file's. It needs one.
         """
         if not self._nscale:
             return 1.0
@@ -5385,7 +5394,14 @@ class MainWindow(QtGui.QMainWindow):
                 if info["kind"] == "F":
                     text += "   ΔF: {:+.1f} Hz".format(y2 - y1)
                 else:
-                    text += "   ΔD: {:+.2f} ppm".format((y2 - y1) * 1e6)
+                    # ⚠️ BRANCH-ONLY, and deliberately different from `main`.
+                    # Here the dissipation curve already carries D = 2*Gamma/f_res
+                    # in units of 1e-6, so the difference IS in ppm and must not
+                    # be scaled again. `main` plots a bandwidth in MHz and its
+                    # x1e6 turns that into Hz -- a different quantity, under the
+                    # same label. Do not reconcile the two lines by cherry-pick;
+                    # see _nscale_div for the other half of this divergence.
+                    text += "   ΔD: {:+.2f} ppm".format(y2 - y1)
         except Exception:
             pass
         xr, yr = plot.getViewBox().viewRange()

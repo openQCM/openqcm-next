@@ -557,6 +557,13 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   attempts and is the single most consequential correction of the 2026-07-28 session.
 - ✅ **Live impedance panel**: G(f) and the B–G admittance circle, all overtones, matching
   colours, fitted-circle overlay. See the three `Constants.IMPEDANCE_PANEL_*` knobs.
+- ✅ **The published dissipation is D = 2Γ/f_res, in 10⁻⁶** (2026-09-02), per Johannsmann,
+  *Sensors* 2021, 21, 3490 §2 — transcription in `research/files_johannsmann_sensors-21-03490/`.
+  Before that the column held Γ/1e6, a dimensional half width in MHz. Γ is unchanged; only what is
+  published from it. ⚠️ The conversion factor is `2e12/f_res` and therefore overtone-dependent, so
+  an old datalog cannot be rescaled with one constant. ⚠️ `main` keeps its own quantity (full width
+  at −0.3 dB of the magnitude) and must not be converted. ⚠️ N-SCALE dividing dissipation by n is
+  now open to question: Eq. (12) makes D already overtone-normalised. See `ALGORITHM.md` §9.
 - ✅ Validated in **air and isopropanol**, on **three central bodies and three sensor modules**.
   In air `f_r` agrees with the offline Lorentzian fit to **0.007–0.32 ppm**; circle residual
   **0.75–2.1 %** of the radius.

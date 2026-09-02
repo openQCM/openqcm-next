@@ -923,7 +923,36 @@ class MultiscanProcess(multiprocessing.Process):
         
         # self._my_list_d[overtone_number].append( (Qfac_fit/1000000) )
         # VER 0.1.5a_G_DEV
-        self._my_list_d[overtone_number].append( (half_bandwidth/1000000) )
+        # self._my_list_d[overtone_number].append( (half_bandwidth/1000000) )
+
+        # VER 0.1.6G the DISSIPATION FACTOR as Johannsmann defines it:
+        #     D = Q^-1 = 2*Gamma / f_res          (Sensors 2021, 21, 3490, S2)
+        # published in units of 1e-6, which is what the panel already calls ppm
+        # and what Eq. (12) of that paper uses for the conversion
+        # (dGamma/n = (f0/2)*dD; at f0 = 5 MHz, 1e-6 of D is 2.5 Hz of dGamma/n).
+        #
+        # ⚠️ What was published before was `half_bandwidth/1e6`: Gamma itself, a
+        # HALF WIDTH, dimensional, in MHz, under a column called Dissipation and
+        # a label saying ppm. Gamma was and stays correct -- it is exactly the
+        # paper's "half bandwidth at half height" -- but it is not D, and it is
+        # not dimensionless. The factor between the two is 2e12/f_res, so it
+        # depends on the overtone: x400 000 at the fundamental, x44 444 at the
+        # 9th. A datalog from before this change cannot be rescaled to one from
+        # after with a single constant.
+        #
+        # ⚠️ This also reconciles the instrument with its own validation. The
+        # air/isopropanol tables in this CHANGELOG were already written in D:
+        # read back as 2*Gamma/f_res they give Gamma = 62.8 Hz at the
+        # fundamental in air and 2542 Hz at the 9th in isopropanol, which is
+        # what HANDOFF records independently ("Gamma reaches 2.5 kHz", "a 62 Hz
+        # band inside an 18 kHz span"). The published column did not hold the
+        # quantity the instrument had been validated against.
+        _f_res = frequency_resonance_G
+        if _f_res and np.isfinite(_f_res) and _f_res > 0:
+            _dissipation_ppm = 2.0 * abs(half_bandwidth) / _f_res * 1e6
+        else:
+            _dissipation_ppm = float("nan")
+        self._my_list_d[overtone_number].append( _dissipation_ppm )
         
         #self._temperature_buffer.append(temperature)
         self._temperature_buffer_0.append(temperature)

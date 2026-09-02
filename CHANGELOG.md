@@ -5,6 +5,46 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Changed — ⚠️ MEASURED VALUES — the dissipation is now D, as Johannsmann defines it (2026-09-02)
+
+`Dissipation_n` used to hold `half_bandwidth/1e6`: **Γ itself** — a *half width*, dimensional, in
+MHz — under a column named *Dissipation* and a panel labelled *ppm*. It now holds the **dissipation
+factor**
+
+```
+D = Q⁻¹ = 2·Γ / f_res          published as D·1e6, i.e. in units of 10⁻⁶
+```
+
+following Johannsmann, Langhoff & Leppin, *Sensors* **2021**, 21, 3490, §2 (CC BY 4.0; the
+transcribed sections are in `research/files_johannsmann_sensors-21-03490/`). Γ is unchanged and was
+never wrong — it is exactly the paper's *half bandwidth at half height*, Eq. (8) — it simply is not
+D. The panel's *ppm* label becomes correct without being touched.
+
+- ⚠️ **No single constant rescales an old datalog.** The factor is `2e12/f_res`, so it depends on
+  the overtone: **×400 000** at the fundamental, ×133 333, ×80 000, ×57 142, **×44 444** at the 9th.
+- ⚠️ **This reconciles the instrument with its own validation.** The air/isopropanol tables further
+  down this file were already written in D. Read back as `2Γ/f_res` they give Γ = 62.8 Hz at the
+  fundamental in air and 2542 Hz at the 9th in isopropanol — which is what `HANDOFF.md` records
+  independently ("isopropanol Γ reaches 2.5 kHz"; the 62 Hz band inside an 18 kHz span). Fed back
+  through `parameters_finder_impedance_exact` and the new formula they return **25.12 / 5.60 / 5.40
+  / 4.90 / 5.60** against the table's 25.1 / 5.6 / 5.4 / 4.9 / 5.6. The published column was not the
+  quantity the instrument had been validated against.
+- Verified against the paper's own conversion, Eq. (12) `ΔΓ/n = (f₀/2)·ΔD`: raising Γ by 2.5·n Hz on
+  overtone n moves D by **+0.995 ppm** on n = 1, 3 and 9 alike. The missing 0.5 % is the documented
+  liquid baseline bias, not the conversion.
+- The Δ cursor drops its `×1e6`: the curve is already in ppm. ⚠️ **That line now differs from
+  `main` deliberately** — there the curve is a bandwidth in MHz and the factor turns it into Hz —
+  and must not be reconciled by a cherry-pick, like `_nscale_div` beside it.
+- ⚠️ **`main` is not converted and must not be.** Its column is the *full width at −0.3 dB of the
+  baseline-corrected magnitude*: another curve, another threshold, not a half width at half height,
+  so `2Γ/f_res` cannot be formed from it. The two branches stay incomparable on that column — now
+  for a reason of kind rather than of scale.
+- ⚠️ **Open, and raised by this change: N-SCALE.** It divides dissipation by the overtone order on
+  this branch. Eq. (12) says D is *already* the overtone-normalised quantity, so dividing again
+  gives `D/n = 2Γ/(n²f₀)`, which nobody reports. Frequency is unaffected. Left exactly as it is —
+  N-SCALE is the user's decision — but it needs one.
+- Full reasoning, with the cross-checks: `docs/impedance-analysis/ALGORITHM.md` §9.
+
 ### Docs — the board number is 1900 here too (2026-08-31)
 
 `OPENQCM_SERIALNUMBER` is **1900** (series 19, unit 00) in both worktrees. It arrived on this branch
