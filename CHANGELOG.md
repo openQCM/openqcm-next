@@ -5,6 +5,35 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Added — Tools > Impedance Data View (2026-09-02)
+
+`ui/impedanceDataView.py`, a live view of the two impedance spectra, one tab per overtone, built to
+the same rules as Raw Data View — it **pulls** on a 300 ms timer of its own, it re-resolves the
+worker on every tick, it reads **memory only**, and a closed dialog costs nothing because the timer
+stops. Sits in Tools directly under Raw Data View.
+
+- **Top panel: conductance G**, with the published peak and band drawn on it — a diamond at `f_r`
+  and two markers at `f_r ∓ Γ`, plus the shaded region between them.
+- **Bottom panel: susceptance B**, X axis linked to the conductance.
+- The header line carries `f_r`, `Γ`, `D = 2Γ/f_r` in ppm and `G max`, so the window agrees with the
+  dissipation panel by construction.
+
+⚠️ **It computes nothing, and that is the point.** Raw Data View re-runs the fit in the GUI thread
+and has to be careful to use the very parameters the acquisition used; this one reads
+`get_G_exact_buffer` / `get_B_exact_buffer` / `get_F_G_values_buffer` and the published
+`get_fr_G_buffer` / `get_gamma_G_buffer` — the same arrays the live impedance panel draws — so it
+*cannot* disagree with the instrument. The module imports neither `core.resonance` nor anything from
+`processors`, and a test asserts it. Do not add a local inversion of the divider here.
+
+⚠️ **`f_r ∓ Γ` is deliberately symmetric while the two real half-height crossings are not.** Γ is
+published as their average and the crossings themselves are not published, so drawing them would
+mean re-deriving them. The marker *heights* are read off the measured curve at those two
+frequencies, which is a lookup rather than a second measurement — verified on a synthetic Lorentzian,
+where they land at 0.00165 S against a peak of 0.0033 S, i.e. exactly half height.
+
+- A band wider than the acquired window — which happens on damped loads, the window being sized for
+  air — is called out in the header instead of being drawn pinned to the end of the array.
+
 ### Fixed — the dissipation cards read 10⁶ times the curve above them (2026-09-02)
 
 `_update_indicator_D` and `_update_indicator_D_single` multiplied the value by `1e6` before printing

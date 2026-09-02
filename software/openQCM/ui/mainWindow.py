@@ -469,6 +469,8 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.actionConductance_Data.triggered.connect(self._conductance_data_plot)
         self.ui.actionImpedance_Fit.triggered.connect(self._impedance_fit_plot)
         self.ui.actionRawDataView.triggered.connect(self._open_raw_data_view)
+        self.ui.actionImpedanceDataView.triggered.connect(
+            self._open_impedance_data_view)
         self.ui.actionPeakDataView.triggered.connect(self._open_peak_data_view)
         self.ui.actionOpenLog.triggered.connect(self._open_datalog_view)
         self._peak_data_view = None
@@ -481,6 +483,8 @@ class MainWindow(QtGui.QMainWindow):
 
         # the live Raw Data View, while it is open
         self._raw_data_view = None
+        # and the live Impedance Data View, likewise
+        self._impedance_data_view = None
 
         # VER 0.1.6 init the null numpy array
         self._numpy_nan_signal = np.empty(Constants.ring_buffer_samples, dtype=float)
@@ -1673,6 +1677,7 @@ class MainWindow(QtGui.QMainWindow):
 
             # take the auxiliary views down with the window
             self._close_raw_data_view()
+            self._close_impedance_data_view()
             self._close_peak_data_view()
             self._close_datalog_views()
 
@@ -3050,6 +3055,29 @@ class MainWindow(QtGui.QMainWindow):
     def _forget_raw_data_view(self, *_args):
         self._raw_data_view = None
 
+    # Impedance Data View: the live G and B spectra, read from the same
+    # acquisition buffers the impedance panel draws. Same pull model and same
+    # single-instance handling as Raw Data View above; ⚠️ unlike that one it
+    # computes nothing, so it cannot disagree with the instrument.
+    def _open_impedance_data_view(self):
+        from openQCM.ui.impedanceDataView import ImpedanceDataViewDialog
+
+        if self._impedance_data_view is not None:
+            self._impedance_data_view.raise_()
+            self._impedance_data_view.activateWindow()
+            return
+
+        dialog = ImpedanceDataViewDialog(self, theme_name=self._theme,
+                                         parent=self)
+        # WA_DeleteOnClose means the C++ object is gone after the close; drop
+        # our reference with it, or we would touch a dead object
+        dialog.destroyed.connect(self._forget_impedance_data_view)
+        self._impedance_data_view = dialog
+        dialog.show()
+
+    def _forget_impedance_data_view(self, *_args):
+        self._impedance_data_view = None
+
     # Peak Data View: a snapshot of the last Peak Detection, read from the
     # calibration files. Not a live view -- Peak Detection runs once and writes
     # them -- so it is loaded on open and never polled.
@@ -3140,6 +3168,18 @@ class MainWindow(QtGui.QMainWindow):
         """Called from the main closeEvent; the dialog may already be gone."""
         dialog = self._raw_data_view
         self._raw_data_view = None
+        if dialog is None:
+            return
+        try:
+            dialog.close()
+        except RuntimeError:
+            # the underlying C++ object was already deleted
+            pass
+
+    def _close_impedance_data_view(self):
+        """Called from the main closeEvent; the dialog may already be gone."""
+        dialog = self._impedance_data_view
+        self._impedance_data_view = None
         if dialog is None:
             return
         try:

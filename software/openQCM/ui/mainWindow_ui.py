@@ -228,6 +228,10 @@ class Ui_MainWindow(object):
         # live view, reads the acquisition buffers in memory
         self.actionRawDataView = QtWidgets.QAction("Raw Data View", MainWindow)
         self.actionRawDataView.setObjectName("actionRawDataView")
+        # live view of G and B, straight out of the acquisition buffers
+        self.actionImpedanceDataView = QtWidgets.QAction("Impedance Data View",
+                                                         MainWindow)
+        self.actionImpedanceDataView.setObjectName("actionImpedanceDataView")
         # snapshot of the last Peak Detection, read from the calibration files
         self.actionPeakDataView = QtWidgets.QAction("Peak Data View", MainWindow)
         self.actionPeakDataView.setObjectName("actionPeakDataView")
@@ -254,6 +258,7 @@ class Ui_MainWindow(object):
                                                 MainWindow)
         self.actionFirmware.setObjectName("actionFirmware")
         self.menuTools.addAction(self.actionRawDataView)
+        self.menuTools.addAction(self.actionImpedanceDataView)
         self.menuTools.addAction(self.actionPeakDataView)
         self.menuTools.addAction(self.actionRaw_Data)
         self.menuTools.addAction(self.actionConductance_Data)

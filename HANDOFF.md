@@ -557,6 +557,10 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   attempts and is the single most consequential correction of the 2026-07-28 session.
 - ✅ **Live impedance panel**: G(f) and the B–G admittance circle, all overtones, matching
   colours, fitted-circle overlay. See the three `Constants.IMPEDANCE_PANEL_*` knobs.
+- ✅ **Tools > Impedance Data View** (`ui/impedanceDataView.py`, 2026-09-02): a tab per overtone with
+  G on top — published `f_r` and `f_r ∓ Γ` overlaid — and B below. Same pull model as Raw Data View.
+  ⚠️ It reads the acquisition's own G/B buffers and **computes nothing**, so it cannot disagree with
+  the instrument; it imports neither `core.resonance` nor `processors`, and a test asserts that.
 - ✅ **The published dissipation is D = 2Γ/f_res, in 10⁻⁶** (2026-09-02), per Johannsmann,
   *Sensors* 2021, 21, 3490 §2 — transcription in `research/files_johannsmann_sensors-21-03490/`.
   Before that the column held Γ/1e6, a dimensional half width in MHz. Γ is unchanged; only what is
