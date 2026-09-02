@@ -29,6 +29,21 @@ GBand = namedtuple("GBand", "bandwidth f_left f_right half_level")
 def _nan_if_none(value):
     """None travels badly through a float payload; NaN says the same thing."""
     return float("nan") if value is None else float(value)
+
+
+def _shipped_half_level(half_level_S, baseline_mS):
+    """The half-height level as it sits on the curve the panel receives.
+
+    The band is measured on the raw conductance in siemens, so
+    ``GBand.half_level`` is ``baseline + half`` there. What ships is
+    ``(G - baseline) * 1000`` -- millisiemens, baseline removed -- so the same
+    height on that curve is just ``half`` in mS. Getting this wrong is not
+    subtle: the level came out three orders of magnitude low and the markers sat
+    on the axis.
+    """
+    if half_level_S is None:
+        return float("nan")
+    return float(half_level_S) * 1000.0 - float(baseline_mS)
 import serial
 from serial.tools import list_ports
 import numpy as np
@@ -855,7 +870,10 @@ class MultiscanProcess(multiprocessing.Process):
             # Remove the static baseline so the locus closes into the admittance
             # circle, as in the offline script (mean of the first 100 samples).
             n_base = min(100, len(G_exact))
-            G_exact = G_exact - np.average(G_exact[:n_base])
+            # kept, because the half-height level has to be expressed on THIS
+            # curve and this is the offset that defines it
+            g_baseline = np.average(G_exact[:n_base])
+            G_exact = G_exact - g_baseline
             B_exact = B_exact - np.average(B_exact[:n_base])
 
             # Clip to a window of a few Gamma around the resonance before
@@ -952,7 +970,18 @@ class MultiscanProcess(multiprocessing.Process):
                                                 # the consumer float()s them.
                                                 _nan_if_none(G_band.f_left),
                                                 _nan_if_none(G_band.f_right),
-                                                _nan_if_none(G_band.half_level)])
+                                                # ⚠️ the half height ON THE
+                                                # SHIPPED CURVE, which is in mS
+                                                # AND baseline-removed, while
+                                                # GBand.half_level is in S on
+                                                # the raw one. Two conversions,
+                                                # not one: sending the raw level
+                                                # put the markers at 0.0134 on
+                                                # an axis reaching 27, i.e. flat
+                                                # on the floor of the plot.
+                                                _shipped_half_level(
+                                                    G_band.half_level,
+                                                    g_baseline)])
         except Exception as e:
             # The panel is a diagnostic view: never let it break an acquisition.
             print("Warning: exact G/B for the impedance panel failed:", e)

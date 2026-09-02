@@ -125,8 +125,13 @@ class _OvertoneTab(QtWidgets.QWidget):
         self.plt_b = self.canvas.addPlot(row=1, col=0)
         self.plt_g.setTitle("Conductance G", color=palette["title"])
         self.plt_b.setTitle("Susceptance B", color=palette["title"])
-        self.plt_g.setLabel("left", "G", units="S", color=palette["title"])
-        self.plt_b.setLabel("left", "B", units="S", color=palette["title"])
+        # ⚠️ mS, not S, and baseline-removed: that is what the acquisition
+        # ships (Multiscan.elaborate_multi scales by 1000 and subtracts the
+        # mean of the first 100 samples so the locus closes into a circle).
+        # The axis said "S" while the numbers were milli, which is how a half
+        # height of 13.4 mS could be read as 0.0134 and drawn on the floor.
+        self.plt_g.setLabel("left", "G", units="mS", color=palette["title"])
+        self.plt_b.setLabel("left", "B", units="mS", color=palette["title"])
         self.plt_b.setLabel("bottom", "Frequency", units="Hz",
                             color=palette["title"])
         for plot in (self.plt_g, self.plt_b):
@@ -349,7 +354,7 @@ class ImpedanceDataViewDialog(QtWidgets.QDialog):
 
         pane.info.setText(
             "f_r {:.1f} Hz  |  Γ {:.1f} Hz  |  D = 2Γ/f_r = {:.2f} ppm"
-            "  |  G max {:.4g} S  |  half {:.4g} S  |  {} samples{}".format(
+            "  |  G max {:.4g} mS  |  half {:.4g} mS  |  {} samples{}".format(
                 f_res, gamma, 2.0 * gamma / f_res * 1e6, g_peak,
                 g_edges[0], freq.size, notes))
 

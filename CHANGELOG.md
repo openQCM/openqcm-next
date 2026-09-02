@@ -5,6 +5,22 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Fixed — the half-height markers sat on the floor of the plot (2026-09-02)
+
+Two unit mismatches at once, and they compounded. `GBand.half_level` is `baseline + half` on the
+**raw conductance in siemens**; what the panel receives is `(G − baseline) × 1000` — **millisiemens,
+baseline removed**. Sending the raw level put the markers at **0.0134 on an axis reaching 26.85**,
+which is **0.36 % of the plot height**: flat on the axis, invisible, and the header read
+`G max 26.85 S | half 0.01341 S`, a pair that cannot both be true.
+
+- `_shipped_half_level()` converts once, where the units are known — in `elaborate_multi`, which is
+  the only place that knows both the ×1000 and the baseline it subtracted. The baseline is now kept
+  in a name instead of being computed inline and discarded.
+- The view's axes said **S** while the numbers were milli. Both are now labelled **mS**, as is the
+  header. That mislabelling is what made 0.0134 look plausible rather than absurd.
+- Measured end to end on a skewed peak in realistic units: the marker height goes from **0.36 %** to
+  **50 %** of the plot span, and both markers intercept the drawn curve to within 0.05 mS.
+
 ### Fixed — the drawn band was a symmetric guess, not the measured one (2026-09-02)
 
 Impedance Data View drew `f_r ∓ Γ`. The two half-height crossings Γ is measured from are **not**
