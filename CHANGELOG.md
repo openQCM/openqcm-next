@@ -5,6 +5,23 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Fixed — the dissipation cards read 10⁶ times the curve above them (2026-09-02)
+
+`_update_indicator_D` and `_update_indicator_D_single` multiplied the value by `1e6` before printing
+it. That was right only while the buffers held Γ in **MHz**, where it produced Hz. Since the pipeline
+publishes D in units of 10⁻⁶ the same multiplication printed **26173228.8** on the card while the
+curve directly above it drew **26.21** — and, with the panel switched to Γ, **65466132.9** against
+65.5 Hz.
+
+- Both indicators now share `_diss_indicator_text`, which formats the value handed to it — the
+  **same array the curve is drawn from**, already converted and already n-scaled — with no factor at
+  all: two decimals in ppm for D, one in Hz for Γ.
+- ⚠️ The factor must not come back. A card that disagrees with its own plot is the defect this file
+  keeps producing, and the docstring now says why the multiplication existed and why it is wrong.
+- The two panels are the same measurement seen two ways, and now visibly so: Γ = 65.47 Hz at
+  f_res = 5 MHz is D = 2Γ/f_res = **26.19 ppm**, which is what the other panel shows. Q ≈ 38 200,
+  against the air validation figure of Γ = 62.8 Hz (D = 25.1 ppm) at the fundamental.
+
 ### Added — the dissipation panel chooses its quantity, and N-SCALE follows (2026-09-02)
 
 A selector on the dissipation readout card switches the panel between **D (10⁻⁶)** and **Γ (Hz)**.

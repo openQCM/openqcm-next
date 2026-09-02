@@ -5207,11 +5207,32 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.F9.setText("nan")
 
 
+    def _diss_indicator_text(self, value):
+        """Format one dissipation readout, in the unit the panel is drawing.
+
+        ⚠️ No factor of 1e6 here any more, and it must not come back. It was
+        right only while the buffers held Gamma in MHz: multiplying by 1e6 gave
+        Hz. Since the pipeline publishes D in units of 1e-6 the same
+        multiplication turned 26.2 ppm into 26173228.8 on the card while the
+        curve above it drew 26.2 -- the card and its own plot disagreeing by
+        six orders of magnitude, which is exactly the defect this file keeps
+        producing.
+
+        The value handed in is the SAME array the curve is drawn from, already
+        converted and already n-scaled, so the card cannot drift from the line.
+        """
+        try:
+            v = float(value[0])
+        except (TypeError, IndexError, ValueError):
+            return "nan"
+        if v != v:                       # NaN
+            return "nan"
+        # Gamma is tens to thousands of Hz, D is single to hundreds of ppm:
+        # one decimal reads well for the first, two for the second.
+        return "{0:.1f}".format(v) if self._diss_mode == "G" else "{0:.2f}".format(v)
+
     def _update_indicator_D (self, index, value):
-        value_multiplied = value[0] * 1e6
-        # label = float("{0:.3f}".format(value_multiplied))
-        # VER 0.1.6 dissipation round to 1 decimal  
-        label = float("{0:.1f}".format(value_multiplied))
+        label = self._diss_indicator_text(value)
 
         if (index == 0):
             if (self.scan_selector[index] == True):
@@ -5241,11 +5262,7 @@ class MainWindow(QtGui.QMainWindow):
 
 
     def _update_indicator_D_single (self, index, value):
-        value_multiplied = value[0] * 1e6
-        
-        #label = float("{0:.3f}".format(value_multiplied))
-        # VER 0.1.6 dissipation round to 1 decimal  
-        label = float("{0:.1f}".format(value_multiplied))
+        label = self._diss_indicator_text(value)
 
         if (index == 0):
             self.ui.D0.setText(str(label))
