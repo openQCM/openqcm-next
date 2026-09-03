@@ -300,11 +300,10 @@ class MultiscanProcess(multiprocessing.Process):
     # PHASE GETS TO ZERO, and checked against the shape of the locus.
     #
     # ⚠️ Read the note on _phase_offset_fold above first. min(r) measures delta,
-    # not the crossing, and on the 2026-09-03 electronics the two stopped
-    # coinciding: in air the minima land at -2.2, +2.5, +3.8, +6.6, +4.8 deg
-    # around a 5.0 threshold, and one overtone alternated fold / no fold on
-    # consecutive sweeps. Moving the threshold cannot fix a population that
-    # straddles it.
+    # not the crossing, and delta is neither near zero nor constant: measured in
+    # air on one in-specification board the baseline falls from 86.2 deg at the
+    # fundamental to 57.8 deg at the 9th while delta runs from -0.90 to +6.67.
+    # A threshold in absolute degrees is compared against a moving reference.
     #
     # The question that HAS a physical answer: the AD8302 maps 1.8 V to 0 deg
     # and 0.9 V to 90 deg, the C0 branch holds the reading near 90 deg off
@@ -315,16 +314,16 @@ class MultiscanProcess(multiprocessing.Process):
     #
     #     depth = (baseline - min) / baseline
     #
-    # Measured -- air on this board, and the frozen water reference from the old
-    # one, both of which fold:
+    # Measured in air, in specification, plus the frozen water reference -- all
+    # of which fold (research/board-125MHz-air-2026-09-03):
     #
-    #     n        baseline   peak      depth
-    #     1        88.2       -2.2      1.025      (overshoot: delta < 0)
-    #     3        88.0       +2.4      0.973
-    #     5        91.5       +3.8      0.958
-    #     7        81.1       +6.6      0.919      <- the one the threshold lost
-    #     9        72.7       +4.8      0.934
-    #     water    83.4       +1.3      0.984
+    #     n        baseline   delta     depth
+    #     1        86.2       +4.23     1.049      (overshoot: delta > 0 here)
+    #     3        81.7       +3.75     1.046
+    #     5        69.6       +6.67     1.096
+    #     7        63.7       +6.53     1.102
+    #     9        57.8       -0.90     0.984
+    #     water    83.4       -1.26     0.985
     #
     # The documented isopropanol minima of 12-44 deg project to 0.48-0.86.
     #
@@ -335,10 +334,10 @@ class MultiscanProcess(multiprocessing.Process):
     # step in B are computed for the LOG, so the bench can see whether the
     # decision produced a circle -- they do not make it.
     #
-    # ⚠️ **The damped-load branch is NOT validated.** Every sweep available on
-    # 2026-09-03 comes out "fold", so nothing here exercises the case where the
-    # answer must be "no fold". Constants.PHASE_FOLD_BY_PEAK_DEPTH = False
-    # restores the threshold exactly.
+    # ⚠️ **The damped-load branch is NOT validated.** Every sweep available
+    # comes out "fold", so nothing here exercises the case where the answer must
+    # be "no fold". Constants.PHASE_FOLD_BY_PEAK_DEPTH = False restores the
+    # threshold exactly.
     def _phase_fold_decision(self, freq, V_mag, phase_folded):
         """(has_fold, info) from how close the phase peak gets to zero.
 
@@ -978,8 +977,8 @@ class MultiscanProcess(multiprocessing.Process):
         fold_info = None
         if Constants.PHASE_FOLD_BY_PEAK_DEPTH:
             # ⚠️ delta stays measured by -p_min above; only the binary choice
-            # changes. See _phase_fold_decision for why the threshold cannot
-            # decide this on the 2026-09-03 electronics.
+            # changes. See _phase_fold_decision for why a threshold in absolute
+            # degrees cannot decide this.
             decided, fold_info = self._phase_fold_decision(
                 freq_range, Vmag_raw_result_fit, phase_folded)
             if decided is not None:

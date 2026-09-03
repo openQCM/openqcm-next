@@ -5,84 +5,49 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
-### Changed — the fold criterion is the depth of the phase peak, not the roundness of the locus (2026-09-03)
+### Changed — the phase fold is decided by the depth of the peak, not by a threshold in degrees (2026-09-03)
 
-Supersedes the entry below, same day: the decision moves from the circle residual to a physical
-measurement, and the residual goes back to being what the codebase always said it should be.
+`_phase_offset_fold` decided whether the phase folds by testing `min(r)` against
+`FOLD_THRESHOLD_DEG_G = 5.0`. ⚠️ **That number cannot answer the question it was asked.** §4.2 of
+`ALGORITHM.md` states `min(r) = −δ` at the vertex: it measures the channel **offset**, not whether
+the argument crossed zero. The two coincide only while δ happens to be near zero.
 
-- ⚠️ **Roundness should not have been the judge.** The note above `_phase_offset_fold` records an
-  estimator that was reverted for buying roundness at the cost of the trajectory — *"a continuous
-  trajectory is not negotiable; roundness is a diagnostic"*. Promoting it to judge put that back in
-  play.
-- **The physical question has an answer in the raw signal.** The AD8302 maps **1.8 V to 0°** and
-  **0.9 V to 90°**; off resonance the `C0` branch holds the reading near 90°, and the sign flips
-  where it reaches **zero** — the peak of `V_PHS`, not 90°. So the test is whether the peak gets
-  there, normalised by the sweep's own excursion: `depth = (baseline − min) / baseline`.
-- Measured — everything that folds sits at **0.918–1.025**, the documented isopropanol minima of
-  12–44° project to **0.48–0.86**:
-
-  | | baseline | peak | depth |
-  |---|---|---|---|
-  | air n=1 | 88.2° | −2.2° | 1.025 |
-  | air n=3 | 88.0° | +2.4° | 0.972 |
-  | air n=5 | 91.5° | +3.8° | 0.958 |
-  | air n=7 | 81.1° | +6.6° | **0.918** |
-  | air n=9 | 72.7° | +4.8° | 0.934 |
-  | water, old board | 83.4° | +1.3° | 0.985 |
-
-- `PHASE_FOLD_DEPTH_MIN = 0.88`, and ⚠️ **deliberately not the midpoint**: the fold side is measured
-  and the no-fold side is projected from files that no longer exist, so the measured side gets the
-  wider margin — **+0.038 against −0.021**.
-- ⚠️ **The peak must BE the resonance.** The 2026-09-03 fundamental carries a spur at 4.9915 MHz in
-  both channels and a bare `argmax` could latch onto it. The real peak sits 0.14–0.43 Γ from the
-  conductance resonance on every sweep; a synthetic spike 154 Γ away is rejected.
-- The circle residual and the step in B are still computed — **for the log**, so the bench can see
-  whether the decision produced a circle. They no longer decide anything.
-- Same outcome on the data as the superseded criterion: all five air overtones fold, the 7th changes
-  from today, the water reference is untouched. The reason is now one an operator can check on the
-  raw sweep.
-- **Confirmed on hardware, 2026-09-03.** All five overtones fold on every sweep, at depths 102.4 /
-  96.9 / 95.2 / **91.7** / 93.2 % against the 88 % threshold, with the peak 0.20–0.32 Γ from
-  resonance. The 9th overtone — the one that alternated 4.98 / 5.10 / 4.97 / 5.00 / 4.98 — now reads
-  93.2, 93.3, 93.3, 93.3, 93.4 % across six consecutive sweeps: **0.2 points of wobble against 5.2
-  points of margin.** The flicker is gone, not reduced.
-- ⚠️ **And the log stopped being readable, briefly.** Keying it on δ rounded to a tenth made the 9th
-  overtone reprint every sweep, because δ wobbles ±0.05° across a rounding boundary. Two triggers
-  now: a change of **decision** always prints, a drift in δ only past `PHASE_OFFSET_LOG_DEG`. Same
-  six sweeps: four lines before, one after. An observable nobody reads is not an observable.
-
-### Fixed — ⚠️ MEASURED VALUES — the phase fold is decided by the locus, not by a threshold (2026-09-03)
-
-New electronics (changed filters, 150 MHz clock) broke the fold detector, and the 5th-overtone
-B–G locus came out as an open two-branch arc instead of a circle.
-
-- ⚠️ **The threshold could not have worked, and moving it cannot fix it.** `min(r)` measures **δ** —
-  §4.2 of `ALGORITHM.md` says `min(r) = −δ` at the vertex — not whether the argument crossed zero.
-  On the old board `δ ≈ 0` in air so the two coincided by accident. Measured in air on this board:
-  `min(r)` = −2.20, +2.45, +3.83, **+6.64**, +4.80 around a 5.0 boundary, with **half of twenty
-  logged minima within one degree of it**.
-- ⚠️ **And it was unstable, not merely wrong.** The 9th overtone alternated fold / no fold on
-  consecutive sweeps of a single run — 4.98, 5.10, 4.97, 5.00, 4.98 — so B, the locus, `R1` and `L1`
-  flipped between two reconstructions every sweep. That is why the fits looked erratic rather than
-  biased.
-- `_phase_fold_by_locus()` builds both reconstructions and keeps the better circle, provided the
-  flip does not introduce a step in B. In air the fold hypothesis wins on **all five** overtones by
-  **2.0–2.9×** on the residual while also having the smaller jump. The 7th overtone changes
-  classification; the other four stop flickering.
-- ⚠️ **Not the reverted `_phase_offset_deg`.** That treated δ as a free parameter and bought
-  roundness by pushing the flip onto the antipode. Here **δ stays measured** by `−min(r)`; only the
-  binary choice comes from the locus, between two candidates whose δ the model fixes.
-- `_fold_latched()` needs two consecutive sweeps to agree before switching — verified against the
-  alternating sequence that flickered: six alternating sweeps do not move it, two agreeing ones do.
-- The log now prints the numbers behind the verdict, keyed on the **decision** and not only on a
-  drift in δ: the old line would have hidden exactly this fault.
-- Compatibility: the frozen water reference from the old board keeps its current classification
-  (fold, 4.7× margin). ⚠️ **The damped-load branch is NOT validated** — no sweep available exercises
-  "no fold". `Constants.PHASE_FOLD_BY_LOCUS = False` restores the threshold exactly.
-- ⚠️ **Separate, unfixed:** even with the fold applied this board's air locus is **6.5–10.6 %** out
-  of round, against 1.2–6.6 % recorded for the old board. The fits become sane, not good. Suspect is
-  the uncorrected board phase `φ_b`.
-- The sweeps behind every number are in `research/new-electronics-air-2026-09-03/`, saved outside
+- ⚠️ **And δ is not near zero, nor constant.** Measured on one in-specification board, in air, the
+  phase baseline falls from **86.2° at the fundamental to 57.8° at the 9th** while δ ranges from
+  **−0.90° to +6.67°**. An absolute threshold in degrees is being compared against a reference that
+  moves by 28° across the overtones of a single sweep set.
+- `_phase_fold_decision()` asks the question that has a physical answer. The AD8302 maps **1.8 V to
+  0°** and **0.9 V to 90°**; off resonance the `C0` branch holds the reading near 90°, and the sign
+  flips where it reaches **zero** — the peak of `V_PHS`, not 90°. The test is whether the peak gets
+  there, normalised by the sweep's own excursion: `depth = (baseline − min) / baseline`, one when
+  the phase reaches 0° exactly, more when it overshoots.
+- Measured in air, 125 MHz board: depths **1.049 / 1.046 / 1.096 / 1.102 / 0.984**, peak
+  0.14–0.42 Γ from the conductance resonance, circle residual 1.5–6.0 % of the radius. The frozen
+  water reference from the old board gives 0.985. The documented isopropanol minima of 12–44°
+  project to 0.48–0.86.
+- `PHASE_FOLD_DEPTH_MIN = 0.88`, ⚠️ deliberately **not** the midpoint: the fold side is measured and
+  the no-fold side is projected from files that no longer exist, so the measured side gets the
+  wider margin.
+- ⚠️ **The peak must BE the resonance**, within `PHASE_FOLD_PEAK_MAX_GAMMA`. A sweep can carry a
+  spur that a bare `argmax` would latch onto; a synthetic spike 154 Γ from resonance is rejected.
+- ⚠️ **Roundness is not the judge**, and that is deliberate: the note above `_phase_offset_fold`
+  records an estimator reverted for buying roundness at the cost of the trajectory. *A continuous
+  trajectory is not negotiable; roundness is a diagnostic.* The circle residual and the largest step
+  in B are computed **for the log** so the bench can see whether the decision produced a circle;
+  they decide nothing.
+- `_fold_latched()` requires two consecutive sweeps to agree before the decision changes. Verified
+  against an alternating sequence: six alternating sweeps do not move it, two agreeing ones do.
+- **Compatibility, measured rather than argued.** On the in-specification board the old threshold
+  and the new criterion give the **same answer on all five overtones**. The change removes a latent
+  fragility — a criterion resting on a moving reference — without moving a single decision on
+  hardware where the old one was right.
+- The log prints the numbers behind the verdict, and is keyed on the **decision** as well as on a
+  drift in δ past `PHASE_OFFSET_LOG_DEG`. Keying it on δ alone would hide a decision that flipped
+  while δ barely moved; keying it on δ rounded to a tenth made one overtone reprint every sweep.
+- ⚠️ **The damped-load branch is NOT validated.** Every sweep available comes out "fold", so nothing
+  exercises the case where the answer must be "no fold" — the isopropanol run that did no longer
+  exists. `Constants.PHASE_FOLD_BY_PEAK_DEPTH = False` restores the threshold exactly.
+- The sweeps behind every number are in `research/board-125MHz-air-2026-09-03/`, saved outside
   `sweep_data/` on purpose.
 
 ### Fixed — the half-height markers sat on the floor of the plot (2026-09-02)

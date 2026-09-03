@@ -390,13 +390,14 @@ class Constants:
     # instead of from the threshold above.
     #
     # ⚠️ The threshold tests min(r), and the model says min(r) = -delta at the
-    # vertex: it measures the OFFSET, not whether the argument crossed zero. On
-    # the old electronics delta was ~0 in air, so "small minimum" and "there is
-    # a fold" coincided by accident. Measured on the 2026-09-03 board (new
-    # filters, 150 MHz clock) the minima in air land at -2.2, +2.5, +3.8, +6.6,
-    # +4.8 deg -- half the population within one degree of 5.0 -- and the 9th
-    # overtone alternated fold / no fold on consecutive sweeps of one run:
-    # 4.98, 5.10, 4.97, 5.00, 4.98. Not a wrong classification, an unstable one.
+    # vertex: it measures the OFFSET, not whether the argument crossed zero.
+    # The two coincide only while delta happens to be near zero.
+    #
+    # ⚠️ And delta is neither near zero nor constant. Measured in air on one
+    # in-specification board, the phase baseline falls from 86.2 deg at the
+    # fundamental to 57.8 deg at the 9th while delta ranges from -0.90 to
+    # +6.67 deg: a threshold in absolute degrees is compared against a
+    # reference that moves by 28 deg across one set of overtones.
     #
     # The replacement asks the physical question. The AD8302 maps 1.8 V to 0 deg
     # and 0.9 V to 90 deg; off resonance the C0 branch holds the reading near
@@ -410,24 +411,23 @@ class Constants:
     # absolute number of degrees is exactly what a change of electronics
     # invalidates.
     #
-    # Measured: everything that folds -- five air overtones on the new board and
-    # the frozen water reference from the old one -- sits at 0.918 to 1.025. The
-    # documented isopropanol minima of 12-44 deg project to 0.48 to 0.86 against
-    # a ~85 deg baseline.
+    # Measured: everything that folds -- five air overtones in specification and
+    # the frozen water reference -- sits at 0.984 to 1.102. The documented
+    # isopropanol minima of 12-44 deg project to 0.48 to 0.86.
     #
     # ⚠️ The threshold sits at 0.88 and not at the midpoint, on purpose. The
-    # fold side is MEASURED (worst case 0.918, the 7th overtone) and the no-fold
-    # side is PROJECTED from documented minima whose files no longer exist, so
-    # the measured side gets the wider margin: 0.038 above against 0.021 below.
+    # fold side is MEASURED and the no-fold side is PROJECTED from documented
+    # minima whose files no longer exist, so the measured side gets the wider
+    # margin.
     # ⚠️ Re-tune this once a damped-load dump exists -- it is the one number
     # here that a real "no fold" sweep could move.
     PHASE_FOLD_BY_PEAK_DEPTH = True
     PHASE_FOLD_DEPTH_MIN = 0.88
 
-    # ...and the peak has to BE the resonance. ⚠️ Not pedantry: the 2026-09-03
-    # fundamental carries a spur at 4.9915 MHz visible in both channels, and a
-    # bare argmax could latch onto it. Measured distance of the real peak from
-    # the conductance resonance: 0.20 to 0.43 Gamma on every sweep available.
+    # ...and the peak has to BE the resonance. ⚠️ Not pedantry: a sweep can
+    # carry a spur visible in both channels, and a bare argmax could latch onto
+    # it. Measured distance of the real peak from the conductance resonance:
+    # 0.14 to 0.42 Gamma on every sweep available.
     PHASE_FOLD_PEAK_MAX_GAMMA = 5.0
 
     # VER 0.1.6G global phase offset of the AD8302 phase channel. The detector

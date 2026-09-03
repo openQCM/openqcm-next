@@ -215,51 +215,45 @@ return -p_min, True            # delta, fold present
 `Constants.FOLD_THRESHOLD_DEG_G = 5.0` degrees. `δ` of either sign is legitimate: it is whatever
 brings the vertex of the V to zero.
 
-⚠️ **Since 2026-09-03 that threshold no longer makes the decision — the locus does.** `min(r)` is
-still what measures `δ`, and that is all it can do: §4.2 says `min(r) = −δ` *at the vertex*, so the
-number reports the offset, not whether the argument crossed zero. On the old electronics `δ ≈ 0` in
-air, so "small minimum" and "there is a fold" coincided **by accident**. On the 2026-09-03 board —
-new filters, 150 MHz clock — they stop coinciding:
+⚠️ **Since 2026-09-03 that threshold no longer makes the decision.** `min(r)` is still what measures
+`δ`, and that is all it can do: §4.2 says `min(r) = −δ` *at the vertex*, so the number reports the
+offset, not whether the argument crossed zero. The two coincide only while `δ` happens to be near
+zero.
 
-| n | 1 | 3 | 5 | 7 | 9 |
-|---|---|---|---|---|---|
-| `min(r)` in air | −2.20 | +2.45 | +3.83 | **+6.64** | +4.80 |
+⚠️ **And `δ` is neither near zero nor constant.** Measured in air on one in-specification board, the
+baseline falls from **86.2° at the fundamental to 57.8° at the 9th** while `δ` ranges from **−0.90°
+to +6.67°**. A threshold in absolute degrees is being compared against a reference that moves by 28°
+across the overtones of a single sweep set.
 
-Half of twenty logged minima fell within one degree of 5.0, and the 9th overtone **alternated fold /
-no fold on consecutive sweeps of one run**: 4.98, 5.10, 4.97, 5.00, 4.98. Not a wrong
-classification — an unstable one, with B, the locus, `R1` and `L1` flipping between two
-reconstructions each sweep. No value of the threshold separates a population that straddles it.
-
-`_phase_fold_decision()` asks the question that has a physical answer instead. The detector maps
-**1.8 V to 0°** and **0.9 V to 90°**; off resonance the `C0` branch holds the reading near 90°, and
-the sign of the phase flips where the reading reaches **zero** — the peak of `V_PHS`, *not* 90°. So
-the test is whether the peak actually gets there, normalised by the sweep's own excursion:
+`_phase_fold_decision()` asks the question that has a physical answer. The detector maps **1.8 V to
+0°** and **0.9 V to 90°**; off resonance the `C0` branch holds the reading near 90°, and the sign of
+the phase flips where the reading reaches **zero** — the peak of `V_PHS`, *not* 90°. So the test is
+whether the peak actually gets there, normalised by the sweep's own excursion:
 
 ```
 depth = (baseline − min) / baseline
 ```
 
 one when the phase reaches 0° exactly, more when it overshoots (`δ < 0`). ⚠️ **Normalised on
-purpose**: an absolute number of degrees is precisely what a change of electronics invalidates,
-which is how this broke in the first place.
+purpose**: an absolute number of degrees is what a change of hardware invalidates.
 
-| | baseline | peak | depth | circle rms |
+| | baseline | δ | depth | circle rms |
 |---|---|---|---|---|
-| air n=1 | 88.2° | −2.2° | **1.025** | 5.8 % |
-| air n=3 | 88.0° | +2.4° | **0.972** | 8.7 % |
-| air n=5 | 91.5° | +3.8° | **0.958** | 10.2 % |
-| air n=7 | 81.1° | +6.6° | **0.918** | 10.7 % |
-| air n=9 | 72.7° | +4.8° | **0.934** | 8.0 % |
-| water (old board) | 83.4° | +1.3° | **0.985** | 4.1 % |
+| air n=1 | 86.2° | +4.23° | **1.049** | 2.8 % |
+| air n=3 | 81.7° | +3.75° | **1.046** | 3.4 % |
+| air n=5 | 69.6° | +6.67° | **1.096** | 1.5 % |
+| air n=7 | 63.7° | +6.53° | **1.102** | 1.8 % |
+| air n=9 | 57.8° | −0.90° | **0.984** | 6.0 % |
+| water, old board | 83.4° | −1.26° | **0.985** | 4.1 % |
 
+Sweeps in [`research/board-125MHz-air-2026-09-03/`](../../research/board-125MHz-air-2026-09-03/).
 The documented isopropanol minima of 12–44° project to **0.48–0.86**. `PHASE_FOLD_DEPTH_MIN = 0.88`
-sits between them, and deliberately not at the midpoint: the fold side is measured and the no-fold
-side is projected, so the measured side gets the wider margin — **+0.038 against −0.021**.
+sits between them and deliberately not at the midpoint: the fold side is measured and the no-fold
+side is projected, so the measured side gets the wider margin.
 
-⚠️ **The peak must BE the resonance**, within `PHASE_FOLD_PEAK_MAX_GAMMA` of it. Not pedantry: the
-2026-09-03 fundamental carries a spur at 4.9915 MHz visible in both channels, and a bare `argmax`
-could latch onto it. Measured, the real peak sits 0.14–0.43 Γ from the conductance resonance on
-every sweep available; a synthetic spike 154 Γ away is rejected.
+⚠️ **The peak must BE the resonance**, within `PHASE_FOLD_PEAK_MAX_GAMMA` of it. A sweep can carry a
+spur that a bare `argmax` would latch onto; measured, the real peak sits 0.14–0.42 Γ from the
+conductance resonance, and a synthetic spike 154 Γ away is rejected.
 
 ⚠️ **Roundness is not the judge, and that is deliberate.** The note above `_phase_offset_fold`
 records what happened when an estimator was allowed to buy roundness — it broke the trajectory. *A
@@ -268,31 +262,24 @@ largest step in B are computed for the **log**, so the bench can see whether the
 circle; they do not make it.
 
 `_fold_latched()` requires two consecutive sweeps to agree before the decision changes: stability is
-a requirement here, and a criterion that merely moved the boundary would have moved the flicker with
+a requirement here, and a criterion that merely moved the boundary would have moved a flicker with
 it.
 
-⚠️ **The damped-load branch is NOT validated.** Every sweep available on 2026-09-03 — five in air on
-this board, plus the frozen water reference from the old one, which also comes out "fold" with a
-4.7× margin — exercises only the "fold" answer. The case where the answer must be "no fold" is the
-isopropanol run of 2026-07-27, whose files no longer exist. `Constants.PHASE_FOLD_BY_LOCUS = False`
-restores the threshold exactly.
+⚠️ **Compatibility, measured rather than argued.** On the in-specification board the old threshold
+and the new criterion give the **same answer on all five overtones**. The change removes a latent
+fragility — a criterion resting on a moving reference — without moving a single decision on hardware
+where the old one was right.
 
-⚠️ **And a second, independent finding.** Even *with* the fold applied, this board's air locus is
-**6.5–10.6 %** out of round, against the **1.2–6.6 %** recorded for the old board with the same
-estimator and 4.10 % for the water reference. Fixing the decision makes the fits sane, not
-necessarily good. The suspect is the board phase `φ_b` of §4.2 — documented at −12…−20° and still
-not corrected — which the new filters will have moved.
+⚠️ **The damped-load branch is NOT validated.** Every sweep available comes out "fold", so nothing
+exercises the case where the answer must be "no fold". That case is the isopropanol run of
+2026-07-27, whose files no longer exist. `Constants.PHASE_FOLD_BY_PEAK_DEPTH = False` restores the
+threshold exactly.
 
-**No fold means a damped load** (liquid): `C0` and strays dominate, the total phase never crosses
-zero, its minimum stays 12–44° above it. Then there is nothing to unfold and nothing to offset —
-`r` already *is* the signed phase. Applying the offset and the flip anyway inverts half the sweep
-and distorts the locus into an "S"; observed on-device in isopropanol, 2026-07-27.
-
-Then, `Multiscan.py:1029`:
-
-```python
-phase_corr = phase_folded + phase_offset
-```
+⚠️ **A note on hardware, because it bears on any measurement filed here.** The DDS is specified to
+**125 MHz of system clock at 3.3 V** (100 MHz at 2.7 V, 180 MHz at 5.0 V), and the 6× multiplier
+does not get around it — at 3.3 V the maximum REFCLK is 20.83 MHz, the same 125 MHz. A board clocked
+above that on 3.3 V is outside the guaranteed range whatever it appears to do, and its phase channel
+is not a reference for anything. Check the clock before filing a sweep as evidence.
 
 ### 4.4 Two different phases for two different quantities
 

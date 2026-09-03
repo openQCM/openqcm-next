@@ -561,6 +561,18 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   G on top — published `f_r` and `f_r ∓ Γ` overlaid — and B below. Same pull model as Raw Data View.
   ⚠️ It reads the acquisition's own G/B buffers and **computes nothing**, so it cannot disagree with
   the instrument; it imports neither `core.resonance` nor `processors`, and a test asserts that.
+- ✅ **The phase fold is decided by the depth of the peak, not by a threshold in degrees**
+  (2026-09-03). `min(r)` measures `δ`, not the crossing — `ALGORITHM.md` §4.2 — and `δ` is neither
+  near zero nor constant: in air on one board the baseline falls 86.2° → 57.8° across the overtones
+  while `δ` runs −0.90…+6.67°. `_phase_fold_decision()` tests whether `V_PHS` reaches 0°, normalised
+  by the sweep's own excursion. ⚠️ On an in-specification board the old threshold and the new
+  criterion agree on all five overtones — the change removes a latent fragility, it does not move a
+  decision that was right. ⚠️ The damped-load branch is **unvalidated**;
+  `Constants.PHASE_FOLD_BY_PEAK_DEPTH = False` restores the threshold.
+  ⚠️ **Check the clock before filing any sweep as evidence**: the DDS is specified to 125 MHz of
+  system clock at 3.3 V (180 MHz needs 5 V), and the 6× multiplier does not get around it — at 3.3 V
+  REFCLK tops out at 20.83 MHz, the same 125 MHz. Above that the part is outside its guaranteed
+  range and its phase channel is not a reference for anything.
 - ✅ **The published dissipation is D = 2Γ/f_res, in 10⁻⁶** (2026-09-02), per Johannsmann,
   *Sensors* 2021, 21, 3490 §2 — transcription in `research/files_johannsmann_sensors-21-03490/`.
   Before that the column held Γ/1e6, a dimensional half width in MHz. Γ is unchanged; only what is
