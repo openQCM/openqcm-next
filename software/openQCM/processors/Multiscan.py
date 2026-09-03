@@ -994,12 +994,16 @@ class MultiscanProcess(multiprocessing.Process):
         if not hasattr(self, "_phase_offset_logged"):
             self._phase_offset_logged = {}
         _prev = self._phase_offset_logged.get(overtone_number)
-        # ⚠️ Keyed on the DECISION as well as on delta. Logging only a drift in
-        # delta would have hidden the very thing this change is about: the
-        # threshold flipped fold / no fold between sweeps while delta barely
-        # moved, and nothing on screen said so.
-        _key = (bool(has_fold), round(float(phase_offset), 1))
-        if _prev is None or _prev != _key:
+        # ⚠️ Two triggers, and both are needed. A change of DECISION always
+        # prints: the fault this replaced flipped fold / no fold between sweeps
+        # while delta barely moved, and nothing on screen said so. A drift in
+        # delta prints only past PHASE_OFFSET_LOG_DEG, because delta wobbles by
+        # a few hundredths of a degree from sweep to sweep -- keying on it
+        # rounded to a tenth made the 9th overtone reprint on every sweep,
+        # which is how a log stops being read.
+        _key = (bool(has_fold), float(phase_offset))
+        if (_prev is None or _prev[0] != _key[0]
+                or abs(_key[1] - _prev[1]) > Constants.PHASE_OFFSET_LOG_DEG):
             self._phase_offset_logged[overtone_number] = _key
             state = ("fold, delta %+.2f deg" % phase_offset if has_fold
                      else "no fold, reading used as the signed phase")

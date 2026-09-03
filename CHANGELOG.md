@@ -41,6 +41,15 @@ measurement, and the residual goes back to being what the codebase always said i
 - Same outcome on the data as the superseded criterion: all five air overtones fold, the 7th changes
   from today, the water reference is untouched. The reason is now one an operator can check on the
   raw sweep.
+- **Confirmed on hardware, 2026-09-03.** All five overtones fold on every sweep, at depths 102.4 /
+  96.9 / 95.2 / **91.7** / 93.2 % against the 88 % threshold, with the peak 0.20–0.32 Γ from
+  resonance. The 9th overtone — the one that alternated 4.98 / 5.10 / 4.97 / 5.00 / 4.98 — now reads
+  93.2, 93.3, 93.3, 93.3, 93.4 % across six consecutive sweeps: **0.2 points of wobble against 5.2
+  points of margin.** The flicker is gone, not reduced.
+- ⚠️ **And the log stopped being readable, briefly.** Keying it on δ rounded to a tenth made the 9th
+  overtone reprint every sweep, because δ wobbles ±0.05° across a rounding boundary. Two triggers
+  now: a change of **decision** always prints, a drift in δ only past `PHASE_OFFSET_LOG_DEG`. Same
+  six sweeps: four lines before, one after. An observable nobody reads is not an observable.
 
 ### Fixed — ⚠️ MEASURED VALUES — the phase fold is decided by the locus, not by a threshold (2026-09-03)
 
