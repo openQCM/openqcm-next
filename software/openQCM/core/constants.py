@@ -386,6 +386,40 @@ class Constants:
     # MultiscanProcess._phase_signed and sweep_data/plot_conductance.py.
     FOLD_THRESHOLD_DEG_G = 5.0
 
+    # VER 0.1.6G Deciding the phase fold by the SHAPE OF THE LOCUS instead of by
+    # the threshold above.
+    #
+    # ⚠️ The threshold tests min(r), and the model says min(r) = -delta at the
+    # vertex: it measures the OFFSET, not whether the argument crossed zero. On
+    # the old electronics delta was ~0 in air, so "small minimum" and "there is
+    # a fold" coincided by accident. Measured on the 2026-09-03 board (new
+    # filters, 150 MHz clock) the minima in air land at -2.2, +2.5, +3.8, +6.6,
+    # +4.8 deg -- half the population within one degree of 5.0 -- and the 9th
+    # overtone alternated fold / no fold on consecutive sweeps of one run:
+    # 4.98, 5.10, 4.97, 5.00, 4.98. Not a wrong classification, an unstable one.
+    #
+    # The replacement builds BOTH reconstructions and keeps the one whose
+    # admittance locus is the better circle, provided it does not introduce a
+    # discontinuity in B.
+    #
+    # ⚠️ This is NOT the reverted _phase_offset_deg. That one treated delta as a
+    # free parameter and bought roundness by pushing it until the flip landed on
+    # the antipode, breaking the trajectory. Here delta stays MEASURED by
+    # -min(r) and only the binary choice is made from the locus: there are two
+    # candidates, each with its delta fixed by the model, and nothing to push.
+    PHASE_FOLD_BY_LOCUS = True
+
+    # The fold hypothesis has to win by this factor on the circle residual
+    # before the decision changes. Measured margins in air are 2.0-3.7x, so 1.3
+    # is comfortable, and it is what stops the flicker: the threshold flipped on
+    # a 0.02 deg difference.
+    PHASE_FOLD_MARGIN = 1.30
+
+    # ...and it must not be worse than this multiple of the alternative on the
+    # largest step in B, in percent of B's own span. Continuity is the
+    # non-negotiable half: roundness alone is what the reverted estimator gamed.
+    PHASE_FOLD_JUMP_TOLERANCE = 1.25
+
     # VER 0.1.6G global phase offset of the AD8302 phase channel. The detector
     # reads r(f) = |phi_true(f)| - delta with delta a per-overtone constant of
     # ~7-25 deg on this instrument (board + cable phase + detector offset). It is

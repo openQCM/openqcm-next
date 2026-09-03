@@ -5,6 +5,40 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Fixed — ⚠️ MEASURED VALUES — the phase fold is decided by the locus, not by a threshold (2026-09-03)
+
+New electronics (changed filters, 150 MHz clock) broke the fold detector, and the 5th-overtone
+B–G locus came out as an open two-branch arc instead of a circle.
+
+- ⚠️ **The threshold could not have worked, and moving it cannot fix it.** `min(r)` measures **δ** —
+  §4.2 of `ALGORITHM.md` says `min(r) = −δ` at the vertex — not whether the argument crossed zero.
+  On the old board `δ ≈ 0` in air so the two coincided by accident. Measured in air on this board:
+  `min(r)` = −2.20, +2.45, +3.83, **+6.64**, +4.80 around a 5.0 boundary, with **half of twenty
+  logged minima within one degree of it**.
+- ⚠️ **And it was unstable, not merely wrong.** The 9th overtone alternated fold / no fold on
+  consecutive sweeps of a single run — 4.98, 5.10, 4.97, 5.00, 4.98 — so B, the locus, `R1` and `L1`
+  flipped between two reconstructions every sweep. That is why the fits looked erratic rather than
+  biased.
+- `_phase_fold_by_locus()` builds both reconstructions and keeps the better circle, provided the
+  flip does not introduce a step in B. In air the fold hypothesis wins on **all five** overtones by
+  **2.0–2.9×** on the residual while also having the smaller jump. The 7th overtone changes
+  classification; the other four stop flickering.
+- ⚠️ **Not the reverted `_phase_offset_deg`.** That treated δ as a free parameter and bought
+  roundness by pushing the flip onto the antipode. Here **δ stays measured** by `−min(r)`; only the
+  binary choice comes from the locus, between two candidates whose δ the model fixes.
+- `_fold_latched()` needs two consecutive sweeps to agree before switching — verified against the
+  alternating sequence that flickered: six alternating sweeps do not move it, two agreeing ones do.
+- The log now prints the numbers behind the verdict, keyed on the **decision** and not only on a
+  drift in δ: the old line would have hidden exactly this fault.
+- Compatibility: the frozen water reference from the old board keeps its current classification
+  (fold, 4.7× margin). ⚠️ **The damped-load branch is NOT validated** — no sweep available exercises
+  "no fold". `Constants.PHASE_FOLD_BY_LOCUS = False` restores the threshold exactly.
+- ⚠️ **Separate, unfixed:** even with the fold applied this board's air locus is **6.5–10.6 %** out
+  of round, against 1.2–6.6 % recorded for the old board. The fits become sane, not good. Suspect is
+  the uncorrected board phase `φ_b`.
+- The sweeps behind every number are in `research/new-electronics-air-2026-09-03/`, saved outside
+  `sweep_data/` on purpose.
+
 ### Fixed — the half-height markers sat on the floor of the plot (2026-09-02)
 
 Two unit mismatches at once, and they compounded. `GBand.half_level` is `baseline + half` on the

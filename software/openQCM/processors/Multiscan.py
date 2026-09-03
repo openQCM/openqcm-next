@@ -296,6 +296,123 @@ class MultiscanProcess(multiprocessing.Process):
             return 0.0, False
         return -p_min, True
 
+    # VER 0.1.6G Does the phase actually fold? Decided from the LOCUS.
+    #
+    # ⚠️ Read the note on _phase_offset_fold above first. min(r) measures delta,
+    # not the crossing, and on the 2026-09-03 electronics the two stopped
+    # coinciding: in air the minima land at -2.2, +2.5, +3.8, +6.6, +4.8 deg
+    # around a 5.0 threshold, and one overtone alternated fold / no fold on
+    # consecutive sweeps. Moving the threshold cannot fix a population that
+    # straddles it.
+    #
+    # ⚠️ And this is NOT the reverted _phase_offset_deg. That one made delta a
+    # free parameter and bought roundness by pushing it until the flip landed on
+    # the antipode of the circle, which broke the trajectory. Here delta stays
+    # MEASURED by -min(r); only the binary choice comes from the locus, between
+    # two candidates whose delta is fixed by the model. There is nothing to
+    # push, and continuity is checked explicitly rather than hoped for.
+    #
+    # Measured on the new board in air, residual as a percentage of the radius,
+    # with the largest step in B as a percentage of its span:
+    #
+    #     n      no fold          fold            margin
+    #     1      23.96 / 2.8 %    6.45 / 1.9 %    3.7x
+    #     3      27.92 / 6.4 %   10.38 / 5.2 %    2.7x
+    #     5      34.29 / 9.7 %   10.19 / 4.5 %    3.4x
+    #     7      37.42 / 3.7 %   10.57 / 2.7 %    3.5x
+    #     9      16.24 / 2.7 %    7.95 / 1.5 %    2.0x
+    #
+    # ⚠️ **The damped-load branch is NOT validated.** Every sweep available on
+    # 2026-09-03 -- five in air on this board, plus the frozen water reference
+    # from the old one -- comes out "fold", so nothing here exercises the case
+    # where the answer must be "no fold". That case is the isopropanol run of
+    # 2026-07-27, whose files no longer exist. Until a damped dump is measured,
+    # Constants.PHASE_FOLD_BY_LOCUS = False restores the threshold exactly.
+    def _phase_fold_by_locus(self, freq, V_mag, phase_folded, p_min):
+        """(has_fold, diagnostics) from the shape of the admittance locus.
+
+        Returns has_fold plus a dict of the four numbers behind the decision, so
+        the bench can see WHY it chose, not just what.
+        """
+        info = {"rms_no": None, "rms_yes": None,
+                "jump_no": None, "jump_yes": None, "why": "unavailable"}
+        try:
+            # Seed the band from the uncorrected conductance: G is even in phi,
+            # so it needs neither the offset nor the sign to find resonance.
+            R0, X0 = self._RX_exact(V_mag, phase_folded)
+            G0 = self._G_exact(R0, X0)
+            i0 = int(np.nanargmax(G0 - np.average(G0[:min(100, len(G0))])))
+            hw = abs(self._half_bandwidth_G_exact(G0, freq).bandwidth)
+            span = float(freq[-1] - freq[0])
+            half = min(max(Constants.IMPEDANCE_PANEL_BAND_GAMMA * hw,
+                           0.02 * span), 0.5 * span)
+            keep = np.abs(freq - freq[i0]) <= half
+            if keep.sum() < 40:
+                return None, info
+
+            for name, apply_fold in (("no", False), ("yes", True)):
+                if apply_fold:
+                    corr = phase_folded + (-p_min)
+                    signed = np.array(corr, dtype=float, copy=True)
+                    signed[int(np.nanargmin(np.abs(corr))):] *= -1.0
+                else:
+                    corr = phase_folded
+                    signed = corr
+                Rg, Xg = self._RX_exact(V_mag, corr)
+                Rb, Xb = self._RX_exact(V_mag, signed)
+                G = self._G_exact(Rg, Xg)[keep]
+                B = self._B_exact(Rb, Xb)[keep]
+                fit = self._taubin_circle(G, B)
+                if fit is None:
+                    return None, info
+                xc, yc, r = fit
+                d = np.hypot(G - xc, B - yc)
+                info["rms_" + name] = 100.0 * np.sqrt(np.mean((d - r) ** 2)) / r
+                b_span = float(np.nanmax(B) - np.nanmin(B))
+                info["jump_" + name] = (100.0 * float(np.nanmax(np.abs(np.diff(B))))
+                                        / b_span) if b_span > 0 else float("inf")
+
+            rounder = info["rms_yes"] * Constants.PHASE_FOLD_MARGIN < info["rms_no"]
+            continuous = (info["jump_yes"]
+                          <= info["jump_no"] * Constants.PHASE_FOLD_JUMP_TOLERANCE)
+            if rounder and continuous:
+                info["why"] = "rounder and continuous"
+                return True, info
+            if not rounder:
+                info["why"] = "not rounder by the margin"
+            else:
+                info["why"] = "rounder but the flip breaks B"
+            return False, info
+        except Exception as e:
+            info["why"] = "failed: {}".format(e)
+            return None, info
+
+    def _fold_latched(self, overtone_number, decided):
+        """Two consecutive sweeps must agree before the decision changes.
+
+        ⚠️ Stability is a requirement here, not a nicety. The threshold this
+        replaces alternated fold / no fold on consecutive sweeps of a single
+        run -- 4.98, 5.10, 4.97, 5.00, 4.98 against a 5.0 boundary -- and B, the
+        locus, R1 and L1 flipped with it. A criterion that merely moved the
+        boundary would have moved the flicker along with it.
+        """
+        if not hasattr(self, "_fold_state"):
+            self._fold_state = {}
+            self._fold_pending = {}
+        held = self._fold_state.get(overtone_number)
+        if held is None:
+            self._fold_state[overtone_number] = decided
+            return decided
+        if decided == held:
+            self._fold_pending.pop(overtone_number, None)
+            return held
+        if self._fold_pending.get(overtone_number) == decided:
+            self._fold_pending.pop(overtone_number, None)
+            self._fold_state[overtone_number] = decided
+            return decided
+        self._fold_pending[overtone_number] = decided
+        return held
+
     def _phase_offset_deg(self, freq, V_mag, phase_folded):
         """Global phase offset that makes the admittance locus circular.
 
@@ -822,7 +939,19 @@ class MultiscanProcess(multiprocessing.Process):
         # Estimate delta by circular-locus minimisation, then work with the
         # corrected magnitude of the phase.
         phase_folded = self._phase_raw_V_phase(Vphase_result_fit)
+        p_min = float(np.nanmin(phase_folded))
         phase_offset, has_fold = self._phase_offset_fold(phase_folded)
+        fold_info = None
+        if Constants.PHASE_FOLD_BY_LOCUS:
+            # ⚠️ delta stays measured by -p_min above; only the binary choice
+            # comes from the locus. See _phase_fold_by_locus for why the
+            # threshold cannot decide this on the 2026-09-03 electronics, and
+            # for why this is not the reverted _phase_offset_deg.
+            decided, fold_info = self._phase_fold_by_locus(
+                freq_range, Vmag_raw_result_fit, phase_folded, p_min)
+            if decided is not None:
+                has_fold = self._fold_latched(overtone_number, decided)
+                phase_offset = -p_min if has_fold else 0.0
         phase_corr = phase_folded + phase_offset
 
         # Log the offset once per overtone, and again only on a drift larger than
@@ -832,15 +961,31 @@ class MultiscanProcess(multiprocessing.Process):
         if not hasattr(self, "_phase_offset_logged"):
             self._phase_offset_logged = {}
         _prev = self._phase_offset_logged.get(overtone_number)
-        if _prev is None or abs(phase_offset - _prev) > Constants.PHASE_OFFSET_LOG_DEG:
-            self._phase_offset_logged[overtone_number] = phase_offset
-            if not has_fold:
-                print("Phase offset (overtone %d): no fold (min |phase| = %.1f deg), "
-                      "reading used as the signed phase"
-                      % (overtone_number, float(np.nanmin(phase_folded))))
+        # ⚠️ Keyed on the DECISION as well as on delta. Logging only a drift in
+        # delta would have hidden the very thing this change is about: the
+        # threshold flipped fold / no fold between sweeps while delta barely
+        # moved, and nothing on screen said so.
+        _key = (bool(has_fold), round(float(phase_offset), 1))
+        if _prev is None or _prev != _key:
+            self._phase_offset_logged[overtone_number] = _key
+            state = ("fold, delta %+.2f deg" % phase_offset if has_fold
+                     else "no fold, reading used as the signed phase")
+            if fold_info is None or fold_info.get("rms_yes") is None:
+                # threshold path: min(r) is the only number there is
+                print("Phase (overtone %d): %s  [min |phase| = %.2f deg, "
+                      "threshold %.1f]"
+                      % (overtone_number, state, p_min,
+                         Constants.FOLD_THRESHOLD_DEG_G))
             else:
-                print("Phase offset (overtone %d): %+.2f deg"
-                      % (overtone_number, phase_offset))
+                # locus path: print what decided it, so the bench can check the
+                # reasoning and not just the verdict
+                print("Phase (overtone %d): %s  [locus: circle rms %.1f%% fold "
+                      "vs %.1f%% no-fold, B jump %.1f%% vs %.1f%%, %s; "
+                      "min |phase| = %.2f deg]"
+                      % (overtone_number, state,
+                         fold_info["rms_yes"], fold_info["rms_no"],
+                         fold_info["jump_yes"], fold_info["jump_no"],
+                         fold_info["why"], p_min))
 
         R_q_G, X_q_G = self._RX_exact(Vmag_raw_result_fit, phase_corr)
         G_exact_S = self._G_exact(R_q_G, X_q_G)

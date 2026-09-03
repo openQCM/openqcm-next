@@ -215,6 +215,55 @@ return -p_min, True            # delta, fold present
 `Constants.FOLD_THRESHOLD_DEG_G = 5.0` degrees. `δ` of either sign is legitimate: it is whatever
 brings the vertex of the V to zero.
 
+⚠️ **Since 2026-09-03 that threshold no longer makes the decision — the locus does.** `min(r)` is
+still what measures `δ`, and that is all it can do: §4.2 says `min(r) = −δ` *at the vertex*, so the
+number reports the offset, not whether the argument crossed zero. On the old electronics `δ ≈ 0` in
+air, so "small minimum" and "there is a fold" coincided **by accident**. On the 2026-09-03 board —
+new filters, 150 MHz clock — they stop coinciding:
+
+| n | 1 | 3 | 5 | 7 | 9 |
+|---|---|---|---|---|---|
+| `min(r)` in air | −2.20 | +2.45 | +3.83 | **+6.64** | +4.80 |
+
+Half of twenty logged minima fell within one degree of 5.0, and the 9th overtone **alternated fold /
+no fold on consecutive sweeps of one run**: 4.98, 5.10, 4.97, 5.00, 4.98. Not a wrong
+classification — an unstable one, with B, the locus, `R1` and `L1` flipping between two
+reconstructions each sweep. No value of the threshold separates a population that straddles it.
+
+`_phase_fold_by_locus()` builds **both** reconstructions and keeps the one whose admittance locus is
+the better circle, provided the flip does not introduce a step in B. Measured in air, circle
+residual as a percentage of the radius and the largest step in B as a percentage of its span:
+
+| n | no fold | fold | margin |
+|---|---|---|---|
+| 1 | 23.96 % / 2.8 % | **6.45 % / 1.9 %** | 2.9× |
+| 3 | 27.92 % / 6.4 % | **10.38 % / 5.2 %** | 2.5× |
+| 5 | 34.29 % / 9.7 % | **10.19 % / 4.5 %** | 2.0× |
+| 7 | 37.42 % / 3.7 % | **10.57 % / 2.7 %** | 2.7× |
+| 9 | 16.24 % / 2.7 % | **7.95 % / 1.5 %** | 2.2× |
+
+⚠️ **This is not the reverted `_phase_offset_deg`.** That one made `δ` a *free parameter* and bought
+roundness by pushing it until the flip landed on the antipode, breaking the trajectory — see the
+note above `_phase_offset_fold`. Here `δ` stays measured by `−min(r)` and only the **binary** choice
+comes from the locus, between two candidates whose `δ` the model fixes. There is nothing to push,
+and continuity is a checked condition rather than a hoped-for side effect.
+
+`_fold_latched()` requires two consecutive sweeps to agree before the decision changes: stability is
+a requirement here, and a criterion that merely moved the boundary would have moved the flicker with
+it.
+
+⚠️ **The damped-load branch is NOT validated.** Every sweep available on 2026-09-03 — five in air on
+this board, plus the frozen water reference from the old one, which also comes out "fold" with a
+4.7× margin — exercises only the "fold" answer. The case where the answer must be "no fold" is the
+isopropanol run of 2026-07-27, whose files no longer exist. `Constants.PHASE_FOLD_BY_LOCUS = False`
+restores the threshold exactly.
+
+⚠️ **And a second, independent finding.** Even *with* the fold applied, this board's air locus is
+**6.5–10.6 %** out of round, against the **1.2–6.6 %** recorded for the old board with the same
+estimator and 4.10 % for the water reference. Fixing the decision makes the fits sane, not
+necessarily good. The suspect is the board phase `φ_b` of §4.2 — documented at −12…−20° and still
+not corrected — which the new filters will have moved.
+
 **No fold means a damped load** (liquid): `C0` and strays dominate, the total phase never crosses
 zero, its minimum stays 12–44° above it. Then there is nothing to unfold and nothing to offset —
 `r` already *is* the signed phase. Applying the offset and the flip anyway inverts half the sweep
