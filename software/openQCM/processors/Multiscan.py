@@ -296,7 +296,8 @@ class MultiscanProcess(multiprocessing.Process):
             return 0.0, False
         return -p_min, True
 
-    # VER 0.1.6G Does the phase actually fold? Decided from the LOCUS.
+    # VER 0.1.6G Does the phase actually fold? Decided from HOW CLOSE THE
+    # PHASE GETS TO ZERO, and checked against the shape of the locus.
     #
     # ⚠️ Read the note on _phase_offset_fold above first. min(r) measures delta,
     # not the crossing, and on the 2026-09-03 electronics the two stopped
@@ -305,87 +306,120 @@ class MultiscanProcess(multiprocessing.Process):
     # consecutive sweeps. Moving the threshold cannot fix a population that
     # straddles it.
     #
-    # ⚠️ And this is NOT the reverted _phase_offset_deg. That one made delta a
-    # free parameter and bought roundness by pushing it until the flip landed on
-    # the antipode of the circle, which broke the trajectory. Here delta stays
-    # MEASURED by -min(r); only the binary choice comes from the locus, between
-    # two candidates whose delta is fixed by the model. There is nothing to
-    # push, and continuity is checked explicitly rather than hoped for.
+    # The question that HAS a physical answer: the AD8302 maps 1.8 V to 0 deg
+    # and 0.9 V to 90 deg, the C0 branch holds the reading near 90 deg off
+    # resonance, and the sign flips where the reading reaches ZERO -- the peak
+    # of V_PHS. So: does the peak get there? Normalised by the sweep's own
+    # excursion, because an absolute number of degrees is precisely what a
+    # change of electronics invalidates:
     #
-    # Measured on the new board in air, residual as a percentage of the radius,
-    # with the largest step in B as a percentage of its span:
+    #     depth = (baseline - min) / baseline
     #
-    #     n      no fold          fold            margin
-    #     1      23.96 / 2.8 %    6.45 / 1.9 %    3.7x
-    #     3      27.92 / 6.4 %   10.38 / 5.2 %    2.7x
-    #     5      34.29 / 9.7 %   10.19 / 4.5 %    3.4x
-    #     7      37.42 / 3.7 %   10.57 / 2.7 %    3.5x
-    #     9      16.24 / 2.7 %    7.95 / 1.5 %    2.0x
+    # Measured -- air on this board, and the frozen water reference from the old
+    # one, both of which fold:
+    #
+    #     n        baseline   peak      depth
+    #     1        88.2       -2.2      1.025      (overshoot: delta < 0)
+    #     3        88.0       +2.4      0.973
+    #     5        91.5       +3.8      0.958
+    #     7        81.1       +6.6      0.919      <- the one the threshold lost
+    #     9        72.7       +4.8      0.934
+    #     water    83.4       +1.3      0.984
+    #
+    # The documented isopropanol minima of 12-44 deg project to 0.48-0.86.
+    #
+    # ⚠️ Roundness is NOT the judge here, and that is deliberate. The note above
+    # _phase_offset_fold records what happened when it was: an estimator that
+    # bought roundness by breaking the trajectory. "A continuous trajectory is
+    # not negotiable; roundness is a diagnostic." The circle residual and the
+    # step in B are computed for the LOG, so the bench can see whether the
+    # decision produced a circle -- they do not make it.
     #
     # ⚠️ **The damped-load branch is NOT validated.** Every sweep available on
-    # 2026-09-03 -- five in air on this board, plus the frozen water reference
-    # from the old one -- comes out "fold", so nothing here exercises the case
-    # where the answer must be "no fold". That case is the isopropanol run of
-    # 2026-07-27, whose files no longer exist. Until a damped dump is measured,
-    # Constants.PHASE_FOLD_BY_LOCUS = False restores the threshold exactly.
-    def _phase_fold_by_locus(self, freq, V_mag, phase_folded, p_min):
-        """(has_fold, diagnostics) from the shape of the admittance locus.
+    # 2026-09-03 comes out "fold", so nothing here exercises the case where the
+    # answer must be "no fold". Constants.PHASE_FOLD_BY_PEAK_DEPTH = False
+    # restores the threshold exactly.
+    def _phase_fold_decision(self, freq, V_mag, phase_folded):
+        """(has_fold, info) from how close the phase peak gets to zero.
 
-        Returns has_fold plus a dict of the four numbers behind the decision, so
-        the bench can see WHY it chose, not just what.
+        `info` carries the numbers behind the verdict for the log: depth, the
+        baseline, where the peak sits relative to resonance, and -- as a
+        diagnostic only -- the circle residual and the largest step in B.
         """
-        info = {"rms_no": None, "rms_yes": None,
-                "jump_no": None, "jump_yes": None, "why": "unavailable"}
+        info = {"depth": None, "baseline": None, "off_gamma": None,
+                "rms": None, "jump": None, "why": "unavailable"}
         try:
-            # Seed the band from the uncorrected conductance: G is even in phi,
-            # so it needs neither the offset nor the sign to find resonance.
+            n = len(phase_folded)
+            n_end = max(20, min(200, n // 8))
+            base = float(np.median(np.concatenate(
+                [phase_folded[:n_end], phase_folded[-n_end:]])))
+            i_pk = int(np.nanargmin(phase_folded))
+            p_min = float(phase_folded[i_pk])
+            if not np.isfinite(base) or base <= 1.0:
+                info["why"] = "no usable baseline (%.2f deg)" % base
+                return None, info
+            depth = (base - p_min) / base
+            info["depth"], info["baseline"] = depth, base
+
+            # the peak has to BE the resonance, not a spur
             R0, X0 = self._RX_exact(V_mag, phase_folded)
             G0 = self._G_exact(R0, X0)
-            i0 = int(np.nanargmax(G0 - np.average(G0[:min(100, len(G0))])))
-            hw = abs(self._half_bandwidth_G_exact(G0, freq).bandwidth)
-            span = float(freq[-1] - freq[0])
-            half = min(max(Constants.IMPEDANCE_PANEL_BAND_GAMMA * hw,
-                           0.02 * span), 0.5 * span)
-            keep = np.abs(freq - freq[i0]) <= half
-            if keep.sum() < 40:
+            _, fr, band = self.parameters_finder_impedance_exact(freq, G0)
+            gamma = abs(band.bandwidth)
+            if gamma <= 0:
+                info["why"] = "no band to place the peak against"
                 return None, info
+            off = abs(float(freq[i_pk]) - fr) / gamma
+            info["off_gamma"] = off
 
-            for name, apply_fold in (("no", False), ("yes", True)):
-                if apply_fold:
-                    corr = phase_folded + (-p_min)
-                    signed = np.array(corr, dtype=float, copy=True)
-                    signed[int(np.nanargmin(np.abs(corr))):] *= -1.0
-                else:
-                    corr = phase_folded
-                    signed = corr
-                Rg, Xg = self._RX_exact(V_mag, corr)
-                Rb, Xb = self._RX_exact(V_mag, signed)
-                G = self._G_exact(Rg, Xg)[keep]
-                B = self._B_exact(Rb, Xb)[keep]
-                fit = self._taubin_circle(G, B)
-                if fit is None:
-                    return None, info
-                xc, yc, r = fit
-                d = np.hypot(G - xc, B - yc)
-                info["rms_" + name] = 100.0 * np.sqrt(np.mean((d - r) ** 2)) / r
-                b_span = float(np.nanmax(B) - np.nanmin(B))
-                info["jump_" + name] = (100.0 * float(np.nanmax(np.abs(np.diff(B))))
-                                        / b_span) if b_span > 0 else float("inf")
-
-            rounder = info["rms_yes"] * Constants.PHASE_FOLD_MARGIN < info["rms_no"]
-            continuous = (info["jump_yes"]
-                          <= info["jump_no"] * Constants.PHASE_FOLD_JUMP_TOLERANCE)
-            if rounder and continuous:
-                info["why"] = "rounder and continuous"
+            deep = depth >= Constants.PHASE_FOLD_DEPTH_MIN
+            on_peak = off <= Constants.PHASE_FOLD_PEAK_MAX_GAMMA
+            if deep and on_peak:
+                info["why"] = "reaches zero"
                 return True, info
-            if not rounder:
-                info["why"] = "not rounder by the margin"
-            else:
-                info["why"] = "rounder but the flip breaks B"
+            info["why"] = ("peak %.1f Gamma off resonance" % off if not on_peak
+                           else "stops %.0f%% short of zero"
+                                % (100.0 * (1.0 - depth)))
             return False, info
         except Exception as e:
             info["why"] = "failed: {}".format(e)
             return None, info
+
+    def _fold_diagnostics(self, freq, V_mag, phase_folded, p_min, has_fold):
+        """Circle residual and largest step in B, for the log. Never decides."""
+        try:
+            R0, X0 = self._RX_exact(V_mag, phase_folded)
+            G0 = self._G_exact(R0, X0)
+            _, fr, band = self.parameters_finder_impedance_exact(freq, G0)
+            span = float(freq[-1] - freq[0])
+            half = min(max(Constants.IMPEDANCE_PANEL_BAND_GAMMA
+                           * abs(band.bandwidth), 0.02 * span), 0.5 * span)
+            keep = np.abs(freq - fr) <= half
+            if keep.sum() < 40:
+                return None, None
+            if has_fold:
+                corr = phase_folded + (-p_min)
+                signed = np.array(corr, dtype=float, copy=True)
+                signed[int(np.nanargmin(np.abs(corr))):] *= -1.0
+            else:
+                corr = phase_folded
+                signed = corr
+            Rg, Xg = self._RX_exact(V_mag, corr)
+            Rb, Xb = self._RX_exact(V_mag, signed)
+            G = self._G_exact(Rg, Xg)[keep]
+            B = self._B_exact(Rb, Xb)[keep]
+            fit = self._taubin_circle(G, B)
+            if fit is None:
+                return None, None
+            xc, yc, r = fit
+            d = np.hypot(G - xc, B - yc)
+            rms = 100.0 * np.sqrt(np.mean((d - r) ** 2)) / r
+            b_span = float(np.nanmax(B) - np.nanmin(B))
+            jump = (100.0 * float(np.nanmax(np.abs(np.diff(B)))) / b_span
+                    if b_span > 0 else float("inf"))
+            return rms, jump
+        except Exception:
+            return None, None
 
     def _fold_latched(self, overtone_number, decided):
         """Two consecutive sweeps must agree before the decision changes.
@@ -942,13 +976,12 @@ class MultiscanProcess(multiprocessing.Process):
         p_min = float(np.nanmin(phase_folded))
         phase_offset, has_fold = self._phase_offset_fold(phase_folded)
         fold_info = None
-        if Constants.PHASE_FOLD_BY_LOCUS:
+        if Constants.PHASE_FOLD_BY_PEAK_DEPTH:
             # ⚠️ delta stays measured by -p_min above; only the binary choice
-            # comes from the locus. See _phase_fold_by_locus for why the
-            # threshold cannot decide this on the 2026-09-03 electronics, and
-            # for why this is not the reverted _phase_offset_deg.
-            decided, fold_info = self._phase_fold_by_locus(
-                freq_range, Vmag_raw_result_fit, phase_folded, p_min)
+            # changes. See _phase_fold_decision for why the threshold cannot
+            # decide this on the 2026-09-03 electronics.
+            decided, fold_info = self._phase_fold_decision(
+                freq_range, Vmag_raw_result_fit, phase_folded)
             if decided is not None:
                 has_fold = self._fold_latched(overtone_number, decided)
                 phase_offset = -p_min if has_fold else 0.0
@@ -970,22 +1003,30 @@ class MultiscanProcess(multiprocessing.Process):
             self._phase_offset_logged[overtone_number] = _key
             state = ("fold, delta %+.2f deg" % phase_offset if has_fold
                      else "no fold, reading used as the signed phase")
-            if fold_info is None or fold_info.get("rms_yes") is None:
+            if fold_info is None or fold_info.get("depth") is None:
                 # threshold path: min(r) is the only number there is
                 print("Phase (overtone %d): %s  [min |phase| = %.2f deg, "
                       "threshold %.1f]"
                       % (overtone_number, state, p_min,
                          Constants.FOLD_THRESHOLD_DEG_G))
             else:
-                # locus path: print what decided it, so the bench can check the
-                # reasoning and not just the verdict
-                print("Phase (overtone %d): %s  [locus: circle rms %.1f%% fold "
-                      "vs %.1f%% no-fold, B jump %.1f%% vs %.1f%%, %s; "
-                      "min |phase| = %.2f deg]"
-                      % (overtone_number, state,
-                         fold_info["rms_yes"], fold_info["rms_no"],
-                         fold_info["jump_yes"], fold_info["jump_no"],
-                         fold_info["why"], p_min))
+                # ⚠️ The circle residual is printed and does NOT decide: it is
+                # the diagnostic that says whether the decision produced a
+                # circle. Computed only here, on the sweeps that get logged.
+                rms, jump = self._fold_diagnostics(
+                    freq_range, Vmag_raw_result_fit, phase_folded, p_min,
+                    has_fold)
+                print("Phase (overtone %d): %s  [peak reaches %.1f%% of the "
+                      "way to zero (min %.2f deg from a %.1f deg baseline), "
+                      "%.2f Gamma off resonance, %s | circle rms %s, "
+                      "B jump %s]"
+                      % (overtone_number, state, 100.0 * fold_info["depth"],
+                         p_min, fold_info["baseline"],
+                         fold_info["off_gamma"] if fold_info["off_gamma"]
+                         is not None else float("nan"),
+                         fold_info["why"],
+                         "%.1f%%" % rms if rms is not None else "n/a",
+                         "%.1f%%" % jump if jump is not None else "n/a"))
 
         R_q_G, X_q_G = self._RX_exact(Vmag_raw_result_fit, phase_corr)
         G_exact_S = self._G_exact(R_q_G, X_q_G)

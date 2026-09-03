@@ -386,8 +386,8 @@ class Constants:
     # MultiscanProcess._phase_signed and sweep_data/plot_conductance.py.
     FOLD_THRESHOLD_DEG_G = 5.0
 
-    # VER 0.1.6G Deciding the phase fold by the SHAPE OF THE LOCUS instead of by
-    # the threshold above.
+    # VER 0.1.6G Deciding the phase fold from HOW CLOSE THE PHASE GETS TO ZERO,
+    # instead of from the threshold above.
     #
     # ⚠️ The threshold tests min(r), and the model says min(r) = -delta at the
     # vertex: it measures the OFFSET, not whether the argument crossed zero. On
@@ -398,27 +398,37 @@ class Constants:
     # overtone alternated fold / no fold on consecutive sweeps of one run:
     # 4.98, 5.10, 4.97, 5.00, 4.98. Not a wrong classification, an unstable one.
     #
-    # The replacement builds BOTH reconstructions and keeps the one whose
-    # admittance locus is the better circle, provided it does not introduce a
-    # discontinuity in B.
+    # The replacement asks the physical question. The AD8302 maps 1.8 V to 0 deg
+    # and 0.9 V to 90 deg; off resonance the C0 branch holds the reading near
+    # 90 deg, and the sign of the phase flips where the reading reaches ZERO --
+    # the peak of V_PHS, not 90 deg. So: does the peak actually get there?
     #
-    # ⚠️ This is NOT the reverted _phase_offset_deg. That one treated delta as a
-    # free parameter and bought roundness by pushing it until the flip landed on
-    # the antipode, breaking the trajectory. Here delta stays MEASURED by
-    # -min(r) and only the binary choice is made from the locus: there are two
-    # candidates, each with its delta fixed by the model, and nothing to push.
-    PHASE_FOLD_BY_LOCUS = True
+    #     depth = (baseline - min) / baseline
+    #
+    # one if the phase reaches 0 deg exactly, more if it overshoots (delta < 0).
+    # ⚠️ Normalised by the sweep's OWN excursion, which is the point: an
+    # absolute number of degrees is exactly what a change of electronics
+    # invalidates.
+    #
+    # Measured: everything that folds -- five air overtones on the new board and
+    # the frozen water reference from the old one -- sits at 0.918 to 1.025. The
+    # documented isopropanol minima of 12-44 deg project to 0.48 to 0.86 against
+    # a ~85 deg baseline.
+    #
+    # ⚠️ The threshold sits at 0.88 and not at the midpoint, on purpose. The
+    # fold side is MEASURED (worst case 0.918, the 7th overtone) and the no-fold
+    # side is PROJECTED from documented minima whose files no longer exist, so
+    # the measured side gets the wider margin: 0.038 above against 0.021 below.
+    # ⚠️ Re-tune this once a damped-load dump exists -- it is the one number
+    # here that a real "no fold" sweep could move.
+    PHASE_FOLD_BY_PEAK_DEPTH = True
+    PHASE_FOLD_DEPTH_MIN = 0.88
 
-    # The fold hypothesis has to win by this factor on the circle residual
-    # before the decision changes. Measured margins in air are 2.0-3.7x, so 1.3
-    # is comfortable, and it is what stops the flicker: the threshold flipped on
-    # a 0.02 deg difference.
-    PHASE_FOLD_MARGIN = 1.30
-
-    # ...and it must not be worse than this multiple of the alternative on the
-    # largest step in B, in percent of B's own span. Continuity is the
-    # non-negotiable half: roundness alone is what the reverted estimator gamed.
-    PHASE_FOLD_JUMP_TOLERANCE = 1.25
+    # ...and the peak has to BE the resonance. ⚠️ Not pedantry: the 2026-09-03
+    # fundamental carries a spur at 4.9915 MHz visible in both channels, and a
+    # bare argmax could latch onto it. Measured distance of the real peak from
+    # the conductance resonance: 0.20 to 0.43 Gamma on every sweep available.
+    PHASE_FOLD_PEAK_MAX_GAMMA = 5.0
 
     # VER 0.1.6G global phase offset of the AD8302 phase channel. The detector
     # reads r(f) = |phi_true(f)| - delta with delta a per-overtone constant of

@@ -230,23 +230,42 @@ no fold on consecutive sweeps of one run**: 4.98, 5.10, 4.97, 5.00, 4.98. Not a 
 classification — an unstable one, with B, the locus, `R1` and `L1` flipping between two
 reconstructions each sweep. No value of the threshold separates a population that straddles it.
 
-`_phase_fold_by_locus()` builds **both** reconstructions and keeps the one whose admittance locus is
-the better circle, provided the flip does not introduce a step in B. Measured in air, circle
-residual as a percentage of the radius and the largest step in B as a percentage of its span:
+`_phase_fold_decision()` asks the question that has a physical answer instead. The detector maps
+**1.8 V to 0°** and **0.9 V to 90°**; off resonance the `C0` branch holds the reading near 90°, and
+the sign of the phase flips where the reading reaches **zero** — the peak of `V_PHS`, *not* 90°. So
+the test is whether the peak actually gets there, normalised by the sweep's own excursion:
 
-| n | no fold | fold | margin |
-|---|---|---|---|
-| 1 | 23.96 % / 2.8 % | **6.45 % / 1.9 %** | 2.9× |
-| 3 | 27.92 % / 6.4 % | **10.38 % / 5.2 %** | 2.5× |
-| 5 | 34.29 % / 9.7 % | **10.19 % / 4.5 %** | 2.0× |
-| 7 | 37.42 % / 3.7 % | **10.57 % / 2.7 %** | 2.7× |
-| 9 | 16.24 % / 2.7 % | **7.95 % / 1.5 %** | 2.2× |
+```
+depth = (baseline − min) / baseline
+```
 
-⚠️ **This is not the reverted `_phase_offset_deg`.** That one made `δ` a *free parameter* and bought
-roundness by pushing it until the flip landed on the antipode, breaking the trajectory — see the
-note above `_phase_offset_fold`. Here `δ` stays measured by `−min(r)` and only the **binary** choice
-comes from the locus, between two candidates whose `δ` the model fixes. There is nothing to push,
-and continuity is a checked condition rather than a hoped-for side effect.
+one when the phase reaches 0° exactly, more when it overshoots (`δ < 0`). ⚠️ **Normalised on
+purpose**: an absolute number of degrees is precisely what a change of electronics invalidates,
+which is how this broke in the first place.
+
+| | baseline | peak | depth | circle rms |
+|---|---|---|---|---|
+| air n=1 | 88.2° | −2.2° | **1.025** | 5.8 % |
+| air n=3 | 88.0° | +2.4° | **0.972** | 8.7 % |
+| air n=5 | 91.5° | +3.8° | **0.958** | 10.2 % |
+| air n=7 | 81.1° | +6.6° | **0.918** | 10.7 % |
+| air n=9 | 72.7° | +4.8° | **0.934** | 8.0 % |
+| water (old board) | 83.4° | +1.3° | **0.985** | 4.1 % |
+
+The documented isopropanol minima of 12–44° project to **0.48–0.86**. `PHASE_FOLD_DEPTH_MIN = 0.88`
+sits between them, and deliberately not at the midpoint: the fold side is measured and the no-fold
+side is projected, so the measured side gets the wider margin — **+0.038 against −0.021**.
+
+⚠️ **The peak must BE the resonance**, within `PHASE_FOLD_PEAK_MAX_GAMMA` of it. Not pedantry: the
+2026-09-03 fundamental carries a spur at 4.9915 MHz visible in both channels, and a bare `argmax`
+could latch onto it. Measured, the real peak sits 0.14–0.43 Γ from the conductance resonance on
+every sweep available; a synthetic spike 154 Γ away is rejected.
+
+⚠️ **Roundness is not the judge, and that is deliberate.** The note above `_phase_offset_fold`
+records what happened when an estimator was allowed to buy roundness — it broke the trajectory. *A
+continuous trajectory is not negotiable; roundness is a diagnostic.* The circle residual and the
+largest step in B are computed for the **log**, so the bench can see whether the decision produced a
+circle; they do not make it.
 
 `_fold_latched()` requires two consecutive sweeps to agree before the decision changes: stability is
 a requirement here, and a criterion that merely moved the boundary would have moved the flicker with

@@ -6,8 +6,9 @@ on the board with the **new filters and the 150 MHz clock**.
 
 **Why they are tracked.** Every number in the `CHANGELOG.md` entry *"the phase fold is decided by
 the locus, not by a threshold"* and in `docs/impedance-analysis/ALGORITHM.md` §4.3 was measured on
-these files: the `min(r)` values that straddle the 5° threshold, the circle residuals of the two
-reconstructions, the 2.0–2.9× margins. Without them those numbers are unverifiable prose.
+these files: the `min(r)` values that straddle the 5° threshold, the peak depths of 0.918–1.025 that replaced
+them, and the circle residuals reported alongside. Without them those numbers are unverifiable
+prose.
 
 ⚠️ That is not hypothetical. The air/isopropanol datasets behind the July 2026 validation tables
 were left in `software/openQCM/sweep_data/`, which is gitignored and overwritten on every

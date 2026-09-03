@@ -5,6 +5,43 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Changed — the fold criterion is the depth of the phase peak, not the roundness of the locus (2026-09-03)
+
+Supersedes the entry below, same day: the decision moves from the circle residual to a physical
+measurement, and the residual goes back to being what the codebase always said it should be.
+
+- ⚠️ **Roundness should not have been the judge.** The note above `_phase_offset_fold` records an
+  estimator that was reverted for buying roundness at the cost of the trajectory — *"a continuous
+  trajectory is not negotiable; roundness is a diagnostic"*. Promoting it to judge put that back in
+  play.
+- **The physical question has an answer in the raw signal.** The AD8302 maps **1.8 V to 0°** and
+  **0.9 V to 90°**; off resonance the `C0` branch holds the reading near 90°, and the sign flips
+  where it reaches **zero** — the peak of `V_PHS`, not 90°. So the test is whether the peak gets
+  there, normalised by the sweep's own excursion: `depth = (baseline − min) / baseline`.
+- Measured — everything that folds sits at **0.918–1.025**, the documented isopropanol minima of
+  12–44° project to **0.48–0.86**:
+
+  | | baseline | peak | depth |
+  |---|---|---|---|
+  | air n=1 | 88.2° | −2.2° | 1.025 |
+  | air n=3 | 88.0° | +2.4° | 0.972 |
+  | air n=5 | 91.5° | +3.8° | 0.958 |
+  | air n=7 | 81.1° | +6.6° | **0.918** |
+  | air n=9 | 72.7° | +4.8° | 0.934 |
+  | water, old board | 83.4° | +1.3° | 0.985 |
+
+- `PHASE_FOLD_DEPTH_MIN = 0.88`, and ⚠️ **deliberately not the midpoint**: the fold side is measured
+  and the no-fold side is projected from files that no longer exist, so the measured side gets the
+  wider margin — **+0.038 against −0.021**.
+- ⚠️ **The peak must BE the resonance.** The 2026-09-03 fundamental carries a spur at 4.9915 MHz in
+  both channels and a bare `argmax` could latch onto it. The real peak sits 0.14–0.43 Γ from the
+  conductance resonance on every sweep; a synthetic spike 154 Γ away is rejected.
+- The circle residual and the step in B are still computed — **for the log**, so the bench can see
+  whether the decision produced a circle. They no longer decide anything.
+- Same outcome on the data as the superseded criterion: all five air overtones fold, the 7th changes
+  from today, the water reference is untouched. The reason is now one an operator can check on the
+  raw sweep.
+
 ### Fixed — ⚠️ MEASURED VALUES — the phase fold is decided by the locus, not by a threshold (2026-09-03)
 
 New electronics (changed filters, 150 MHz clock) broke the fold detector, and the 5th-overtone
