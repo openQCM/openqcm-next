@@ -71,11 +71,21 @@ def _load_fit_module():
     return mod
 
 
-try:
-    fa = _load_fit_module()
-except Exception as e:                                   # pragma: no cover
-    fa = None
-    print(TAG, "Warning: offline fit module not available:", e)
+# The offline module is loaded on the first window, not when this file is
+# imported: mainWindow.py imports this module at start-up, and a release tree
+# may not carry sweep_data/ at all. Until then `fa` is None, which the window
+# already reports as "offline fit module missing" and refuses to fit on.
+fa = None
+
+
+def _ensure_fit_module():
+    global fa
+    if fa is None:
+        try:
+            fa = _load_fit_module()
+        except Exception as e:                           # pragma: no cover
+            print(TAG, "Warning: offline fit module not available:", e)
+    return fa
 
 
 COLUMNS = ("n", "delta [deg]", "masked [%]", "f_s FIT1 [Hz]", "Gamma [Hz]",
@@ -189,6 +199,7 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
     """Live BVD circle + Lorentzian fit of the measured admittance."""
 
     def __init__(self, worker, overtones, theme_name="light", parent=None):
+        _ensure_fit_module()
         super(ImpedanceFitWindow, self).__init__(parent)
         self.worker = worker
         self.overtones = int(overtones)

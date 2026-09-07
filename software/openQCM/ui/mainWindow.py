@@ -57,8 +57,9 @@ from time import sleep
 # imported inside _raw_data_plot(), the only place that uses them: a release
 # build has no sweep_data/*.txt to read and must not depend on that package
 # existing, nor pay matplotlib's import at start-up for a menu entry it hides.
-
-from openQCM.sweep_data import plot_conductance
+# The same holds for the offline conductance script behind Tools > Conductance
+# Data, imported inside _conductance_data_plot(): nothing under sweep_data/ is
+# imported at module level from code that ships.
 
 
 # VER 0.1.5b the identification number as the board reports it: one compact
@@ -3217,6 +3218,12 @@ class MainWindow(QtGui.QMainWindow):
                 print(f"error occurred: {e}")
                 
     def _conductance_data_plot(self):
+           # Offline scripts reading sweep_data/*.txt, imported here and not at
+           # module level (matplotlib and tkinter come with them) so that a
+           # production tree without that package still starts. The single-mode
+           # branch below has always used plot_sweep_spline, so both are needed.
+           from openQCM.sweep_data import plot_conductance, plot_sweep_spline
+
            # multiscan mode 
            if  (self._get_source() == SourceType.multiscan):
                try:
