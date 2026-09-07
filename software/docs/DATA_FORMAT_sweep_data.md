@@ -41,7 +41,7 @@ Written by `openQCM/processors/Multiscan.py` via
 |---|-----------------------|---------|-----------------------------------------------------------------------------|
 | 1 | Frequency             | Hz      | sweep frequency; monotonically increasing, **1 Hz step**                    |
 | 2 | Amplitude / Magnitude | dB      | AD8302 VMAG rescaled at 30 mV/dB, **attenuator not undone** — see below     |
-| 3 | Phase channel         | degrees | AD8302 VPHS rescaled at 10 mV/deg — ⚠️ this is `90 − |Δφ|`, **not** the phase |
+| 3 | Phase channel         | degrees | AD8302 VPHS rescaled at 10 mV/deg — ⚠️ this is `90 − abs(Δφ)`, **not** the phase |
 
 - **Number of rows: 18001** — the sweep spans an 18 kHz window around the detected
   resonance (`LEFT = 12000` Hz below … `RIGHT = 6000` Hz above, at 1 Hz step ⇒
