@@ -168,6 +168,30 @@ when the file was written. Do not "unify" the two.
 The full chain, step by step with a worked numerical example, is in
 [`../../docs/impedance-analysis/ALGORITHM.md`](../../docs/impedance-analysis/ALGORITHM.md).
 
+### ⚠️ The two families are NOT on the same scale
+Both are written from the same sweep, in the same loop, and differ only in how the
+two channels were rescaled — but `<n>.txt` is **uncompensated** and `g<n>.txt` is
+**compensated**. Verified numerically over all 18001 points of a real pair, error
+exactly `0.00e+00`:
+
+```
+col1 identical
+(0.9 + col2_of_<n>.txt * 0.030) - 0.610692  ==  col2_of_g<n>.txt     # V_MAG [V]
+ 0.9 + col3_of_<n>.txt * 0.010              ==  col3_of_g<n>.txt     # V_PHS [V]
+```
+
+⚠️ **Subtracting the attenuator from `g<n>.txt` puts the crystal at 10.4× its true
+impedance — above an open circuit, which is impossible.** `_Vmag_bit_mag` already
+removed it when the file was written. That mistake was made on real data in
+September 2026 and produced a resonance apparently at +22…+56 dB, "beyond the
+AD8302's ±30 dB range"; on the correct scale it is about +5 dB at resonance and
++34 dB off it, i.e. **inside** the range. Put both families on the compensated
+scale before mixing them, and never compensate twice.
+
+The Open/Short/Load dumps written by `OPENQCM_CAL_DUMP` (`cal_*.txt`) share the
+**uncompensated** convention of `<n>.txt`, not the compensated one of `g<n>.txt`.
+Across the whole repository there are exactly these two conventions.
+
 Real first line of a `g1.txt` written with the correct constant
 (`docs/impedance-analysis/reference-sweep/g1.txt`):
 ```
