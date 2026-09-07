@@ -594,6 +594,62 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
 > the traps — is in [`docs/impedance-analysis/ALGORITHM.md`](docs/impedance-analysis/ALGORITHM.md).
 > That is the document to read first, and the one that must never be lost.**
 
+### Open / Short / 50 Ω characterisation (2026-09-03) — what it settled, and why it is not a calibration
+
+Three full-band sweeps (1–51 MHz, 500 Hz step, 100 001 points) with known terminations in place of
+the sensor, on a **125 MHz** board. Raw files, README written for a reader with no context, and the
+first analysis: `research/osl-125MHz-2026-09-03/` — ⚠️ **untracked, 29 MB, and the only copy.**
+
+**What the two resistive standards proved.** A short and a 50 Ω resistor have a true phase of
+exactly 0° at every frequency, so every degree measured on them is the instrument. Fitting
+`|Δφ|` over 3–51 MHz:
+
+| standard | slope | → delay | residual rms |
+|---|---|---|---|
+| short | 0.2722 °/MHz | 0.76 ns | **0.57°** |
+| load50 | 0.3972 °/MHz | 1.10 ns | **0.52°** |
+
+⚠️ **The phase error is a pure delay, to within about half a degree over 48 MHz.** It is linear,
+not shaped. This retired a five-point conclusion of "non-constant group delay" reached earlier in
+the same session on far less data — the five points were noise, and 100 001 say so.
+De-rotating by that delay moves `f_r` by ≤20 Hz and the circle residual by <2 %.
+
+Magnitude, attenuator undone, reads **6–11 % low**: a 50 Ω resistor reconstructs as 41–43 Ω with a
+reactance growing to −23 Ω at 45 MHz. The reactance is the delay reappearing as apparent
+capacitance; the 17 % on the real part is not, and is unexplained.
+
+**⚠️ Why three standards cannot fix the out-of-round locus.** The general linear one-port error
+model is **bilinear**, `W = (aZ+b)/(cZ+d)`, which is a Möbius transformation — and Möbius
+transformations **map circles to circles**. The circle-fit residual is therefore *invariant* under
+any OSL whatsoever. Measured on this board's crystal sweeps: **9.67 % before, 9.74 % after.** So the
+6–15 % out-of-round on this front end is **not a linear error network**; it is non-linearity, noise
+or drift, and OSL is the wrong instrument for it. ⚠️ Do not re-propose OSL as the fix for roundness:
+this is proved, not estimated.
+
+What OSL *does* change is absolute values — on this board it raises Γ by 10–50 % (73→82, 31→47,
+56→69, 91→102, 151→167 Hz for n = 1…9) and yields `R_m` = 52, 21, 35, 58, 110 Ω. ⚠️ **Which Γ is
+right cannot be decided from these files.** Deciding it needs a **fourth standard inside the
+operating range** — a few pF, or 1–10 kΩ — validated independently. Until that exists, an OSL
+implementation would replace one unvalidated number with another.
+
+Closed form, for whoever implements it later, with the check that catches the sign slip that was
+made once here (it returns `−Z` and gives negative conductance at resonance):
+
+```
+Z_x = R_L * (W - W_s)(W_o - W_L) / ((W_L - W_s)(W_o - W))
+       must return exactly 0 for W = W_s, and R_L for W = W_L
+```
+
+**Status: parked by Marco on 2026-09-03**, to be resumed as a separate piece of work. Nothing in
+the shipped path depends on it.
+
+⚠️ **The acquisition hook for this is in the working tree and NOT committed**: `OPENQCM_CAL_DUMP`
+in `common/sweepDump.py` (`calibration_label()`, `save_calibration_sweep()`) plus a three-line call
+in `processors/Calibration.py`. It writes `sweep_data/cal_<label>.txt` **before** the peak logic
+runs, which is the whole point — the ordinary `Calibration_5MHz.txt` is written only when a 4–6 MHz
+fundamental is found, so an open or a short produces no file at all. ⚠️ `Calibration.py` is a
+**CRLF file** (815 CRLF, 0 bare LF): edit it in binary or the diff becomes the whole file.
+
 ### The phase-channel offset δ — what it is and how it was found
 
 The detector emits `|Δφ|` only, and its output carries a **global per-overtone offset**:

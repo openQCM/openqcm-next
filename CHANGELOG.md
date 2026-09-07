@@ -5,6 +5,47 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Docs — Open/Short/Load characterisation, and the proof that OSL is the wrong tool for roundness (2026-09-07)
+
+Three known terminations were swept in place of the sensor on a 125 MHz board (1–51 MHz, 100 001
+points): open, short, 50 Ω. Written up in `HANDOFF.md` and in the dataset's own README; the raw
+files are **untracked** in `research/osl-125MHz-2026-09-03/` and are the only copy.
+
+- ⚠️ **No linear one-port calibration can change the roundness of the admittance locus.** The error
+  model is bilinear, a Möbius transformation, and Möbius transformations map circles to circles: the
+  circle-fit residual is **invariant** under any OSL. Measured on this board's crystal sweeps,
+  **9.67 % before and 9.74 % after**. The 6–15 % out-of-round on this front end is therefore not a
+  linear error network, and OSL must not be re-proposed as the fix for it.
+- **The phase error is a pure delay** — 0.76 ns (short) and 1.10 ns (load50), residual **0.57° and
+  0.52° rms over 48 MHz**. ⚠️ This retires an earlier conclusion in the same session that the group
+  delay was not constant: that was read off **five** points, and 100 001 disagree. De-rotating moves
+  `f_r` by ≤20 Hz and the residual by <2 %.
+- Magnitude reads **6–11 % low** (a 50 Ω resistor reconstructs as 41–43 Ω); the accompanying
+  reactance is the delay, the error on the real part is unexplained.
+- What OSL *would* change is absolute values: Γ up 10–50 %, `R_m` = 52/21/35/58/110 Ω. ⚠️ Nothing in
+  these three files can say which Γ is right — that needs a **fourth standard inside the operating
+  range** (a few pF, or 1–10 kΩ). **Parked by Marco pending that.**
+- ⚠️ The acquisition hook, `OPENQCM_CAL_DUMP` in `common/sweepDump.py` plus a call in
+  `processors/Calibration.py`, is **in the working tree and uncommitted**.
+
+### Docs — the two sweep-dump families are not on the same scale (2026-09-07)
+
+`DATA_FORMAT_sweep_data.md` documented `<n>.txt` and `g<n>.txt` in separate sections and never
+stated the relation between them. Now it does, verified over all 18001 points of a real pair with
+maximum error exactly `0.00e+00`:
+
+```
+(0.9 + col2_of_<n>.txt * 0.030) - 0.610692  ==  col2_of_g<n>.txt
+ 0.9 + col3_of_<n>.txt * 0.010              ==  col3_of_g<n>.txt
+```
+
+⚠️ **`g<n>.txt` is already attenuator-compensated by `_Vmag_bit_mag`; `<n>.txt` and `cal_*.txt` are
+not.** Compensating twice puts the crystal at 10.4× its true impedance — above an open circuit.
+That happened on real data this month: the resonance appeared at +22…+56 dB and was read as
+"beyond the AD8302's ±30 dB range". On the correct scale it is ~+5 dB at resonance, +34 dB off it,
+**inside** the range. The repository has exactly two conventions and the document now names which
+files use which.
+
 ### Changed — the phase fold is decided by the depth of the peak, not by a threshold in degrees (2026-09-03)
 
 `_phase_offset_fold` decided whether the phase folds by testing `min(r)` against
