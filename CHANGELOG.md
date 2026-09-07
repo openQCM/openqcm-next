@@ -600,6 +600,13 @@ Conventional Commits. Versions are marked by Git tags.
   doing on its own.
 
 ### Changed
+- **The legacy sweep-file viewer is imported lazily** — `mainWindow.py` pulled in
+  `sweep_data/plot_sweep_spline` and `util/embedding_in_qt_sgskip.ApplicationWindow` at module
+  level, for a Tools entry that is hidden whenever the sweep dump is off. The first now lives inside
+  `_raw_data_plot()`, the one method that uses it; the second was referenced only from a
+  commented-out block and is gone. A production tree can omit `sweep_data/` entirely and still
+  start. Measured headless: matplotlib in `sys.modules` after `import openQCM.ui.mainWindow`
+  True → False, import time 2.05 s → 1.61 s.
 - **The firmware check accepts the prototype's `-TEST` firmware** — the no-TEC board answers
   `0.1.5b-TEST` and the check was exact string equality, so it raised the update warning on every
   connect even though that firmware speaks the whole protocol, the new `'S'` command included.

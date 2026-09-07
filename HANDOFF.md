@@ -471,6 +471,12 @@ OPENQCM_SWEEP_DUMP=1 python3 run.py
 off, since it would only open an empty or stale window. It is kept working (it now calls
 `resonance.py`), but the live view is the one to build on.
 
+Its module, `sweep_data/plot_sweep_spline.py`, is imported **inside `_raw_data_plot()`**, not at
+the top of `mainWindow.py`: a release tree may drop `sweep_data/` altogether and still start, and
+matplotlib is no longer loaded at launch on `main` (measured: not in `sys.modules` after importing
+`mainWindow`, import time 2.05 s → 1.61 s headless). Keep it that way — nothing under `sweep_data/`
+may be imported at module level from code that ships.
+
 ⚠️ **`sweep_data/` is overwritten on every acquisition.** Copy the files somewhere else before
 analysing them.
 
