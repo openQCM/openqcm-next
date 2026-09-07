@@ -3,6 +3,7 @@ import time
 from openQCM.core.constants import Constants
 from openQCM.common.fileStorage import FileStorage
 from openQCM.common.logger import Logger as Log
+from openQCM.common import sweepDump as SweepDump
 
 #from progress.bar import Bar 
 from progressbar import Bar, Percentage, ProgressBar, RotatingMarker, Timer
@@ -580,6 +581,21 @@ class CalibrationProcess(multiprocessing.Process):
                 
                 # CHECKS the exceptions
                 if self._flag == 0:
+                   # Dev-only: the raw 1-51 MHz sweep, before any
+                   # peak logic has judged it.
+                   #
+                   # ⚠️ Calibration_5MHz.txt is written only when the first
+                   # peak looks like a 5 MHz fundamental. Right for the
+                   # instrument, useless for characterising the electronics:
+                   # an open, a short and a 50 ohm load have no resonance by
+                   # construction, so they produce no file at all. Enabled by
+                   # OPENQCM_CAL_DUMP=<label>, which also names the file so
+                   # three runs cannot overwrite one another.
+                   _cal = SweepDump.save_calibration_sweep(readFREQ, temp1, temp2)
+                   if _cal:
+                       print(TAG, "Calibration sweep dumped as {}.txt "
+                             "({} points)".format(_cal, len(readFREQ)))
+
                    # CALLS baseline_correction method
                    print(TAG,"Baseline Correction Process Started")
                    
