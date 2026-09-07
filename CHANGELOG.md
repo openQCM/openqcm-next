@@ -5,6 +5,21 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
+
+`b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
+`util/embedding_in_qt_sgskip.ApplicationWindow` at module level for a Tools entry that is hidden
+whenever the sweep dump is off. The first now lives inside `_raw_data_plot()`; the second was dead
+and is gone.
+
+⚠️ **On `main` this makes `sweep_data/` optional in a release tree. Here it does not, yet.**
+Measured after the cherry-pick (`QT_QPA_PLATFORM=offscreen`, `import openQCM.ui.mainWindow`):
+matplotlib is still in `sys.modules`, because this branch has two more dependencies of its own on
+that package — `mainWindow.py` imports `sweep_data/plot_conductance` at module level (matplotlib
+and tkinter with it) for **Tools → Conductance Data**, and `ui/impedanceFitWindow.py` loads
+`sweep_data/fit_admittance.py` by file path with `importlib`. Both are branch-only code; whether to
+make them lazy is a separate decision, not part of this carry.
+
 ### Docs — Open/Short/Load characterisation, and the proof that OSL is the wrong tool for roundness (2026-09-07)
 
 Three known terminations were swept in place of the sensor on a 125 MHz board (1–51 MHz, 100 001

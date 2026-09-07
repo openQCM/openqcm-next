@@ -536,6 +536,10 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   implementation everything above was validated against. Reads the `g<n>.txt` sweeps (same
   3-column layout as `<n>.txt`, but columns 2–3 are the **raw AD8302 voltages** V_MAG / V_PHS
   in volts, not dB/degrees), documented in `software/docs/DATA_FORMAT_sweep_data.md`.
+  ⚠️ **Still imported at module level by `mainWindow.py`**, and `ui/impedanceFitWindow.py` loads
+  `sweep_data/fit_admittance.py` by path. On `main` the only such import (`plot_sweep_spline`) was
+  made lazy in `b38664e` so a release tree can drop `sweep_data/`; on this branch that is not yet
+  true, and matplotlib still loads at start-up (measured after the cherry-pick). Open decision.
 - `docs/impedance-analysis/`: method documentation (`conductance-calculation.md`,
   `openQCM_Next_G_Impedance_Analysis.md`, 3 PDFs).
 
