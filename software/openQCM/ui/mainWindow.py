@@ -53,10 +53,10 @@ from openQCM.core.ringBuffer import RingBuffer
 
 from time import sleep
 
-# DEV RAWDATA
-from openQCM.util.embedding_in_qt_sgskip import ApplicationWindow
-
-from openQCM.sweep_data import plot_sweep_spline
+# The legacy "Raw Data (from sweep files)" viewer and its matplotlib window are
+# imported inside _raw_data_plot(), the only place that uses them: a release
+# build has no sweep_data/*.txt to read and must not depend on that package
+# existing, nor pay matplotlib's import at start-up for a menu entry it hides.
 
 from openQCM.sweep_data import plot_conductance
 
@@ -3192,7 +3192,13 @@ class MainWindow(QtGui.QMainWindow):
     # add-on view sweep raw data plot
     def _raw_data_plot(self):
         # VER 0.1.6 Try-except code block to prevent the software from freezing when calling the raw data plot
-        
+
+        # Development viewer, reading sweep_data/*.txt. Imported here, not at
+        # module level, so that a production tree without that dump (and the
+        # package that plots it) still starts; the menu entry that reaches
+        # this method is hidden unless the sweep dump is enabled.
+        from openQCM.sweep_data import plot_sweep_spline
+
         # multiscan mode 
         if  (self._get_source() == SourceType.multiscan):
             try:
