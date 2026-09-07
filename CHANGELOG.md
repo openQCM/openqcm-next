@@ -431,6 +431,23 @@ Conventional Commits. Versions are marked by Git tags.
     no-op. Without this, pressing Stop mid-peak-detection raised before `worker.stop()` ran and the
     sweep continued to completion.
 
+### Docs
+- **`software/docs/DATA_FORMAT_sweep_data.md`: the two data columns are not what they were named**
+  (2026-09-07). The specification handed to anyone parsing `sweep_data/<n>.txt` described column 3
+  as "Phase, degrees" and read its worked example as "phase = +12.04°".
+  - ⚠️ **It is `90 − |Δφ|`.** The AD8302 emits the magnitude of the phase difference and puts
+    **1.8 V at 0°, 0.9 V at 90°**; the stored conversion subtracts 0.9 V. So that example line means
+    `|Δφ| = 77.96°` — the near-90° plateau the `C0` branch holds off resonance, i.e. the *opposite
+    end of the range* from what the document said. The sign of Δφ is not in the data at all.
+  - ⚠️ **Column 2 is on the uncompensated scale.** The provenance formulas were right and carried no
+    attenuator term, but nothing said that this was deliberate, so nothing warned that the INPB
+    R11/R19 attenuator is still in the number. It is **20.3564 dB, not one clean decade**: the
+    0.3564 dB residue understates the divider magnitude by 4.02 % and up to −22 % on the motional
+    resistance.
+  - The recommended column names change from `amplitude_dB` / `phase_deg` to `mag_ch` / `phase_ch`.
+    The old names are not shorthand, they are the invitation to both mistakes.
+
+
 ### Added
 - **GUI plot interactions (Phase 4 of the GUI redesign)** — adapted from openQCM Q-1 v3.0, on
   NEXT's **two separate** frequency / dissipation panels (single dual-axis panel explicitly
