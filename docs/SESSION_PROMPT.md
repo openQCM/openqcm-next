@@ -192,19 +192,17 @@ attivo solo con `OPENQCM_SWEEP_DUMP=1`, **sovrascritto a ogni sweep**):
   `Serial.baseline_correction`, `Calibration.baseline_estimation`.
 - Zeri spinti ai grafici durante il warm-up del Multiscan.
 
-### File non committati e non tracciati (stato al 2026-09-07)
+### File non tracciati (stato al 2026-09-07)
 
-- ⚠️ Ramo `impedance-analysis`, **modifiche in working tree non committate**: il
-  gancio `OPENQCM_CAL_DUMP` in `common/sweepDump.py` e la chiamata in
-  `processors/Calibration.py`. È lo strumento con cui sono stati acquisiti gli
-  standard open/short/load. Va deciso se committarlo.
-- ⚠️ **`research/osl-125MHz-2026-09-03/` (29 MB) e
-  `research/new-filters-125MHz-air-2026-09-03/` (6.5 MB) sono NON TRACCIATI e sono
-  l'unica copia.** Ognuna ha il suo README scritto per un lettore senza contesto.
 - `CODE_ANALYSIS.md` su `main`: audit non tracciato, **fuori perimetro** finché non
   dico il contrario. Non partire da lì.
 - `software/openQCM_Next_py_0.1.5c_TEST_teensy.ino.hex` e i due hex accanto: lasciati
   lì di proposito, decideremo dopo.
+
+⚠️ **Non tutti i dati acquisiti vanno nel repo.** Le corse fatte fuori specifica —
+per esempio la scheda a 150 MHz alimentata a 3.3 V — sono diagnostica, non prove, e
+per decisione di Marco **non vanno documentate né tracciate**. Prima di proporre di
+versionare un dataset, chiedi in quali condizioni è stato preso.
 
 ## Una differenza fra i rami che è voluta
 
