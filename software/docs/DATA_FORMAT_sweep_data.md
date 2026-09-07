@@ -40,8 +40,8 @@ Written by `openQCM/processors/Multiscan.py` via
 | # | Column                | Unit    | Description                                                                 |
 |---|-----------------------|---------|-----------------------------------------------------------------------------|
 | 1 | Frequency             | Hz      | sweep frequency; monotonically increasing, **1 Hz step**                    |
-| 2 | Amplitude / Magnitude | dB      | AD8302 VMAG output, converted (see below); the resonance appears as a peak/dip |
-| 3 | Phase                 | degrees | AD8302 VPHS output, converted (see below)                                   |
+| 2 | Amplitude / Magnitude | dB      | AD8302 VMAG rescaled at 30 mV/dB, **attenuator not undone** — see below     |
+| 3 | Phase channel         | degrees | AD8302 VPHS rescaled at 10 mV/deg — ⚠️ this is `90 − |Δφ|`, **not** the phase |
 
 - **Number of rows: 18001** — the sweep spans an 18 kHz window around the detected
   resonance (`LEFT = 12000` Hz below … `RIGHT = 6000` Hz above, at 1 Hz step ⇒
@@ -59,8 +59,44 @@ amplitude_dB   = ( adc_mag   * ADCtoVolt / 2.0 - 0.9 ) / 0.03
 phase_degrees  = ( adc_phase * ADCtoVolt / 1.5 - 0.9 ) / 0.01
 ```
 
-A reader does **not** need these formulas (values in the file are already dB/°);
-they only explain the units.
+⚠️ **Neither column is the physical quantity its name suggests.** Both are the
+detector's own output rescaled, and each carries one thing that has to be undone
+before the numbers mean anything outside a plot. Read the two warnings below
+before using this data for impedance work — both have already cost a wrong
+analysis.
+
+### ⚠️ Column 3 is `90 − |Δφ|`, not the phase
+The AD8302 has no sign output: it emits the **magnitude** of the phase difference,
+**1.8 V at 0° and 0.9 V at 90°**. The conversion above subtracts 0.9 V, so what
+lands in the file is
+
+```
+column3 = ( V_PHS - 0.9 ) / 0.01  =  90 - |delta_phi|      # degrees
+|delta_phi| = 90 - column3                                 # what the detector measured
+```
+
+A file line reading `+12.04` does **not** mean 12° of phase: it means
+`|Δφ| = 77.96°`. And the sign of Δφ is **not in the data** — it flips where the
+true phase crosses zero, which is the *peak* of `V_PHS`.
+
+### ⚠️ Column 2 is on the **uncompensated** scale
+The formula above has **no attenuator term**: `<n>.txt` stores the divider level as
+the ADC sees it, with the INPB R11/R19 attenuator still in it. That is fine for
+finding a peak and wrong for computing an impedance — recover the volts and undo
+it first:
+
+```
+V_MAG = 0.9 + column2 * 0.030            # volts at the ADC, uncompensated
+V_MAG_corrected = V_MAG - 0.610692       # = 20*log10((47.0+4.99)/4.99) * 0.030
+```
+
+`0.610692`, **not 0.600**: the attenuator is 20.3564 dB, not one clean decade, and
+the 0.3564 dB residue is not cosmetic — it understates the divider magnitude by
+**4.02 %**, which an impedance inversion amplifies to **up to −22 %** on the
+motional resistance at the fundamental in air.
+
+A reader who only wants to *look* at the sweep does not need any of this: column 2
+already rises at resonance and column 3 already dips there.
 
 ## The `g<n>.txt` variant — raw AD8302 voltages (`impedance-analysis` branch)
 On the `impedance-analysis` branch `Multiscan.py` writes a **second family** of
@@ -143,12 +179,18 @@ Real first line of a `g1.txt` written with the correct constant
 ```
 4.986788000000000000e+06 -1.378842773437500391e+01 1.203842773437498970e+01
 ```
-→ frequency = 4 986 788 Hz, amplitude = −13.79 dB, phase = +12.04°.
+→ frequency = 4 986 788 Hz, column 2 = −13.79, column 3 = +12.04.
+
+Decoded: `V_MAG` = 0.9 − 13.788·0.03 = **0.4866 V** uncompensated
+(− 0.6107 = **−0.1243 V** compensated), and `V_PHS` = 0.9 + 12.038·0.01 =
+**1.0204 V**, i.e. **|Δφ| = 77.96°** — near the 90° the `C0` branch holds off
+resonance, as expected for the first point of a sweep.
 
 ## Recommended handling
 - Load with any whitespace-delimited numeric reader
-  (`numpy.loadtxt`, `pandas.read_csv(sep=r'\s+', header=None)`); assign columns
-  `["freq_Hz", "amplitude_dB", "phase_deg"]`.
+  (`numpy.loadtxt`, `pandas.read_csv(sep=r'\s+', header=None)`); name the columns
+  `["freq_Hz", "mag_ch", "phase_ch"]` — ⚠️ **not** `amplitude_dB` / `phase_deg`,
+  which is what invites the two mistakes above.
 - Treat each file as **one spectrum of one overtone**; do not concatenate across
   files (different frequency ranges).
 - Do not assume the files persist — snapshot them if you need a specific cycle.
@@ -160,9 +202,14 @@ Real first line of a `g1.txt` written with the correct constant
 ## Minimal parsing snippet (Python)
 ```python
 import numpy as np
-freq, amp_db, phase_deg = np.loadtxt("openQCM/sweep_data/1.txt", unpack=True)
-peak_idx = np.argmax(amp_db)          # resonance ≈ frequency of the amplitude peak
-f_res = freq[peak_idx]
+
+freq, mag_ch, phase_ch = np.loadtxt("openQCM/sweep_data/1.txt", unpack=True)
+
+f_res = freq[np.argmax(mag_ch)]       # resonance ≈ peak of the magnitude channel
+
+# only if you need physical quantities:
+abs_dphi_deg = 90.0 - phase_ch                        # detector emits |delta phi|
+v_mag        = 0.9 + mag_ch * 0.030 - 0.610692        # volts, attenuator undone
 ```
 
 ---
