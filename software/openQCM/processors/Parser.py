@@ -24,6 +24,7 @@ class ParserProcess(multiprocessing.Process):
                        data_queue_D_multi,
                        data_queue_A_multi, 
                        data_queue_P_multi,
+                       data_queue_message=None,
                        ):
         """
         :param data_queue{i}: References to queue where processed data will be put.
@@ -51,6 +52,9 @@ class ParserProcess(multiprocessing.Process):
         self._out_queue_A_multi = data_queue_A_multi 
         # phase out queue
         self._out_queue_P_multi = data_queue_P_multi 
+        # text for the operator, printed by the GUI process: the System Log
+        # only sees what the main process prints, never what this one does
+        self._out_queue_message = data_queue_message
 
         #print(TAG, 'Process ready')
         #Log.d(TAG, "Process ready")
@@ -124,6 +128,15 @@ class ParserProcess(multiprocessing.Process):
     
     def add_P_multi (self, data):
         self._out_queue_P_multi.put(data)
+
+    def add_message(self, text):
+        """One line for the operator. The GUI prints it, so it reaches the
+        console, the System Log tab and the log file from a single place; a
+        print() here would reach the console only."""
+        if self._out_queue_message is None:
+            print(text)
+            return
+        self._out_queue_message.put(str(text))
         
     def stop(self):
         """

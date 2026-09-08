@@ -859,9 +859,9 @@ class SerialProcess(multiprocessing.Process):
             self._serial.write(cycling_time_msg.encode())  
             sleep(0.2)
             self.cycling_time_set_old = cycling_time_set
-            # the only trace that a PID parameter really left this process
-            print(TAG, "PID sent to the controller: {}".format(cycling_time_msg.strip()))
-            Log.i(TAG, "PID sent to the controller: {}".format(cycling_time_msg.strip()))
+            # the only trace that a PID parameter really left this process;
+            # routed to the GUI so that the System Log shows it too
+            self._parser6.add_message("PID sent to the controller: {}".format(cycling_time_msg.strip()))
             
         if P_share_set != self.P_share_set_old: 
             P_Share_msg = 'P' + str(int(P_share_set)) + '\n'
@@ -870,9 +870,9 @@ class SerialProcess(multiprocessing.Process):
             self._serial.write(P_Share_msg.encode())
             sleep(0.2)
             self.P_share_set_old = P_share_set
-            # the only trace that a PID parameter really left this process
-            print(TAG, "PID sent to the controller: {}".format(P_Share_msg.strip()))
-            Log.i(TAG, "PID sent to the controller: {}".format(P_Share_msg.strip()))
+            # the only trace that a PID parameter really left this process;
+            # routed to the GUI so that the System Log shows it too
+            self._parser6.add_message("PID sent to the controller: {}".format(P_Share_msg.strip()))
             
         if I_share_set != self.I_share_set_old: 
             I_Share_msg = 'I' + str(int(I_share_set)) + '\n'
@@ -881,9 +881,9 @@ class SerialProcess(multiprocessing.Process):
             self._serial.write(I_Share_msg.encode())
             sleep(0.2)
             self.I_share_set_old = I_share_set
-            # the only trace that a PID parameter really left this process
-            print(TAG, "PID sent to the controller: {}".format(I_Share_msg.strip()))
-            Log.i(TAG, "PID sent to the controller: {}".format(I_Share_msg.strip()))
+            # the only trace that a PID parameter really left this process;
+            # routed to the GUI so that the System Log shows it too
+            self._parser6.add_message("PID sent to the controller: {}".format(I_Share_msg.strip()))
             
         if D_share_set != self.D_share_set_old: 
             D_Share_msg = 'D' + str(int(D_share_set)) + '\n'
@@ -892,9 +892,9 @@ class SerialProcess(multiprocessing.Process):
             self._serial.write(D_Share_msg.encode())
             sleep(0.2)
             self.D_share_set_old = D_share_set
-            # the only trace that a PID parameter really left this process
-            print(TAG, "PID sent to the controller: {}".format(D_Share_msg.strip()))
-            Log.i(TAG, "PID sent to the controller: {}".format(D_Share_msg.strip()))
+            # the only trace that a PID parameter really left this process;
+            # routed to the GUI so that the System Log shows it too
+            self._parser6.add_message("PID sent to the controller: {}".format(D_Share_msg.strip()))
         
         #DEV    
         # check if temperature control is enabled 
