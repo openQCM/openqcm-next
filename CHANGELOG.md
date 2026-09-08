@@ -656,6 +656,11 @@ Conventional Commits. Versions are marked by Git tags.
   doing on its own.
 
 ### Changed
+- **Tec Current looks like the rest of the application** (`77575b0`) — the window was a bare QWidget in
+  `mainWindow.py` with a legacy background, an unthemed 16 pt title, default axes and curve, no
+  right-click menu, a new instance per click. It is now `ui/tecCurrentView.py`, built like Raw Data
+  View and Peak Data View: `theme.PLOT` background, axis and title colours, the theme's curve colour,
+  the shared plot menu, the "Real-Time Plot: …" title form, one instance, closed with the main window.
 - **The legacy sweep-file viewer is imported lazily** — `mainWindow.py` pulled in
   `sweep_data/plot_sweep_spline` and `util/embedding_in_qt_sgskip.ApplicationWindow` at module
   level, for a Tools entry that is hidden whenever the sweep dump is off. The first now lives inside

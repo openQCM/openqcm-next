@@ -183,15 +183,21 @@ analysed, so the cost is one spline per tick. Each tab frames the resonance once
 and then leaves the axes alone: at full scale a 62 Hz band inside an 18 kHz span is invisible, but
 re-framing every tick would be unusable.
 
-### The other two views: Peak Data View and Datalog View
+### The other views: Peak Data View, Datalog View, Tec Current
 
-Three auxiliary windows now, and the difference between them is the thing to keep straight.
+Four auxiliary windows now, and the difference between them is the thing to keep straight.
 
 | window | menu | reads | live? |
 |---|---|---|---|
 | Raw Data View | Tools | the acquisition buffers, in memory | yes, 300 ms pull |
 | Peak Data View | Tools | `Calibration_*MHz.txt` + `PeakFrequencies.txt` | no, snapshot on open |
 | Datalog View | File > Open Log… | a `logged_data/*.csv` the user picks | no, snapshot on open |
+| Tec Current | Tools | the worker's TEC-current buffer, handed over by `_update_plot` | yes, pushed every tick |
+
+Tec Current (`ui/tecCurrentView.py`, `77575b0`) is the one that is *pushed*: the main window calls its
+`update_plot()` from `_update_plot()`, as the old `SecondWindow` was, so the acquisition never waits
+on it. Otherwise it follows the other three — `theme.PLOT` colours, the shared `PlotMenu`, one
+instance, closed with the main window (and on STOP, since it shows a running acquisition).
 
 **Reading files is right in the last two and wrong in the first.** Peak Detection runs once and writes
 its two files; a datalog is a finished run. There is nothing in memory to read in either case, and
