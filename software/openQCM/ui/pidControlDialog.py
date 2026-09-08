@@ -102,17 +102,23 @@ class PIDControlDialog(QtWidgets.QDialog):
         layout.addLayout(grid)
 
         # ---------------------------------------------------------- actions
+        # Set PID on the left, filled accent (theme.py), taking the width the
+        # window gives, like the indicators above it; Read PID on the right at
+        # its natural width. The primary action is the one that grows.
         buttons = QtWidgets.QHBoxLayout()
-        buttons.addStretch(1)
+        self.pButton_set = QtWidgets.QPushButton("Set PID", self)
+        self.pButton_set.setObjectName("pButton_pid_set")
+        self.pButton_set.setDefault(True)
+        self.pButton_set.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
+                                       QtWidgets.QSizePolicy.Fixed)
+        buttons.addWidget(self.pButton_set, stretch=1)
         self.pButton_read = QtWidgets.QPushButton("Read PID", self)
         self.pButton_read.setObjectName("pButton_pid_read")
         self.pButton_read.setToolTip("Ask the controller for its current values "
                                      "and show them here. Nothing is saved.")
-        buttons.addWidget(self.pButton_read)
-        self.pButton_set = QtWidgets.QPushButton("Set PID", self)
-        self.pButton_set.setObjectName("pButton_pid_set")
-        self.pButton_set.setDefault(True)
-        buttons.addWidget(self.pButton_set)
+        self.pButton_read.setSizePolicy(QtWidgets.QSizePolicy.Fixed,
+                                        QtWidgets.QSizePolicy.Fixed)
+        buttons.addWidget(self.pButton_read, stretch=0)
         layout.addLayout(buttons)
 
         # ----------------------------------------------------------- status
