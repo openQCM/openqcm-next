@@ -6,6 +6,30 @@ Conventional Commits. Versions are marked by Git tags.
 ## [Unreleased] — `main`
 
 ### Added
+- **Tools → PID Control** — the TEC controller's cycling time and P/I/D shares, hidden in the
+  sidebar since the redesign, in their own window (`ui/pidControlDialog.py`): the two presets
+  (factory, openQCM) plus Custom, the four spin boxes with the MTD415T's ranges, Set PID, and a
+  status line. It shows the values in `config.txt`, which is what the acquisition sends.
+  - **Set PID has two paths and a number that tells them apart.** Standby: the GUI writes the file,
+    sends C/P/I/D and asks the controller `C? P? I? D?`; the status line shows the four values **the
+    controller reports** — "all four match", "MISMATCH on P", or "did not answer". Acquisition
+    running: the GUI writes only the file, and the process forwards what changed at its next sweep,
+    printing `PID sent to the controller: P600` for each parameter it actually sends. That line is
+    new: `Multiscan.py` and `Serial.py` used to send in silence, including the four defaults that
+    leave at the first sweep of every START.
+  - Set PID follows the connection, not the TEC switch; only rows 1–4 of the file are written (the
+    old PID Set also raised the flag that re-sends the temperature set-point, for nothing).
+  - **The PID rows survive STOP and restart.** `stop()` and `__init__` rewrote the whole file with
+    the defaults; measured: after a Set PID during an acquisition the controller held P800, the
+    file 500, and the next START sent 500 again. Both now reset set-point and flags only
+    (`_reset_temperature_config`). TEC Reset still resets everything, on purpose.
+  - **On connect the controller is aligned to the file.** The MTD415T is volatile — a power cycle
+    returns it to the factory values — so the file is the memory and the alignment runs software →
+    machine: `C? P? I? D?`, then send the file and read back when they differ. One log line with
+    what the controller had, what it was set to and what it read back. Bench, 2026-09-08: power
+    cycle → `controller had C50 P1000 I200 D100, set to C50 P800 I200 D100, read back: match`;
+    reconnect → `aligned`; `P900` typed from a terminal → seen and overwritten.
+  - Verified at the bench in both multiscan and single mode, seven-point procedure, all passed.
 - **The `0.1.5c` firmware images exist** — `firmware/openQCM_Next_py_0.1.5c_teensy/` and
   `..._0.1.5c_TEST_teensy/` now carry their `.ino.TEENSY40.hex`, built with the `teensy:avr 1.58.1`
   core (FLASH 55 120 B and 45 500 B). ⚠️ HANDOFF §5 claimed the 0.1.5c image was *already built*;

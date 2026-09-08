@@ -231,6 +231,66 @@ shift panels and kept in step by the same re-entry guard as the reference cursor
 panels are x-linked and a band on one of them would leave the other reader guessing. The numbers
 come from `core/logAnalysis.py`; see §1 for what they mean and what they deliberately ignore.
 
+### PID Control, and why `config.txt` is the memory
+
+**Tools → PID Control** (`ui/pidControlDialog.py`) re-exposes what the sidebar redesign hid: the
+TEC controller's cycling time and P/I/D shares, the two presets `Constants` has always carried
+(factory 50/1000/200/100, openQCM 50/500/50/300) plus Custom, and Set PID. The old widgets are
+still in the hidden `tab_2` of the sidebar; removing them is pending.
+
+Three facts decide everything about this window, all three **measured at the bench on 2026-09-08**:
+
+1. **The MTD415T is volatile.** A power cycle returns it to the factory values whatever anyone
+   sent before; no firmware version writes it anything at start-up (`P_SET = "P1000"` is declared
+   in every sketch and used in none). Only the PC ever sets the PID.
+2. **Who holds the port decides the path.** In Standby the GUI holds it; during a measurement the
+   acquisition process does, and the GUI cannot write.
+3. **`_Temperature_PID_control` in `Multiscan.py`/`Serial.py` re-reads `config.txt` at every sweep
+   and sends what changed**, starting from a memory of zero — so at the first sweep of every START
+   it sends all four rows of the file, whatever the controller had. That is the mechanism that
+   used to put Default #1 back at every START, and it used to be silent.
+
+So the file is the memory, and the dialog never touches the serial port: it emits
+`apply_requested(C, P, I, D)` and `mainWindow._apply_pid` chooses:
+
+| state | what happens | the observable |
+|---|---|---|
+| Standby | rows 1–4 of `config.txt` written, C/P/I/D sent on the persistent handle, then `C? P? I? D?` asked | the four values **the controller reports**, in the status line and the log: "all four match", "MISMATCH on P", "did not answer" |
+| acquisition running | rows 1–4 written, nothing sent by the GUI | the process prints `PID sent to the controller: P600` for each parameter it actually forwards — once, at the next sweep, and only for what changed |
+| not connected | Set PID is disabled | — |
+
+Only rows 1–4 are written: the old PID Set also raised the flag that re-sends the temperature
+set-point, for nothing. Set PID follows the connection, not the TEC switch — the controller takes
+its parameters with the TEC off.
+
+**The PID rows survive STOP and restart.** `stop()` and `__init__` used to call
+`_set_PID_T_default()`, which rewrote the whole file; measured consequence: after a Set PID during
+an acquisition the controller held P800 and the file 500, and the next START sent 500 again. Both
+now call `_reset_temperature_config()`, which puts set-point and flags back and leaves rows 1–4.
+The full-default write survives as the fallback for an unreadable file and behind **TEC Reset**,
+which is an explicit reset and was left as it is.
+
+**On connect the controller is aligned to the file**, software → machine, the same direction
+START has always taken. `_align_pid_with_controller()` runs after the firmware and board-number
+queries: `C? P? I? D?`, and if the answer differs from the file, send the file and read back.
+One log line, always with the numbers:
+
+```
+PID on connect: aligned, controller reports C50 P800 I200 D100.
+PID on connect: controller had C50 P1000 I200 D100, set to C50 P800 I200 D100, read back: match.
+PID on connect: controller had C50 P900 I200 D100, set to C50 P600 I200 D100, read back: match.
+PID on connect: the TEC controller did not answer (C? P? I? D?); nothing sent. Is it powered?
+```
+
+The first three are the bench: a reconnect without power cycle, a power cycle (factory values),
+and a `P900` typed from a terminal in the same power cycle. A controller that does not answer, or
+a board still streaming sweep data, is left alone and said so. Cost: about two seconds per connect.
+
+⚠️ A "PID of the instrument" does not exist anywhere in the hardware: whatever the controller
+reports at connect, a program wrote it in the same power cycle. If instruments with different TECs
+ever need different loops, the only place that memory can live is the PC, keyed by the board number
+(known at connect). Not built; not asked for.
+
 ### Datalog file names — the Q-1 rule, and the copy that defeated it
 
 `YYYY-MM-DD_hh-mm-ss_<label>.csv` in `logged_data/`, where the label is `F0 F3 F5 F7 F9` for a
@@ -421,7 +481,7 @@ both menu trees at runtime, one process per tree (two openQCM packages in one Qt
 |---|---|
 | File | Open Log… ― Quit |
 | View | Sidebar · Status Bar · Δ Cursors (F / D) · Grid ― Theme › (Light, Dark) |
-| Tools | Raw Data View · Peak Data View · Raw Data (from sweep files) · Tec Current ― Check Firmware Version |
+| Tools | Raw Data View · Peak Data View · PID Control · Raw Data (from sweep files) · Tec Current ― Check Firmware Version |
 | Help | Website · Email Support ― Check for Updates… ― About openQCM NEXT |
 
 The correspondence is by **handler, not by label**: `actionFirmware` runs `get_firmware_version()`,
@@ -1062,9 +1122,9 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
   - **Harmonise the remaining state colors** (status pill yellow/red/green) toward the blue+brown
     palette (deferred by the user during the palette-reduction step).
   - **min-Y-scale** enforcement (integrate with `Constants.plot_force_yrange`).
-  - **Dedicated "Advanced Temperature Control" window** — re-expose PID (`cBox_PID`, `spinBox_*`,
-    `pButton_PID_Set`, hidden `tab_2`) + optionally the datalog sampling time. See memory
-    `advanced-temperature-pid-window`.
+  - ~~Dedicated "Advanced Temperature Control" window~~ — **done** as Tools → PID Control (§3).
+    Still to do: remove the hidden `tab_2` widgets (`cBox_PID`, `spinBox_*`, `pButton_PID_Set`)
+    and the three functions that only they use (`PID_Set`, `_get_PID`, `_PID_setting_changed`).
   - **Confirmed UX decisions**: single StartStop toggle; **TEC/PID kept in the sidebar** (advanced
     window later); System Log as a tab; default theme light; **frequency & dissipation stay TWO
     separate panels** (single dual-axis panel rejected).
