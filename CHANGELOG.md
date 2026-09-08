@@ -80,6 +80,13 @@ Conventional Commits. Versions are marked by Git tags.
     nothing and keeps working.
   - Both compile for `teensy:avr:teensy40`; `Constants.FW_VERSION` moves to `0.1.5c` with them.
 
+### Removed
+- **The hidden PID widgets of the sidebar** (`51034e8`) — `tab_2` (PID Set, preset combo, four spin
+  boxes), hidden since the redesign and replaced by Tools → PID Control, together with `PID_Set`,
+  `_get_PID` and `_PID_setting_changed`. Not harmless while they stayed: T SET was found copying
+  their stale values into `config.txt`. `_Temperature_PID_Setting_isEnabled` is now
+  `_Temperature_Setting_isEnabled` and drives T SET and its spin box only.
+
 ### Fixed
 - **TEC OFF reset the set-point indicator to 25 °C** (`53487f7`) — `Temperature_Control_OFF()` put the
   default on the spin box and changed nothing else, so after OFF → ON the indicator read 25 while

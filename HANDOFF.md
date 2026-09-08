@@ -235,8 +235,9 @@ come from `core/logAnalysis.py`; see §1 for what they mean and what they delibe
 
 **Tools → PID Control** (`ui/pidControlDialog.py`) re-exposes what the sidebar redesign hid: the
 TEC controller's cycling time and P/I/D shares, the two presets `Constants` has always carried
-(factory 50/1000/200/100, openQCM 50/500/50/300) plus Custom, and Set PID. The old widgets are
-still in the hidden `tab_2` of the sidebar; removing them is pending.
+(factory 50/1000/200/100, openQCM 50/500/50/300) plus Custom, and Set PID. The old sidebar
+widgets (`tab_2`) and the three functions only they used are gone (`51034e8`): the window is the only
+PID editor there is.
 
 Three facts decide everything about this window, all three **measured at the bench on 2026-09-08**:
 
@@ -291,8 +292,7 @@ which is an explicit reset and was left as it is.
 rows and take the PID from the hidden `tab_2` spin boxes; while init reset those widgets the fault
 was invisible (every T SET put Default #1 back), once init stopped touching them it sent the
 factory values (measured: P1000 I200 D100 after a T SET during a run, `7a7f1b3`). It writes the
-set-point and its flag now. The hidden widgets are stale by design until they are removed — do not
-read them.
+set-point and its flag now; the hidden widgets were removed the same day (`51034e8`).
 
 **On connect the controller is aligned to the file**, software → machine, the same direction
 START has always taken. `_align_pid_with_controller()` runs after the firmware and board-number
@@ -1146,9 +1146,8 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
   - **Harmonise the remaining state colors** (status pill yellow/red/green) toward the blue+brown
     palette (deferred by the user during the palette-reduction step).
   - **min-Y-scale** enforcement (integrate with `Constants.plot_force_yrange`).
-  - ~~Dedicated "Advanced Temperature Control" window~~ — **done** as Tools → PID Control (§3).
-    Still to do: remove the hidden `tab_2` widgets (`cBox_PID`, `spinBox_*`, `pButton_PID_Set`)
-    and the three functions that only they use (`PID_Set`, `_get_PID`, `_PID_setting_changed`).
+  - ~~Dedicated "Advanced Temperature Control" window~~ — **done** as Tools → PID Control (§3);
+    the hidden `tab_2` widgets and their three functions removed (`51034e8`).
   - **Confirmed UX decisions**: single StartStop toggle; **TEC/PID kept in the sidebar** (advanced
     window later); System Log as a tab; default theme light; **frequency & dissipation stay TWO
     separate panels** (single dual-axis panel rejected).
