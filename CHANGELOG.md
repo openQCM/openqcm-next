@@ -5,6 +5,28 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — Tools → PID Control, and config.txt as the PID memory (2026-09-08)
+
+`6d78f5f`, `d27830e`, `bff2818`, cherry-picked as `6a39be7`, `23eda86`, `8ec8a5d`, all clean. The
+TEC controller's cycling time and P/I/D shares, hidden in the sidebar since the redesign, come back
+in their own window (`ui/pidControlDialog.py`), between Peak Data View and this branch's Conductance
+Data / Impedance Fit entries. Set PID has two paths: in Standby the GUI sends and **reads back**
+`C? P? I? D?`, showing what the controller reports; during an acquisition it writes `config.txt`
+and the process forwards what changed at its next sweep, now printing `PID sent to the controller:
+P600` for each parameter — `Multiscan.py` and `Serial.py` used to do that in silence, including the
+four defaults that leave at the first sweep of every START.
+
+The PID rows of `config.txt` survive STOP and restart (`_reset_temperature_config` replaces the
+full-default rewrite in `stop()` and `__init__`; TEC Reset still resets everything), and on connect
+the controller is aligned to the file, software → machine, because the MTD415T is volatile and
+returns to its factory values at every power cycle. One log line with the numbers each time.
+Bench-tested on `main` on 2026-09-08, multiscan and single mode, seven points, all passed; the
+detail is in `main`'s HANDOFF §3 "PID Control, and why config.txt is the memory".
+
+Verified here after the cherry-pick: every touched file compiles, the app imports headless, the
+menu order is the expected one, both processes carry the four log lines, and the connect-time
+alignment on a fake factory controller sends `C50 P500 I50 D300` and reads back "match".
+
 ### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
 
 `b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
