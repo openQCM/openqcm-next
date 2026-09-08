@@ -295,11 +295,6 @@ class MainWindow(QtGui.QMainWindow):
         # Populates comboBox for sources
         self.ui.cBox_Source.addItems(Constants.app_sources)
 
-        # Init combo box for PID setting
-        self.ui.cBox_PID.addItems(Constants.PID_default_settings)
-        # set default value to #1 openqcm setting
-        self.ui.cBox_PID.setCurrentIndex(Constants.PID_Setting_default_index)
-        
         # VER 0.1.4
         # add datalog sampling time combobox
         self.ui.cBox_sampling_time.addItems(Constants.SAMPLING_TIME_LIST)
@@ -364,7 +359,7 @@ class MainWindow(QtGui.QMainWindow):
         self._enable_ui(True)
 
         # disable temperature control at startup
-        self._Temperature_PID_Setting_isEnabled(False)
+        self._Temperature_Setting_isEnabled(False)
 
         ###################################################################################################################################
         self.get_web_info(True)
@@ -901,9 +896,6 @@ class MainWindow(QtGui.QMainWindow):
         # again. Now file, window and controller stay the same across STOP.
         self._reset_temperature_config()
 
-        # set pid setting combo box to default factory
-        self.ui.cBox_PID.setCurrentIndex(Constants.PID_Setting_default_index)
-        
         # VER 0.1.4
         # set TEC status control to null 
         self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("off"))
@@ -1061,7 +1053,7 @@ class MainWindow(QtGui.QMainWindow):
         np.savetxt( _path,  np.row_stack([param[0], param[1], param[2], param[3], param[4], param[5], _ctrl_bool]), fmt='%d' )
 
         # enable - disable UI control
-        self._Temperature_PID_Setting_isEnabled(True)
+        self._Temperature_Setting_isEnabled(True)
 
 
     def Temperature_Control_OFF(self):
@@ -1098,22 +1090,13 @@ class MainWindow(QtGui.QMainWindow):
         np.savetxt( _path,  np.row_stack([param[0], param[1], param[2], param[3], param[4], param[5], _ctrl_bool]), fmt='%d' )
 
         # enable - disable UI control
-        self._Temperature_PID_Setting_isEnabled(False)
+        self._Temperature_Setting_isEnabled(False)
 
-    def _Temperature_PID_Setting_isEnabled(self, my_bool):
-        # PID set button
-        self.ui.pButton_PID_Set.setEnabled(my_bool)
-        # Tempeature set button
+    def _Temperature_Setting_isEnabled(self, my_bool):
+        # T SET and its spin box follow the TEC switch; the PID has its own
+        # window (Tools > PID Control) and follows the connection instead
         self.ui.pButton_Temperature_Set.setEnabled(my_bool)
-        # PID param control
-        self.ui.spinBox_Cycling_Time.setEnabled(my_bool)
-        self.ui.spinBox_P_Share.setEnabled(my_bool)
-        self.ui.spinBox_I_Share.setEnabled(my_bool)
-        self.ui.spinBox_D_Share.setEnabled(my_bool)
-        # temperature param control
         self.ui.doubleSpinBox_Temperature.setEnabled(my_bool)
-        # default parameter selection
-        self.ui.cBox_PID.setEnabled(my_bool)
 
     def _setup_overtone_buttons(self):
         """Phase 3b: compact F0..F9 quick-select buttons (adapted from openQCM
@@ -1186,42 +1169,6 @@ class MainWindow(QtGui.QMainWindow):
     # PID CONTROL FUNCTION
     ###########################################################################
 
-    def PID_Set (self):
-        # TODO PID SET HERE
-        print ("Setting PID Parameter")
-        self._get_PID()
-
-        # get PID parameters from UI
-        _var_cycling_time = self.ui.spinBox_Cycling_Time.value()
-        _var_P_share = self.ui.spinBox_P_Share.value()
-        _var_I_Share = self.ui.spinBox_I_Share.value()
-        _var_D_Share = self.ui.spinBox_D_Share.value()
-
-        # send PID parameters over the persistent connection (short gap between commands)
-        for msg in ('C' + str(int(_var_cycling_time)),
-                    'P' + str(int(_var_P_share)),
-                    'I' + str(int(_var_I_Share)),
-                    'D' + str(int(_var_D_Share))):
-            sleep(0.1)
-            self._serial_write((msg + '\n').encode())
-
-    def _get_PID(self):
-        # TODO get pid parameters from main gui
-        _var_cycling_time = self.ui.spinBox_Cycling_Time.value()
-        _var_P_share = self.ui.spinBox_P_Share.value()
-        _var_I_Share = self.ui.spinBox_I_Share.value()
-        _var_D_Share = self.ui.spinBox_D_Share.value()
-        # get temperature param
-        _var = self.ui.doubleSpinBox_Temperature.value() * 1000
-        # change the setting boolean variable
-        _var_bool = 1
-        # get current value of control temperature boolean
-        param = loadtxt(Constants.manual_frequencies_path)
-        _ctrl_bool = param[6]
-
-        _path = Constants.manual_frequencies_path
-        np.savetxt( _path,  np.row_stack( [_var, _var_cycling_time, _var_P_share, _var_I_Share, _var_D_Share, _var_bool, _ctrl_bool] ), fmt='%d'  )
-
     def _reset_temperature_config(self):
         """Set-point and the two flags back to their defaults; PID rows kept.
 
@@ -1255,22 +1202,8 @@ class MainWindow(QtGui.QMainWindow):
 
         # update indicator to default value
         self.ui.doubleSpinBox_Temperature.setValue(Constants.Temperature_Set_Value)
-        self.ui.spinBox_Cycling_Time.setValue(Constants.cycling_time_default)
-        self.ui.spinBox_P_Share.setValue(Constants.P_share_default)
-        self.ui.spinBox_I_Share.setValue(Constants.I_share_default)
-        self.ui.spinBox_D_Share.setValue(Constants.D_share_default)
-
-
-    def _PID_setting_changed(self):
-        print ("PID setting changed ")
-        _my_index = self.ui.cBox_PID.currentIndex()
-
-        self.ui.spinBox_Cycling_Time.setValue(Constants.cycling_time_setting[_my_index])
-        self.ui.spinBox_P_Share.setValue(Constants.P_share_setting[_my_index])
-        self.ui.spinBox_I_Share.setValue(Constants.I_share_setting[_my_index])
-        self.ui.spinBox_D_Share.setValue(Constants.D_share_setting[_my_index])
-
-        # TODO add automatic pid setting push button
+        # the PID Control window, if open, must show the file and not the past
+        self._sync_pid_control()
     
     # VER 0.1.4 check if the datalog sampling time is changed 
     def _datalog_sampling_time_changed(self):
@@ -2933,10 +2866,7 @@ class MainWindow(QtGui.QMainWindow):
 
         self.ui.cBox_Source.currentIndexChanged.connect(self._source_changed)
         self.ui.pButton_Temperature_Set.clicked.connect(self.temperatureSet)
-        self.ui.pButton_PID_Set.clicked.connect(self.PID_Set)
 
-        self.ui.cBox_PID.currentIndexChanged.connect(self._PID_setting_changed)
-        
         # VER 0.1.4
         # add changed sampling data file function 
         self.ui.cBox_sampling_time.currentIndexChanged.connect(self._datalog_sampling_time_changed)

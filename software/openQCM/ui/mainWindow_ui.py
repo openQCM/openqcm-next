@@ -558,9 +558,9 @@ class Ui_MainWindow(object):
         # Temperature Control widgets go directly into the groupTempPID card
         # (no inner QTabWidget wrapper / extra bordered box). `self.tab` is a
         # plain, borderless container holding gridLayout_4; it is added straight
-        # to the card in _build_sidebar. The PID widgets live on a hidden,
-        # standalone `tab_2` (kept alive for the controller — the advanced
-        # temperature/PID window will reuse them).
+        # to the card in _build_sidebar. The PID parameters have their own
+        # window, Tools > PID Control (ui/pidControlDialog.py); nothing about
+        # them lives in the sidebar any more.
         self.tab = QtWidgets.QWidget(self.sidebarContainer)
         self.tab.setObjectName("tab")
         self.gridLayout_6 = QtWidgets.QGridLayout(self.tab)
@@ -619,50 +619,6 @@ class Ui_MainWindow(object):
         self.gridLayout_4.addLayout(_treadout, 3, 0, 1, 4)
         self.gridLayout_6.addLayout(self.gridLayout_4, 0, 0, 1, 1)
 
-        # PID Control — hidden, standalone (kept alive for the controller)
-        self.tab_2 = QtWidgets.QWidget(self.sidebarContainer)
-        self.tab_2.setObjectName("tab_2")
-        self.tab_2.hide()
-        self.gridLayout_3 = QtWidgets.QGridLayout(self.tab_2)
-        self.gridLayout_3.setObjectName("gridLayout_3")
-        self.pButton_PID_Set = QtWidgets.QPushButton("PID Set", self.tab_2)
-        self.pButton_PID_Set.setObjectName("pButton_PID_Set")
-        self.cBox_PID = ChevronComboBox(self.tab_2)
-        self.cBox_PID.setObjectName("cBox_PID")
-        self._label(self.tab_2, "label_Cycling_Time", "Cycling Time [msec]")
-        self.spinBox_Cycling_Time = ChevronSpinBox(self.tab_2)
-        self.spinBox_Cycling_Time.setObjectName("spinBox_Cycling_Time")
-        self.spinBox_Cycling_Time.setMinimum(1)
-        self.spinBox_Cycling_Time.setMaximum(1000)
-        self.spinBox_Cycling_Time.setValue(50)
-        self._label(self.tab_2, "label_P_Share", "P Share [mA/K]")
-        self.spinBox_P_Share = ChevronSpinBox(self.tab_2)
-        self.spinBox_P_Share.setObjectName("spinBox_P_Share")
-        self.spinBox_P_Share.setMaximum(100000)
-        self.spinBox_P_Share.setValue(1000)
-        self._label(self.tab_2, "label_I_Share", "I Share [mA/(K*sec)]")
-        self.spinBox_I_Share = ChevronSpinBox(self.tab_2)
-        self.spinBox_I_Share.setObjectName("spinBox_I_Share")
-        self.spinBox_I_Share.setMaximum(100000)
-        self.spinBox_I_Share.setSingleStep(0)
-        self.spinBox_I_Share.setValue(200)
-        self._label(self.tab_2, "label_D_Share", "D Share [(mA*s)/K]")
-        self.spinBox_D_Share = ChevronSpinBox(self.tab_2)
-        self.spinBox_D_Share.setObjectName("spinBox_D_Share")
-        self.spinBox_D_Share.setMaximum(100000)
-        self.spinBox_D_Share.setValue(100)
-        self.gridLayout_3.addWidget(self.pButton_PID_Set, 0, 0, 1, 1)
-        self.gridLayout_3.addWidget(self.cBox_PID, 0, 1, 1, 1)
-        self.gridLayout_3.addWidget(self.label_Cycling_Time, 1, 0, 1, 1)
-        self.gridLayout_3.addWidget(self.spinBox_Cycling_Time, 1, 1, 1, 1)
-        self.gridLayout_3.addWidget(self.label_P_Share, 2, 0, 1, 1)
-        self.gridLayout_3.addWidget(self.spinBox_P_Share, 2, 1, 1, 1)
-        self.gridLayout_3.addWidget(self.label_I_Share, 3, 0, 1, 1)
-        self.gridLayout_3.addWidget(self.spinBox_I_Share, 3, 1, 1, 1)
-        self.gridLayout_3.addWidget(self.label_D_Share, 4, 0, 1, 1)
-        self.gridLayout_3.addWidget(self.spinBox_D_Share, 4, 1, 1, 1)
-        # PID section stays hidden (tab_2.hide() above). Advanced temperature/PID
-        # control will move to a dedicated window (see HANDOFF).
 
     # ------------------------------------------------------------------ #
     # center: tabs [ Plots | System Log ]                                #
