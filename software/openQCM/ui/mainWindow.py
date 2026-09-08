@@ -2851,6 +2851,18 @@ class MainWindow(QtGui.QMainWindow):
         '''
     
     # Live Raw Data View: reads the acquisition buffers in memory, never a file.
+    def current_single_overtone(self):
+        """Single-frequency mode: index of the overtone being interrogated
+        (0 = fundamental, the slot the acquisition fills); None in multiscan.
+        Same mapping as the F1..F9 chips: cBox_Speed lists the overtones
+        highest first."""
+        if self._get_source() != SourceType.serial:
+            return None
+        count = self.ui.cBox_Speed.count()
+        if not count:
+            return None
+        return count - 1 - self.ui.cBox_Speed.currentIndex()
+
     def _open_raw_data_view(self):
         from openQCM.ui.rawDataView import RawDataViewDialog
 
