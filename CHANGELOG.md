@@ -43,6 +43,10 @@ process between sweeps through `ParserProcess.pid_read_request` / `add_pid` and 
 message, PID queue in that order (14 queues). Verified: signature order, request taken once, an
 answer reaches the worker, both processes take the request, the app imports.
 
+And the fix `7a7f1b3`, clean: T SET no longer overwrites the PID rows of `config.txt` with the hidden
+sidebar widgets (it sent P1000 I200 D100 after a T SET during a run). Verified here: a T SET at
+20.0 leaves rows 1–4 and 6 as they were.
+
 ### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
 
 `b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
