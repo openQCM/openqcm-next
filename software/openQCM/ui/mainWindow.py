@@ -997,18 +997,17 @@ class MainWindow(QtGui.QMainWindow):
         # np.savetxt( _path,  [_var])
         # return self.ui.doubleSpinBox_Temperature.value()
 
-        _var_cycling_time = self.ui.spinBox_Cycling_Time.value()
-        _var_P_share = self.ui.spinBox_P_Share.value()
-        _var_I_Share = self.ui.spinBox_I_Share.value()
-        _var_D_Share = self.ui.spinBox_D_Share.value()
+        # the flag that makes the acquisition send the set-point at its next sweep
         _var_bool = 1
 
-        # VER 0.1.2
-        # get temperature control boolean
+        # ⚠️ Rows 1-4 (the PID) and 6 (TEC on/off) come from the file, not from
+        # widgets. This used to copy the PID from the hidden sidebar spin boxes,
+        # which nothing keeps up to date any more: every T SET silently put the
+        # file's PID back to whatever they held, and the acquisition then sent
+        # it (measured: P1000 I200 D100 after a T SET during a run).
         param = loadtxt(Constants.manual_frequencies_path)
-        _ctrl_bool = param[6]
 
-        np.savetxt( _path,  np.row_stack( [_var, _var_cycling_time, _var_P_share, _var_I_Share, _var_D_Share, _var_bool, _ctrl_bool] ), fmt='%d'  )
+        np.savetxt( _path,  np.row_stack( [_var, param[1], param[2], param[3], param[4], _var_bool, param[6]] ), fmt='%d'  )
 
         return _var
 
