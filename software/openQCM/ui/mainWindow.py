@@ -473,8 +473,11 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.actionImpedanceDataView.triggered.connect(
             self._open_impedance_data_view)
         self.ui.actionPeakDataView.triggered.connect(self._open_peak_data_view)
+        self.ui.actionPIDControl.triggered.connect(self._open_pid_control)
         self.ui.actionOpenLog.triggered.connect(self._open_datalog_view)
         self._peak_data_view = None
+        # the PID Control window, while it is open
+        self._pid_control = None
         self._datalog_views = []
 
         # The file-based viewer only has something to read when the sweep dump is
@@ -923,6 +926,9 @@ class MainWindow(QtGui.QMainWindow):
         time.sleep(0.5)
         # reset temperature and PID to default values
         self._set_PID_T_default()
+        # ⚠️ that also put the PID rows of config.txt back to the default: the
+        # PID Control window, if open, must show the file and not the past
+        self._sync_pid_control()
 
         # set pid setting combo box to default factory
         self.ui.cBox_PID.setCurrentIndex(Constants.PID_Setting_default_index)
@@ -1680,6 +1686,7 @@ class MainWindow(QtGui.QMainWindow):
             self._close_raw_data_view()
             self._close_impedance_data_view()
             self._close_peak_data_view()
+            self._close_pid_control()
             self._close_datalog_views()
 
             # Restore stdout/stderr before the window is destroyed
@@ -1785,6 +1792,9 @@ class MainWindow(QtGui.QMainWindow):
             act = getattr(self.ui, name, None)
             if act is not None:
                 act.setEnabled(can_ask)
+        # PID Control is not a query: it has a path during an acquisition too,
+        # so it follows the connection, not the idle port
+        self._sync_pid_control()
 
     def _enable_ui(self, enabled):
 
@@ -3164,6 +3174,135 @@ class MainWindow(QtGui.QMainWindow):
             dialog.close()
         except RuntimeError:
             pass
+
+    # ------------------------------------------------------------------
+    # Tools > PID Control: the TEC controller's loop parameters
+    # ------------------------------------------------------------------
+    # Two paths to the controller, and a number that tells them apart.
+    # Standby: the GUI holds the port, sends C/P/I/D itself and then asks the
+    # controller C? P? I? D? -- the four values it reports are shown in the
+    # window, so "set" means "read back", not "written". Acquisition running:
+    # the child process owns the port; the values go into config.txt, which
+    # `_Temperature_PID_control` re-reads at every sweep and forwards, and
+    # each parameter it actually sends is printed by the process. Nothing here
+    # touches the temperature set-point or the two flags in that file: the old
+    # PID Set raised the flag that re-sends the temperature, for no reason.
+    def _open_pid_control(self):
+        from openQCM.ui.pidControlDialog import PIDControlDialog
+
+        if self._pid_control is not None:
+            self._pid_control.raise_()
+            self._pid_control.activateWindow()
+            return
+
+        dialog = PIDControlDialog(self._read_pid_config(),
+                                  theme_name=self._theme, parent=self)
+        dialog.apply_requested.connect(self._apply_pid)
+        dialog.destroyed.connect(self._forget_pid_control)
+        self._pid_control = dialog
+        self._sync_pid_control()
+        dialog.show()
+
+    def _forget_pid_control(self, *_args):
+        self._pid_control = None
+
+    def _close_pid_control(self):
+        dialog = self._pid_control
+        self._pid_control = None
+        if dialog is None:
+            return
+        try:
+            dialog.close()
+        except RuntimeError:
+            pass
+
+    def _sync_pid_control(self):
+        """Values from config.txt, Set PID enabled iff a board is connected."""
+        dialog = getattr(self, "_pid_control", None)
+        if dialog is None:
+            return
+        try:
+            dialog.set_values(*self._read_pid_config())
+            dialog.set_device_connected(self._serial_connected)
+        except RuntimeError:
+            self._pid_control = None
+
+    def _read_pid_config(self):
+        """(C, P, I, D) as config.txt holds them; the defaults if it cannot be read."""
+        try:
+            param = loadtxt(Constants.manual_frequencies_path)
+            return tuple(int(param[k]) for k in (1, 2, 3, 4))
+        except Exception as e:
+            print(TAG, "config.txt unreadable, showing the PID defaults: {}".format(e))
+            return (Constants.cycling_time_default, Constants.P_share_default,
+                    Constants.I_share_default, Constants.D_share_default)
+
+    def _write_pid_config(self, cycling, p_share, i_share, d_share):
+        """Rows 1-4 of config.txt; the set-point and the two flags stay as they are."""
+        _path = Constants.manual_frequencies_path
+        param = loadtxt(_path)
+        np.savetxt(_path, np.row_stack([param[0], cycling, p_share, i_share,
+                                        d_share, param[5], param[6]]), fmt='%d')
+
+    def _apply_pid(self, cycling, p_share, i_share, d_share):
+        dialog = self._pid_control
+        wanted = (("C", cycling), ("P", p_share), ("I", i_share), ("D", d_share))
+        sent = " ".join("{}{}".format(k, v) for k, v in wanted)
+
+        def status(text):
+            print(TAG, "PID Control: {}".format(text))
+            Log.i(TAG, "PID Control: {}".format(text))
+            if dialog is not None:
+                try:
+                    dialog.show_status(text)
+                except RuntimeError:
+                    pass
+
+        try:
+            self._write_pid_config(cycling, p_share, i_share, d_share)
+        except Exception as e:
+            status("could not write config.txt ({}); nothing sent.".format(e))
+            return
+
+        if self.worker is not None and self.worker.is_running():
+            status("{} saved. The acquisition owns the port: it sends every "
+                   "changed parameter at its next sweep, and prints each one "
+                   "in the console as 'PID sent to the controller'.".format(sent))
+            return
+
+        if not self._can_query_device():
+            status("{} saved to config.txt only: the port is not available, "
+                   "nothing was sent.".format(sent))
+            return
+
+        for key, value in wanted:
+            sleep(0.1)
+            if not self._serial_write("{}{}\n".format(key, int(value)).encode()):
+                status("{}: write of {}{} failed, see the console.".format(
+                    sent, key, int(value)))
+                return
+
+        # read back: the observable that separates "written" from "accepted"
+        reported = {}
+        for key, _value in wanted:
+            reply = _first_reply_line(self._serial_query(
+                "{}?\n".format(key).encode(), wait=0.2))
+            try:
+                reported[key] = int(reply)
+            except ValueError:
+                reported[key] = None
+
+        shown = " ".join("{}{}".format(k, "?" if reported[k] is None else reported[k])
+                         for k, _v in wanted)
+        wrong = [k for k, v in wanted if reported[k] != int(v)]
+        if not wrong:
+            status("Sent {}. Controller reports {}: all four match.".format(sent, shown))
+        elif all(reported[k] is None for k, _v in wanted):
+            status("Sent {}. The controller did not answer the read-back "
+                   "({}): is the TEC controller powered?".format(sent, shown))
+        else:
+            status("Sent {}. Controller reports {}: MISMATCH on {}.".format(
+                sent, shown, ", ".join(wrong)))
 
     def _close_raw_data_view(self):
         """Called from the main closeEvent; the dialog may already be gone."""
