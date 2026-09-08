@@ -259,6 +259,11 @@ So the file is the memory, and the dialog never touches the serial port: it emit
 | acquisition running | rows 1–4 written, nothing sent by the GUI | the process prints `PID sent to the controller: P600` for each parameter it actually forwards — once, at the next sweep, and only for what changed |
 | not connected | Set PID is disabled | — |
 
+**Read PID** (`_read_pid`) is the other direction, on demand: `C? P? I? D?`, the answers go into
+the spin boxes and the status line says "same as config.txt" or "config.txt has …". It shows, it
+does not save — the file changes only on Set PID, so *read, then set* is how the controller's values
+become the file's. Enabled only while the GUI holds the port (connected, not measuring).
+
 Only rows 1–4 are written: the old PID Set also raised the flag that re-sends the temperature
 set-point, for nothing. Set PID follows the connection, not the TEC switch — the controller takes
 its parameters with the TEC off.

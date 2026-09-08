@@ -30,6 +30,9 @@ Conventional Commits. Versions are marked by Git tags.
     cycle → `controller had C50 P1000 I200 D100, set to C50 P800 I200 D100, read back: match`;
     reconnect → `aligned`; `P900` typed from a terminal → seen and overwritten.
   - Verified at the bench in both multiscan and single mode, seven-point procedure, all passed.
+  - **Read PID** (`0f21919`): asks the controller `C? P? I? D?` and shows the answers in the spin boxes,
+    saying whether they equal `config.txt`. Shows, does not save — Set PID does. Enabled only while
+    the GUI holds the port; a partial answer or a board still streaming is reported, not shown.
 - **The `0.1.5c` firmware images exist** — `firmware/openQCM_Next_py_0.1.5c_teensy/` and
   `..._0.1.5c_TEST_teensy/` now carry their `.ino.TEENSY40.hex`, built with the `teensy:avr 1.58.1`
   core (FLASH 55 120 B and 45 500 B). ⚠️ HANDOFF §5 claimed the 0.1.5c image was *already built*;
