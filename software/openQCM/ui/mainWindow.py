@@ -410,8 +410,10 @@ class MainWindow(QtGui.QMainWindow):
 
         
 
-        # set T and PID to defaul values at init
-        self._set_PID_T_default()
+        # set-point and flags to their defaults at init. ⚠️ Not the PID rows:
+        # they are the operator's last Set PID and outlive a restart, so that
+        # the controller is put back to them at the next connect.
+        self._reset_temperature_config()
 
         # VER 0.1.6 TODO multiscan y-range limit lists
         # VER 0.1.2
@@ -924,11 +926,12 @@ class MainWindow(QtGui.QMainWindow):
 
         # add a little delay
         time.sleep(0.5)
-        # reset temperature and PID to default values
-        self._set_PID_T_default()
-        # ⚠️ that also put the PID rows of config.txt back to the default: the
-        # PID Control window, if open, must show the file and not the past
-        self._sync_pid_control()
+        # reset the temperature set-point to its default. ⚠️ The PID rows are
+        # left alone: a STOP used to put them back to the default while the
+        # controller kept what the acquisition had sent (measured: P800 in the
+        # controller, 500 in the file), and the next START sent the default
+        # again. Now file, window and controller stay the same across STOP.
+        self._reset_temperature_config()
 
         # set pid setting combo box to default factory
         self.ui.cBox_PID.setCurrentIndex(Constants.PID_Setting_default_index)
@@ -1248,6 +1251,26 @@ class MainWindow(QtGui.QMainWindow):
 
         _path = Constants.manual_frequencies_path
         np.savetxt( _path,  np.row_stack( [_var, _var_cycling_time, _var_P_share, _var_I_Share, _var_D_Share, _var_bool, _ctrl_bool] ), fmt='%d'  )
+
+    def _reset_temperature_config(self):
+        """Set-point and the two flags back to their defaults; PID rows kept.
+
+        Falls back to the full default file when config.txt is missing or
+        unreadable, which is the only case in which the PID rows are written.
+        """
+        _path = Constants.manual_frequencies_path
+        try:
+            param = loadtxt(_path)
+            cycling, p_share, i_share, d_share = (int(param[k]) for k in (1, 2, 3, 4))
+        except Exception as e:
+            print(TAG, "config.txt unreadable ({}): writing the full default".format(e))
+            self._set_PID_T_default()
+            return
+        np.savetxt(_path, np.row_stack([Constants.Temperature_Set_Value * 1000,
+                                        cycling, p_share, i_share, d_share,
+                                        Constants.PID_boolean_default,
+                                        Constants.CTRL_boolean_default]), fmt='%d')
+        self.ui.doubleSpinBox_Temperature.setValue(Constants.Temperature_Set_Value)
 
     def _set_PID_T_default(self):
         _path = Constants.manual_frequencies_path
@@ -2764,6 +2787,9 @@ class MainWindow(QtGui.QMainWindow):
             # it is printed on nothing else, so the GUI is where it becomes
             # visible at all.
             self._query_serial_number(auto_mode=True)
+            # and the TEC controller's PID, which is volatile: after a power
+            # cycle it holds the factory values whatever the file says
+            self._align_pid_with_controller()
         else:
             # ---- DISCONNECT ----
             self._disconnect_serial()
@@ -3244,22 +3270,58 @@ class MainWindow(QtGui.QMainWindow):
         np.savetxt(_path, np.row_stack([param[0], cycling, p_share, i_share,
                                         d_share, param[5], param[6]]), fmt='%d')
 
-    def _apply_pid(self, cycling, p_share, i_share, d_share):
+    # -- shared by Set PID and the connect-time alignment -----------------
+    @staticmethod
+    def _pid_text(values):
+        """(C, P, I, D) -> 'C50 P500 I50 D300'; None prints as '?'."""
+        return " ".join("{}{}".format(k, "?" if v is None else int(v))
+                        for k, v in zip("CPID", values))
+
+    def _query_pid(self):
+        """Ask the controller C? P? I? D?; a value it did not answer is None.
+
+        Returns None as a whole when the board is still streaming sweep data,
+        because then nothing it says is an answer to these questions.
+        """
+        reported = []
+        for key in "CPID":
+            reply = _first_reply_line(self._serial_query(
+                "{}?\n".format(key).encode(), wait=0.2))
+            if self._board_busy(reply):
+                return None
+            try:
+                reported.append(int(reply))
+            except ValueError:
+                reported.append(None)
+        return tuple(reported)
+
+    def _send_pid(self, values):
+        """Write C/P/I/D on the idle port; the first failed write ends it."""
+        for key, value in zip("CPID", values):
+            sleep(0.1)
+            if not self._serial_write("{}{}\n".format(key, int(value)).encode()):
+                return False
+        return True
+
+    def _pid_dialog_status(self, text):
         dialog = self._pid_control
-        wanted = (("C", cycling), ("P", p_share), ("I", i_share), ("D", d_share))
-        sent = " ".join("{}{}".format(k, v) for k, v in wanted)
+        if dialog is not None:
+            try:
+                dialog.show_status(text)
+            except RuntimeError:
+                pass
+
+    def _apply_pid(self, cycling, p_share, i_share, d_share):
+        wanted = (int(cycling), int(p_share), int(i_share), int(d_share))
+        sent = self._pid_text(wanted)
 
         def status(text):
             print(TAG, "PID Control: {}".format(text))
             Log.i(TAG, "PID Control: {}".format(text))
-            if dialog is not None:
-                try:
-                    dialog.show_status(text)
-                except RuntimeError:
-                    pass
+            self._pid_dialog_status(text)
 
         try:
-            self._write_pid_config(cycling, p_share, i_share, d_share)
+            self._write_pid_config(*wanted)
         except Exception as e:
             status("could not write config.txt ({}); nothing sent.".format(e))
             return
@@ -3275,34 +3337,75 @@ class MainWindow(QtGui.QMainWindow):
                    "nothing was sent.".format(sent))
             return
 
-        for key, value in wanted:
-            sleep(0.1)
-            if not self._serial_write("{}{}\n".format(key, int(value)).encode()):
-                status("{}: write of {}{} failed, see the console.".format(
-                    sent, key, int(value)))
-                return
+        if not self._send_pid(wanted):
+            status("{}: a write failed, see the console.".format(sent))
+            return
 
         # read back: the observable that separates "written" from "accepted"
-        reported = {}
-        for key, _value in wanted:
-            reply = _first_reply_line(self._serial_query(
-                "{}?\n".format(key).encode(), wait=0.2))
-            try:
-                reported[key] = int(reply)
-            except ValueError:
-                reported[key] = None
-
-        shown = " ".join("{}{}".format(k, "?" if reported[k] is None else reported[k])
-                         for k, _v in wanted)
-        wrong = [k for k, v in wanted if reported[k] != int(v)]
+        reported = self._query_pid()
+        if reported is None:
+            status("Sent {}. The board is still sending measurement data, the "
+                   "read-back was skipped.".format(sent))
+            return
+        shown = self._pid_text(reported)
+        wrong = [k for k, w, r in zip("CPID", wanted, reported) if r != w]
         if not wrong:
             status("Sent {}. Controller reports {}: all four match.".format(sent, shown))
-        elif all(reported[k] is None for k, _v in wanted):
+        elif all(r is None for r in reported):
             status("Sent {}. The controller did not answer the read-back "
                    "({}): is the TEC controller powered?".format(sent, shown))
         else:
             status("Sent {}. Controller reports {}: MISMATCH on {}.".format(
                 sent, shown, ", ".join(wrong)))
+
+    def _align_pid_with_controller(self):
+        """On connect: make the controller hold what config.txt holds.
+
+        The MTD415T is volatile -- after a power cycle it has its factory
+        values whatever anyone set before -- so the file is the memory and the
+        alignment goes software -> machine, the same direction START has
+        always taken at its first sweep. What the controller had, what it was
+        set to and what it reads back afterwards all go to the log: one line,
+        with the numbers, is how this stays verifiable.
+        """
+        if not self._can_query_device():
+            return
+
+        def report(text):
+            print(TAG, "PID on connect: {}".format(text))
+            Log.i(TAG, "PID on connect: {}".format(text))
+            self._pid_dialog_status(text)
+
+        wanted = tuple(self._read_pid_config())
+        had = self._query_pid()
+        if self._link_lost():
+            report("link lost while asking the controller; nothing sent.")
+            return
+        if had is None:
+            report("the board is still sending measurement data; nothing sent.")
+            return
+        if all(v is None for v in had):
+            report("the TEC controller did not answer ({}); nothing sent. Is it "
+                   "powered?".format(self._pid_text(had)))
+            return
+        if had == wanted:
+            report("aligned, controller reports {}.".format(self._pid_text(had)))
+            return
+
+        if not self._send_pid(wanted):
+            report("controller had {}, write of {} failed, see the console.".format(
+                self._pid_text(had), self._pid_text(wanted)))
+            return
+        back = self._query_pid()
+        if back is None or all(v is None for v in back):
+            report("controller had {}, set to {}, read back: no answer.".format(
+                self._pid_text(had), self._pid_text(wanted)))
+        elif back == wanted:
+            report("controller had {}, set to {}, read back: match.".format(
+                self._pid_text(had), self._pid_text(wanted)))
+        else:
+            report("controller had {}, set to {}, read back {}: MISMATCH.".format(
+                self._pid_text(had), self._pid_text(wanted), self._pid_text(back)))
 
     def _close_raw_data_view(self):
         """Called from the main closeEvent; the dialog may already be gone."""
