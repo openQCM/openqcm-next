@@ -140,7 +140,10 @@ class PIDControlDialog(QtWidgets.QDialog):
     def set_device_connected(self, connected):
         """Enable Set PID only when there is a board to send to."""
         self.pButton_set.setEnabled(bool(connected))
-        if not connected:
+        if connected:
+            self.show_status("Connected. Set PID sends the parameters to the "
+                             "controller and reads them back.")
+        else:
             self.show_status("Connect to the device to send the parameters. "
                              "The values shown are those in config.txt.")
 
