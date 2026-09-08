@@ -69,6 +69,9 @@ class Worker:
         self._queue_F_SWEEP_multi = Queue()
         # lines the acquisition process wants the operator to read
         self._queue_message = Queue()
+        # the controller's PID as read by the acquisition process on request
+        self._queue_pid = Queue()
+        self._pid_reported = None
         
         # TODO AMPLI init the list of array for amplitude sweep
         self._A_multi = None 
@@ -227,7 +230,7 @@ class Worker:
 # =============================================================================
         self._parser_process = ParserProcess(self._queue1, self._queue2, self._queue3, self._queue4, self._queue5, self._queueCurrentTec, self._queue6, 
                                              self._queue_F_multi, self._queue_D_multi, self._queue_A_multi, self._queue_P_multi,
-                                             self._queue_message)
+                                             self._queue_message, self._queue_pid)
         
         
         # GET and SET SOURCE TYPE 
@@ -357,6 +360,7 @@ class Worker:
         self.consume_queue_P_multi()
         # the last lines the process wrote before it was told to stop
         self.consume_queue_message()
+        self.consume_queue_pid()
         
         # VER 0.1.2
 # =============================================================================
@@ -455,6 +459,24 @@ class Worker:
         # queue3 for elaborated data: errors
         while not self._queue6.empty():
             self._queue_data6(self._queue6.get(False))
+
+    def consume_queue_pid(self):
+        # the answer to a Read PID the acquisition process was asked to make
+        while not self._queue_pid.empty():
+            self._pid_reported = tuple(self._queue_pid.get(False))
+
+    def pop_pid_reported(self):
+        """The last answer, once; None until the process has answered."""
+        reported, self._pid_reported = self._pid_reported, None
+        return reported
+
+    def request_pid_read(self):
+        """Ask the running acquisition to read the PID between two sweeps."""
+        parser = getattr(self, "_parser_process", None)
+        if parser is None:
+            return False
+        parser.request_pid_read()
+        return True
 
     def consume_queue_message(self):
         # text from the acquisition process, printed HERE, in the GUI process:

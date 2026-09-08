@@ -25,6 +25,7 @@ class ParserProcess(multiprocessing.Process):
                        data_queue_A_multi, 
                        data_queue_P_multi,
                        data_queue_message=None,
+                       data_queue_pid=None,
                        ):
         """
         :param data_queue{i}: References to queue where processed data will be put.
@@ -55,6 +56,11 @@ class ParserProcess(multiprocessing.Process):
         # text for the operator, printed by the GUI process: the System Log
         # only sees what the main process prints, never what this one does
         self._out_queue_message = data_queue_message
+        # the answer to a Read PID asked while the acquisition owns the port
+        self._out_queue_pid = data_queue_pid
+        # ...and the request itself, raised by the GUI, taken by the process
+        # between two sweeps, the only moment the board is listening
+        self.pid_read_request = multiprocessing.Event()
 
         #print(TAG, 'Process ready')
         #Log.d(TAG, "Process ready")
@@ -137,6 +143,22 @@ class ParserProcess(multiprocessing.Process):
             print(text)
             return
         self._out_queue_message.put(str(text))
+
+    # -- Read PID during an acquisition -----------------------------------
+    def request_pid_read(self):
+        self.pid_read_request.set()
+
+    def take_pid_read_request(self):
+        """True once per request: the process that answers also clears it."""
+        if self.pid_read_request.is_set():
+            self.pid_read_request.clear()
+            return True
+        return False
+
+    def add_pid(self, values):
+        """(C, P, I, D) as the controller answered, None where it did not."""
+        if self._out_queue_pid is not None:
+            self._out_queue_pid.put(tuple(values))
         
     def stop(self):
         """
