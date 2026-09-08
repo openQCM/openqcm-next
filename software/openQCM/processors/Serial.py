@@ -221,6 +221,17 @@ class SerialProcess(multiprocessing.Process):
         ## ADDS new serial data to internal queue
         self._parser1.add1(filtered_mag) ##############
         self._parser2.add2(phase)        ##############
+        # The same sweep multiscan ships for the Raw Data View -- baseline-
+        # corrected amplitude and raw phase over the sweep's own axis -- in the
+        # slot of the one overtone this mode interrogates. The view reads the
+        # slots by overtone index in both modes, so it needs no second path.
+        _slots = len(Constants.overtone_dummy)
+        _freq_list, _amp_list, _phase_list = [0] * _slots, [0] * _slots, [0] * _slots
+        _freq_list[self._overtone_int] = np.asarray(self._readFREQ).tolist()
+        _amp_list[self._overtone_int] = np.asarray(mag_beseline_corrected).tolist()
+        _phase_list[self._overtone_int] = np.asarray(phase).tolist()
+        self._parser1.add_A_multi([_freq_list, _amp_list])
+        self._parser2.add_P_multi([_freq_list, _phase_list])
         # Adds new calculated data (resonance frequency and dissipation) to internal queues
         #self._parser3.add3([time()-timestamp,freq_range[int(index_peak_fit)]])
         self._parser3.add3([w,freq_range_mean]) #time()-timestamp - time in seconds

@@ -10,6 +10,10 @@ object for its buffers. There is no set_data(), no signal from the worker, no
 registration. So when the dialog is closed it costs exactly nothing -- there is
 no code path left running -- and the acquisition never waits on the GUI.
 
+*It shows what is being measured.* Multiscan: one tab per overtone. Single
+frequency: the one overtone being interrogated, tab bar hidden, read from the
+same buffers -- the single process fills its slot the way multiscan fills five.
+
 *It reads memory only.* Never a file. The sweep dump under sweep_data/ is a
 separate development tool; deleting it entirely leaves this dialog working and
 unchanged, because the two share no state and no code.
@@ -249,6 +253,18 @@ class RawDataViewDialog(QtWidgets.QDialog):
         worker = getattr(self._host, "worker", None)
         if worker is None:
             return
+
+        # Single-frequency mode interrogates one overtone: show that tab alone,
+        # with the tab bar gone, since the other four have nothing to say. The
+        # process fills its slot exactly as multiscan fills all five, so the
+        # reading below is the same in both modes.
+        single = getattr(self._host, "current_single_overtone", lambda: None)()
+        if single is not None and 0 <= single < len(self._panes):
+            if self._tabs.currentIndex() != single:
+                self._tabs.setCurrentIndex(single)
+            self._tabs.tabBar().setVisible(False)
+        else:
+            self._tabs.tabBar().setVisible(True)
 
         index = self._tabs.currentIndex()
         if index < 0 or index >= len(self._panes):
