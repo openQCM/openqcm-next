@@ -62,6 +62,11 @@ built like Raw Data View and Peak Data View, one instance, closed with the main 
 update blocks in `_update_plot` collapse into `_update_tec_current_view()`. Verified here: compiles,
 the dialog builds and updates, the main window imports.
 
+And `b42e9a9` as `2e1e10f` (Tec Current follows a theme change while open) and `012b843` as `54b2459`
+(Raw Data View shows the one overtone a single-frequency run interrogates: `SerialProcess` ships its
+sweep into that overtone's slot, the view hides the tab bar and selects it), both clean. Verified here
+with the same headless script as on `main`: slot fill, F1..F9 mapping, tab selection and fit.
+
 ### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
 
 `b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
