@@ -30,6 +30,11 @@ Conventional Commits. Versions are marked by Git tags.
     cycle → `controller had C50 P1000 I200 D100, set to C50 P800 I200 D100, read back: match`;
     reconnect → `aligned`; `P900` typed from a terminal → seen and overwritten.
   - Verified at the bench in both multiscan and single mode, seven-point procedure, all passed.
+  - **The process's lines reach the System Log** (`d5d2457`): a message queue beside the eleven data
+    queues, `ParserProcess.add_message()` in the child and `Worker.consume_queue_message()` in the
+    GUI, drained with the others and once more on stop. The GUI prints the text, so console, System
+    Log tab and log file get it from one place; the child no longer prints it. The PID lines were
+    console-only until now.
   - **Read PID** (`0f21919`): asks the controller `C? P? I? D?` and shows the answers in the spin boxes,
     saying whether they equal `config.txt`. Shows, does not save — Set PID does. Enabled only while
     the GUI holds the port; a partial answer or a board still streaming is reported, not shown.

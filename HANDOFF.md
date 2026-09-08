@@ -256,8 +256,14 @@ So the file is the memory, and the dialog never touches the serial port: it emit
 | state | what happens | the observable |
 |---|---|---|
 | Standby | rows 1–4 of `config.txt` written, C/P/I/D sent on the persistent handle, then `C? P? I? D?` asked | the four values **the controller reports**, in the status line and the log: "all four match", "MISMATCH on P", "did not answer" |
-| acquisition running | rows 1–4 written, nothing sent by the GUI | the process prints `PID sent to the controller: P600` for each parameter it actually forwards — once, at the next sweep, and only for what changed |
+| acquisition running | rows 1–4 written, nothing sent by the GUI | the process reports `PID sent to the controller: P600` for each parameter it actually forwards — once, at the next sweep, and only for what changed |
 | not connected | Set PID is disabled | — |
+
+⚠️ **A print() in the acquisition process never reaches the System Log tab** — `LogStream` mirrors
+the GUI process only. Text for the operator goes through `ParserProcess.add_message()`; the worker
+drains that queue with the data queues (`consume_queue_message`, also once in `Worker.stop()`) and
+prints it in the GUI process, which is what puts it in the console, the tab and the log file at
+once. The four PID lines are the first users.
 
 **Read PID** (`_read_pid`) is the other direction, on demand: `C? P? I? D?`, the answers go into
 the spin boxes and the status line says "same as config.txt" or "config.txt has …". It shows, it
