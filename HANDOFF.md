@@ -287,6 +287,13 @@ now call `_reset_temperature_config()`, which puts set-point and flags back and 
 The full-default write survives as the fallback for an unreadable file and behind **TEC Reset**,
 which is an explicit reset and was left as it is.
 
+⚠️ **Nothing but Set PID may write rows 1–4.** `_get_temperature()` (T SET) used to rewrite all seven
+rows and take the PID from the hidden `tab_2` spin boxes; while init reset those widgets the fault
+was invisible (every T SET put Default #1 back), once init stopped touching them it sent the
+factory values (measured: P1000 I200 D100 after a T SET during a run, `7a7f1b3`). It writes the
+set-point and its flag now. The hidden widgets are stale by design until they are removed — do not
+read them.
+
 **On connect the controller is aligned to the file**, software → machine, the same direction
 START has always taken. `_align_pid_with_controller()` runs after the firmware and board-number
 queries: `C? P? I? D?`, and if the answer differs from the file, send the file and read back.

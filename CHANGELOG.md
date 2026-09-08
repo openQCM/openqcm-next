@@ -79,6 +79,11 @@ Conventional Commits. Versions are marked by Git tags.
   - Both compile for `teensy:avr:teensy40`; `Constants.FW_VERSION` moves to `0.1.5c` with them.
 
 ### Fixed
+- **T SET overwrote the PID rows of `config.txt`** (`7a7f1b3`) — `_get_temperature()` rewrote all seven
+  rows and took the PID from the spin boxes hidden in the sidebar, which nothing keeps current. Masked
+  while init reset those widgets to Default #1 (every T SET silently put 500/50/300 back), it
+  surfaced as P1000 I200 D100 sent by the acquisition after a T SET during a run. T SET now writes
+  the set-point and its flag; rows 1–4 and 6 come from the file.
 - **UNSET REF wiped the plots and did not unset the reference** — two faults, and the first was
   hiding the second.
   - `reference_not()` called `clear()`, so pressing it emptied the panels of a run that was still
