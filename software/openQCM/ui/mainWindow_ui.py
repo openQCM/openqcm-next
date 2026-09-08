@@ -171,6 +171,9 @@ class Ui_MainWindow(object):
         # snapshot of the last Peak Detection, read from the calibration files
         self.actionPeakDataView = QtWidgets.QAction("Peak Data View", MainWindow)
         self.actionPeakDataView.setObjectName("actionPeakDataView")
+        # the TEC controller's loop parameters, in their own window
+        self.actionPIDControl = QtWidgets.QAction("PID Control", MainWindow)
+        self.actionPIDControl.setObjectName("actionPIDControl")
         # the older viewer, which reads the sweep dump under sweep_data/
         self.actionRaw_Data = QtWidgets.QAction("Raw Data (from sweep files)",
                                                 MainWindow)
@@ -187,6 +190,7 @@ class Ui_MainWindow(object):
         self.actionFirmware.setObjectName("actionFirmware")
         self.menuTools.addAction(self.actionRawDataView)
         self.menuTools.addAction(self.actionPeakDataView)
+        self.menuTools.addAction(self.actionPIDControl)
         self.menuTools.addAction(self.actionRaw_Data)
         self.menuTools.addAction(self.actionTEC_current)
         self.actionSerialNumber = QtWidgets.QAction("Check Board Serial Number",
