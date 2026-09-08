@@ -281,6 +281,11 @@ def qss(p):
     QPushButton#pButton_Start[running="true"] {{ background: {brown}; }}
     QPushButton#pButton_Start[running="true"]:hover {{ background: {brown_hover}; }}
     QPushButton#pButton_Start:disabled {{ background: {disabled_bg}; color: {disabled_text}; }}
+    /* PID Control window: Set PID is the primary action, filled accent like Start */
+    QPushButton#pButton_pid_set {{ background: {accent}; color: {accent_text};
+        border: none; border-radius: 8px; padding: 8px 12px; }}
+    QPushButton#pButton_pid_set:hover {{ background: #007aa5; }}
+    QPushButton#pButton_pid_set:disabled {{ background: {disabled_bg}; color: {disabled_text}; }}
 
     /* Secondary "outline" buttons — the standard look for secondary-importance
        controls (less invasive; width adapts to the label). Covers Connect/
