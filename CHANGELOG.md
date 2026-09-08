@@ -27,6 +27,9 @@ Verified here after the cherry-pick: every touched file compiles, the app import
 menu order is the expected one, both processes carry the four log lines, and the connect-time
 alignment on a fake factory controller sends `C50 P500 I50 D300` and reads back "match".
 
+Followed by `0f21919` (Read PID: shows what the controller holds, does not save), cherry-picked clean;
+compiles and imports here.
+
 ### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
 
 `b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
