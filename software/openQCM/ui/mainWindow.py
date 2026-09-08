@@ -1072,8 +1072,11 @@ class MainWindow(QtGui.QMainWindow):
 
         # change the led color
         self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("warn"))
-        # set temoerature control to default
-        self.ui.doubleSpinBox_Temperature.setValue( Constants.Temperature_Set_Value )
+        # ⚠️ The set-point spin box is NOT reset here. Switching the TEC off
+        # changes neither the set-point in config.txt nor the one the
+        # controller holds, and a reset here used to put 25 on the indicator
+        # while both still had 20: the next ON then looked like it was going
+        # to the wrong temperature (bench, 2026-09-08).
 
         print ("Temperature Control OFF ")
         # disable TEC over the persistent connection
