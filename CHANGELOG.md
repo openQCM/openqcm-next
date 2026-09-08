@@ -53,6 +53,10 @@ controller still hold the set-point in force.
 And `5dab81d`, clean: PID Control layout, Set PID filled accent on the left and stretching, Read PID
 fixed on the right.
 
+And `51034e8` as `43483b7`, clean: the hidden sidebar PID widgets (`tab_2`) and the three functions
+only they used are removed; `_Temperature_PID_Setting_isEnabled` is now `_Temperature_Setting_isEnabled`.
+Verified here: setupUi builds, no leftover name in the tree.
+
 ### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
 
 `b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
