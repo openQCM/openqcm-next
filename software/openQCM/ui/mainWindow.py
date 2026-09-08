@@ -122,7 +122,9 @@ class LogStream:
     """Mirror stdout/stderr into the System Log tab (timestamped) while still
     forwarding to the original stream. Adapted from openQCM Q-1 v3.0. Captures
     the main process's print() output; child-process prints and logging-module
-    messages are not intercepted (they keep going to the terminal / log file)."""
+    messages are not intercepted (they keep going to the terminal / log file).
+    A line the acquisition process wants in here goes through
+    ParserProcess.add_message(): the worker prints it in this process."""
 
     def __init__(self, text_widget, stream):
         self._text_widget = text_widget
@@ -3762,6 +3764,8 @@ class MainWindow(QtGui.QMainWindow):
         
         # general error queue
         self.worker.consume_queue6()
+        # lines from the acquisition process for the System Log
+        self.worker.consume_queue_message()
 
         self.worker.consume_queue_F_multi()
         self.worker.consume_queue_D_multi()

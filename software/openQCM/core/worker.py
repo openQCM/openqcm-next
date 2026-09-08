@@ -69,6 +69,8 @@ class Worker:
         self._queue_F_SWEEP_multi = Queue()
         # VER 0.1.6G exact conductance / susceptance spectra (impedance panel)
         self._queue_GB_multi = Queue()
+        # lines the acquisition process wants the operator to read
+        self._queue_message = Queue()
         
         # TODO AMPLI init the list of array for amplitude sweep
         self._A_multi = None 
@@ -240,7 +242,8 @@ class Worker:
 # =============================================================================
         self._parser_process = ParserProcess(self._queue1, self._queue2, self._queue3, self._queue4, self._queue5, self._queueCurrentTec, self._queue6, 
                                              self._queue_F_multi, self._queue_D_multi, self._queue_A_multi, self._queue_P_multi,
-                                             self._queue_GB_multi)
+                                             self._queue_GB_multi,
+                                             self._queue_message)
         
         
         # GET and SET SOURCE TYPE 
@@ -369,6 +372,8 @@ class Worker:
         self.consume_queue_A_multi()
         self.consume_queue_GB_multi()
         self.consume_queue_P_multi()
+        # the last lines the process wrote before it was told to stop
+        self.consume_queue_message()
         
         # VER 0.1.2
 # =============================================================================
@@ -467,6 +472,14 @@ class Worker:
         # queue3 for elaborated data: errors
         while not self._queue6.empty():
             self._queue_data6(self._queue6.get(False))
+
+    def consume_queue_message(self):
+        # text from the acquisition process, printed HERE, in the GUI process:
+        # that is what puts it in the System Log tab and not only in the console
+        while not self._queue_message.empty():
+            text = self._queue_message.get(False)
+            print(text)
+            Log.i(TAG, text)
             
     def consume_queue_F_multi(self): 
         # consume the parser queue until is empty
