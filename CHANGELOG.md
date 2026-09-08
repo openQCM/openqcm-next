@@ -88,6 +88,13 @@ Conventional Commits. Versions are marked by Git tags.
   `_Temperature_Setting_isEnabled` and drives T SET and its spin box only.
 
 ### Fixed
+- **Raw Data View showed nothing in a single-frequency run** (`012b843`) — it read the `*_multi`
+  sweep buffers, filled by multiscan only. `SerialProcess` now ships its sweep into the slot of the
+  overtone it interrogates, as multiscan fills five, and the view shows that one tab with the tab bar
+  hidden, asking the host `current_single_overtone()`. Same buffers, same fit.
+- **Tec Current kept a dark canvas after switching to the light theme** (`b42e9a9`) — the QSS
+  repaints a child dialog's frame, not its pyqtgraph canvas; the painting is now `apply_theme()`,
+  called again by the main window on a theme change. The other three views still have this limit.
 - **TEC OFF reset the set-point indicator to 25 °C** (`53487f7`) — `Temperature_Control_OFF()` put the
   default on the spin box and changed nothing else, so after OFF → ON the indicator read 25 while
   the controller drove to the 20 still in `config.txt` and in the controller. The spin box now keeps

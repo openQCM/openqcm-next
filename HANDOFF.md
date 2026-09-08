@@ -167,7 +167,13 @@ to break by accident:
    object for its buffers. Do not add a `set_data()` or a signal from the worker: the pull model is
    the only reason a closed dialog costs *nothing* instead of merely being idle, and the reason the
    acquisition never waits on the GUI.
-2. **It reads memory only, never a file.** The sweep dump is a separate development tool
+2. **It shows what is being measured** (`012b843`). Multiscan: one tab per overtone. Single
+   frequency: the one overtone being interrogated, tab bar hidden — `SerialProcess` ships its sweep
+   into the slot of that overtone exactly as multiscan fills five, and the view asks the host
+   `current_single_overtone()` (0 = fundamental; cBox_Speed lists the overtones highest first, the
+   F1..F9 mapping). Before that the view read the `*_multi` buffers, which only multiscan filled,
+   and a single run showed "Waiting for data" for ever.
+3. **It reads memory only, never a file.** The sweep dump is a separate development tool
    (`common/sweepDump.py`, below) and shares no state and no code with it. Verified by deleting the
    dump module and every reference to it and checking the dialog draws byte-identical arrays.
 
@@ -194,7 +200,12 @@ Four auxiliary windows now, and the difference between them is the thing to keep
 | Datalog View | File > Open Log… | a `logged_data/*.csv` the user picks | no, snapshot on open |
 | Tec Current | Tools | the worker's TEC-current buffer, handed over by `_update_plot` | yes, pushed every tick |
 
-Tec Current (`ui/tecCurrentView.py`, `77575b0`) is the one that is *pushed*: the main window calls its
+Tec Current (`ui/tecCurrentView.py`, `77575b0`) is also the only one that **follows a theme change
+while open** (`apply_theme()`, called from `_apply_theme`, `b42e9a9`): the application QSS reaches a
+child dialog's frame, never its pyqtgraph canvas, so the other three keep the palette they were built
+with until reopened. Known, not yet done.
+
+Tec Current is the one that is *pushed*: the main window calls its
 `update_plot()` from `_update_plot()`, as the old `SecondWindow` was, so the acquisition never waits
 on it. Otherwise it follows the other three — `theme.PLOT` colours, the shared `PlotMenu`, one
 instance, closed with the main window (and on STOP, since it shows a running acquisition).
