@@ -147,25 +147,26 @@ class PIDControlDialog(QtWidgets.QDialog):
             spin.blockSignals(False)
         self._select_matching_preset()
 
-    def set_device_state(self, connected, can_read):
-        """Set PID needs a board; Read PID needs the GUI to hold its port.
+    def set_device_state(self, connected, measuring):
+        """Both buttons need a board; `measuring` only changes who answers.
 
-        `can_read` is false during a measurement: the acquisition process owns
-        the port then, and Set PID goes through config.txt instead.
+        During a measurement the acquisition process owns the port: Set PID
+        goes through config.txt and Read PID is answered by the process
+        between two sweeps, so both stay enabled.
         """
         self.pButton_set.setEnabled(bool(connected))
-        self.pButton_read.setEnabled(bool(connected) and bool(can_read))
+        self.pButton_read.setEnabled(bool(connected))
         if not connected:
             self.show_status("Connect to the device to send the parameters. "
                              "The values shown are those in config.txt.")
-        elif can_read:
+        elif measuring:
+            self.show_status("Measuring. Set PID saves the parameters and the "
+                             "acquisition sends them at its next sweep; Read PID "
+                             "asks the acquisition, which answers between sweeps.")
+        else:
             self.show_status("Connected. Set PID sends the parameters to the "
                              "controller and reads them back; Read PID shows "
                              "what the controller holds now.")
-        else:
-            self.show_status("Measuring. Set PID saves the parameters and the "
-                             "acquisition sends them at its next sweep; Read PID "
-                             "is available once the measurement stops.")
 
     def show_status(self, text):
         self.lblStatus.setText(text)

@@ -3252,7 +3252,8 @@ class MainWindow(QtGui.QMainWindow):
             return
         try:
             dialog.set_values(*self._read_pid_config())
-            dialog.set_device_state(self._serial_connected, self._can_query_device())
+            dialog.set_device_state(self._serial_connected,
+                                    self.worker is not None and self.worker.is_running())
         except RuntimeError:
             self._pid_control = None
 
@@ -3362,24 +3363,40 @@ class MainWindow(QtGui.QMainWindow):
                 sent, shown, ", ".join(wrong)))
 
     def _read_pid(self):
-        """Read PID: show what the controller holds. Nothing is written."""
-        def status(text):
-            print(TAG, "PID Control: {}".format(text))
-            Log.i(TAG, "PID Control: {}".format(text))
-            self._pid_dialog_status(text)
+        """Read PID: show what the controller holds. Nothing is written.
 
+        Standby: the GUI asks the port itself. Acquisition running: the child
+        owns the port, so the request is raised on the parser and the process
+        answers between two sweeps; the answer comes back through the worker
+        and lands in _update_plot, which calls _show_pid_reported.
+        """
+        if self.worker is not None and self.worker.is_running():
+            if self.worker.request_pid_read():
+                self._pid_status("asked; the acquisition reads the controller at "
+                                 "the end of the current sweep.")
+            else:
+                self._pid_status("cannot ask: the acquisition is not ready yet.")
+            return
         if not self._can_query_device():
-            status("cannot read now: the port is not available to the GUI "
-                   "(not connected, or a measurement is running).")
+            self._pid_status("cannot read now: the port is not available to the GUI.")
             return
         reported = self._query_pid()
         if reported is None:
-            status("the board is still sending measurement data; try again in "
-                   "a moment.")
+            self._pid_status("the board is still sending measurement data; try "
+                             "again in a moment.")
             return
+        self._show_pid_reported(reported, "read now")
+
+    def _pid_status(self, text):
+        print(TAG, "PID Control: {}".format(text))
+        Log.i(TAG, "PID Control: {}".format(text))
+        self._pid_dialog_status(text)
+
+    def _show_pid_reported(self, reported, via):
+        """Put a controller answer in the window and say how it compares to the file."""
         if any(v is None for v in reported):
-            status("the controller did not answer ({}). Is the TEC controller "
-                   "powered?".format(self._pid_text(reported)))
+            self._pid_status("the controller did not answer ({}, {}). Is the TEC "
+                             "controller powered?".format(self._pid_text(reported), via))
             return
         dialog = self._pid_control
         if dialog is not None:
@@ -3388,13 +3405,13 @@ class MainWindow(QtGui.QMainWindow):
             except RuntimeError:
                 pass
         in_file = tuple(self._read_pid_config())
-        if reported == in_file:
-            status("Controller reports {}: same as config.txt.".format(
-                self._pid_text(reported)))
+        if tuple(reported) == in_file:
+            self._pid_status("Controller reports {} ({}): same as config.txt.".format(
+                self._pid_text(reported), via))
         else:
-            status("Controller reports {}, config.txt has {}. Shown, not saved: "
-                   "Set PID makes these the file's values.".format(
-                       self._pid_text(reported), self._pid_text(in_file)))
+            self._pid_status("Controller reports {} ({}), config.txt has {}. Shown, "
+                             "not saved: Set PID makes these the file's values.".format(
+                                 self._pid_text(reported), via, self._pid_text(in_file)))
 
     def _align_pid_with_controller(self):
         """On connect: make the controller hold what config.txt holds.
@@ -3766,6 +3783,11 @@ class MainWindow(QtGui.QMainWindow):
         self.worker.consume_queue6()
         # lines from the acquisition process for the System Log
         self.worker.consume_queue_message()
+        # a Read PID the acquisition process was asked to make
+        self.worker.consume_queue_pid()
+        reported = self.worker.pop_pid_reported()
+        if reported is not None:
+            self._show_pid_reported(reported, "read by the acquisition between sweeps")
 
         self.worker.consume_queue_F_multi()
         self.worker.consume_queue_D_multi()

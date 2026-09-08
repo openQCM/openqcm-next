@@ -4,6 +4,7 @@ from openQCM.core.constants import Constants
 from openQCM.core import resonance
 from openQCM.common.fileStorage import FileStorage
 from openQCM.common import sweepDump as SweepDump
+from openQCM.common.pidQuery import read_pid
 from openQCM.common.logger import Logger as Log
 from openQCM.common.switcher import Overtone_Switcher_5MHz, Overtone_Switcher_10MHz
 from time import time
@@ -740,6 +741,15 @@ class SerialProcess(multiprocessing.Process):
                         except:
                             print ("Warning: Unable to read TEC current ")
                             # VER 0.1.6 TODO set te current value of current to nan 
+                        
+                        # Read PID asked from the window while this process owns the
+                        # port: answered here, between sweeps, the only moment the
+                        # board is listening. Costs ~0.8 s once, on request only.
+                        try:
+                            if self._parser6.take_pid_read_request():
+                                self._parser6.add_pid(read_pid(self._serial))
+                        except Exception as e:
+                            print(TAG, "Warning: PID read failed: {}".format(e))
                         
                         # DEBUG_0.1.1a
                         try: 
