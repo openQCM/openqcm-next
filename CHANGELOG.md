@@ -47,6 +47,9 @@ And the fix `7a7f1b3`, clean: T SET no longer overwrites the PID rows of `config
 sidebar widgets (it sent P1000 I200 D100 after a T SET during a run). Verified here: a T SET at
 20.0 leaves rows 1–4 and 6 as they were.
 
+And `53487f7`, clean: TEC OFF no longer resets the set-point spin box to 25 °C while file and
+controller still hold the set-point in force.
+
 ### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
 
 `b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
