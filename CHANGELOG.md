@@ -79,6 +79,11 @@ Conventional Commits. Versions are marked by Git tags.
   - Both compile for `teensy:avr:teensy40`; `Constants.FW_VERSION` moves to `0.1.5c` with them.
 
 ### Fixed
+- **TEC OFF reset the set-point indicator to 25 °C** (`9b45a8d`) — `Temperature_Control_OFF()` put the
+  default on the spin box and changed nothing else, so after OFF → ON the indicator read 25 while
+  the controller drove to the 20 still in `config.txt` and in the controller. The spin box now keeps
+  the set-point in force; only init, stop and TEC Reset put the default back, and they write the
+  file too.
 - **T SET overwrote the PID rows of `config.txt`** (`7a7f1b3`) — `_get_temperature()` rewrote all seven
   rows and took the PID from the spin boxes hidden in the sidebar, which nothing keeps current. Masked
   while init reset those widgets to Default #1 (every T SET silently put 500/50/300 back), it
