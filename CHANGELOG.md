@@ -57,6 +57,11 @@ And `51034e8` as `43483b7`, clean: the hidden sidebar PID widgets (`tab_2`) and 
 only they used are removed; `_Temperature_PID_Setting_isEnabled` is now `_Temperature_Setting_isEnabled`.
 Verified here: setupUi builds, no leftover name in the tree.
 
+And `77575b0` as `2fe6e1b`, clean: Tec Current is a themed auxiliary view (`ui/tecCurrentView.py`),
+built like Raw Data View and Peak Data View, one instance, closed with the main window; the four
+update blocks in `_update_plot` collapse into `_update_tec_current_view()`. Verified here: compiles,
+the dialog builds and updates, the main window imports.
+
 ### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
 
 `b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
