@@ -43,6 +43,8 @@ Conventional Commits. Versions are marked by Git tags.
     sweeps where it already reads the TEC current, asks `C? P? I? D?` through the shared
     `common/pidQuery.read_pid()` and answers through a new queue; the window shows the answer tagged
     "read by the acquisition between sweeps". Read PID is now enabled whenever a board is connected.
+  - Layout (`5dab81d`): Set PID on the left, filled accent like Start, stretching with the window;
+    Read PID on the right at its natural width.
 - **The `0.1.5c` firmware images exist** — `firmware/openQCM_Next_py_0.1.5c_teensy/` and
   `..._0.1.5c_TEST_teensy/` now carry their `.ino.TEENSY40.hex`, built with the `teensy:avr 1.58.1`
   core (FLASH 55 120 B and 45 500 B). ⚠️ HANDOFF §5 claimed the 0.1.5c image was *already built*;
