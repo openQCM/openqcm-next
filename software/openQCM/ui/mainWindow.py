@@ -1942,6 +1942,14 @@ class MainWindow(QtGui.QMainWindow):
             self._tec_state_pill(getattr(self, "_tec_state_key", "off")))
         # pyqtgraph plots (background / axes / titles)
         self._apply_plot_theme(theme.PLOT[name])
+        # an open Tec Current window follows too: its canvas took the palette
+        # at construction, and the QSS alone repaints only the frame around it
+        view = getattr(self, "_tec_current_view", None)
+        if view is not None:
+            try:
+                view.apply_theme(name)
+            except RuntimeError:
+                pass
         # keep the menu checkmarks in sync
         try:
             self._act_theme_light.setChecked(name == "light")

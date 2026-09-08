@@ -33,7 +33,6 @@ class TecCurrentDialog(QtWidgets.QDialog):
     def __init__(self, theme_name="light", parent=None):
         super(TecCurrentDialog, self).__init__(parent)
         self._theme = theme_name if theme_name in theme.PLOT else "light"
-        palette = theme.PLOT[self._theme]
 
         self.setObjectName("tecCurrentDialog")
         self.setWindowTitle("Tec Current - live")
@@ -47,29 +46,17 @@ class TecCurrentDialog(QtWidgets.QDialog):
         layout.setSpacing(4)
 
         self.canvas = pg.GraphicsLayoutWidget()
-        self.canvas.setBackground(palette["bg"])
         layout.addWidget(self.canvas, stretch=1)
 
         # the same elapsed-time axis as the main window's real-time plots
         time_axis = ElapsedTimeAxis(orientation="bottom")
         time_axis.enableAutoSIPrefix(False)
         self.plot = self.canvas.addPlot(row=0, col=0, axisItems={"bottom": time_axis})
-        self.plot.setTitle("Real-Time Plot: TEC current", color=palette["title"])
-        self.plot.setLabel("left", "TEC current", units="mA", color=palette["axis"])
-        self.plot.setLabel("bottom", "Time (hh:mm:ss)", color=palette["axis"])
         # 'mA' is the unit, not a prefix to be scaled to 'kmA'
         self.plot.getAxis("left").enableAutoSIPrefix(False)
-        for side in ("left", "bottom"):
-            axis = self.plot.getAxis(side)
-            axis.setPen(palette["axis"])
-            axis.setTextPen(palette["axis"])
         self.plot.showGrid(x=False, y=False)
-
-        # the theme's foreground curve colour, as the temperature plot uses:
-        # a fixed white pen vanishes on the light theme's background
-        self.curve = self.plot.plot(
-            pen=pg.mkPen(color=palette.get("curve", palette["axis"]),
-                         width=Constants.plot_line_width))
+        self.curve = self.plot.plot()
+        self.apply_theme(self._theme)
 
         self.lblValue = QtWidgets.QLabel("TEC current: — mA", self)
         self.lblValue.setObjectName("lbl_tec_current_value")
@@ -80,6 +67,28 @@ class TecCurrentDialog(QtWidgets.QDialog):
         self._menu.attach([self.plot])
 
     # ------------------------------------------------------------- public
+    def apply_theme(self, theme_name):
+        """Paint background, axes, title and curve from `theme.PLOT`.
+
+        Called at construction and again by the main window when the theme
+        changes while this window is open: the application QSS repaints the
+        frame around the canvas, never the canvas itself.
+        """
+        self._theme = theme_name if theme_name in theme.PLOT else "light"
+        palette = theme.PLOT[self._theme]
+        self.canvas.setBackground(palette["bg"])
+        self.plot.setTitle("Real-Time Plot: TEC current", color=palette["title"])
+        self.plot.setLabel("left", "TEC current", units="mA", color=palette["axis"])
+        self.plot.setLabel("bottom", "Time (hh:mm:ss)", color=palette["axis"])
+        for side in ("left", "bottom"):
+            axis = self.plot.getAxis(side)
+            axis.setPen(palette["axis"])
+            axis.setTextPen(palette["axis"])
+        # the theme's foreground curve colour, as the temperature plot uses:
+        # a fixed white pen vanishes on the light theme's background
+        self.curve.setPen(pg.mkPen(color=palette.get("curve", palette["axis"]),
+                                   width=Constants.plot_line_width))
+
     def update_plot(self, x_s, y_s, start_time=None):
         """New buffers from the main window; `start_time` in epoch µs, as the
         main window's elapsed-time axes take it."""
