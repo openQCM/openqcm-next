@@ -268,7 +268,13 @@ once. The four PID lines are the first users.
 **Read PID** (`_read_pid`) is the other direction, on demand: `C? P? I? D?`, the answers go into
 the spin boxes and the status line says "same as config.txt" or "config.txt has …". It shows, it
 does not save — the file changes only on Set PID, so *read, then set* is how the controller's values
-become the file's. Enabled only while the GUI holds the port (connected, not measuring).
+become the file's. Enabled whenever a board is connected; **who answers depends on who holds the
+port**. Standby: the GUI asks. Measuring: the GUI raises `ParserProcess.pid_read_request` (an Event
+on the parser both processes hold), the process takes it in the quiet gap where it already reads
+the TEC current with `A?` — the only moment the board is listening — asks through the shared
+`common/pidQuery.read_pid()` and answers through `add_pid()`; the worker drains that queue with the
+others and `_update_plot` hands the answer to `_show_pid_reported`, tagged "read by the acquisition
+between sweeps". About 0.8 s once, on request only; the answer arrives within one overtone sweep.
 
 Only rows 1–4 are written: the old PID Set also raised the flag that re-sends the temperature
 set-point, for nothing. Set PID follows the connection, not the TEC switch — the controller takes

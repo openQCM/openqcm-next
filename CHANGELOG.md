@@ -38,6 +38,11 @@ Conventional Commits. Versions are marked by Git tags.
   - **Read PID** (`0f21919`): asks the controller `C? P? I? D?` and shows the answers in the spin boxes,
     saying whether they equal `config.txt`. Shows, does not save — Set PID does. Enabled only while
     the GUI holds the port; a partial answer or a board still streaming is reported, not shown.
+  - **Read PID during a measurement** (`7bdaa8f`): the GUI raises a request on the parser
+    (`pid_read_request`, a multiprocessing.Event), the acquisition process takes it between two
+    sweeps where it already reads the TEC current, asks `C? P? I? D?` through the shared
+    `common/pidQuery.read_pid()` and answers through a new queue; the window shows the answer tagged
+    "read by the acquisition between sweeps". Read PID is now enabled whenever a board is connected.
 - **The `0.1.5c` firmware images exist** — `firmware/openQCM_Next_py_0.1.5c_teensy/` and
   `..._0.1.5c_TEST_teensy/` now carry their `.ino.TEENSY40.hex`, built with the `teensy:avr 1.58.1`
   core (FLASH 55 120 B and 45 500 B). ⚠️ HANDOFF §5 claimed the 0.1.5c image was *already built*;
