@@ -8,11 +8,13 @@ are the ones `Constants` has always carried: the controller's factory values and
 the openQCM default.
 
 *The dialog does not talk to the board.* It owns the widgets and emits
-`apply_requested(C, P, I, D)` when Set PID is pressed; the main window decides
-how the values reach the controller, because that depends on who holds the
-serial port at that moment -- the GUI in Standby, or the acquisition process
-during a measurement -- and only the main window knows. What came back from the
-controller, or why nothing could, is handed back through `show_status()`.
+`apply_requested(C, P, I, D)` when Set PID is pressed and `read_requested` when
+Read PID is; the main window decides how the values reach the controller,
+because that depends on who holds the serial port at that moment -- the GUI in
+Standby, or the acquisition process during a measurement -- and only the main
+window knows. What came back from the controller, or why nothing could, is
+handed back through `show_status()`; what Read PID got, through `set_values()`.
+Read PID shows, it does not save: the file changes only on Set PID.
 
 ⚠️ Values shown at open are the ones in `config.txt`, not the defaults: that
 file is what the acquisition process reads and sends, so it is the only honest
@@ -53,6 +55,8 @@ class PIDControlDialog(QtWidgets.QDialog):
 
     # C, P, I, D as the operator wants them sent
     apply_requested = QtCore.pyqtSignal(int, int, int, int)
+    # "show me what the controller holds"
+    read_requested = QtCore.pyqtSignal()
 
     def __init__(self, values, theme_name="light", parent=None):
         super(PIDControlDialog, self).__init__(parent)
@@ -100,6 +104,11 @@ class PIDControlDialog(QtWidgets.QDialog):
         # ---------------------------------------------------------- actions
         buttons = QtWidgets.QHBoxLayout()
         buttons.addStretch(1)
+        self.pButton_read = QtWidgets.QPushButton("Read PID", self)
+        self.pButton_read.setObjectName("pButton_pid_read")
+        self.pButton_read.setToolTip("Ask the controller for its current values "
+                                     "and show them here. Nothing is saved.")
+        buttons.addWidget(self.pButton_read)
         self.pButton_set = QtWidgets.QPushButton("Set PID", self)
         self.pButton_set.setObjectName("pButton_pid_set")
         self.pButton_set.setDefault(True)
@@ -120,8 +129,9 @@ class PIDControlDialog(QtWidgets.QDialog):
         for spin in self.spins:
             spin.valueChanged.connect(self._value_edited)
         self.pButton_set.clicked.connect(self._request_apply)
+        self.pButton_read.clicked.connect(self._request_read)
 
-        self.set_device_connected(False)
+        self.set_device_state(False, False)
 
     # ------------------------------------------------------------- public
     def values(self):
@@ -137,15 +147,25 @@ class PIDControlDialog(QtWidgets.QDialog):
             spin.blockSignals(False)
         self._select_matching_preset()
 
-    def set_device_connected(self, connected):
-        """Enable Set PID only when there is a board to send to."""
+    def set_device_state(self, connected, can_read):
+        """Set PID needs a board; Read PID needs the GUI to hold its port.
+
+        `can_read` is false during a measurement: the acquisition process owns
+        the port then, and Set PID goes through config.txt instead.
+        """
         self.pButton_set.setEnabled(bool(connected))
-        if connected:
-            self.show_status("Connected. Set PID sends the parameters to the "
-                             "controller and reads them back.")
-        else:
+        self.pButton_read.setEnabled(bool(connected) and bool(can_read))
+        if not connected:
             self.show_status("Connect to the device to send the parameters. "
                              "The values shown are those in config.txt.")
+        elif can_read:
+            self.show_status("Connected. Set PID sends the parameters to the "
+                             "controller and reads them back; Read PID shows "
+                             "what the controller holds now.")
+        else:
+            self.show_status("Measuring. Set PID saves the parameters and the "
+                             "acquisition sends them at its next sweep; Read PID "
+                             "is available once the measurement stops.")
 
     def show_status(self, text):
         self.lblStatus.setText(text)
@@ -179,3 +199,7 @@ class PIDControlDialog(QtWidgets.QDialog):
         c, p, i, d = self.values()
         self.show_status("Sending C{} P{} I{} D{} ...".format(c, p, i, d))
         self.apply_requested.emit(c, p, i, d)
+
+    def _request_read(self):
+        self.show_status("Asking the controller C? P? I? D? ...")
+        self.read_requested.emit()

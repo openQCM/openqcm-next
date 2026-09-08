@@ -3108,6 +3108,7 @@ class MainWindow(QtGui.QMainWindow):
         dialog = PIDControlDialog(self._read_pid_config(),
                                   theme_name=self._theme, parent=self)
         dialog.apply_requested.connect(self._apply_pid)
+        dialog.read_requested.connect(self._read_pid)
         dialog.destroyed.connect(self._forget_pid_control)
         self._pid_control = dialog
         self._sync_pid_control()
@@ -3133,7 +3134,7 @@ class MainWindow(QtGui.QMainWindow):
             return
         try:
             dialog.set_values(*self._read_pid_config())
-            dialog.set_device_connected(self._serial_connected)
+            dialog.set_device_state(self._serial_connected, self._can_query_device())
         except RuntimeError:
             self._pid_control = None
 
@@ -3241,6 +3242,41 @@ class MainWindow(QtGui.QMainWindow):
         else:
             status("Sent {}. Controller reports {}: MISMATCH on {}.".format(
                 sent, shown, ", ".join(wrong)))
+
+    def _read_pid(self):
+        """Read PID: show what the controller holds. Nothing is written."""
+        def status(text):
+            print(TAG, "PID Control: {}".format(text))
+            Log.i(TAG, "PID Control: {}".format(text))
+            self._pid_dialog_status(text)
+
+        if not self._can_query_device():
+            status("cannot read now: the port is not available to the GUI "
+                   "(not connected, or a measurement is running).")
+            return
+        reported = self._query_pid()
+        if reported is None:
+            status("the board is still sending measurement data; try again in "
+                   "a moment.")
+            return
+        if any(v is None for v in reported):
+            status("the controller did not answer ({}). Is the TEC controller "
+                   "powered?".format(self._pid_text(reported)))
+            return
+        dialog = self._pid_control
+        if dialog is not None:
+            try:
+                dialog.set_values(*reported)
+            except RuntimeError:
+                pass
+        in_file = tuple(self._read_pid_config())
+        if reported == in_file:
+            status("Controller reports {}: same as config.txt.".format(
+                self._pid_text(reported)))
+        else:
+            status("Controller reports {}, config.txt has {}. Shown, not saved: "
+                   "Set PID makes these the file's values.".format(
+                       self._pid_text(reported), self._pid_text(in_file)))
 
     def _align_pid_with_controller(self):
         """On connect: make the controller hold what config.txt holds.
