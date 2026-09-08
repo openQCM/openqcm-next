@@ -37,6 +37,12 @@ already adds its own `data_queue_GB_multi` for the impedance panel: resolved kee
 first and message queue last, both optional keyword parameters. Verified: the parser takes 13 queues,
 G/B data and a message each land in their own queue, the consumer prints the line, the app imports.
 
+And by `7bdaa8f` as the next commit: Read PID works during a measurement, answered by the acquisition
+process between sweeps through `ParserProcess.pid_read_request` / `add_pid` and the shared
+`common/pidQuery.read_pid()`. One conflict, again the parser call in `worker.py`: resolved as G/B,
+message, PID queue in that order (14 queues). Verified: signature order, request taken once, an
+answer reaches the worker, both processes take the request, the app imports.
+
 ### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
 
 `b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
