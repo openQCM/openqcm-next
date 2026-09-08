@@ -79,7 +79,7 @@ Conventional Commits. Versions are marked by Git tags.
   - Both compile for `teensy:avr:teensy40`; `Constants.FW_VERSION` moves to `0.1.5c` with them.
 
 ### Fixed
-- **TEC OFF reset the set-point indicator to 25 °C** (`9b45a8d`) — `Temperature_Control_OFF()` put the
+- **TEC OFF reset the set-point indicator to 25 °C** (`53487f7`) — `Temperature_Control_OFF()` put the
   default on the spin box and changed nothing else, so after OFF → ON the indicator read 25 while
   the controller drove to the 20 still in `config.txt` and in the controller. The spin box now keeps
   the set-point in force; only init, stop and TEC Reset put the default back, and they write the
