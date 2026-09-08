@@ -116,8 +116,6 @@ DRAIN_LINK_LOST = "link-lost"
 
 TAG = ""#"[MainWindow]"
 
-# VER 0.1.6 init the SecondWindow class
-# for TEC current real time monitoring 
 class LogStream:
     """Mirror stdout/stderr into the System Log tab (timestamped) while still
     forwarding to the original stream. Adapted from openQCM Q-1 v3.0. Captures
@@ -150,72 +148,6 @@ class LogStream:
         if self._stream is not None:
             self._stream.flush()
 
-
-class SecondWindow(QtGui.QWidget):
-    def __init__(self):
-        super(SecondWindow, self).__init__()
-    
-        # VER 0.1.6 elapsed time, disable SI prefix, same format as main window
-        date_axis = ElapsedTimeAxis(orientation='bottom')
-        date_axis.enableAutoSIPrefix(False)
-        
-        # create the second plot
-        self.graphWidget = pg.PlotWidget(self, axisItems={'bottom': date_axis})
-        
-        # Change the plot background color
-        self.graphWidget.setBackground(Constants.plot_background_color)
-        
-        self.layout = QtGui.QVBoxLayout(self)
-        self.layout.addWidget(self.graphWidget)
-        
-        self.plotData = self.graphWidget.plot()
-        
-        # Set labels and title
-        self.graphWidget.setLabel('left', 'TEC current', units='mA')
-        self.graphWidget.setLabel('bottom', 'Time (hh:mm:ss)')
-        self.graphWidget.setTitle('TEC current Real-Time Plot', size = '16pt')
-        
-        # Adjusting window size:
-        self.resize(800, 600)  # You can adjust the size according to your needs.
-        
-        # Adding a QLabel to display the last value of y_s
-        self.lastValueLabel = QtGui.QLabel(self)
-        self.layout.addWidget(self.lastValueLabel)
-
-        
-    def update_plot(self, x_s, y_s, start_time = None):
-        """
-        Update the plot with new data and optionally update time axis
-        
-        Args:
-            x_s: x-axis data (time values)
-            y_s: y-axis data (TEC current values)
-            start_time: optional start time for synchronizing x-axis
-        """
-
-        self.x = x_s    
-        self.y = y_s
-        
-        # Update x-axis start time if provided (epoch microseconds)
-        if start_time is not None:
-            self.graphWidget.getAxis('bottom').set_start_time(start_time)
-            
-        self.plotData.setData(self.x, self.y)
-         
-        # Updating the QLabel text with the last value of y_s
-        last_value = y_s[0]  # getting the last value
-        if np.isnan(last_value):
-            self.lastValueLabel.setText("TEC current: NaN mA")
-        else:
-            self.lastValueLabel.setText(f"TEC current: {int(last_value)} mA")
-
-    # VER 0.1.6 add a close event to handle window closing         
-    def closeEvent(self, event):
-        """
-        Override close event to handle window closing
-        """
-        # Just accept the close event, no questions asked as this is a secondary window
-        event.accept()
 
 ##########################################################################################
 # Package that handles the UIs elements and connects to worker service to execute processes
@@ -463,7 +395,7 @@ class MainWindow(QtGui.QMainWindow):
             pass
 
         # VER 0.1.6 toolbar menu add on application
-        self.ui.actionTEC_current.triggered.connect(self.open_second_window)
+        self.ui.actionTEC_current.triggered.connect(self._open_tec_current_view)
         self.ui.actionRaw_Data.triggered.connect(self._raw_data_plot)
         # VER 0.1.6G conductance / impedance offline view
         self.ui.actionConductance_Data.triggered.connect(self._conductance_data_plot)
@@ -477,6 +409,8 @@ class MainWindow(QtGui.QMainWindow):
         self._peak_data_view = None
         # the PID Control window, while it is open
         self._pid_control = None
+        # the Tec Current window, while it is open
+        self._tec_current_view = None
         self._datalog_views = []
 
         # The file-based viewer only has something to read when the sweep dump is
@@ -963,13 +897,8 @@ class MainWindow(QtGui.QMainWindow):
         if (self._get_source() == SourceType.serial):
             self.ui.cBox_Speed.setEnabled(True)
 
-        # VER 0.1.6 close second window if exist 
-        try:
-            if hasattr(self, 'second_window') and self.second_window is not None:
-                self.second_window.close()
-                self.second_window = None
-        except:
-            pass    
+        # the Tec Current window shows a running acquisition; none, no window
+        self._close_tec_current_view()
          
         # VER 0.1.6 the elapsed-time reference is cleared in start(), not here:
         # the finished run stays on screen after STOP and its ticks have to keep
@@ -1647,6 +1576,7 @@ class MainWindow(QtGui.QMainWindow):
             self._close_impedance_data_view()
             self._close_peak_data_view()
             self._close_pid_control()
+            self._close_tec_current_view()
             self._close_datalog_views()
 
             # Restore stdout/stderr before the window is destroyed
@@ -4402,16 +4332,7 @@ class MainWindow(QtGui.QMainWindow):
 
                 # VER 0.1.6 TEC CURRENT update plot
                 # -------------------------------------------------------------
-                try:
-                    # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
-                    # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
-                    self.second_window.update_plot(
-                        self.worker.get_t3_buffer(),
-                        self.worker.get_data_current_tec_buffer(),
-                        start_time = self.start_time
-                    )
-                except AttributeError:
-                    pass
+                self._update_tec_current_view()
  
 
             #### MULTISCAN Reference set
@@ -4714,16 +4635,7 @@ class MainWindow(QtGui.QMainWindow):
                 # VER 0.1.6 TEC CURRENT update plot
                 # VER 0.1.6 TODO start time set to zero in multi mode
                 # -------------------------------------------------------------
-                try:
-                    # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
-                    # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
-                    self.second_window.update_plot(
-                        self.worker.get_t3_buffer(),
-                        self.worker.get_data_current_tec_buffer(),
-                        start_time = self.start_time
-                    )
-                except AttributeError:
-                    pass
+                self._update_tec_current_view()
 
         #### REFERENCE NOT SET
         # ---------------------------------------------------------------------
@@ -4972,16 +4884,7 @@ class MainWindow(QtGui.QMainWindow):
 
                # VER 0.1.6 TEC CURRENT update plot
                # -------------------------------------------------------------
-               try:
-                   # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
-                   # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
-                   self.second_window.update_plot(
-                       self.worker.get_t3_buffer(),
-                       self.worker.get_data_current_tec_buffer(),
-                       start_time = self.start_time
-                   )
-               except AttributeError:
-                   pass
+               self._update_tec_current_view()
 
             #### MULTISCAN Reference NOT set
             # -----------------------------------------------------------------
@@ -5215,16 +5118,7 @@ class MainWindow(QtGui.QMainWindow):
 
                # VER 0.1.6 TEC CURRENT update plot
                # -------------------------------------------------------------
-               try:
-                  # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_d3_buffer()) # get_data_current_tec_buffer
-                  # self.second_window.update_plot(self.worker.get_t3_buffer(), self.worker.get_data_current_tec_buffer())
-                  self.second_window.update_plot(
-                      self.worker.get_t3_buffer(),
-                      self.worker.get_data_current_tec_buffer(),
-                      start_time = self.start_time
-                  )
-               except AttributeError:
-                  pass
+               self._update_tec_current_view()
                
     # VER 0.1.4
     # update TEC status label 
@@ -6441,10 +6335,42 @@ class MainWindow(QtGui.QMainWindow):
         print ("THIS IS DUMMY")
 
     # VER 0.1.6 open a second window for TEC current monitoring   
-    def open_second_window(self):
-        """
-        Create and show the second window for TEC current monitoring
-        """
-        # This function will be called when the button is clicked
-        self.second_window = SecondWindow()
-        self.second_window.show()
+    # ------------------------------------------------------------------
+    # Tools > Tec Current: the TEC drive current, live (ui/tecCurrentView.py)
+    # ------------------------------------------------------------------
+    def _open_tec_current_view(self):
+        from openQCM.ui.tecCurrentView import TecCurrentDialog
+
+        if self._tec_current_view is not None:
+            self._tec_current_view.raise_()
+            self._tec_current_view.activateWindow()
+            return
+        dialog = TecCurrentDialog(theme_name=self._theme, parent=self)
+        dialog.destroyed.connect(self._forget_tec_current_view)
+        self._tec_current_view = dialog
+        dialog.show()
+
+    def _forget_tec_current_view(self, *_args):
+        self._tec_current_view = None
+
+    def _close_tec_current_view(self):
+        dialog = self._tec_current_view
+        self._tec_current_view = None
+        if dialog is None:
+            return
+        try:
+            dialog.close()
+        except RuntimeError:
+            pass
+
+    def _update_tec_current_view(self):
+        """Hand the window the TEC-current buffers; called from _update_plot."""
+        dialog = self._tec_current_view
+        if dialog is None:
+            return
+        try:
+            dialog.update_plot(self.worker.get_t3_buffer(),
+                               self.worker.get_data_current_tec_buffer(),
+                               start_time=self.start_time)
+        except (AttributeError, RuntimeError) as e:
+            Log.d(TAG, "Tec Current view not updated: {}".format(e))
