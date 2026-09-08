@@ -30,6 +30,13 @@ alignment on a fake factory controller sends `C50 P500 I50 D300` and reads back 
 Followed by `0f21919` (Read PID: shows what the controller holds, does not save), cherry-picked clean;
 compiles and imports here.
 
+And by `d5d2457` as `01ea6f8`: the acquisition process's lines reach the System Log through a
+message queue (`ParserProcess.add_message` / `Worker.consume_queue_message`), since `LogStream`
+mirrors the GUI process only. ⚠️ Conflicted here in `worker.py` and `Parser.py`, where this branch
+already adds its own `data_queue_GB_multi` for the impedance panel: resolved keeping both, G/B queue
+first and message queue last, both optional keyword parameters. Verified: the parser takes 13 queues,
+G/B data and a message each land in their own queue, the consumer prints the line, the app imports.
+
 ### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
 
 `b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
