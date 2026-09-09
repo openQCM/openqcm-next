@@ -371,6 +371,27 @@ reports at connect, a program wrote it in the same power cycle. If instruments w
 ever need different loops, the only place that memory can live is the PC, keyed by the board number
 (known at connect). Not built; not asked for.
 
+### ⚠️ File descriptors: one Worker costs ~100, and the shell's limit may be 256
+
+Bench, 2026-09-09: START failed twice with "OSError: [Errno 24] Too many open files" inside
+`multiprocessing.Queue()`. The terminal running the app had macOS's default soft limit, 256. `lsof`
+on the live process: **65 PSXSEM + 35 PIPE for one Worker** — 14 queues, each a pipe plus its locks
+and semaphore — over a base of ~40; and `start()` built the new Worker while `self.worker` still
+held the old one, so for an instant there were two, ~240. Intermittent, not progressive: no leak,
+just the peak. Three things since `3cefc79`:
+
+- `common/fdLimit.py` — `raise_soft_limit()` runs in `app.py` before `QApplication` (65536 where the
+  system allows it; macOS refuses anything above `kern.maxfilesperproc`), so the application no
+  longer depends on the shell that launched it. Windows has no rlimit: the call is a no-op there.
+- `Worker.close()` releases the queues and the process objects; `start()` calls it on the previous
+  worker **before** building the new one. Not on STOP: the plots keep reading the worker's buffers
+  after a run, and `is_running()` must keep answering.
+- The System Log prints "open file descriptors: N of limit M" on every START and STOP. A leak is a
+  slope there; the steady value with one worker is ~140.
+
+⚠️ Every new `Queue()` in the Worker costs ~7 descriptors. Adding one is fine; adding one without
+knowing this is how a machine with a 256 limit finds out.
+
 ### Datalog file names — the Q-1 rule, and the copy that defeated it
 
 `YYYY-MM-DD_hh-mm-ss_<label>.csv` in `logged_data/`, where the label is `F0 F3 F5 F7 F9` for a

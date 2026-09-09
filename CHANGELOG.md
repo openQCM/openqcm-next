@@ -88,6 +88,12 @@ Conventional Commits. Versions are marked by Git tags.
   `_Temperature_Setting_isEnabled` and drives T SET and its spin box only.
 
 ### Fixed
+- **START could fail with "Too many open files"** (`3cefc79`) — one Worker holds ~100 file descriptors
+  (14 queues: pipes, locks, semaphores), the process idles at ~140, and START built the new Worker while
+  the old one was still referenced: ~240, against a terminal's default limit of 256. The application
+  now raises its own soft limit at start-up (`common/fdLimit.py`, 65536 where allowed), `start()`
+  closes the previous worker (`Worker.close()`) before building the new one, and the System Log prints
+  "open file descriptors: N of limit M" on every START and STOP.
 - **TEC controller errors reach the System Log** (`e863a24`) — "Thermal Latch-Up" and the others were a
   console print in the acquisition process, once per sweep, invisible in the window. Decoded once for
   both processes in `common/tecStatus.py` and reported through the message queue only when the set of
