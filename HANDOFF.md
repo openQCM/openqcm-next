@@ -200,10 +200,11 @@ Four auxiliary windows now, and the difference between them is the thing to keep
 | Datalog View | File > Open Log… | a `logged_data/*.csv` the user picks | no, snapshot on open |
 | Tec Current | Tools | the worker's TEC-current buffer, handed over by `_update_plot` | yes, pushed every tick |
 
-Tec Current (`ui/tecCurrentView.py`, `77575b0`) is also the only one that **follows a theme change
-while open** (`apply_theme()`, called from `_apply_theme`, `b42e9a9`): the application QSS reaches a
-child dialog's frame, never its pyqtgraph canvas, so the other three keep the palette they were built
-with until reopened. Known, not yet done.
+**Following a theme change while open.** The application QSS reaches a child dialog's frame, never
+its pyqtgraph canvas, so a view repaints itself only if it has an `apply_theme()`; `_apply_theme`
+walks the open views and calls it where it exists. Tec Current (`b42e9a9`) and Raw Data View (`3116187`)
+have it; Peak Data View and the datalog view do not yet and keep the palette they were built with
+until reopened.
 
 Tec Current is the one that is *pushed*: the main window calls its
 `update_plot()` from `_update_plot()`, as the old `SecondWindow` was, so the acquisition never waits

@@ -94,7 +94,10 @@ Conventional Commits. Versions are marked by Git tags.
   hidden, asking the host `current_single_overtone()`. Same buffers, same fit.
 - **Tec Current kept a dark canvas after switching to the light theme** (`b42e9a9`) — the QSS
   repaints a child dialog's frame, not its pyqtgraph canvas; the painting is now `apply_theme()`,
-  called again by the main window on a theme change. The other three views still have this limit.
+  called again by the main window on a theme change.
+- **Raw Data View, the same** (`3116187`) — every tab's palette painting is `apply_theme()`, and the main
+  window calls it on each open view that has one. Peak Data View and the datalog view still keep the
+  palette they were built with until reopened.
 - **TEC OFF reset the set-point indicator to 25 °C** (`53487f7`) — `Temperature_Control_OFF()` put the
   default on the spin box and changed nothing else, so after OFF → ON the indicator read 25 while
   the controller drove to the 20 still in `config.txt` and in the controller. The spin box now keeps
