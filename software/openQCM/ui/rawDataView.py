@@ -106,7 +106,6 @@ class _OvertoneTab(QtWidgets.QWidget):
     def __init__(self, overtone_index, theme_name, parent=None):
         super(_OvertoneTab, self).__init__(parent)
         self._index = overtone_index
-        palette = theme.PLOT[theme_name]
         colour = Constants.plot_color_multi[
             overtone_index % len(Constants.plot_color_multi)]
 
@@ -119,23 +118,11 @@ class _OvertoneTab(QtWidgets.QWidget):
         layout.addWidget(self.info)
 
         self.canvas = pg.GraphicsLayoutWidget()
-        self.canvas.setBackground(palette["bg"])
         layout.addWidget(self.canvas, stretch=1)
 
         self.plt_amp = self.canvas.addPlot(row=0, col=0)
         self.plt_phase = self.canvas.addPlot(row=1, col=0)
-        self.plt_amp.setTitle("Amplitude sweep", color=palette["title"])
-        self.plt_phase.setTitle("Phase sweep", color=palette["title"])
-        self.plt_amp.setLabel("left", "Amplitude", units="dB",
-                              color=palette["title"])
-        self.plt_phase.setLabel("left", "Phase", units="deg",
-                                color=palette["title"])
-        self.plt_phase.setLabel("bottom", "Frequency", units="Hz",
-                                color=palette["title"])
         for plot in (self.plt_amp, self.plt_phase):
-            for axis in ("left", "bottom"):
-                plot.getAxis(axis).setPen(palette["axis"])
-                plot.getAxis(axis).setTextPen(palette["axis"])
             # grid off by default, as everywhere else in this GUI. The default
             # pyqtgraph menus are switched off by PlotMenu.attach().
             plot.showGrid(x=False, y=False)
@@ -145,8 +132,7 @@ class _OvertoneTab(QtWidgets.QWidget):
 
         legend = self.plt_amp.addLegend(offset=(10, 10))
 
-        self.samples = pg.ScatterPlotItem(
-            size=3, pen=None, brush=pg.mkBrush(palette["curve"]))
+        self.samples = pg.ScatterPlotItem(size=3, pen=None)
         self.plt_amp.addItem(self.samples)
         legend.addItem(self.samples, "samples")
 
@@ -178,6 +164,31 @@ class _OvertoneTab(QtWidgets.QWidget):
 
         # set once, on the first fit, then never again: see frame_once()
         self._framed = False
+
+        self.apply_theme(theme_name)
+
+    def apply_theme(self, theme_name):
+        """Everything that comes from `theme.PLOT`: background, titles, axis
+        labels and pens, the sample dots. Called at construction and again by
+        the dialog when the theme changes while it is open -- the application
+        QSS repaints the frame around the canvas, never the canvas itself. The
+        overtone colour of the curves and the green of band and threshold are
+        theme-independent and stay."""
+        palette = theme.PLOT[theme_name if theme_name in theme.PLOT else "light"]
+        self.canvas.setBackground(palette["bg"])
+        self.plt_amp.setTitle("Amplitude sweep", color=palette["title"])
+        self.plt_phase.setTitle("Phase sweep", color=palette["title"])
+        self.plt_amp.setLabel("left", "Amplitude", units="dB",
+                              color=palette["title"])
+        self.plt_phase.setLabel("left", "Phase", units="deg",
+                                color=palette["title"])
+        self.plt_phase.setLabel("bottom", "Frequency", units="Hz",
+                                color=palette["title"])
+        for plot in (self.plt_amp, self.plt_phase):
+            for axis in ("left", "bottom"):
+                plot.getAxis(axis).setPen(palette["axis"])
+                plot.getAxis(axis).setTextPen(palette["axis"])
+        self.samples.setBrush(pg.mkBrush(palette["curve"]))
 
     def frame_once(self, band):
         """Frame the resonance the first time this tab has a band to show.
@@ -239,6 +250,13 @@ class RawDataViewDialog(QtWidgets.QDialog):
         self._timer = QtCore.QTimer(self)
         self._timer.timeout.connect(self._refresh)
         self._timer.start(REFRESH_MS)
+
+    def apply_theme(self, theme_name):
+        """Repaint every tab for `theme_name`; the main window calls this on a
+        theme change while the view is open."""
+        self._theme = theme_name if theme_name in theme.PLOT else "light"
+        for pane in self._panes:
+            pane.apply_theme(self._theme)
 
     ###########################################################################
     # Pull

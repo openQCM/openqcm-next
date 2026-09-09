@@ -1907,10 +1907,13 @@ class MainWindow(QtGui.QMainWindow):
             self._tec_state_pill(getattr(self, "_tec_state_key", "off")))
         # pyqtgraph plots (background / axes / titles)
         self._apply_plot_theme(theme.PLOT[name])
-        # an open Tec Current window follows too: its canvas took the palette
-        # at construction, and the QSS alone repaints only the frame around it
-        view = getattr(self, "_tec_current_view", None)
-        if view is not None:
+        # the open auxiliary views follow too: their canvases took the palette
+        # at construction, and the QSS alone repaints only the frame around
+        # them. A view without apply_theme() keeps its palette until reopened.
+        for attr in ("_tec_current_view", "_raw_data_view", "_peak_data_view"):
+            view = getattr(self, attr, None)
+            if view is None or not hasattr(view, "apply_theme"):
+                continue
             try:
                 view.apply_theme(name)
             except RuntimeError:
