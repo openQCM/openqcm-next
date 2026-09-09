@@ -94,6 +94,11 @@ and the controller's errors reach the System Log on change through `common/tecSt
 when an error appears and one when it clears, instead of a console print per sweep. Verified here:
 16 entries, bit 2 and bit 13 decode right, no old print left in either process.
 
+And `3cefc79`, clean: START no longer fails with "Too many open files" -- the app raises its own
+descriptor limit at start-up, `start()` closes the previous Worker before building the new one, and
+the count is printed on START and STOP. Found on this worktree (terminal limit 256, 15 queues here).
+Verified here: `Worker.close()` releases 15 queues, is_running() stays False, the app imports.
+
 ### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
 
 `b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
