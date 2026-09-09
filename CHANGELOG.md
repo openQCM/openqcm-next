@@ -78,6 +78,9 @@ And `9169e64`, clean: Peak Data View pans ten times faster -- its downsampling w
 missing, and bare ScatterPlotItems break pyqtgraph 0.11's setting loop); every point item is now a
 PlotDataItem in symbol mode. Verified here with the same headless script as on `main`.
 
+And `4abe377`, clean: the point budget (`AUTO_DOWNSAMPLE_FACTOR` = 1, one min and one max per pixel) and the
+`OPENQCM_PLOT_DEBUG=1` per-view-change report. Verified here: full span render 14 ms, pan 44 ms.
+
 ### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
 
 `b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
