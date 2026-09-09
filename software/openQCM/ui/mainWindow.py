@@ -1119,6 +1119,9 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.doubleSpinBox_Temperature.setValue(Constants.Temperature_Set_Value)
 
     def _set_PID_T_default(self):
+        """The whole config.txt back to the defaults. Only the fallback of
+        `_reset_temperature_config` for a missing or unreadable file: nothing
+        else may write the PID rows but Set PID (HANDOFF §3)."""
         _path = Constants.manual_frequencies_path
         # save default file in config.ini file
         np.savetxt( _path,  np.row_stack([Constants.Temperature_Set_Value * 1000,
@@ -4801,26 +4804,30 @@ class MainWindow(QtGui.QMainWindow):
         self._old_value = value
             
     def _TEC_Reset_button(self):
-        # reset the error register of TEC controller 
-        # user guide note: The error register can be reset using the "c" command 
-        # or by setting the Enable pin to Off and On again.
-        
-        # RESET PROCEDURE 
-        # TURN THE ENABLE PIN OFF 
+        """Clear the TEC controller's error register.
+
+        MTD415T data sheet, 6.3: the error register is reset by the "c" command
+        or by setting the Enable pin Off and On again. This is the second way,
+        X0 / X1 / X0 through the firmware. The controller is NOT powered down --
+        its supply pin stays high from the firmware's setup() -- so set-point,
+        PID and every other parameter it holds survive the reset.
+
+        ⚠️ Therefore nothing is written to config.txt here beyond the TEC flag
+        that ON and OFF already write. Until 2026-09-09 this ended with
+        `_set_PID_T_default()`, which put set-point and PID back to their
+        defaults in the file and on the indicator while the controller kept
+        what it had: the same divergence T SET (7a7f1b3) and TEC OFF (53487f7)
+        had, and the last place from which an old PID could reach the file.
+        """
+        # RESET PROCEDURE: Enable pin Off, On, Off
         self.Temperature_Control_OFF()
         # VER 0.1.5 increased the waiting time for module reset 2 seconds
         sleep(2.0)
-        # TURN THE ENABLE PIN ON 
-        # VER 0.1.5 increased the waiting time for module reset 2 seconds
         self.Temperature_Control_ON()
         sleep(2.0)
-        
-        # put the TEC in not active mode 
+        # leave the TEC not active
         self.Temperature_Control_OFF()
         sleep(0.5)
-    
-        # reset the Temperature and PID parameter to default 
-        self._set_PID_T_default()       
 
     ###########################################################################
     # N-SCALE: every plotted frequency divided by its harmonic order
