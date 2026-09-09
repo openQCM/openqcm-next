@@ -201,10 +201,12 @@ Four auxiliary windows now, and the difference between them is the thing to keep
 | Tec Current | Tools | the worker's TEC-current buffer, handed over by `_update_plot` | yes, pushed every tick |
 
 **Following a theme change while open.** The application QSS reaches a child dialog's frame, never
-its pyqtgraph canvas, so a view repaints itself only if it has an `apply_theme()`; `_apply_theme`
-walks the open views and calls it where it exists. Tec Current (`b42e9a9`) and Raw Data View (`3116187`)
-have it; Peak Data View and the datalog view do not yet and keep the palette they were built with
-until reopened.
+its pyqtgraph canvas, so every view has an `apply_theme()` that repaints what it took from
+`theme.PLOT`, and `_apply_theme` walks the open views (the datalog list included) and calls it.
+Tec Current `b42e9a9`, Raw Data View `3116187`, Peak Data View and Datalog View `ed71499`. Peak Data
+View is the one that *redraws*: its corrected curve, raw dots and labels are palette-coloured, so it
+keeps the arguments of its last `_draw()` and draws them again. A new view must ship with
+`apply_theme()` or it will be the one that stays dark on the light theme.
 
 Tec Current is the one that is *pushed*: the main window calls its
 `update_plot()` from `_update_plot()`, as the old `SecondWindow` was, so the acquisition never waits
