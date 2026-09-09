@@ -330,6 +330,13 @@ then, and the config flag alone is sampled once per sweep, so a 0 / 1 / 0 could 
 X0" in the System Log. Every X the process forwards from the flag is logged too ("TEC switched by
 the acquisition: X1"), as the PID parameters are.
 
+**The controller's errors reach the System Log on change** (`e863a24`): `common/tecStatus.py` decodes
+the register the firmware appends to every temperature sample, once for both processes, and reports
+"WARNING: MTD415T Temperature control error: Thermal Latch-Up" when a bit appears and "... error
+cleared: ..." when it goes, through the message queue. Not once per sweep as the old console print
+did; the pill shows the continuous state. `Constants.ERROR_REG_EVENT` has one name per bit since
+`2e313b7`: a missing comma had left 15 names and bits 13/14 mislabelled.
+
 ⚠️ **The MTD415T does have a flash** (data sheet 6.2.5): the "M" command saves T, W, L, d, G, O,
 P, I, D, C and S, and the controller boots from it. The firmware never sends "M", which is why a
 power cycle returns to the factory values and why config.txt is the memory. Saving Default #1 into

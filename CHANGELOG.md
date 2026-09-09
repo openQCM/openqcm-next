@@ -88,6 +88,12 @@ Conventional Commits. Versions are marked by Git tags.
   `_Temperature_Setting_isEnabled` and drives T SET and its spin box only.
 
 ### Fixed
+- **TEC controller errors reach the System Log** (`e863a24`) — "Thermal Latch-Up" and the others were a
+  console print in the acquisition process, once per sweep, invisible in the window. Decoded once for
+  both processes in `common/tecStatus.py` and reported through the message queue only when the set of
+  active errors changes: one line when an error appears, one when it clears.
+- **The MTD415T error table had 15 names for 16 bits** (`2e313b7`) — a missing comma; bit 13 "Value out
+  of range" read as "Invalid command", bit 14 as "Not used". One name per bit.
 - **TEC Reset rewrote `config.txt` to the defaults** (`8a4d25e`) — the button toggles the Enable pin
   (X0 / X1 / X0), which per the MTD415T data sheet clears the error register and nothing else: the
   controller keeps set-point and PID. The file and the indicator now keep them too; the full-default
