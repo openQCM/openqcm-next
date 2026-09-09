@@ -5207,6 +5207,22 @@ class MainWindow(QtGui.QMainWindow):
         what it had: the same divergence T SET (7a7f1b3) and TEC OFF (53487f7)
         had, and the last place from which an old PID could reach the file.
         """
+        if self.worker is not None and self.worker.is_running():
+            # The acquisition owns the port: the GUI's X writes would be skipped
+            # and the reset would depend on the config flag being sampled at
+            # the right moments (it was not, bench 2026-09-09). The process runs
+            # the sequence itself between two sweeps and reports it in the log.
+            # The GUI goes to OFF now, which is where the sequence ends.
+            self.Temperature_Control_OFF()
+            if self.worker.request_tec_reset():
+                text = ("TEC reset requested: the acquisition runs X0 / X1 / X0 at "
+                        "the end of the current sweep and reports it here.")
+            else:
+                text = "TEC reset not requested: the acquisition is not ready yet."
+            print(TAG, text)
+            Log.i(TAG, text)
+            return
+
         # RESET PROCEDURE: Enable pin Off, On, Off
         self.Temperature_Control_OFF()
         # VER 0.1.5 increased the waiting time for module reset 2 seconds
