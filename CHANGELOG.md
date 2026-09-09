@@ -88,6 +88,11 @@ Conventional Commits. Versions are marked by Git tags.
   `_Temperature_Setting_isEnabled` and drives T SET and its spin box only.
 
 ### Fixed
+- **Peak Data View was very slow to pan and zoom** (`9169e64`) — its downsampling was never on:
+  `setDownsampling(mode="peak")` only chooses the method, and pyqtgraph 0.11 breaks the setting anyway
+  when a bare `ScatterPlotItem` is in the plot, which the raw dots and the peak markers were. Now
+  `auto=True`, and every point item is a `PlotDataItem` in symbol mode. Measured on the repo's
+  100001-sample calibration: full-span render 352 → 40 ms, pan 1170 → 130 ms, zoomed pan 65 → 26 ms.
 - **Raw Data View showed nothing in a single-frequency run** (`012b843`) — it read the `*_multi`
   sweep buffers, filled by multiscan only. `SerialProcess` now ships its sweep into the slot of the
   overtone it interrogates, as multiscan fills five, and the view shows that one tab with the tab bar

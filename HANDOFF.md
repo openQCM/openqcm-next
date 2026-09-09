@@ -213,6 +213,15 @@ Tec Current is the one that is *pushed*: the main window calls its
 on it. Otherwise it follows the other three — `theme.PLOT` colours, the shared `PlotMenu`, one
 instance, closed with the main window (and on STOP, since it shows a running acquisition).
 
+⚠️ **pyqtgraph 0.11 downsampling, two traps** (`9169e64`). `setDownsampling(mode="peak")` only
+chooses the method: `auto=True` (or a factor) is what switches it on, and Peak Data View drew every
+one of its 100001 samples per curve on every pan for months because of that (measured: 1170 ms per
+pan). And it works only while no bare `ScatterPlotItem` is in the plot: `updateDownsampling()` calls
+`setDownsampling()` on every item, a ScatterPlotItem has none, the loop dies at the first one. Points
+go in as `PlotDataItem`s in symbol mode (`pen=None, symbol=...`), same look, downsampled and clipped
+with the curves. After the fix: full span 40 ms render / 130 ms pan, zoomed 2 / 26 ms. Raw Data View
+is unaffected: its sweeps are 18001 points and it has no downsampling to break.
+
 **Reading files is right in the last two and wrong in the first.** Peak Detection runs once and writes
 its two files; a datalog is a finished run. There is nothing in memory to read in either case, and
 those files *are* the record. Raw Data View is the opposite: the sweeps are in memory, and reading the
