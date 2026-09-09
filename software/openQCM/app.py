@@ -11,6 +11,7 @@ except:
 
 from openQCM.common.architecture import Architecture,OSType
 from openQCM.common.arguments import Arguments
+from openQCM.common import fdLimit
 from openQCM.common.logger import Logger as Log
 from openQCM.core.constants import MinimalPython, Constants
 from openQCM.ui import mainWindow
@@ -30,6 +31,14 @@ class OPENQCM:
           
         freeze_support()
         self._args = self._init_logger()
+        # One Worker costs ~100 file descriptors and START briefly holds two;
+        # a terminal's default limit of 256 made START fail (2026-09-09). Lift
+        # it here so the application does not depend on the shell it came from.
+        before, after = fdLimit.raise_soft_limit()
+        if before is not None:
+            print(TAG, "file descriptor limit: {} -> {}; {}".format(
+                before, after, fdLimit.describe()))
+            Log.i(TAG, "file descriptor limit: {} -> {}".format(before, after))
         self._app = QtGui.QApplication(argv)
         ##
         if Architecture.get_os() is OSType.windows:

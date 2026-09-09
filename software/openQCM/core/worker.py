@@ -1085,6 +1085,30 @@ class Worker:
         return self._acquisition_process is not None and self._acquisition_process.is_alive()
 
     ###########################################################################
+    # Release what this worker holds: the queues' pipes and semaphores and the
+    # process objects. ~100 file descriptors per worker (measured with lsof:
+    # 65 PSXSEM + 35 PIPE). Called by the GUI after stop() and before a new
+    # worker is built, so that two never coexist. Idempotent.
+    ###########################################################################
+    def close(self):
+        from multiprocessing.queues import Queue as _MPQueue
+        names = [name for name, value in vars(self).items()
+                 if isinstance(value, _MPQueue)]
+        for name in names:
+            q = getattr(self, name)
+            try:
+                # never wait for a feeder thread nobody is reading from
+                q.cancel_join_thread()
+                q.close()
+            except (OSError, ValueError):
+                pass
+            setattr(self, name, None)
+        # the process objects hold the parser, and the parser the queues too
+        self._acquisition_process = None
+        self._parser_process = None
+        return len(names)
+
+    ###########################################################################
     # Returns True if the running peak detection was cancelled by the user.
     ###########################################################################
     def is_calibration_cancelled(self):

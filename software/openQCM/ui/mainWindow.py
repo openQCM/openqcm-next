@@ -38,6 +38,7 @@ from openQCM.ui.widgets import (_Chevroned, ChevronComboBox,
 from openQCM.common.logger import Logger as Log
 from openQCM.common.architecture import Architecture,OSType
 from openQCM.common import sweepDump as SweepDump
+from openQCM.common import fdLimit
 
 import numpy as np
 import sys
@@ -504,6 +505,15 @@ class MainWindow(QtGui.QMainWindow):
 #         self.ui.pButton_Tswitch_ON.setEnabled(False)
 # =============================================================================
 
+        # Release the previous worker BEFORE building the new one: each holds
+        # ~100 file descriptors (queues), and two at once took the process to
+        # the edge of a 256 limit (bench, 2026-09-09: START failed twice in
+        # Queue() with "Too many open files").
+        if self.worker is not None:
+            self.worker.close()
+        print(TAG, "{} (before START)".format(fdLimit.describe()))
+        Log.i(TAG, "{} (before START)".format(fdLimit.describe()))
+
         # Instantiates process
         self.worker = Worker(QCS_on = self._QCS_installed,
                              port = self.ui.cBox_Port.currentText(),
@@ -844,6 +854,8 @@ class MainWindow(QtGui.QMainWindow):
         self._timer_plot.stop()
         self._enable_ui(True)
         self.worker.stop()
+        print(TAG, "{} (after STOP)".format(fdLimit.describe()))
+        Log.i(TAG, "{} (after STOP)".format(fdLimit.describe()))
 
         # add a delay to prevent the error caused by the serial com port open
         time.sleep(1)
