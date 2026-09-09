@@ -67,6 +67,10 @@ And `b42e9a9` as `2e1e10f` (Tec Current follows a theme change while open) and `
 sweep into that overtone's slot, the view hides the tab bar and selects it), both clean. Verified here
 with the same headless script as on `main`: slot fill, F1..F9 mapping, tab selection and fit.
 
+And `3116187` as `9ee760a`, clean: Raw Data View follows a theme change while open (`apply_theme()` on
+every tab; the main window's theme hook walks the open views). Verified here: after switching to
+light the tabs' background and sample brush equal the palette, the app imports.
+
 ### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
 
 `b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
