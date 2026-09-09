@@ -5,6 +5,7 @@ from openQCM.core import resonance
 from openQCM.common.fileStorage import FileStorage
 from openQCM.common import sweepDump as SweepDump
 from openQCM.common.pidQuery import read_pid
+from openQCM.common.tecReset import reset_sequence
 from openQCM.common.logger import Logger as Log
 from openQCM.common.switcher import Overtone_Switcher_5MHz, Overtone_Switcher_10MHz
 from time import time
@@ -880,6 +881,20 @@ class MultiscanProcess(multiprocessing.Process):
                             except Exception as e:
                                 print(TAG, "Warning: PID read failed: {}".format(e))
                             
+                            # TEC Reset asked while this process owns the port: X0 / X1 / X0
+                            # with the standard pauses, run here between two sweeps. Through
+                            # the config flag alone the 0 / 1 / 0 could reach the controller as
+                            # a single X0 (bench, 2026-09-09). Costs ~4.5 s once, on request.
+                            try:
+                                if self._parser6.take_tec_reset_request():
+                                    _sent = reset_sequence(self._serial)
+                                    # the sequence ends with the TEC off, as the flag the GUI wrote
+                                    self.ctrl_bool_pre = 0
+                                    self._parser6.add_message("TEC reset done by the acquisition: {} "
+                                                              "(Enable pin Off/On/Off, error register cleared)".format(", ".join(_sent)))
+                            except Exception as e:
+                                print(TAG, "Warning: TEC reset failed: {}".format(e))
+                            
                             # DEBUG_0.1.1a
                             try: 
                                 # SET TEMPERATURE and PID PARAMETERS
@@ -1109,6 +1124,8 @@ class MultiscanProcess(multiprocessing.Process):
             sleep(0.1)
             # store new value
             self.ctrl_bool_pre = _ctrl_bool
+            # the only trace that the switch really left this process
+            self._parser6.add_message("TEC switched by the acquisition: {}".format(cmd.strip()))
         
         # check if temperarure value is changed 
         if  (_var_bool) == 1.0:

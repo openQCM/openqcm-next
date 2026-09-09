@@ -478,6 +478,15 @@ class Worker:
         parser.request_pid_read()
         return True
 
+    def request_tec_reset(self):
+        """Ask the running acquisition to reset the TEC error register
+        (X0 / X1 / X0) between two sweeps, on the port it owns."""
+        parser = getattr(self, "_parser_process", None)
+        if parser is None:
+            return False
+        parser.request_tec_reset()
+        return True
+
     def consume_queue_message(self):
         # text from the acquisition process, printed HERE, in the GUI process:
         # that is what puts it in the System Log tab and not only in the console

@@ -61,6 +61,9 @@ class ParserProcess(multiprocessing.Process):
         # ...and the request itself, raised by the GUI, taken by the process
         # between two sweeps, the only moment the board is listening
         self.pid_read_request = multiprocessing.Event()
+        # ...and a TEC error-register reset asked while the process owns the
+        # port: X0 / X1 / X0 run by the process between two sweeps
+        self.tec_reset_request = multiprocessing.Event()
 
         #print(TAG, 'Process ready')
         #Log.d(TAG, "Process ready")
@@ -152,6 +155,17 @@ class ParserProcess(multiprocessing.Process):
         """True once per request: the process that answers also clears it."""
         if self.pid_read_request.is_set():
             self.pid_read_request.clear()
+            return True
+        return False
+
+    # -- TEC reset during an acquisition --------------------------------
+    def request_tec_reset(self):
+        self.tec_reset_request.set()
+
+    def take_tec_reset_request(self):
+        """True once per request: the process that runs it also clears it."""
+        if self.tec_reset_request.is_set():
+            self.tec_reset_request.clear()
             return True
         return False
 
