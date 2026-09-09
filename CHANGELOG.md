@@ -74,6 +74,10 @@ light the tabs' background and sample brush equal the palette, the app imports.
 And `ed71499`, clean: Peak Data View and Datalog View follow a theme change too (Peak Data View redraws its
 last data set in the new colours). Verified here: both repaint to the light background, the app imports.
 
+And `9169e64`, clean: Peak Data View pans ten times faster -- its downsampling was never on (`auto=True`
+missing, and bare ScatterPlotItems break pyqtgraph 0.11's setting loop); every point item is now a
+PlotDataItem in symbol mode. Verified here with the same headless script as on `main`.
+
 ### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
 
 `b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
