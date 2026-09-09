@@ -323,7 +323,12 @@ The full-default write survives only as the fallback for an unreadable file. **T
 call it too; since `8a4d25e` it writes nothing: the data sheet (6.3) resets the error register by the
 "c" command or by toggling the Enable pin, which is what the button does (X0 / X1 / X0), and the
 controller is not powered down, so it keeps set-point and PID through the reset and the file must
-too.
+too. **During a measurement the process runs the reset** (`0b3e77c`): the GUI's X writes are skipped
+then, and the config flag alone is sampled once per sweep, so a 0 / 1 / 0 could arrive as one X0
+(bench, thermal latch-up test). Same mechanism as Read PID -- `tec_reset_request` on the parser,
+`common/tecReset.reset_sequence()` between two sweeps, "TEC reset done by the acquisition: X0, X1,
+X0" in the System Log. Every X the process forwards from the flag is logged too ("TEC switched by
+the acquisition: X1"), as the PID parameters are.
 
 ⚠️ **The MTD415T does have a flash** (data sheet 6.2.5): the "M" command saves T, W, L, d, G, O,
 P, I, D, C and S, and the controller boots from it. The firmware never sends "M", which is why a

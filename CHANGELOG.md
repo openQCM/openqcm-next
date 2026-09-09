@@ -93,6 +93,12 @@ Conventional Commits. Versions are marked by Git tags.
   controller keeps set-point and PID. The file and the indicator now keep them too; the full-default
   write is only the fallback for an unreadable file. Last place from which an old PID could reach the
   file.
+  - **During a measurement the reset is run by the acquisition process** (`0b3e77c`) — the GUI's X
+    writes are skipped then and the config flag is sampled once per sweep, so the 0 / 1 / 0 could
+    reach the controller as a single X0 (bench: forced thermal latch-up, then reset while acquiring).
+    The GUI raises a request, the process runs X0 / 2 s / X1 / 2 s / X0 between two sweeps
+    (`common/tecReset.py`) and reports it in the System Log; every X the process forwards from the
+    flag is logged as well.
 - **Peak Data View was very slow to pan and zoom** (`9169e64`) — its downsampling was never on:
   `setDownsampling(mode="peak")` only chooses the method, and pyqtgraph 0.11 breaks the setting anyway
   when a bare `ScatterPlotItem` is in the plot, which the raw dots and the peak markers were. Now
