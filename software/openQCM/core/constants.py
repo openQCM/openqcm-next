@@ -266,17 +266,22 @@ class Constants:
     # VER 0.1.5
     # init MTD415T error register list, 
     # as in paragraph 6.3 Error Register and Safety Bitmask, MTD415T Data Sheet Rev. 1.2
-    ERROR_REG_EVENT = ["Enable pin not set", 
-                       "Internal temperature too high", 
-                       "Thermal Latch-Up",
-                       "Cycling time too small", 
-                       "No Sensor detected", 
-                       "No TEC detected", 
-                       "TEC mispoled", 
-                       "Not used", "Not used", "Not used", "Not used", "Not used", "Not used"
-                       "Value out of range", 
-                       "Invalid command", 
-                       "Not used"]
+    # ⚠️ One name per bit, 16 entries, bit 13 = "Value out of range" and
+    # bit 14 = "Invalid command" as in the data sheet. A missing comma used to
+    # glue two entries together, leaving 15 names with bits 13 and 14 wrongly
+    # labelled (fixed 2026-09-09). Decoded in common/tecStatus.py.
+    ERROR_REG_EVENT = ["Enable pin not set",              # bit 0
+                       "Internal temperature too high",   # bit 1
+                       "Thermal Latch-Up",                # bit 2
+                       "Cycling time too small",          # bit 3
+                       "No Sensor detected",              # bit 4
+                       "No TEC detected",                 # bit 5
+                       "TEC mispoled",                    # bit 6
+                       "Not used", "Not used", "Not used",            # bits 7-9
+                       "Not used", "Not used", "Not used",            # bits 10-12
+                       "Value out of range",              # bit 13
+                       "Invalid command",                 # bit 14
+                       "Not used"]                        # bit 15
     
     
      
