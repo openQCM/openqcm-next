@@ -88,6 +88,11 @@ Conventional Commits. Versions are marked by Git tags.
   `_Temperature_Setting_isEnabled` and drives T SET and its spin box only.
 
 ### Fixed
+- **TEC Reset rewrote `config.txt` to the defaults** (`8a4d25e`) — the button toggles the Enable pin
+  (X0 / X1 / X0), which per the MTD415T data sheet clears the error register and nothing else: the
+  controller keeps set-point and PID. The file and the indicator now keep them too; the full-default
+  write is only the fallback for an unreadable file. Last place from which an old PID could reach the
+  file.
 - **Peak Data View was very slow to pan and zoom** (`9169e64`) — its downsampling was never on:
   `setDownsampling(mode="peak")` only chooses the method, and pyqtgraph 0.11 breaks the setting anyway
   when a bare `ScatterPlotItem` is in the plot, which the raw dots and the peak markers were. Now

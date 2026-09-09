@@ -319,8 +319,18 @@ its parameters with the TEC off.
 `_set_PID_T_default()`, which rewrote the whole file; measured consequence: after a Set PID during
 an acquisition the controller held P800 and the file 500, and the next START sent 500 again. Both
 now call `_reset_temperature_config()`, which puts set-point and flags back and leaves rows 1–4.
-The full-default write survives as the fallback for an unreadable file and behind **TEC Reset**,
-which is an explicit reset and was left as it is.
+The full-default write survives only as the fallback for an unreadable file. **TEC Reset** used to
+call it too; since `8a4d25e` it writes nothing: the data sheet (6.3) resets the error register by the
+"c" command or by toggling the Enable pin, which is what the button does (X0 / X1 / X0), and the
+controller is not powered down, so it keeps set-point and PID through the reset and the file must
+too.
+
+⚠️ **The MTD415T does have a flash** (data sheet 6.2.5): the "M" command saves T, W, L, d, G, O,
+P, I, D, C and S, and the controller boots from it. The firmware never sends "M", which is why a
+power cycle returns to the factory values and why config.txt is the memory. Saving Default #1 into
+each instrument once would make the controller boot with it; the flash has a limited number of
+erase cycles, so it would be a deliberate, rare action, not something done on every Set PID. Not
+built; in the inventory.
 
 ⚠️ **Nothing but Set PID may write rows 1–4.** `_get_temperature()` (T SET) used to rewrite all seven
 rows and take the PID from the hidden `tab_2` spin boxes; while init reset those widgets the fault
