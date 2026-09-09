@@ -1182,6 +1182,14 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
   - **min-Y-scale** enforcement (integrate with `Constants.plot_force_yrange`).
   - ~~Dedicated "Advanced Temperature Control" window~~ — **done** as Tools → PID Control (§3);
     the hidden `tab_2` widgets and their three functions removed (`51034e8`).
+  - **Peak Data View: Y follows only when the gesture stops** — parked 2026-09-09, Marco's call
+    ("va bene così"). After the three downsampling fixes (§3) a full-span pan still costs 90–160 ms on
+    the bench (paint 30–40 ms of it) because the Y autorange re-runs on every X change and restarts
+    the update of every item on both linked panels. Measured offscreen: pan 40 ms → 15 ms with the Y
+    autorange off during the gesture, 9 ms with the raw dots also hidden. The design ready to build:
+    keep Y still while dragging, refit it once to the visible data ~200 ms after the last X change
+    (`setAutoVisible(y=True)`, single-shot timer on `sigXRangeChanged`); "Auto-scale" and "Reset
+    zoom" in the right-click menu stay. `OPENQCM_PLOT_DEBUG=1` is the yardstick before and after.
   - **Confirmed UX decisions**: single StartStop toggle; **TEC/PID kept in the sidebar** (advanced
     window later); System Log as a tab; default theme light; **frequency & dissipation stay TWO
     separate panels** (single dual-axis panel rejected).
