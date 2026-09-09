@@ -969,9 +969,11 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
     palette (deferred by the user during the palette-reduction step).
   - **min-Y-scale** enforcement (integrate with `Constants.plot_force_yrange`).
   - ~~Dedicated "Advanced Temperature Control" window~~ — **done** as Tools → PID Control, carried
-    from `main` on 2026-09-08 (see the CHANGELOG entry; detail in `main`'s HANDOFF §3). Still to do:
-    remove the hidden `tab_2` widgets (`cBox_PID`, `spinBox_*`, `pButton_PID_Set`) and the three
-    functions that only they use (`PID_Set`, `_get_PID`, `_PID_setting_changed`).
+    from `main` on 2026-09-08; the hidden `tab_2` widgets and their three functions removed on
+    2026-09-09 (`43483b7`).
+  - **Peak Data View: Y follows only when the gesture stops** — parked 2026-09-09 on `main`
+    (Marco's call); the numbers and the design are in `main`'s HANDOFF §5. Shared code: build it on
+    `main`, cherry-pick here.
   - **Confirmed UX decisions**: single StartStop toggle; **TEC/PID kept in the sidebar** (advanced
     window later); System Log as a tab; default theme light; **frequency & dissipation stay TWO
     separate panels** (single dual-axis panel rejected).
