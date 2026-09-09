@@ -116,11 +116,20 @@ class PeakDataViewDialog(QtWidgets.QDialog):
         self.plt_phase = self.canvas.addPlot(row=1, col=0)
         for plot in (self.plt_amp, self.plt_phase):
             plot.showGrid(x=False, y=False)
-            # 100001 samples per channel: clip to the view and downsample by peak,
-            # or panning a full-span sweep is visibly slow. 'peak' keeps the
-            # extremes, which is exactly what must not be smoothed away here.
+            # 100001 samples per channel: clip to the view and downsample by
+            # peak, or panning a full-span sweep takes over a second. 'peak'
+            # keeps the extremes, which is exactly what must not be smoothed
+            # away here; below two samples per pixel it reduces nothing, so a
+            # zoomed view shows the real samples.
+            # ⚠️ `auto=True` is what switches it on. setDownsampling(mode=...)
+            # alone only chooses the method, and that is how this view drew
+            # every sample for months (measured: 1170 ms per pan, 2026-09-09).
+            # ⚠️ And it only works while no bare ScatterPlotItem is in the
+            # plot: pyqtgraph 0.11 calls setDownsampling() on every item and
+            # a ScatterPlotItem has none, so the loop dies at the first one.
+            # Every point item here is therefore a PlotDataItem in symbol mode.
             plot.setClipToView(True)
-            plot.setDownsampling(mode="peak")
+            plot.setDownsampling(auto=True, mode="peak")
             plot.addLegend(offset=(10, 10))
 
         self.plt_phase.setXLink(self.plt_amp)
@@ -242,12 +251,8 @@ class PeakDataViewDialog(QtWidgets.QDialog):
                           pen=pg.mkPen(color=self._curve_colour, width=2),
                           name="baseline corrected",
                           skipFiniteCheck=True).setZValue(Z_CORRECTED)
-        marker = pg.ScatterPlotItem(x=peak_x, y=peak_amp, symbol="o", size=12,
-                                    brush=peak_brush, pen=peak_pen)
-        marker.setZValue(Z_PEAK)
-        self.plt_amp.addItem(marker)
-        if self.plt_amp.legend is not None:
-            self.plt_amp.legend.addItem(marker, "detected peak")
+        self._points(self.plt_amp, peak_x, peak_amp, "o", 12, peak_brush,
+                     peak_pen, Z_PEAK, "detected peak")
         self._label_peaks(self.plt_amp, indices, peak_x, peak_amp, label_colour)
 
         # -------------------------------------------------------------- phase
@@ -263,32 +268,32 @@ class PeakDataViewDialog(QtWidgets.QDialog):
                             skipFiniteCheck=True).setZValue(Z_CORRECTED)
         # where the amplitude peak sits in the phase channel: the reference the
         # phase peak below is compared against
-        ref = pg.ScatterPlotItem(x=peak_x, y=peak_phase_at_amp, symbol="o",
-                                 size=12, brush=peak_brush, pen=peak_pen)
-        ref.setZValue(Z_PEAK)
-        self.plt_phase.addItem(ref)
-        if self.plt_phase.legend is not None:
-            self.plt_phase.legend.addItem(ref, "at the amplitude peak")
+        self._points(self.plt_phase, peak_x, peak_phase_at_amp, "o", 12,
+                     peak_brush, peak_pen, Z_PEAK, "at the amplitude peak")
 
         phase_x, phase_y = self._phase_peaks(freq, corrected_phase, peak_x)
-        star = pg.ScatterPlotItem(x=phase_x, y=phase_y, symbol="star", size=18,
-                                  brush=peak_brush, pen=peak_pen)
-        star.setZValue(Z_PEAK)
-        self.plt_phase.addItem(star)
-        if self.plt_phase.legend is not None:
-            self.plt_phase.legend.addItem(star, "phase maximum")
+        self._points(self.plt_phase, phase_x, phase_y, "star", 18, peak_brush,
+                     peak_pen, Z_PEAK, "phase maximum")
         self._label_peaks(self.plt_phase, indices, phase_x, phase_y, label_colour)
 
     ###########################################################################
+    @staticmethod
+    def _points(plot, x, y, symbol, size, brush, pen, z, name):
+        """Points as a PlotDataItem in symbol mode, never a bare ScatterPlotItem.
+
+        Same look; but a PlotDataItem is downsampled and clipped with the
+        curves, and does not break PlotItem.updateDownsampling() in pyqtgraph
+        0.11 (see __init__). plot() registers the legend entry itself.
+        """
+        item = plot.plot(x, y, pen=None, symbol=symbol, symbolSize=size,
+                         symbolBrush=brush, symbolPen=pen, name=name,
+                         skipFiniteCheck=True)
+        item.setZValue(z)
+        return item
+
     def _scatter(self, plot, x, y, colour, pen, z, name):
         """The raw sweep as dots, so the corrected line stays the dominant one."""
-        item = pg.ScatterPlotItem(x=x, y=y, symbol="o", size=2,
-                                  brush=pg.mkBrush(*colour, 200), pen=pen)
-        item.setZValue(z)
-        plot.addItem(item)
-        # pyqtgraph does not always pick a ScatterPlotItem up automatically
-        if plot.legend is not None:
-            plot.legend.addItem(item, name)
+        self._points(plot, x, y, "o", 2, pg.mkBrush(*colour, 200), pen, z, name)
 
     def _label_peaks(self, plot, indices, xs, ys, colour):
         for slot, x, y in zip(indices, xs, ys):
