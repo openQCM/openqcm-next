@@ -27,6 +27,7 @@ disagreement is the point of drawing both.
 """
 
 import os
+import time
 
 import numpy as np
 import pyqtgraph as pg
@@ -38,6 +39,36 @@ from openQCM.ui import theme
 from openQCM.ui.plotMenu import PlotMenu
 
 TAG = "[PeakDataView]"
+
+# OPENQCM_PLOT_DEBUG=1 python3 run.py -- one console line per change of view:
+# the samples each curve was given and the samples it actually drew, plus the
+# time the last paint took. It is how "the downsampling is on" is checked on a
+# real screen rather than believed; off, the check costs one environment read.
+DEBUG_ENV = "OPENQCM_PLOT_DEBUG"
+
+# Samples per pixel that auto-downsampling keeps BEFORE 'peak' takes the min and
+# the max of each group. pyqtgraph's default is 5, which on a 1040 px view made
+# 8000 drawn points per curve for 100001 samples; 1 keeps one min and one max
+# per pixel -- nothing a screen can show is lost -- and draws 1874. Measured
+# 2026-09-09 on the repo calibration: full-span pan 95 -> 41 ms, render 38 -> 16.
+AUTO_DOWNSAMPLE_FACTOR = 1.0
+
+
+def _plot_debug():
+    return os.environ.get(DEBUG_ENV, "").strip().lower() not in ("", "0", "false", "no", "off")
+
+
+class _TimedCanvas(pg.GraphicsLayoutWidget):
+    """A GraphicsLayoutWidget that remembers how long its last paint took."""
+
+    last_paint_ms = 0.0
+    paint_count = 0
+
+    def paintEvent(self, event):
+        started = time.perf_counter()
+        super(_TimedCanvas, self).paintEvent(event)
+        self.last_paint_ms = (time.perf_counter() - started) * 1000.0
+        self.paint_count += 1
 
 # Same two accents the main window uses, so a curve means the same thing in both.
 COLOR_BASELINE = "#DD8E6B"      # brown, as Dissipation
@@ -109,7 +140,7 @@ class PeakDataViewDialog(QtWidgets.QDialog):
         self.info.setAlignment(QtCore.Qt.AlignCenter)
         layout.addWidget(self.info)
 
-        self.canvas = pg.GraphicsLayoutWidget()
+        self.canvas = _TimedCanvas()
         layout.addWidget(self.canvas, stretch=1)
 
         self.plt_amp = self.canvas.addPlot(row=0, col=0)
@@ -143,6 +174,41 @@ class PeakDataViewDialog(QtWidgets.QDialog):
         # the same data in the new colours
         self._last_draw = None
         self.apply_theme(self._theme)
+
+        if _plot_debug():
+            # one report per event-loop turn, after the paint that follows the
+            # range change; a drag produces many range changes per second
+            self._debug_timer = QtCore.QTimer(self)
+            self._debug_timer.setSingleShot(True)
+            self._debug_timer.setInterval(0)
+            self._debug_timer.timeout.connect(self._debug_report)
+            self._debug_since = None
+            self.plt_amp.sigXRangeChanged.connect(self._debug_schedule)
+            print(TAG, "plot debug on ({}=1): points given -> drawn per curve, "
+                       "and paint time, on every change of view".format(DEBUG_ENV))
+
+    # ------------------------------------------------------------ debug
+    def _debug_schedule(self, *_args):
+        if self._debug_since is None:
+            self._debug_since = time.perf_counter()
+        self._debug_timer.start()
+
+    def _debug_report(self):
+        since = self._debug_since
+        self._debug_since = None
+        (x0, x1), _y = self.plt_amp.viewRange()
+        parts = []
+        for item in self.plt_amp.listDataItems():
+            given = 0 if item.xData is None else len(item.xData)
+            shown = item.getData()[0]
+            drawn = 0 if shown is None else len(shown)
+            parts.append("{} {}->{}".format(item.name() or "points", given, drawn))
+        ds, auto, mode = self.plt_amp.downsampleMode()
+        print(TAG, "view {:.0f}-{:.0f} Hz | ds {} auto {} {} | {} | last paint {:.0f} ms "
+                   "({} paints) | range change -> now {:.0f} ms".format(
+                       x0, x1, ds, auto, mode, ", ".join(parts),
+                       self.canvas.last_paint_ms, self.canvas.paint_count,
+                       0 if since is None else (time.perf_counter() - since) * 1000.0))
 
     def apply_theme(self, theme_name):
         """Repaint for `theme_name`: frame, axes, titles, and the drawn data.
@@ -243,14 +309,11 @@ class PeakDataViewDialog(QtWidgets.QDialog):
         # ---------------------------------------------------------- amplitude
         self._scatter(self.plt_amp, freq, raw_mag, muted, raw_pen, Z_RAW,
                       "raw sweep")
-        self.plt_amp.plot(freq, baseline_mag, pen=baseline_pen,
-                          name="baseline (poly {})".format(
-                              Constants.BASELINE_POLY_ORDER),
-                          skipFiniteCheck=True).setZValue(Z_BASELINE)
-        self.plt_amp.plot(freq, corrected_mag,
-                          pen=pg.mkPen(color=self._curve_colour, width=2),
-                          name="baseline corrected",
-                          skipFiniteCheck=True).setZValue(Z_CORRECTED)
+        self._curve(self.plt_amp, freq, baseline_mag, baseline_pen, Z_BASELINE,
+                    "baseline (poly {})".format(Constants.BASELINE_POLY_ORDER))
+        self._curve(self.plt_amp, freq, corrected_mag,
+                    pg.mkPen(color=self._curve_colour, width=2), Z_CORRECTED,
+                    "baseline corrected")
         self._points(self.plt_amp, peak_x, peak_amp, "o", 12, peak_brush,
                      peak_pen, Z_PEAK, "detected peak")
         self._label_peaks(self.plt_amp, indices, peak_x, peak_amp, label_colour)
@@ -258,14 +321,11 @@ class PeakDataViewDialog(QtWidgets.QDialog):
         # -------------------------------------------------------------- phase
         self._scatter(self.plt_phase, freq, raw_phase, phase_muted, raw_pen,
                       Z_RAW, "raw sweep")
-        self.plt_phase.plot(freq, baseline_phase, pen=baseline_pen,
-                            name="baseline (poly {})".format(
-                                Constants.BASELINE_POLY_ORDER),
-                            skipFiniteCheck=True).setZValue(Z_BASELINE)
-        self.plt_phase.plot(freq, corrected_phase,
-                            pen=pg.mkPen(color=COLOR_PHASE, width=2),
-                            name="baseline corrected",
-                            skipFiniteCheck=True).setZValue(Z_CORRECTED)
+        self._curve(self.plt_phase, freq, baseline_phase, baseline_pen, Z_BASELINE,
+                    "baseline (poly {})".format(Constants.BASELINE_POLY_ORDER))
+        self._curve(self.plt_phase, freq, corrected_phase,
+                    pg.mkPen(color=COLOR_PHASE, width=2), Z_CORRECTED,
+                    "baseline corrected")
         # where the amplitude peak sits in the phase channel: the reference the
         # phase peak below is compared against
         self._points(self.plt_phase, peak_x, peak_phase_at_amp, "o", 12,
@@ -278,18 +338,26 @@ class PeakDataViewDialog(QtWidgets.QDialog):
 
     ###########################################################################
     @staticmethod
-    def _points(plot, x, y, symbol, size, brush, pen, z, name):
+    def _budget(item, z):
+        """Every data item of this view: z-order and the point budget above."""
+        item.opts["autoDownsampleFactor"] = AUTO_DOWNSAMPLE_FACTOR
+        item.setZValue(z)
+        return item
+
+    def _curve(self, plot, x, y, pen, z, name):
+        return self._budget(plot.plot(x, y, pen=pen, name=name,
+                                      skipFiniteCheck=True), z)
+
+    def _points(self, plot, x, y, symbol, size, brush, pen, z, name):
         """Points as a PlotDataItem in symbol mode, never a bare ScatterPlotItem.
 
         Same look; but a PlotDataItem is downsampled and clipped with the
         curves, and does not break PlotItem.updateDownsampling() in pyqtgraph
         0.11 (see __init__). plot() registers the legend entry itself.
         """
-        item = plot.plot(x, y, pen=None, symbol=symbol, symbolSize=size,
-                         symbolBrush=brush, symbolPen=pen, name=name,
-                         skipFiniteCheck=True)
-        item.setZValue(z)
-        return item
+        return self._budget(plot.plot(x, y, pen=None, symbol=symbol, symbolSize=size,
+                                      symbolBrush=brush, symbolPen=pen, name=name,
+                                      skipFiniteCheck=True), z)
 
     def _scatter(self, plot, x, y, colour, pen, z, name):
         """The raw sweep as dots, so the corrected line stays the dominant one."""
