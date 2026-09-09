@@ -94,7 +94,6 @@ class PeakDataViewDialog(QtWidgets.QDialog):
     def __init__(self, theme_name="light", parent=None):
         super(PeakDataViewDialog, self).__init__(parent)
         self._theme = theme_name if theme_name in theme.PLOT else "light"
-        palette = theme.PLOT[self._theme]
 
         self.setWindowTitle("Peak Data View - last Peak Detection")
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.Window)
@@ -111,23 +110,11 @@ class PeakDataViewDialog(QtWidgets.QDialog):
         layout.addWidget(self.info)
 
         self.canvas = pg.GraphicsLayoutWidget()
-        self.canvas.setBackground(palette["bg"])
         layout.addWidget(self.canvas, stretch=1)
 
         self.plt_amp = self.canvas.addPlot(row=0, col=0)
         self.plt_phase = self.canvas.addPlot(row=1, col=0)
-        self.plt_amp.setTitle("Amplitude", color=palette["title"])
-        self.plt_phase.setTitle("Phase", color=palette["title"])
-        self.plt_amp.setLabel("left", "Amplitude", units="dB",
-                              color=palette["title"])
-        self.plt_phase.setLabel("left", "Phase", units="deg",
-                                color=palette["title"])
-        self.plt_phase.setLabel("bottom", "Frequency", units="Hz",
-                                color=palette["title"])
         for plot in (self.plt_amp, self.plt_phase):
-            for axis in ("left", "bottom"):
-                plot.getAxis(axis).setPen(palette["axis"])
-                plot.getAxis(axis).setTextPen(palette["axis"])
             plot.showGrid(x=False, y=False)
             # 100001 samples per channel: clip to the view and downsample by peak,
             # or panning a full-span sweep is visibly slow. 'peak' keeps the
@@ -142,8 +129,39 @@ class PeakDataViewDialog(QtWidgets.QDialog):
         self._menu = PlotMenu(self)
         self._menu.attach((self.plt_amp, self.plt_phase))
 
-        self._curve_colour = palette["curve"]
         self._items = []
+        # the arguments of the last _draw(), kept so a theme change can redraw
+        # the same data in the new colours
+        self._last_draw = None
+        self.apply_theme(self._theme)
+
+    def apply_theme(self, theme_name):
+        """Repaint for `theme_name`: frame, axes, titles, and the drawn data.
+
+        Called at construction and by the main window on a theme change while
+        this window is open -- the application QSS repaints the frame around
+        the canvas, never the canvas. The corrected-amplitude curve, the raw
+        dots and the peak labels take their colour from the palette, so the
+        last data set is drawn again rather than recoloured item by item.
+        """
+        self._theme = theme_name if theme_name in theme.PLOT else "light"
+        palette = theme.PLOT[self._theme]
+        self._curve_colour = palette["curve"]
+        self.canvas.setBackground(palette["bg"])
+        self.plt_amp.setTitle("Amplitude", color=palette["title"])
+        self.plt_phase.setTitle("Phase", color=palette["title"])
+        self.plt_amp.setLabel("left", "Amplitude", units="dB",
+                              color=palette["title"])
+        self.plt_phase.setLabel("left", "Phase", units="deg",
+                                color=palette["title"])
+        self.plt_phase.setLabel("bottom", "Frequency", units="Hz",
+                                color=palette["title"])
+        for plot in (self.plt_amp, self.plt_phase):
+            for axis in ("left", "bottom"):
+                plot.getAxis(axis).setPen(palette["axis"])
+                plot.getAxis(axis).setTextPen(palette["axis"])
+        if self._last_draw is not None:
+            self._draw(*self._last_draw)
 
     ###########################################################################
     def load(self, calibration_path, peaks_path):
@@ -182,8 +200,9 @@ class PeakDataViewDialog(QtWidgets.QDialog):
             self.info.setText("The peak file holds no detected peak.")
             return False
 
-        self._draw(freq, raw_mag, raw_phase, baseline_mag, baseline_phase,
-                   corrected_mag, corrected_phase, valid)
+        self._last_draw = (freq, raw_mag, raw_phase, baseline_mag, baseline_phase,
+                           corrected_mag, corrected_phase, valid)
+        self._draw(*self._last_draw)
 
         fundamental = valid[0][1]
         self.info.setText(

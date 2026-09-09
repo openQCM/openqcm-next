@@ -1908,10 +1908,11 @@ class MainWindow(QtGui.QMainWindow):
         # pyqtgraph plots (background / axes / titles)
         self._apply_plot_theme(theme.PLOT[name])
         # the open auxiliary views follow too: their canvases took the palette
-        # at construction, and the QSS alone repaints only the frame around
-        # them. A view without apply_theme() keeps its palette until reopened.
-        for attr in ("_tec_current_view", "_raw_data_view", "_peak_data_view"):
-            view = getattr(self, attr, None)
+        # at construction, and the QSS alone repaints only the frame around them
+        views = [getattr(self, attr, None)
+                 for attr in ("_tec_current_view", "_raw_data_view", "_peak_data_view")]
+        views.extend(getattr(self, "_datalog_views", []))
+        for view in views:
             if view is None or not hasattr(view, "apply_theme"):
                 continue
             try:

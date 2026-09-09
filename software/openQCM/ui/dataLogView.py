@@ -199,11 +199,6 @@ class DataLogViewDialog(QtWidgets.QDialog):
     def __init__(self, theme_name="light", parent=None):
         super(DataLogViewDialog, self).__init__(parent)
         self._theme = theme_name if theme_name in theme.PLOT else "light"
-        palette = theme.PLOT[self._theme]
-        # The main window sets the QSS on itself, not on the application, so a
-        # dialog only inherits it while it is parented there. Applying it here too
-        # keeps the overtone pills looking like the main window's either way.
-        self.setStyleSheet(theme.qss(theme.palette(self._theme)))
 
         self.setWindowTitle("Datalog View")
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.Window)
@@ -267,7 +262,6 @@ class DataLogViewDialog(QtWidgets.QDialog):
         top.addWidget(self._controls, stretch=3)
 
         self.temp_canvas = pg.GraphicsLayoutWidget()
-        self.temp_canvas.setBackground(palette["bg"])
         self.temp_canvas.setFixedHeight(TOP_ROW_HEIGHT)
         top.addWidget(self.temp_canvas, stretch=4)
         self._controls.setFixedHeight(TOP_ROW_HEIGHT)
@@ -275,12 +269,9 @@ class DataLogViewDialog(QtWidgets.QDialog):
         self.plt_temp = self.temp_canvas.addPlot(
             row=0, col=0,
             axisItems={"bottom": RelativeTimeAxis(orientation="bottom")})
-        self.plt_temp.setTitle("Temperature", color=palette["title"])
-        self.plt_temp.setLabel("left", "T", units="°C", color=palette["title"])
 
         # ------------------------------------------------- the two shift panels
         self.canvas = pg.GraphicsLayoutWidget()
-        self.canvas.setBackground(palette["bg"])
 
         # The analysis pane sits beside the plots and starts hidden: drawing the
         # run is this window's first job, and "what changed between these two
@@ -297,21 +288,11 @@ class DataLogViewDialog(QtWidgets.QDialog):
         self.plt_diss = self.canvas.addPlot(
             row=1, col=0,
             axisItems={"bottom": RelativeTimeAxis(orientation="bottom")})
-        self.plt_freq.setTitle("Resonance frequency", color=palette["title"])
-        self.plt_diss.setTitle("Dissipation", color=palette["title"])
-        self.plt_freq.setLabel("left", "Frequency shift", units="Hz",
-                               color=palette["title"])
-        self.plt_diss.setLabel("left", "Dissipation shift", units="ppm",
-                               color=palette["title"])
-        self.plt_diss.setLabel("bottom", "Time (h:mm:ss)", color=palette["title"])
-
         for plot in self.plots():
-            for axis in ("left", "bottom"):
-                plot.getAxis(axis).setPen(palette["axis"])
-                plot.getAxis(axis).setTextPen(palette["axis"])
             plot.getAxis("bottom").enableAutoSIPrefix(False)
             plot.showGrid(x=False, y=False)
             plot.addLegend(offset=(10, 10))
+        self.apply_theme(self._theme)
 
         self.plt_diss.setXLink(self.plt_freq)
         self.plt_temp.setXLink(self.plt_freq)
@@ -355,6 +336,35 @@ class DataLogViewDialog(QtWidgets.QDialog):
 
     def plots(self):
         return (self.plt_freq, self.plt_diss, self.plt_temp)
+
+    def apply_theme(self, theme_name):
+        """Repaint frame, canvases, titles and axes for `theme_name`.
+
+        Called at construction and by the main window on a theme change while
+        this window is open. The QSS is set on this dialog as well as inherited:
+        the main window sets it on itself, not on the application, so a dialog
+        only inherits it while parented there, and the overtone pills must look
+        like the main window's either way. The curves keep their own colours
+        (overtone palette, temperature), which do not depend on the theme.
+        """
+        self._theme = theme_name if theme_name in theme.PLOT else "light"
+        palette = theme.PLOT[self._theme]
+        self.setStyleSheet(theme.qss(theme.palette(self._theme)))
+        for canvas in (self.temp_canvas, self.canvas):
+            canvas.setBackground(palette["bg"])
+        self.plt_temp.setTitle("Temperature", color=palette["title"])
+        self.plt_temp.setLabel("left", "T", units="°C", color=palette["title"])
+        self.plt_freq.setTitle("Resonance frequency", color=palette["title"])
+        self.plt_diss.setTitle("Dissipation", color=palette["title"])
+        self.plt_freq.setLabel("left", "Frequency shift", units="Hz",
+                               color=palette["title"])
+        self.plt_diss.setLabel("left", "Dissipation shift", units="ppm",
+                               color=palette["title"])
+        self.plt_diss.setLabel("bottom", "Time (h:mm:ss)", color=palette["title"])
+        for plot in self.plots():
+            for axis in ("left", "bottom"):
+                plot.getAxis(axis).setPen(palette["axis"])
+                plot.getAxis(axis).setTextPen(palette["axis"])
 
     ###########################################################################
     def load(self, path):
