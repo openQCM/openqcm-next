@@ -93,6 +93,11 @@ Conventional Commits. Versions are marked by Git tags.
   when a bare `ScatterPlotItem` is in the plot, which the raw dots and the peak markers were. Now
   `auto=True`, and every point item is a `PlotDataItem` in symbol mode. Measured on the repo's
   100001-sample calibration: full-span render 352 → 40 ms, pan 1170 → 130 ms, zoomed pan 65 → 26 ms.
+  - Then (`4abe377`) the point budget: pyqtgraph's auto mode keeps 5 samples per pixel before 'peak'
+    takes min and max, 8000 drawn points per curve on a 1040 px view; `AUTO_DOWNSAMPLE_FACTOR` = 1
+    keeps one min and one max per pixel. Full span 1874 points, render 14 ms, pan 44 ms. And an
+    observable: `OPENQCM_PLOT_DEBUG=1` prints the samples given and drawn per curve and the paint
+    time on every change of view, so "the downsampling is on" is checked on a screen, not believed.
 - **Raw Data View showed nothing in a single-frequency run** (`012b843`) — it read the `*_multi`
   sweep buffers, filled by multiscan only. `SerialProcess` now ships its sweep into the slot of the
   overtone it interrogates, as multiscan fills five, and the view shows that one tab with the tab bar

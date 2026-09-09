@@ -219,8 +219,13 @@ one of its 100001 samples per curve on every pan for months because of that (mea
 pan). And it works only while no bare `ScatterPlotItem` is in the plot: `updateDownsampling()` calls
 `setDownsampling()` on every item, a ScatterPlotItem has none, the loop dies at the first one. Points
 go in as `PlotDataItem`s in symbol mode (`pen=None, symbol=...`), same look, downsampled and clipped
-with the curves. After the fix: full span 40 ms render / 130 ms pan, zoomed 2 / 26 ms. Raw Data View
-is unaffected: its sweeps are 18001 points and it has no downsampling to break.
+with the curves. A third trap (`4abe377`): auto mode keeps `autoDownsampleFactor` = 5 samples per pixel
+*before* 'peak' takes min and max, i.e. ~8 drawn points per pixel per curve; the view sets it to 1 on
+every item (`_budget()`), one min and one max per pixel, nothing visible lost. After the three:
+full span 14 ms render / 44 ms pan, zoomed 2 / 26 ms (was 352 / 1170). **Check it on a screen, not by
+reading**: `OPENQCM_PLOT_DEBUG=1 python3 run.py` prints, on every change of view, the samples given
+and drawn per curve and the paint time. Raw Data View is unaffected: its sweeps are 18001 points and
+it has no downsampling to break.
 
 **Reading files is right in the last two and wrong in the first.** Peak Detection runs once and writes
 its two files; a datalog is a finished run. There is nothing in memory to read in either case, and
