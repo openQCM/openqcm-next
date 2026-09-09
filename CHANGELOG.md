@@ -84,6 +84,11 @@ And `4abe377`, clean: the point budget (`AUTO_DOWNSAMPLE_FACTOR` = 1, one min an
 And `8a4d25e`, clean: TEC Reset clears the error register (Enable pin toggle, data sheet 6.3) and writes
 nothing to config.txt; the controller keeps set-point and PID through it, so does the file.
 
+And `0b3e77c`, clean: during a measurement TEC Reset is run by the acquisition process between two sweeps
+(`tec_reset_request`, `common/tecReset.py`) and reported in the System Log; every X the process
+forwards from the config flag is logged. Verified here: request taken once, both processes wired, the
+app imports.
+
 ### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
 
 `b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
