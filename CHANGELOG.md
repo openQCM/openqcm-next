@@ -71,6 +71,9 @@ And `3116187` as `9ee760a`, clean: Raw Data View follows a theme change while op
 every tab; the main window's theme hook walks the open views). Verified here: after switching to
 light the tabs' background and sample brush equal the palette, the app imports.
 
+And `ed71499`, clean: Peak Data View and Datalog View follow a theme change too (Peak Data View redraws its
+last data set in the new colours). Verified here: both repaint to the light background, the app imports.
+
 ### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
 
 `b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
