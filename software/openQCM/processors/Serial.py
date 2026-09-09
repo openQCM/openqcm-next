@@ -6,6 +6,7 @@ from openQCM.common.fileStorage import FileStorage
 from openQCM.common import sweepDump as SweepDump
 from openQCM.common.pidQuery import read_pid
 from openQCM.common.tecReset import reset_sequence
+from openQCM.common.tecStatus import decode_error_register, report_error_changes
 from openQCM.common.logger import Logger as Log
 from openQCM.common.switcher import Overtone_Switcher_5MHz, Overtone_Switcher_10MHz
 from time import time
@@ -688,23 +689,14 @@ class SerialProcess(multiprocessing.Process):
                                     self._error_register_bit = int((strs[length -1][2]))
                                     # print ("DEBUG: error register string = ", self._error_register_bit )
                                     
-                                    # convert decimal to 16 bit binary
-                                    # integer to binary string array
-                                    bnr = bin(self._error_register_bit ).replace('0b','')
-                                    # reverse the binary string array 
-                                    bnr_rev = bnr[::-1] 
-                                    while len(bnr_rev) < 16:
-                                        # fill the binary string with zero 
-                                        bnr_rev += '0'
-                                        # reverse the array 
-                                        bnr = bnr_rev[::-1]
-                                    
-                                    # check the error register bit 
-                                    for i in range (len(Constants.ERROR_REG_EVENT)):
-                                        if bnr_rev[i] == '1': 
-                                            if i > 0: 
-                                                # PRINT THE ERROR MESSAGE, except bit = 0 "Enable pin not set"
-                                                print ("WARNING: MTD415T Temperature control error: ", Constants.ERROR_REG_EVENT[i])
+                                    # decode the register and report the CHANGES to the GUI
+                                    # (System Log): one line when an error appears, one when it
+                                    # clears. It used to print every bit on every sweep, to
+                                    # the console only. See common/tecStatus.py.
+                                    self._tec_errors_pre = report_error_changes(
+                                        decode_error_register(self._error_register_bit),
+                                        getattr(self, "_tec_errors_pre", None),
+                                        self._parser6.add_message)
                         
                         except:
                                 print(TAG, "Info: exception at serial port read process", end='\n')
