@@ -89,6 +89,11 @@ And `0b3e77c`, clean: during a measurement TEC Reset is run by the acquisition p
 forwards from the config flag is logged. Verified here: request taken once, both processes wired, the
 app imports.
 
+And `2e313b7` + `e863a24`, clean: the MTD415T error table has one name per bit (bits 13/14 were mislabelled),
+and the controller's errors reach the System Log on change through `common/tecStatus.py`, one line
+when an error appears and one when it clears, instead of a console print per sweep. Verified here:
+16 entries, bit 2 and bit 13 decode right, no old print left in either process.
+
 ### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
 
 `b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
