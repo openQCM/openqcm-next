@@ -5,6 +5,16 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Docs — what the two datalogs actually record, before adding the comparison file (2026-09-10)
+
+`docs/impedance-analysis/datalog-quantities-2026-09-10.md`. Both chains reproduced offline on
+today's dump with the processes' own functions, five figures. Two corrections to the plan for the
+second datalog: `main`'s Dissipation column is the **full width at −0.3 dB below the amplitude
+maximum, / 1e6** — not a half width; and the two Frequency columns are two estimators (maximum of
+the fitted amplitude vs maximum of the exact G), 2–18 Hz apart on this crystal in air. The D column
+of this branch (2Γ/f, Γ at half height of G) and `main`'s width are different physical quantities
+with no constant between them.
+
 ### Carried from `main` — Tools → PID Control, and config.txt as the PID memory (2026-09-08)
 
 `6d78f5f`, `d27830e`, `bff2818`, cherry-picked as `6a39be7`, `23eda86`, `8ec8a5d`, all clean. The
