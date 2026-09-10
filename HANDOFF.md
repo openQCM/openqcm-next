@@ -338,6 +338,9 @@ message (7th element) and `_update_tec_error_lock()` runs after every `_update_T
 (toggle per connection, T SET per TEC switch). The lock follows the register, not the end of the reset.
 RESET is disabled from the press until the register is seen again (≤ 10 s). From Standby the button
 asks `E?` after its sequence and logs "error register now N", since nobody samples it there.
+Bench, 2026-09-10, during a multiscan: locked at the WARNING line, RESET the only live control;
+"reset done" → "error cleared" → "TEC controls released", ON back, T SET grey until ON. The Standby
+path (E? read-back) is verified headless only.
 
 **The controller's errors reach the System Log on change** (`e863a24`): `common/tecStatus.py` decodes
 the register the firmware appends to every temperature sample, once for both processes, and reports
