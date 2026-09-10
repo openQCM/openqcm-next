@@ -103,6 +103,10 @@ And `34f8388`, clean: `close()` joins the two processes first, otherwise the un-
 queues' semaphores (bench: 97 descriptors before the second START instead of ~15). Verified here with
 the same headless script: a started-and-stopped parser, 93 -> 6 after close().
 
+And `dcbac95`, clean: a TEC controller error locks ON/OFF and T SET until the register is clear again;
+RESET cannot be pressed twice in flight; from Standby the button reads the register back with E?.
+Verified here: the register rides in both processes' status message, the lock method is present.
+
 ### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
 
 `b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
