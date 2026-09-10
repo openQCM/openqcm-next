@@ -882,6 +882,13 @@ class MainWindow(QtGui.QMainWindow):
 
         # the Tec Current window shows a running acquisition; none, no window
         self._close_tec_current_view()
+
+        # STOP put the temperature card back to idle above; if the controller
+        # was in error when the run ended it still is -- X0 clears nothing --
+        # so the lock comes back on top: OFF/T SET disabled, RESET the only
+        # live control, from Standby (bench, 2026-09-10: the card went idle
+        # with RESET grey while the latch-up was still set).
+        self._reapply_tec_error_lock()
          
         # VER 0.1.6 the elapsed-time reference is cleared in start(), not here:
         # the finished run stays on screen after STOP and its ticks have to keep
@@ -2599,6 +2606,9 @@ class MainWindow(QtGui.QMainWindow):
             # and the TEC controller's PID, which is volatile: after a power
             # cycle it holds the factory values whatever the file says
             self._align_pid_with_controller()
+            # and the error register, so the temperature card starts locked if
+            # the controller is in error, released if it is not
+            self._refresh_tec_error_lock_from_device()
         else:
             # ---- DISCONNECT ----
             self._disconnect_serial()
@@ -4870,6 +4880,28 @@ class MainWindow(QtGui.QMainWindow):
             self.ui.label_Temperature_state.setText(
                 "Error: {} -- press RESET".format(", ".join(sorted(names))))
             self.ui.pButton_TEC_Reset.setEnabled(not pending)
+
+    def _reapply_tec_error_lock(self):
+        """Put the lock back after something redrew the card (STOP does)."""
+        if not self._tec_errors:
+            return
+        self._update_tec_error_lock(
+            self.worker.get_TEC_error_register() if self.worker is not None else 0)
+        # RESET must be reachable from Standby while the error stands
+        self.ui.pButton_TEC_Reset.setEnabled(time.time() >= self._tec_reset_pending_until)
+
+    def _refresh_tec_error_lock_from_device(self):
+        """Standby: ask E? once and set the lock from the answer."""
+        register = self._read_tec_error_register()
+        if register is None:
+            return
+        names = decode_error_register(register)
+        print(TAG, "TEC error register on connect: {} ({})".format(
+            register, ", ".join(sorted(names)) if names else "clear"))
+        Log.i(TAG, "TEC error register on connect: {}".format(register))
+        self._update_tec_error_lock(register)
+        if names:
+            self.ui.pButton_TEC_Reset.setEnabled(True)
 
     def _tec_reset_started(self):
         """RESET pressed: no second sequence until the register has been seen again."""
