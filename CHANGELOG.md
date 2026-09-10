@@ -119,7 +119,9 @@ whenever the sweep dump is off. The first now lives inside `_raw_data_plot()`; t
 and is gone.
 
 Followed on this branch by `857e518`, which did the same for its two dependencies of its own on that
-package: `plot_conductance` (Tools → Conductance Data, matplotlib and tkinter with it) is imported
+package (bench-verified 2026-09-10: Tools → Conductance Data opens its matplotlib figure with the dump
+on; the figures are never closed and accumulate — "Figure 13" — which is one more reason the dump
+viewers are development tools slated for removal): `plot_conductance` (Tools → Conductance Data, matplotlib and tkinter with it) is imported
 inside `_conductance_data_plot()`, and `ui/impedanceFitWindow.py` loads `sweep_data/fit_admittance.py`
 on the first `ImpedanceFitWindow()` instead of at import. `sweep_data/` is now optional in a release
 tree here as well. Measured headless after both: matplotlib in `sys.modules` True → False, tkinter
