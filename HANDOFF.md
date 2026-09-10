@@ -344,7 +344,8 @@ not clear the lock** (`43f4590`): STOP redraws the card to idle, so `stop()` end
 if the last register had an error — the bench had found the card idle with RESET grey while the
 latch-up still stood. On connect the GUI asks `E?` once and sets the lock from the answer ("TEC error
 register on connect: N"). Bench, 2026-09-10: latch-up, STOP → card still locked, RESET live; RESET from
-Standby → OFF / ON / OFF, "TEC controls released", "error register now 1 (clear)".
+Standby → OFF / ON / OFF, "TEC controls released", "error register now 1 (clear)"; Disconnect and
+Connect with the error standing → locked from the connect-time E?. Every path of the lock is bench-verified.
 
 **The controller's errors reach the System Log on change** (`e863a24`): `common/tecStatus.py` decodes
 the register the firmware appends to every temperature sample, once for both processes, and reports
