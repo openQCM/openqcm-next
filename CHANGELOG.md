@@ -5,6 +5,16 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Docs — three f_s estimators on the same exact G, in air (2026-09-10)
+
+`04422c0`, addendum to `research/air-ipa-water-1920-2026-09-10/README.md` plus `scripts/fs_estimators.py`.
+On the five air sweeps the half-height midpoint and the Lorentzian fit both fall 0.25–0.33 Γ **below**
+the `argmax` the datalog publishes (−12 to −42 Hz from n = 1 to 9): the G peak is skewed with its tail
+to the right. Scaled to the liquid Γ that is 200–600 Hz, the size of the Kanazawa–Gordon overshoot in
+the entry below — consistent, not yet confirmed: liquid dumps are needed. `fit_admittance.py`'s `gamma`
+is the full width at half height (2Γ, ratio 2.04 → 1.85 with n), so its D = gamma/fs already equals
+2Γ/f. The BVD circle fit is off the table as an f_s estimator (Marco).
+
 ### Docs — air → isopropanol → water on board 1920, both datalogs against Kanazawa–Gordon (2026-09-10)
 
 `research/air-ipa-water-1920-2026-09-10/`: the first run with `DATALOG_AMPLITUDE_TOO`, analysed with the

@@ -539,6 +539,17 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   `docs/impedance-analysis/datalog-quantities-2026-09-10.md` — the two Dissipation columns are not
   the same quantity (width at −0.3 dB of the amplitude, / 1e6, versus D = 2Γ/f with Γ at half height
   of G), and the two Frequency columns are two estimators 2–18 Hz apart in air.
+- **First liquid run with both datalogs** (air → isopropanol → water, board 1920, 2026-09-10):
+  `research/air-ipa-water-1920-2026-09-10/` — README with the Kanazawa–Gordon comparison, the two
+  raw CSVs, the scripts. ΔΓ from this branch's D is within ±8 percent of the theory on overtones 3–9;
+  the frequency from `argmax(G)` overshoots by 22–31 percent there (|Δf|/ΔΓ 1.2–1.35, Newtonian gives 1).
+  The README's addendum measures three f_s estimators on the same exact G in air: the half-height
+  midpoint and the Lorentzian fit both sit **0.25–0.33 Γ below** `argmax` (the peak is skewed, tail to
+  the right) — in liquid Γ that fraction is 200–600 Hz, the size of the overshoot. ⚠️ `fit_admittance.py`'s
+  `gamma` is the full width at half height, 2Γ. Still open: the same table on **liquid** dumps (none
+  exist yet — run with `OPENQCM_SWEEP_DUMP=1` in water and isopropanol and copy `g<n>.txt` out after
+  STOP); Marco, 2026-09-10: the BVD circle fit is not the f_s estimator to pursue, the midpoint and a
+  Lorentzian are. Any change to the published estimator waits for that measurement and Marco's ok.
 - `software/openQCM/sweep_data/plot_conductance.py`: offline analysis script — the reference
   implementation everything above was validated against. Reads the `g<n>.txt` sweeps (same
   3-column layout as `<n>.txt`, but columns 2–3 are the **raw AD8302 voltages** V_MAG / V_PHS
