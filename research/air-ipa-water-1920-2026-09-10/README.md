@@ -118,3 +118,28 @@ this branch's D (ΔΓ = ΔD·f_n/2).*
   find where, before the next repeatability analysis, since it biases every standard deviation.
 - A longer run (10 minutes per plateau, as the standard protocol) would let the report pipeline run
   with its default parameters and give real uncertainties.
+
+## Addendum, same day: three f_s estimators on the same exact G, in air
+
+`scripts/fs_estimators.py`, on the 16:00 air dump of board 1920 (one sweep per overtone, the exact
+chain reproduced as in `docs/impedance-analysis/datalog-quantities-2026-09-10.md`). Estimators:
+`argmax` (what the datalog publishes), the midpoint of the two half-height crossings (free: Γ already
+computes them), and the Lorentzian LM fit of `sweep_data/fit_admittance.py` on a ±3Γ window.
+
+| n | argmax f_G [Hz] | midpoint − argmax [Hz] | Lorentzian − argmax [Hz] | Γ half height [Hz] | fit "gamma" [Hz] | fit gamma / Γ |
+|---|---|---|---|---|---|---|
+| 1 | 5004646 | −11.6 | −8.7 | 48.4 | 98.9 | 2.04 |
+| 3 | 14988803 | −12.4 | −7.8 | 39.2 | 78.1 | 1.99 |
+| 5 | 24973813 | −17.3 | −9.4 | 56.6 | 109.5 | 1.93 |
+| 7 | 34957740 | −25.8 | −13.7 | 82.2 | 154.8 | 1.88 |
+| 9 | 44943331 | −42.2 | −21.7 | 126.3 | 233.7 | 1.85 |
+
+- Both alternatives sit **below** `argmax` by 0.25–0.33 Γ: the G peak is skewed with its tail to the
+  right, and the sample maximum falls right of the centre. Scaled to the liquid Γ (0.8–2 kHz) that
+  fraction is 200–600 Hz — the size of the overshoot against Kanazawa–Gordon above (90 Hz at n = 1,
+  ~350 Hz at n = 3 in water). Consistent; to be confirmed on liquid sweeps (dumps requested).
+- ⚠️ The Lorentzian fit's `gamma` is the **full** width at half height, twice Γ; its `D = gamma/fs` is
+  therefore already 2Γ/f, consistent with the datalog. The name misleads, the number does not.
+- The ratio falls from 2.04 to 1.85 with the overtone: the peak departs from a Lorentzian as n grows,
+  and the fit absorbs only part of the skew, while the midpoint assumes no shape at all.
+- The BVD circle fit was not evaluated as an f_s estimator (Marco, 2026-09-10: not convincing today).
