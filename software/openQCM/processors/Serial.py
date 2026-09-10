@@ -828,7 +828,8 @@ class SerialProcess(multiprocessing.Process):
                     
                     # VER 0.1.4
                     # add a new element to the error / status parser for the TEC STATUS variable 
-                    self._parser6.add6([self._err1, self._err2, k, self._flag_error_usb, None, self._data_status])
+                    self._parser6.add6([self._err1, self._err2, k, self._flag_error_usb, None, self._data_status,
+                                        self._error_register_bit])  # the GUI locks the TEC buttons on it
                     
                     # refreshes error variables at each sweep
                     self._err1 = 0
