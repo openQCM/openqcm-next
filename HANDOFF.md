@@ -978,6 +978,10 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
   - ~~Dedicated "Advanced Temperature Control" window~~ — **done** as Tools → PID Control, carried
     from `main` on 2026-09-08; the hidden `tab_2` widgets and their three functions removed on
     2026-09-09 (`43483b7`).
+  - **`DATALOG_AMPLITUDE_TOO` at merge time** — Marco's call, 2026-09-10: either it goes with the other
+    test tools, or it stays as a product option ("also write the amplitude datalog", default `False`
+    in production). If it stays, `docs/impedance-analysis/datalog-quantities-2026-09-10.md` must become
+    user documentation: two columns named Dissipation with different meanings need it.
   - **Peak Data View: Y follows only when the gesture stops** — parked 2026-09-09 on `main`
     (Marco's call); the numbers and the design are in `main`'s HANDOFF §5. Shared code: build it on
     `main`, cherry-pick here.
