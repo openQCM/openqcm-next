@@ -5,6 +5,18 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Docs — air → isopropanol → water on board 1920, both datalogs against Kanazawa–Gordon (2026-09-10)
+
+`research/air-ipa-water-1920-2026-09-10/`: the first run with `DATALOG_AMPLITUDE_TOO`, analysed with the
+official test-report pipeline (its functions, short-run parameters) plus a Kanazawa–Gordon comparison
+at 25 °C. ΔΓ from this branch's D agrees with the theory within ±8 percent on overtones 3–9 in both
+liquids (fundamental 18–28 percent high, the same excess it shows in air); the frequency from the
+maximum of G overshoots by 22–31 percent on the overtones (|Δf|/ΔΓ = 1.2–1.35 where a Newtonian liquid
+gives 1.0 — the `argmax` estimator on a broad skewed peak, to test against the half-height midpoint and
+the BVD fit); main's amplitude maximum moves up to 2× the theory at n = 9. Raw datalogs and scripts
+tracked with the report. Also found: 34 of 175 datalog rows are exact duplicates written in bursts of
+five within a millisecond.
+
 ### Added — a second datalog with main's quantities, for the comparison test (2026-09-10)
 
 `817f847`. `Constants.DATALOG_AMPLITUDE_TOO = True` (this branch only, a test tool): every multiscan
