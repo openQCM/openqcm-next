@@ -332,6 +332,13 @@ the acquisition: X1"), as the PID parameters are. **Bench, 2026-09-10, impedance
 forced at 10 °C, one WARNING line; RESET requested 11:45:15, "TEC reset done" 11:45:21, "error
 cleared" 11:45:22; ON then T SET 25, one "TEC switched: X1", no further error.
 
+**An error locks the temperature buttons** (`dcbac95`). The register rides in the processes' status
+message (7th element) and `_update_tec_error_lock()` runs after every `_update_TEC_status()`: error
+→ ON/OFF and T SET disabled, pill "Error: … — press RESET", RESET the only live control; clear → released
+(toggle per connection, T SET per TEC switch). The lock follows the register, not the end of the reset.
+RESET is disabled from the press until the register is seen again (≤ 10 s). From Standby the button
+asks `E?` after its sequence and logs "error register now N", since nobody samples it there.
+
 **The controller's errors reach the System Log on change** (`e863a24`): `common/tecStatus.py` decodes
 the register the firmware appends to every temperature sample, once for both processes, and reports
 "WARNING: MTD415T Temperature control error: Thermal Latch-Up" when a bit appears and "... error

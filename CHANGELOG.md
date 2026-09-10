@@ -6,6 +6,10 @@ Conventional Commits. Versions are marked by Git tags.
 ## [Unreleased] — `main`
 
 ### Added
+- **A TEC controller error locks ON/OFF and T SET** (`dcbac95`) — while the MTD415T reports an error
+  only RESET stays live; the buttons are released when the register is clear again, not when the reset
+  sequence ends. RESET cannot be pressed twice in flight. From Standby the button reads the register
+  back (`E?`) after its sequence and logs it, so a Standby reset is verifiable too.
 - **Tools → PID Control** — the TEC controller's cycling time and P/I/D shares, hidden in the
   sidebar since the redesign, in their own window (`ui/pidControlDialog.py`): the two presets
   (factory, openQCM) plus Custom, the four spin boxes with the MTD415T's ranges, Set PID, and a
