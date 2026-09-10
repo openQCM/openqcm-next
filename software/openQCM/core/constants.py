@@ -865,6 +865,18 @@ class Constants:
     csv_extension = "csv"
     txt_extension = "txt"
     csv_export_path = "logged_data"
+
+    # ⚠️ TEST TOOL, this branch only. While the impedance analysis is under test
+    # the multiscan datalog is written twice per row: `<ts>_multi.csv` with this
+    # branch's quantities (Frequency = max of the exact conductance G,
+    # Dissipation = D = 2*Gamma/f in ppm, Gamma at half height of G) and
+    # `<ts>_multi_amplitude.csv` with exactly main's (Frequency = max of the
+    # fitted amplitude, Dissipation = width at -0.3 dB below it, / 1e6), same
+    # sweep, same instant, main's header. The two Dissipation columns are
+    # different physical quantities: see docs/impedance-analysis/
+    # datalog-quantities-2026-09-10.md before comparing them. Set False to
+    # write the impedance file alone.
+    DATALOG_AMPLITUDE_TOO = True
     
     # DEV RAWDATA
     sweep_export_path = "sweep_data"

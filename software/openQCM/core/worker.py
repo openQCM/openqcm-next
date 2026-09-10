@@ -126,6 +126,13 @@ class Worker:
         
         self._F_store = None 
         self._D_store = None 
+        # main's pair for the comparison datalog (branch, DATALOG_AMPLITUDE_TOO)
+        self._F_store_a = None
+        self._D_store_a = None
+        self._F_store_buffer_a = None
+        self._D_store_buffer_a = None
+        self._F_store_buffer_averaging_a = None
+        self._D_store_buffer_averaging_a = None
         self._time_buffer = None
         self._time_store = None
         
@@ -528,6 +535,10 @@ class Worker:
         # Add values
         self._store_signal_values(data[1])
         self._store_signal_values_time (data[0])
+        # third element: main's frequency, for the comparison datalog
+        if len(data) > 2 and data[2] is not None and self._F_store_a is not None:
+            for idx, value in enumerate(data[2]):
+                self._F_store_a[idx] = value
         
     def _store_signal_values(self, values):
         # detect how many data are present to plot
@@ -571,6 +582,10 @@ class Worker:
     def _queue_data_D_multi(self, data):
         # Add values
         self._store_signal_values_D(data[1])
+        # third element: main's width at -0.3 dB / 1e6, for the comparison datalog
+        if len(data) > 2 and data[2] is not None and self._D_store_a is not None:
+            for idx, value in enumerate(data[2]):
+                self._D_store_a[idx] = value
         
     def _store_signal_values_D(self, values):
         # detect how many data are present to plot
@@ -979,6 +994,11 @@ class Worker:
                         FileStorage.CSVsave_Multi(filenameCSV, Constants.csv_export_path, 
                                                   int((time_current - self._timestart))/_millisec, 
                                                   self._d3_store, self._F_store, self._D_store)
+                        # the comparison row: main's pair, same instant, same temperature
+                        if Constants.DATALOG_AMPLITUDE_TOO:
+                            FileStorage.CSVsave_Multi(self._amplitude_datalog_name(), Constants.csv_export_path,
+                                                      int((time_current - self._timestart))/_millisec,
+                                                      self._d3_store, self._F_store_a, self._D_store_a)
                         # VER 0.1.4 store the current time for the next loop 
                         self.time_pre = time_current
                 
@@ -999,12 +1019,16 @@ class Worker:
                     self._F_store_buffer[self._overtone_number].append(self._F_store[self._overtone_number])
                     self._D_store_buffer[self._overtone_number].append(self._D_store[self._overtone_number])
                     self._T_store_buffer[self._overtone_number].append(self._d3_store)
+                    self._F_store_buffer_a[self._overtone_number].append(self._F_store_a[self._overtone_number])
+                    self._D_store_buffer_a[self._overtone_number].append(self._D_store_a[self._overtone_number])
                     
                     # averaging 
                     for idx in range(len(Constants.overtone_dummy)):
                         self._F_store_buffer_averaging[idx] = np.average( self._F_store_buffer[idx].get_all())
                         self._D_store_buffer_averaging[idx] = np.average( self._D_store_buffer[idx].get_all() )
                         self._T_store_buffer_averaging[idx] = np.average( self._T_store_buffer[idx].get_all() )
+                        self._F_store_buffer_averaging_a[idx] = np.average( self._F_store_buffer_a[idx].get_all())
+                        self._D_store_buffer_averaging_a[idx] = np.average( self._D_store_buffer_a[idx].get_all())
                     
                     
 # =============================================================================
@@ -1017,6 +1041,11 @@ class Worker:
                         FileStorage.CSVsave_Multi(filenameCSV, Constants.csv_export_path, 
                                                   int((time_current - self._timestart)/_millisec), 
                                                   self._d3_store, self._F_store_buffer_averaging, self._D_store_buffer_averaging)
+                        # the comparison row, averaged over the same sampling window
+                        if Constants.DATALOG_AMPLITUDE_TOO:
+                            FileStorage.CSVsave_Multi(self._amplitude_datalog_name(), Constants.csv_export_path,
+                                                      int((time_current - self._timestart)/_millisec),
+                                                      self._d3_store, self._F_store_buffer_averaging_a, self._D_store_buffer_averaging_a)
                     
                         # VER 0.1.4 store the current time for the next loop 
                         self.time_pre = time_current
@@ -1073,6 +1102,10 @@ class Worker:
     ###########################################################################
     # Returns the datalog CSV filename of the current acquisition
     ###########################################################################
+    def _amplitude_datalog_name(self):
+        """`<ts>_multi_amplitude`: main's quantities, beside `<ts>_multi` (this branch's)."""
+        return "{}_{}".format(self._csv_filename, "multi_amplitude")
+
     def get_csv_filename(self):
         # Phase 3d: mirrors the names composed in the storing loop below
         # (serial: "<ts>_F<n>", multiscan: "<ts>_multi"); calibration
@@ -1303,6 +1336,8 @@ class Worker:
         # TODO IMPORTANT self._F_store and self._D_store same legth of self._F_multi_buffer and self._D_multi_buffer
         self._F_store = self._zerolistmaker(len(Constants.overtone_dummy))
         self._D_store = self._zerolistmaker(len(Constants.overtone_dummy))
+        self._F_store_a = self._zerolistmaker(len(Constants.overtone_dummy))
+        self._D_store_a = self._zerolistmaker(len(Constants.overtone_dummy))
         self._time_store = self._zerolistmaker(len(Constants.overtone_dummy))
         # self._time_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
         
@@ -1314,16 +1349,22 @@ class Worker:
         # init the list of storedata averaging 
         self._F_store_buffer_averaging = self._zerolistmaker(len(Constants.overtone_dummy)) 
         self._D_store_buffer_averaging = self._zerolistmaker(len(Constants.overtone_dummy))
+        self._F_store_buffer_averaging_a = self._zerolistmaker(len(Constants.overtone_dummy))
+        self._D_store_buffer_averaging_a = self._zerolistmaker(len(Constants.overtone_dummy))
         self._T_store_buffer_averaging = self._zerolistmaker(len(Constants.overtone_dummy))
         
         # init frequency dissipation and temperature array of ring buffer 
         self._F_store_buffer = [] 
         self._D_store_buffer = [] 
         self._T_store_buffer = []
+        self._F_store_buffer_a = []
+        self._D_store_buffer_a = []
         for tmp in Constants.overtone_dummy:
             self._F_store_buffer.append(RingBuffer(self.ring_buffer_len))
             self._D_store_buffer.append(RingBuffer(self.ring_buffer_len))
             self._T_store_buffer.append(RingBuffer(self.ring_buffer_len))
+            self._F_store_buffer_a.append(RingBuffer(self.ring_buffer_len))
+            self._D_store_buffer_a.append(RingBuffer(self.ring_buffer_len))
 
     ############################################################################
     # Gets frequency range

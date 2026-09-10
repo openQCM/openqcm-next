@@ -957,6 +957,13 @@ class MultiscanProcess(multiprocessing.Process):
         if band.err_right:
             print(TAG, 'WARNING: Right value not found')
             self._err2 = 1
+        # main's two quantities, exactly as main logs them -- the maximum of
+        # the fitted amplitude and the width at -0.3 dB below it over 1e6 --
+        # kept for the comparison datalog. Same call, same sweep, same instant
+        # as the impedance pair below. What the GUI shows is unaffected.
+        if Constants.DATALOG_AMPLITUDE_TOO:
+            self._my_list_f_a[overtone_number].append(band.peak_frequency)
+            self._my_list_d_a[overtone_number].append(band.bandwidth / 1000000)
         
         # VER 0.1.6G EXACT IMPEDANCE ANALYSIS — this is the published path now.
         # ---------------------------------------------------------------------
@@ -1242,6 +1249,11 @@ class MultiscanProcess(multiprocessing.Process):
            # "TODO insert a median" that used to sit on this averaging line)
            self._diss_mean [overtone_number] = robust_mean(
                self._my_list_d[overtone_number].get_all(), Constants.trim_mean_proportiontocut)
+           if Constants.DATALOG_AMPLITUDE_TOO:
+               self._freq_range_mean_a [overtone_number] = robust_mean(
+                   self._my_list_f_a[overtone_number].get_all(), Constants.trim_mean_proportiontocut)
+               self._diss_mean_a [overtone_number] = robust_mean(
+                   self._my_list_d_a[overtone_number].get_all(), Constants.trim_mean_proportiontocut)
 
            # TEMPERATURE
            if overtone_number == 0:
@@ -1305,8 +1317,14 @@ class MultiscanProcess(multiprocessing.Process):
 # =============================================================================
         
         # add multi overtone frequency - dissipation and correpsonding time array to the parser queues
-        self._parser_F_multi.add_F_multi( [ self._my_time_array, self._freq_range_mean] )
-        self._parser_D_multi.add_D_multi( [ self._my_time_array, self._diss_mean] )
+        # the third element is main's pair for the comparison datalog; the
+        # worker ignores a two-element message, so the flag can go either way
+        if Constants.DATALOG_AMPLITUDE_TOO:
+            self._parser_F_multi.add_F_multi( [ self._my_time_array, self._freq_range_mean, list(self._freq_range_mean_a)] )
+            self._parser_D_multi.add_D_multi( [ self._my_time_array, self._diss_mean, list(self._diss_mean_a)] )
+        else:
+            self._parser_F_multi.add_F_multi( [ self._my_time_array, self._freq_range_mean] )
+            self._parser_D_multi.add_D_multi( [ self._my_time_array, self._diss_mean] )
         
         # TODO single sweeep data log 
        
@@ -1439,6 +1457,10 @@ class MultiscanProcess(multiprocessing.Process):
         self._my_list_f = [self._frequency_buffer_0, self._frequency_buffer_1, self._frequency_buffer_2, self._frequency_buffer_3, self._frequency_buffer_4]
         # VER 0.1.4
         self._my_list_f_a = [self._frequency_buffer_0_a, self._frequency_buffer_1_a, self._frequency_buffer_2_a, self._frequency_buffer_3_a, self._frequency_buffer_4_a]
+        # main's pair, for the comparison datalog (Constants.DATALOG_AMPLITUDE_TOO):
+        # the `_a` frequency buffers above had been declared for this and never
+        # used; the dissipation ones are new
+        self._my_list_d_a = [RingBuffer(self._environment) for _ in range(5)]
         
         self._my_list_d = [self._dissipation_buffer_0, self._dissipation_buffer_1, self._dissipation_buffer_2, self._dissipation_buffer_3, self._dissipation_buffer_4]
 
@@ -1449,6 +1471,9 @@ class MultiscanProcess(multiprocessing.Process):
         self._freq_range_mean = [0,0,0,0,0]
         
         self._diss_mean = [0,0,0,0,0]
+        # main's pair, averaged the same way, published as the third element
+        self._freq_range_mean_a = [0,0,0,0,0]
+        self._diss_mean_a = [0,0,0,0,0]
         
         self._my_time = 0
         self._my_time_array = [0,0,0,0,0]
