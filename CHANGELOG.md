@@ -94,6 +94,9 @@ Conventional Commits. Versions are marked by Git tags.
   now raises its own soft limit at start-up (`common/fdLimit.py`, 65536 where allowed), `start()`
   closes the previous worker (`Worker.close()`) before building the new one, and the System Log prints
   "open file descriptors: N of limit M" on every START and STOP.
+  - `close()` joins the two processes first (`34f8388`): un-joined, they stayed in multiprocessing's
+    children list and kept the queues' semaphores alive — 97 descriptors before the second START at
+    the bench instead of ~15. Measured headless after: 93 → 6.
 - **TEC controller errors reach the System Log** (`e863a24`) — "Thermal Latch-Up" and the others were a
   console print in the acquisition process, once per sweep, invisible in the window. Decoded once for
   both processes in `common/tecStatus.py` and reported through the message queue only when the set of

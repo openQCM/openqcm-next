@@ -385,7 +385,12 @@ just the peak. Three things since `3cefc79`:
   longer depends on the shell that launched it. Windows has no rlimit: the call is a no-op there.
 - `Worker.close()` releases the queues and the process objects; `start()` calls it on the previous
   worker **before** building the new one. Not on STOP: the plots keep reading the worker's buffers
-  after a run, and `is_running()` must keep answering.
+  after a run, and `is_running()` must keep answering. ⚠️ It **joins the two processes first**
+  (`34f8388`): `stop()` signals the parser and terminates the acquisition without waiting, and until a
+  process is seen to have exited `multiprocessing` keeps its object in its children list — which
+  holds the parser, which holds every queue, which holds the semaphores. Closing the queues alone left
+  75 of 93 descriptors (bench: 97 before the second START instead of ~15); join + close +
+  `active_children()` + `gc.collect()` leaves the base.
 - The System Log prints "open file descriptors: N of limit M" on every START and STOP. A leak is a
   slope there; the steady value with one worker is ~140.
 
