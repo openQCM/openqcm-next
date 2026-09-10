@@ -392,7 +392,8 @@ just the peak. Three things since `3cefc79`:
   75 of 93 descriptors (bench: 97 before the second START instead of ~15); join + close +
   `active_children()` + `gc.collect()` leaves the base.
 - The System Log prints "open file descriptors: N of limit M" on every START and STOP. A leak is a
-  slope there; the steady value with one worker is ~140.
+  slope there. **Bench, 2026-09-10, three cycles with every auxiliary window open during the run**:
+  before START 16 / 24 / 24, after STOP 118 / 118 — a fixed 8 after the first cycle, no growth.
 
 ⚠️ Every new `Queue()` in the Worker costs ~7 descriptors. Adding one is fine; adding one without
 knowing this is how a machine with a 256 limit finds out.
