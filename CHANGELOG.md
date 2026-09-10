@@ -5,6 +5,16 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Added — a second datalog with main's quantities, for the comparison test (2026-09-10)
+
+`817f847`. `Constants.DATALOG_AMPLITUDE_TOO = True` (this branch only, a test tool): every multiscan
+datalog row is written twice, same sweep and instant — `<ts>_multi.csv` with this branch's pair
+(max of the exact G; D = 2Γ/f in ppm) and `<ts>_multi_amplitude.csv` with exactly main's (max of the
+fitted amplitude; width at −0.3 dB / 1e6), main's header. The amplitude pair comes from the
+`find_peak_and_band` call the process already makes and travels as the third element of the F and
+D messages: no new queue. ⚠️ The two Dissipation columns are different physical quantities — see the
+Docs entry below before comparing them.
+
 ### Docs — what the two datalogs actually record, before adding the comparison file (2026-09-10)
 
 `docs/impedance-analysis/datalog-quantities-2026-09-10.md`. Both chains reproduced offline on

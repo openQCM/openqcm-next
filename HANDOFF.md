@@ -532,6 +532,13 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   `_fit_circle_taubin`, plus **Tools → Conductance Data** (`actionConductance_Data`).
 - Data path `Multiscan → Parser.add_GB_multi → Worker.consume_queue_GB_multi → GUI`, one
   overtone per message, `f_r` and Γ travelling with each spectrum.
+- **Comparison datalog** (`817f847`, `Constants.DATALOG_AMPLITUDE_TOO`, test tool): beside `<ts>_multi.csv`
+  the worker writes `<ts>_multi_amplitude.csv` with exactly `main`'s quantities, same row, same instant.
+  The amplitude pair rides as the third element of the F/D messages; the worker ignores a two-element
+  message, so the flag can go either way. What each column IS, measured on a real sweep:
+  `docs/impedance-analysis/datalog-quantities-2026-09-10.md` — the two Dissipation columns are not
+  the same quantity (width at −0.3 dB of the amplitude, / 1e6, versus D = 2Γ/f with Γ at half height
+  of G), and the two Frequency columns are two estimators 2–18 Hz apart in air.
 - `software/openQCM/sweep_data/plot_conductance.py`: offline analysis script — the reference
   implementation everything above was validated against. Reads the `g<n>.txt` sweeps (same
   3-column layout as `<n>.txt`, but columns 2–3 are the **raw AD8302 voltages** V_MAG / V_PHS
