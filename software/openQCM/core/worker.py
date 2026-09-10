@@ -988,13 +988,36 @@ class Worker:
         return self._acquisition_process is not None and self._acquisition_process.is_alive()
 
     ###########################################################################
-    # Release what this worker holds: the queues' pipes and semaphores and the
-    # process objects. ~100 file descriptors per worker (measured with lsof:
-    # 65 PSXSEM + 35 PIPE). Called by the GUI after stop() and before a new
-    # worker is built, so that two never coexist. Idempotent.
+    # Release what this worker holds: the two processes, the queues' pipes and
+    # semaphores, and the process objects. ~100 file descriptors per worker
+    # (lsof: 65 PSXSEM + 35 PIPE). Called by the GUI before a new worker is
+    # built, so that two never coexist. Idempotent.
+    #
+    # ⚠️ The processes must be JOINED first. stop() signals the parser and
+    # terminates the acquisition without waiting; until they are seen to have
+    # exited, multiprocessing keeps their Process objects in its children list,
+    # and those hold the parser, which holds every queue, which holds the
+    # semaphores. Measured (2026-09-10): closing the queues alone left 75 of
+    # 93 descriptors and one child kept; join + close + active_children() +
+    # gc.collect() left 6, the process's base.
     ###########################################################################
-    def close(self):
+    def close(self, join_timeout=3.0):
+        import gc
+        import multiprocessing
         from multiprocessing.queues import Queue as _MPQueue
+
+        for proc in (self._acquisition_process, self._parser_process):
+            if proc is None:
+                continue
+            try:
+                if proc.is_alive():
+                    proc.join(join_timeout)
+                    if proc.is_alive():
+                        proc.terminate()
+                        proc.join(1.0)
+            except (OSError, ValueError, AssertionError):
+                pass
+
         names = [name for name, value in vars(self).items()
                  if isinstance(value, _MPQueue)]
         for name in names:
@@ -1009,6 +1032,12 @@ class Worker:
         # the process objects hold the parser, and the parser the queues too
         self._acquisition_process = None
         self._parser_process = None
+        # forget the exited children and collect what only they still held
+        try:
+            multiprocessing.active_children()
+        except Exception:
+            pass
+        gc.collect()
         return len(names)
 
     ###########################################################################
