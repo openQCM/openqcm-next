@@ -328,7 +328,9 @@ then, and the config flag alone is sampled once per sweep, so a 0 / 1 / 0 could 
 (bench, thermal latch-up test). Same mechanism as Read PID -- `tec_reset_request` on the parser,
 `common/tecReset.reset_sequence()` between two sweeps, "TEC reset done by the acquisition: X0, X1,
 X0" in the System Log. Every X the process forwards from the flag is logged too ("TEC switched by
-the acquisition: X1"), as the PID parameters are.
+the acquisition: X1"), as the PID parameters are. **Bench, 2026-09-10, impedance worktree**: latch-up
+forced at 10 °C, one WARNING line; RESET requested 11:45:15, "TEC reset done" 11:45:21, "error
+cleared" 11:45:22; ON then T SET 25, one "TEC switched: X1", no further error.
 
 **The controller's errors reach the System Log on change** (`e863a24`): `common/tecStatus.py` decodes
 the register the firmware appends to every temperature sample, once for both processes, and reports
@@ -1231,6 +1233,10 @@ GUI redesign (phased, inspired by openQCM Q-1 v3.0 — reference repo `/Users/ma
   - **min-Y-scale** enforcement (integrate with `Constants.plot_force_yrange`).
   - ~~Dedicated "Advanced Temperature Control" window~~ — **done** as Tools → PID Control (§3);
     the hidden `tab_2` widgets and their three functions removed (`51034e8`).
+  - **"Serial write skipped: acquisition running" reads like a failure** — it is the GUI declining
+    the direct write because the process owns the port, after which the process does the job (T SET,
+    TEC ON/OFF, RESET all go through the flag or a request). Cosmetic: say what happens instead.
+    Parked 2026-09-10.
   - **Peak Data View: Y follows only when the gesture stops** — parked 2026-09-09, Marco's call
     ("va bene così"). After the three downsampling fixes (§3) a full-span pan still costs 90–160 ms on
     the bench (paint 30–40 ms of it) because the Y autorange re-runs on every X change and restarts
