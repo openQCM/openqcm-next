@@ -137,6 +137,8 @@ class Worker:
         # VER 0.1.4
         # TEC status var
         self._TEC_status = 0
+        # the MTD415T error register as the last temperature sample carried it
+        self._TEC_error_register = 0
         
         # instances of the processes
         self._acquisition_process = None
@@ -817,6 +819,10 @@ class Worker:
         # VER 0.2 
         # get TEC status 
         self._TEC_status = data[5]
+        # the error register rides along since 2026-09-10 (Multiscan, Serial;
+        # Calibration sends no such field)
+        if len(data) > 6 and data[6] is not None:
+            self._TEC_error_register = data[6]
         
     ###########################################################################
     # Gets data buffers for plot (Amplitude,Phase,Frequency and Dissipation) 
@@ -873,6 +879,9 @@ class Worker:
     # get TEC status and pass the value to the main 
     def get_TEC_status(self): 
         return self._TEC_status
+
+    def get_TEC_error_register(self):
+        return self._TEC_error_register
     
 
     ###########################################################################

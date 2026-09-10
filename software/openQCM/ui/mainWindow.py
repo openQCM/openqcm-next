@@ -39,6 +39,7 @@ from openQCM.common.logger import Logger as Log
 from openQCM.common.architecture import Architecture,OSType
 from openQCM.common import sweepDump as SweepDump
 from openQCM.common import fdLimit
+from openQCM.common.tecStatus import decode_error_register
 
 import numpy as np
 import sys
@@ -231,6 +232,10 @@ class MainWindow(QtGui.QMainWindow):
         # TEC status var
         self._TEC_status = 0
         self._old_value = 0
+        # the TEC controller's active errors as last reported (names), and the
+        # moment until which a requested RESET is still considered in progress
+        self._tec_errors = set()
+        self._tec_reset_pending_until = 0.0
         # GUI: intended state of the single Temperature ON/OFF toggle
         self._tec_on = False
 
@@ -3735,6 +3740,7 @@ class MainWindow(QtGui.QMainWindow):
             self._TEC_status = self.worker.get_TEC_status()
             # update TEC status 
             self._update_TEC_status(self._TEC_status)
+            self._update_tec_error_lock(self.worker.get_TEC_error_register())
 
             #print(self._ser_err_usb, end='\r')
             #if self._ser_err_usb <=1:
@@ -3911,6 +3917,7 @@ class MainWindow(QtGui.QMainWindow):
             self._TEC_status = self.worker.get_TEC_status()
             # update TEC status
             self._update_TEC_status(self._TEC_status)
+            self._update_tec_error_lock(self.worker.get_TEC_error_register())
             
             # progressbar update 
             if self._ser_control < (Constants.calib_sections):
@@ -4049,6 +4056,7 @@ class MainWindow(QtGui.QMainWindow):
             self._TEC_status = self.worker.get_TEC_status()
             # update TEC status 
             self._update_TEC_status(self._TEC_status)
+            self._update_tec_error_lock(self.worker.get_TEC_error_register())
 
             if vector1.any:
                # progressbar
@@ -5202,6 +5210,73 @@ class MainWindow(QtGui.QMainWindow):
             self._update_tec_toggle()
 
         self._old_value = value
+
+    # ------------------------------------------------------------------
+    # The TEC controller's error register drives the temperature buttons
+    # ------------------------------------------------------------------
+    # While the controller reports an error nothing can be asked of it but a
+    # reset (data sheet 6.3), so ON/OFF and T SET are locked and RESET is the
+    # only live control. The lock follows the REGISTER, not the end of the
+    # reset sequence: a reset that did not clear the error leaves the buttons
+    # locked and RESET available to try again. During a measurement the
+    # register rides with every temperature sample; in Standby nobody samples
+    # it, so _TEC_Reset_button asks E? itself after its sequence.
+    def _update_tec_error_lock(self, register):
+        names = decode_error_register(register)
+        locked = bool(names)
+        now = time.time()
+        pending = now < self._tec_reset_pending_until
+
+        if names != self._tec_errors:
+            if locked:
+                text = "TEC controls locked: {} -- press RESET".format(", ".join(sorted(names)))
+            else:
+                text = "TEC controls released: error register clear"
+                self._tec_reset_pending_until = 0.0
+                pending = False
+            print(TAG, text)
+            Log.i(TAG, text)
+            if not locked:
+                # release: the toggle follows the connection, T SET the TEC switch,
+                # and the pill goes back to the TEC state (the next temperature
+                # sample repaints it anyway during a measurement; after a reset
+                # from Standby nothing else would)
+                self.ui.pButton_Tswitch_ON.setEnabled(self._serial_connected)
+                self._Temperature_Setting_isEnabled(self._tec_on)
+                if self._tec_on:
+                    self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("warn"))
+                    self.ui.label_Temperature_state.setText("Temperature Control: Active getting setpoint ")
+                else:
+                    self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("off"))
+                    self.ui.label_Temperature_state.setText("Temperature Control: Not active ")
+            self._tec_errors = set(names)
+
+        if locked:
+            self.ui.pButton_Tswitch_ON.setEnabled(False)
+            self._Temperature_Setting_isEnabled(False)
+            self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("err"))
+            self.ui.label_Temperature_state.setText(
+                "Error: {} -- press RESET".format(", ".join(sorted(names))))
+            self.ui.pButton_TEC_Reset.setEnabled(not pending)
+
+    def _tec_reset_started(self):
+        """RESET pressed: no second sequence until the register has been seen again."""
+        self._tec_reset_pending_until = time.time() + 10.0
+        self.ui.pButton_TEC_Reset.setEnabled(False)
+
+    def _read_tec_error_register(self):
+        """Standby only: ask the controller E? through the firmware.
+
+        Returns the register as an int, or None when nothing usable came back.
+        """
+        if not self._can_query_device():
+            return None
+        reply = _first_reply_line(self._serial_query(b"E\n", wait=0.3))
+        try:
+            return int(reply)
+        except ValueError:
+            print(TAG, "E? answered '{}', not a register value".format(reply))
+            return None
             
     def _TEC_Reset_button(self):
         """Clear the TEC controller's error register.
@@ -5227,6 +5302,7 @@ class MainWindow(QtGui.QMainWindow):
             # The GUI goes to OFF now, which is where the sequence ends.
             self.Temperature_Control_OFF()
             if self.worker.request_tec_reset():
+                self._tec_reset_started()
                 text = ("TEC reset requested: the acquisition runs X0 / X1 / X0 at "
                         "the end of the current sweep and reports it here.")
             else:
@@ -5236,6 +5312,7 @@ class MainWindow(QtGui.QMainWindow):
             return
 
         # RESET PROCEDURE: Enable pin Off, On, Off
+        self._tec_reset_started()
         self.Temperature_Control_OFF()
         # VER 0.1.5 increased the waiting time for module reset 2 seconds
         sleep(2.0)
@@ -5244,6 +5321,22 @@ class MainWindow(QtGui.QMainWindow):
         # leave the TEC not active
         self.Temperature_Control_OFF()
         sleep(0.5)
+
+        # Standby: nobody samples the register, so ask for it now. This is what
+        # makes a reset from Standby verifiable, and what releases the buttons.
+        register = self._read_tec_error_register()
+        if register is None:
+            text = "TEC reset done (X0, X1, X0); the error register could not be read back."
+            self._tec_reset_pending_until = 0.0
+            self.ui.pButton_TEC_Reset.setEnabled(bool(self._tec_errors))
+        else:
+            names = decode_error_register(register)
+            text = "TEC reset done (X0, X1, X0); error register now {} ({}).".format(
+                register, ", ".join(sorted(names)) if names else "clear")
+            self._tec_reset_pending_until = 0.0
+            self._update_tec_error_lock(register)
+        print(TAG, text)
+        Log.i(TAG, text)
 
     ###########################################################################
     # N-SCALE: every plotted frequency divided by its harmonic order
