@@ -10,6 +10,9 @@ Conventional Commits. Versions are marked by Git tags.
   only RESET stays live; the buttons are released when the register is clear again, not when the reset
   sequence ends. RESET cannot be pressed twice in flight. From Standby the button reads the register
   back (`E?`) after its sequence and logs it, so a Standby reset is verifiable too.
+  - The lock survives STOP and starts from the device (`43f4590`): STOP redrew the card to idle with RESET
+    grey while the controller was still in error; `stop()` now re-applies the lock, and the connect
+    path reads the register once and locks or releases accordingly.
 - **Tools → PID Control** — the TEC controller's cycling time and P/I/D shares, hidden in the
   sidebar since the redesign, in their own window (`ui/pidControlDialog.py`): the two presets
   (factory, openQCM) plus Custom, the four spin boxes with the MTD415T's ranges, Set PID, and a
