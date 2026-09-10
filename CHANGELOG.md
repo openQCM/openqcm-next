@@ -99,6 +99,10 @@ descriptor limit at start-up, `start()` closes the previous Worker before buildi
 the count is printed on START and STOP. Found on this worktree (terminal limit 256, 15 queues here).
 Verified here: `Worker.close()` releases 15 queues, is_running() stays False, the app imports.
 
+And `34f8388`, clean: `close()` joins the two processes first, otherwise the un-joined parser kept the
+queues' semaphores (bench: 97 descriptors before the second START instead of ~15). Verified here with
+the same headless script: a started-and-stopped parser, 93 -> 6 after close().
+
 ### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
 
 `b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
