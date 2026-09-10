@@ -107,6 +107,10 @@ And `dcbac95`, clean: a TEC controller error locks ON/OFF and T SET until the re
 RESET cannot be pressed twice in flight; from Standby the button reads the register back with E?.
 Verified here: the register rides in both processes' status message, the lock method is present.
 
+And `43f4590`, clean: the lock survives STOP (re-applied after the card's idle redraw) and starts from the
+device on connect (one E?). Found on this worktree: after STOP the card went idle with RESET grey while
+the latch-up still stood.
+
 ### Carried from `main` — the legacy sweep-file viewer is imported lazily (2026-09-07)
 
 `b38664e`, cherry-picked as `66cce65`. `mainWindow.py` imported `sweep_data/plot_sweep_spline` and
