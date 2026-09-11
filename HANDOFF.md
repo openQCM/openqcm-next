@@ -546,12 +546,31 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   The README's addendum measures three f_s estimators on the same exact G in air: the half-height
   midpoint and the Lorentzian fit both sit **0.25–0.33 Γ below** `argmax` (the peak is skewed, tail to
   the right) — in liquid Γ that fraction is 200–600 Hz, the size of the overshoot. ⚠️ `fit_admittance.py`'s
-  `gamma` is the full width at half height, 2Γ. Still open: the same table on **liquid** dumps (none
-  exist yet — run with `OPENQCM_SWEEP_DUMP=1` in water and isopropanol and copy `g<n>.txt` out after
-  STOP, or by hand on each plateau of one acquisition); candidates all open, the BVD circle fit
-  included (Marco, 2026-09-11). Any change to the published estimator waits for that measurement and Marco's ok.
-  The dedicated session for that measurement starts from
-  `docs/impedance-analysis/SESSION_PROMPT_fs_estimators.md`.
+  `gamma` is the full width at half height, 2Γ.
+  ⚠️ That extrapolation was **measured and found wrong** on 2026-09-11 (correction in place in the README).
+- **Second liquid run, with sweep dumps** (air → water → isopropanol, board 1920, same sensor, 2026-09-11):
+  `research/air-ipa-water-1920-2026-09-11/` — four pages, seven scripts, the two datalogs in `data/`; the nine
+  dumps (three per phase) stay outside the repo at `~/Documents/openqcm-next-data_20260911`. What it settled:
+  - `README.md`: the datalog as acquired. ΔΓ within ±8 % of Kanazawa–Gordon on n = 3–9, Δf 17–29 % beyond it,
+    |Δf|/ΔΓ 1.16–1.33 on the overtones — the same picture as 2026-09-10. D in air is twice the previous day's
+    on the same sensor (26 / 10.4 / 8.6 / 9.1 / 9.0 ppm). The 3rd overtone in water alternates between two
+    states 105 Hz and 7.7 ppm apart from 13:12: it is the fold test sitting exactly on its 0.88 threshold.
+  - `raw-sweeps.md`: in liquid on n ≥ 3 the phase reading never reaches zero (minimum 9–45°) and its minimum
+    is **smooth, not a fold** — slope 100 Hz from the minimum 5–40× smaller than 1 kHz away. The BVD model
+    with the fitted R1, C0 agrees (a crossing exists only if R1 < 1/(2ωC0)). So the "no fold" branch is
+    physically right there, and the two-state datalog is a borderline case, not a bug in the sign.
+  - `fold-hypothesis.md`: always flipping at the phase minimum splits the liquid locus into two arcs (B step
+    28–89 %) and leaves G untouched; always zeroing the minimum subtracts 9–45° and takes |Δf|/ΔΓ to 1.2–1.9;
+    the air-measured offset applied in liquid moves the ratio by −0.02…−0.05. The process's rule is the only
+    one that keeps a continuous arc — and its locus is still 5–18 % out of round.
+  - `fs-estimators-liquid.md`: **none of the four estimators brings |Δf|/ΔΓ to 1.** argmax, half-height
+    midpoint and Lorentzian give 1.14–1.53 on n = 3–9; the BVD circle gives 1.0–1.14 only through a free
+    rotation θ = −25…−31° (the same in air) that moves f_s 400–620 Hz right — with θ = 0 it sits left of
+    argmax like the others. G is not a Lorentzian on this instrument (S-shaped residual, 2–7 % of Gmax, in
+    every panel). Marco, 2026-09-11: the circle is weak; **`argmax` stays published**; the 20–30 % frequency
+    excess over the theory is not an estimator artefact and is open. Repeatability over three sweeps on a
+    plateau: 1–37 Hz on f, 1–8 Hz on Γ, against 1.4–3.4 kHz shifts.
+  `docs/impedance-analysis/SESSION_PROMPT_fs_estimators.md` is the prompt that session started from; it is done.
 - `software/openQCM/sweep_data/plot_conductance.py`: offline analysis script — the reference
   implementation everything above was validated against. Reads the `g<n>.txt` sweeps (same
   3-column layout as `<n>.txt`, but columns 2–3 are the **raw AD8302 voltages** V_MAG / V_PHS

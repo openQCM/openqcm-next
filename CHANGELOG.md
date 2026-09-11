@@ -5,6 +5,20 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Docs — second liquid run with sweep dumps: the datalog, the raw phase, the unfolding rules, the four f_s estimators (2026-09-11)
+
+`9e2a480`, `dfbb6fe`: `research/air-ipa-water-1920-2026-09-11/` (board 1920, same sensor as the day before,
+TEC 25 °C, air → water → isopropanol, three hand-copied dumps per phase; the dumps stay outside the repo).
+The datalog repeats the 2026-09-10 picture: ΔΓ within ±8 % of Kanazawa–Gordon on n = 3–9, Δf 17–29 % beyond
+it. The raw phase shows that in liquid on n ≥ 3 the reading never reaches zero and its minimum is smooth, not
+a fold — the process's "no fold" branch is right there, and the two-state 3rd overtone in water is the fold
+test sitting on its 0.88 threshold. Always flipping the sign splits the locus into two arcs; always zeroing
+the minimum makes |Δf|/ΔΓ worse; the air-measured offset applied in liquid changes it by −0.02…−0.05. None
+of the four estimators (argmax, half-height midpoint, Lorentzian, BVD circle) brings |Δf|/ΔΓ to 1: the
+circle's 1.0–1.14 rests on a free 25–31° rotation and its fit overlaps the locus poorly. Marco: `argmax`
+stays published; the frequency excess is open. The 2026-09-10 addendum's extrapolation (200–600 Hz from the
+air skew) is corrected in place: measured 0.02–0.10 Γ in liquid.
+
 ### Docs — start prompt for the dedicated f_s-estimator session on liquid sweeps (2026-09-11)
 
 `docs/impedance-analysis/SESSION_PROMPT_fs_estimators.md` (Italian on purpose, like
