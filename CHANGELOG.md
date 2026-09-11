@@ -5,6 +5,14 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Docs — start prompt for the dedicated f_s-estimator session on liquid sweeps (2026-09-11)
+
+`docs/impedance-analysis/SESSION_PROMPT_fs_estimators.md` (Italian on purpose, like
+`docs/SESSION_PROMPT.md`): the text to paste as the first message of the analysis session that takes
+the water / isopropanol dumps of 2026-09-11 and measures which estimator — `argmax`, half-height
+midpoint, Lorentzian fit — brings |Δf|/ΔΓ towards 1 on overtones 3–9. Analysis only; the published
+estimator changes afterwards, if at all, on Marco's ok.
+
 ### Docs — three f_s estimators on the same exact G, in air (2026-09-10)
 
 `04422c0`, addendum to `research/air-ipa-water-1920-2026-09-10/README.md` plus `scripts/fs_estimators.py`.
