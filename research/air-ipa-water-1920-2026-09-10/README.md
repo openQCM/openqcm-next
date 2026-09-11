@@ -142,4 +142,5 @@ computes them), and the Lorentzian LM fit of `sweep_data/fit_admittance.py` on a
   therefore already 2Γ/f, consistent with the datalog. The name misleads, the number does not.
 - The ratio falls from 2.04 to 1.85 with the overtone: the peak departs from a Lorentzian as n grows,
   and the fit absorbs only part of the skew, while the midpoint assumes no shape at all.
-- The BVD circle fit was not evaluated as an f_s estimator (Marco, 2026-09-10: not convincing today).
+- The BVD circle fit was not evaluated here for lack of time; it stays a candidate for the liquid
+  comparison (Marco, 2026-09-11: all doors open).

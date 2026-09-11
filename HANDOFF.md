@@ -548,8 +548,8 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   the right) — in liquid Γ that fraction is 200–600 Hz, the size of the overshoot. ⚠️ `fit_admittance.py`'s
   `gamma` is the full width at half height, 2Γ. Still open: the same table on **liquid** dumps (none
   exist yet — run with `OPENQCM_SWEEP_DUMP=1` in water and isopropanol and copy `g<n>.txt` out after
-  STOP); Marco, 2026-09-10: the BVD circle fit is not the f_s estimator to pursue, the midpoint and a
-  Lorentzian are. Any change to the published estimator waits for that measurement and Marco's ok.
+  STOP, or by hand on each plateau of one acquisition); candidates all open, the BVD circle fit
+  included (Marco, 2026-09-11). Any change to the published estimator waits for that measurement and Marco's ok.
   The dedicated session for that measurement starts from
   `docs/impedance-analysis/SESSION_PROMPT_fs_estimators.md`.
 - `software/openQCM/sweep_data/plot_conductance.py`: offline analysis script — the reference

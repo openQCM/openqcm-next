@@ -48,31 +48,32 @@ Leggi prima, in quest'ordine:
    ogni colonna, catena esatta riprodotta offline).
 3. `HANDOFF.md` §4 (ramo impedenza) per la catena V_MAG/V_PHS → G e il dump.
 
-Cose già decise da me: il **fit circolare BVD non è** lo stimatore da inseguire;
-punto medio e lorentziana sì. Il parametro `gamma` di
+Candidati tutti aperti, nessuno escluso a priori: `argmax`, punto medio a metà
+altezza, fit lorentziano, **e anche il fit del cerchio BVD** (`_fit_circle_taubin`
+nel pannello live, il fit di `fit_admittance.py` offline). Il parametro `gamma` di
 `sweep_data/fit_admittance.py::fit2_lorentzian` è la larghezza **intera** a metà
 altezza (2Γ), non la semilarghezza.
 
 ## I dati che ti porto
 
-Dump degli sweep (`OPENQCM_SWEEP_DUMP=1`, ultimo sweep per armonica, file
-`g<n>.txt` = V_MAG/V_PHS grezzi in volt, `<n>.txt` = dB/gradi), copiati dopo lo
-STOP di tre corse separate con lo stesso sensore:
-`~/Desktop/dump_liquidi/{aria,acqua,ipa}/`. Più i due datalog della giornata da
+Dump degli sweep (`OPENQCM_SWEEP_DUMP=1`, ultimo sweep per armonica, riscritto a
+ogni sweep; file `g<n>.txt` = V_MAG/V_PHS grezzi in volt, `<n>.txt` = dB/gradi),
+copiati **a mano durante un'unica acquisizione**, sul plateau di ogni liquido:
+`~/Desktop/dump_liquidi/{aria,acqua,ipa}/`, con l'orario di ogni copia. Più i due datalog della giornata da
 `software/logged_data` (`<ts>_multi.csv` e `<ts>_multi_amplitude.csv`) per i
 plateau e la temperatura. Ti dirò io le condizioni (temperatura, scheda, sensore).
 
 ## Il lavoro
 
 1. Sugli sweep in liquido calcola, sulla **stessa G esatta** e con le funzioni dei
-   processi (non riscriverle), i tre stimatori: `argmax`, punto medio a metà
-   altezza, fit lorentziano su ±3Γ. Stessa tabella dell'addendum, per aria, acqua e
+   processi (non riscriverle), i quattro stimatori: `argmax`, punto medio a metà
+   altezza, fit lorentziano su ±3Γ, fit del cerchio BVD. Stessa tabella dell'addendum, per aria, acqua e
    isopropanolo.
 2. Per ciascun stimatore Δf rispetto all'aria della stessa sessione, ΔΓ, e il
    rapporto **|Δf|/ΔΓ** per armonica, confrontato con Kanazawa–Gordon a 25 °C
    (usa `scripts/kanazawa_gordon.py`). La domanda è una: **quale stimatore porta
    |Δf|/ΔΓ verso 1 sulle armoniche 3–9**, e di quanto resta lontano.
-3. Verifica anche la stabilità: ripetibilità dei tre stimatori sui plateau del
+3. Verifica anche la stabilità: ripetibilità degli stimatori sui plateau del
    datalog non è misurabile dal dump (uno sweep per liquido) — dillo, e proponi
    come misurarla se serve.
 4. Risultati come `research/air-ipa-water-1920-2026-09-10/fs-estimators-liquid.md`
