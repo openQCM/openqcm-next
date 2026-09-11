@@ -1,3 +1,6 @@
+<!-- DONE 2026-09-11: the question this prompt asks is answered in
+     research/air-ipa-water-1920-2026-09-11/fs-estimators-liquid.md. The next session starts from
+     SESSION_PROMPT_liquid_frequency_excess.md in this directory. -->
 <!--
 Kept in Italian on purpose, like docs/SESSION_PROMPT.md: it is the literal text to
 paste as the first message of a dedicated session. Branch-only, research task.

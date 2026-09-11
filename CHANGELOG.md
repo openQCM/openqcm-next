@@ -5,6 +5,14 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Docs — start prompt for the session that takes over the liquid frequency excess (2026-09-11)
+
+`docs/impedance-analysis/SESSION_PROMPT_liquid_frequency_excess.md` (Italian on purpose): state measured on
+the two liquid runs, where the data and scripts are and how to run them, the open inventory (the 20–30 %
+frequency excess with ΔΓ right, the 0.88 fold threshold sitting on water n = 3, air D doubled between days,
+duplicate datalog rows, the circle's θ, the un-versioned dumps) and what not to redo. The f_s-estimator
+prompt is marked done.
+
 ### Docs — second liquid run with sweep dumps: the datalog, the raw phase, the unfolding rules, the four f_s estimators (2026-09-11)
 
 `9e2a480`, `dfbb6fe`: `research/air-ipa-water-1920-2026-09-11/` (board 1920, same sensor as the day before,

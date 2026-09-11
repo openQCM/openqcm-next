@@ -571,6 +571,7 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
     excess over the theory is not an estimator artefact and is open. Repeatability over three sweeps on a
     plateau: 1–37 Hz on f, 1–8 Hz on Γ, against 1.4–3.4 kHz shifts.
   `docs/impedance-analysis/SESSION_PROMPT_fs_estimators.md` is the prompt that session started from; it is done.
+  The next session starts from `docs/impedance-analysis/SESSION_PROMPT_liquid_frequency_excess.md`.
 - `software/openQCM/sweep_data/plot_conductance.py`: offline analysis script — the reference
   implementation everything above was validated against. Reads the `g<n>.txt` sweeps (same
   3-column layout as `<n>.txt`, but columns 2–3 are the **raw AD8302 voltages** V_MAG / V_PHS
