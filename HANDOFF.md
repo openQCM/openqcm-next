@@ -550,7 +550,8 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   ⚠️ That extrapolation was **measured and found wrong** on 2026-09-11 (correction in place in the README).
 - **Second liquid run, with sweep dumps** (air → water → isopropanol, board 1920, same sensor, 2026-09-11):
   `research/air-ipa-water-1920-2026-09-11/` — four pages, seven scripts, the two datalogs in `data/`; the nine
-  dumps (three per phase) stay outside the repo at `~/Documents/openqcm-next-data_20260911`. What it settled:
+  dumps (three per phase) as `data/sweep_dumps_2026-09-11.npz` (7.8 MB, byte-exact, `scripts/load_dumps.py`
+  unpacks them; originals at `~/Documents/openqcm-next-data_20260911`). What it settled:
   - `README.md`: the datalog as acquired. ΔΓ within ±8 % of Kanazawa–Gordon on n = 3–9, Δf 17–29 % beyond it,
     |Δf|/ΔΓ 1.16–1.33 on the overtones — the same picture as 2026-09-10. D in air is twice the previous day's
     on the same sensor (26 / 10.4 / 8.6 / 9.1 / 9.0 ppm). The 3rd overtone in water alternates between two

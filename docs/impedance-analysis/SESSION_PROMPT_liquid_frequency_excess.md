@@ -50,11 +50,13 @@ sezione "Cose aperte" qui sotto è un inventario, non una coda di lavoro.
 
 - Datalog dei due giorni: `research/air-ipa-water-1920-2026-09-1{0,1}/data/` (impedenza e ampiezza, stesse
   righe).
-- Dump degli sweep del 2026-09-11: **fuori dal repo**, `~/Documents/openqcm-next-data_20260911/` — nove
+- Dump degli sweep del 2026-09-11: **nel repo** come archivio compresso
+  `research/air-ipa-water-1920-2026-09-11/data/sweep_dumps_2026-09-11.npz` (7.8 MB, i 45 `g<n>.txt`, orari di
+  copia inclusi); `python scripts/load_dumps.py unpack <npz> <cartella>` ricrea le cartelle che gli script
+  leggono. Gli originali sono in `~/Documents/openqcm-next-data_20260911/` — nove
   cartelle `air_{0,1,2}`, `wat_{0,1,2}`, `ipa_{0,1,2}`, ognuna con `g<n>.txt` (V_MAG/V_PHS in volt, attenuatore
   già tolto) e `<n>.txt` (dB/gradi, non compensato); orari delle copie nel README. Scheda 1920 (in specifica,
-  125 MHz), stesso sensore 5 MHz del 2026-09-10, TEC 25 °C, aria → acqua → isopropanolo. Se la cartella non
-  c'è più, chiedimela prima di fare qualsiasi cosa.
+  125 MHz), stesso sensore 5 MHz del 2026-09-10, TEC 25 °C, aria → acqua → isopropanolo.
 - Script: `research/air-ipa-water-1920-2026-09-11/scripts/`. Quelli che usano il processo si lanciano da
   `software/`: `cd software && PYTHONPATH=. python ../research/.../scripts/<nome>.py <cartella dati> <uscita>`
   (`MultiscanProcess` legge `openQCM/config.txt` con path relativo). `fit_admittance.py` si carica per path
@@ -100,8 +102,6 @@ sezione "Cose aperte" qui sotto è un inventario, non una coda di lavoro.
   ripetibilità.
 - **La rotazione θ del cerchio**, −25…−31° su n ≥ 5 in aria e in liquido: è una proprietà dello strumento,
   imparentata con il φ_b = −12…−20° del 2026-07-28 (HANDOFF §4). Nessuno sa ancora dove sta nel circuito.
-- **I dump del 2026-09-11 non sono nel repo** (120 MB in chiaro; 7.8 MB come `.npz` compresso dei soli
-  `g<n>.txt`). Marco decide se versionarli.
 
 ## Cosa non rifare
 

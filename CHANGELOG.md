@@ -10,13 +10,14 @@ Conventional Commits. Versions are marked by Git tags.
 `docs/impedance-analysis/SESSION_PROMPT_liquid_frequency_excess.md` (Italian on purpose): state measured on
 the two liquid runs, where the data and scripts are and how to run them, the open inventory (the 20–30 %
 frequency excess with ΔΓ right, the 0.88 fold threshold sitting on water n = 3, air D doubled between days,
-duplicate datalog rows, the circle's θ, the un-versioned dumps) and what not to redo. The f_s-estimator
+duplicate datalog rows, the circle's θ) and what not to redo. The f_s-estimator
 prompt is marked done.
 
 ### Docs — second liquid run with sweep dumps: the datalog, the raw phase, the unfolding rules, the four f_s estimators (2026-09-11)
 
 `9e2a480`, `dfbb6fe`: `research/air-ipa-water-1920-2026-09-11/` (board 1920, same sensor as the day before,
-TEC 25 °C, air → water → isopropanol, three hand-copied dumps per phase; the dumps stay outside the repo).
+TEC 25 °C, air → water → isopropanol, three hand-copied dumps per phase; the dumps are in `data/` as one
+7.8 MB compressed archive, `scripts/load_dumps.py` packs and unpacks them byte-exact).
 The datalog repeats the 2026-09-10 picture: ΔΓ within ±8 % of Kanazawa–Gordon on n = 3–9, Δf 17–29 % beyond
 it. The raw phase shows that in liquid on n ≥ 3 the reading never reaches zero and its minimum is smooth, not
 a fold — the process's "no fold" branch is right there, and the two-state 3rd overtone in water is the fold

@@ -17,7 +17,7 @@ copied by hand during the run are the input of a separate document (f_s estimato
 | sequence | air → water → isopropanol, liquids poured in sequence, one acquisition |
 | calibration | the `Calibration_5MHz.txt` of this run (in the dataset folder, 100 001 points, 1–51 MHz) |
 | dumps | three copies of `g<n>.txt` / `<n>.txt` per liquid, on the plateau: air 12:25:49, 12:46:28, 12:50:16; water 12:57:34, 13:08:52, 13:15:24; isopropanol 13:20:02, 13:24:16, 13:30:00 (write time of the 3rd-overtone file) |
-| raw data | `/Users/marco/Documents/openqcm-next-data_20260911` (outside the repo); the two datalogs are copied in `data/` |
+| raw data | the two datalogs in `data/`; the nine dumps (45 `g<n>.txt`, 61 MB) as one compressed archive `data/sweep_dumps_2026-09-11.npz` (7.8 MB, byte-exact round trip, copy times inside) — `python scripts/load_dumps.py unpack data/sweep_dumps_2026-09-11.npz <dir>` recreates the folders the scripts read; the originals stay at `/Users/marco/Documents/openqcm-next-data_20260911` |
 
 ## Method
 
