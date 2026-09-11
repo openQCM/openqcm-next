@@ -144,3 +144,9 @@ computes them), and the Lorentzian LM fit of `sweep_data/fit_admittance.py` on a
   and the fit absorbs only part of the skew, while the midpoint assumes no shape at all.
 - The BVD circle fit was not evaluated here for lack of time; it stays a candidate for the liquid
   comparison (Marco, 2026-09-11: all doors open).
+
+> ⚠️ **Correction, 2026-09-11.** The extrapolation above — 0.25–0.33 Γ scaled to the liquid width gives
+> 200–600 Hz, the size of the overshoot — was measured on the liquid dumps of 2026-09-11 and is wrong: in
+> water and isopropanol the Lorentzian centre sits 30–200 Hz from `argmax`, **0.02–0.10 Γ**, and none of the
+> four estimators (argmax, midpoint, Lorentzian, BVD circle) brings |Δf|/ΔΓ to 1 on the overtones. See
+> `../air-ipa-water-1920-2026-09-11/fs-estimators-liquid.md`.
