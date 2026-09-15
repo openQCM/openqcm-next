@@ -5,6 +5,21 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Docs — the phase-shifted Lorentzian on G closes the liquid frequency excess; block A validation; synthesis (2026-09-14/15)
+
+`research/air-ipa-water-1920-2026-09-11/`: `phase-shifted-lorentzian.md`, `psl-validation.md`,
+`synthesis-two-lorentzians.md`, scripts `psl_lib.py`, `phase_shifted_lorentzian.py`, `psl_validation.py`,
+`synthesis_figures.py`, `fold_rounding.py`. Johannsmann's rotated complex Lorentzian (Sensors 2021, 21, 3490,
+eq. 3) fitted to G alone on the ±3Γ window brings frequency and half-bandwidth onto Kanazawa–Gordon together
+on the overtones (Δf/Δf_KG 0.99–1.08, ΔΓ/ΔΓ_KG 0.96–1.09, |Δf|/ΔΓ 0.98–1.08 in water and isopropanol), where
+argmax + half height and the symmetric Lorentzian both give a 20–30 % frequency excess. The bias of the
+maximum of G is Γ·tan(φ/2) with φ = −8…−28°, verified on 45 sweeps and on synthetic sweeps with known truth;
+the result is independent of the chain's smoothing, of a ±5° phase offset and of the fit window. G and B
+agree on φ and disagree on f_res, so the joint six-parameter fit is a compromise and the estimator is the fit
+on G alone. This **corrects** the 2026-09-11 conclusion below that the excess was not an estimator artefact.
+The published estimator is unchanged. Also: the plateau at the fold measured on the raw phase
+(`figures/rounding/`, slope at the crossing 5–40 times below its value at ±Γ/2, in the raw samples too).
+
 ### Docs — start prompt for the session that takes over the liquid frequency excess (2026-09-11)
 
 `docs/impedance-analysis/SESSION_PROMPT_liquid_frequency_excess.md` (Italian on purpose): state measured on
@@ -25,7 +40,8 @@ test sitting on its 0.88 threshold. Always flipping the sign splits the locus in
 the minimum makes |Δf|/ΔΓ worse; the air-measured offset applied in liquid changes it by −0.02…−0.05. None
 of the four estimators (argmax, half-height midpoint, Lorentzian, BVD circle) brings |Δf|/ΔΓ to 1: the
 circle's 1.0–1.14 rests on a free 25–31° rotation and its fit overlaps the locus poorly. Marco: `argmax`
-stays published; the frequency excess is open. The 2026-09-10 addendum's extrapolation (200–600 Hz from the
+stays published; the frequency excess is open (⚠️ corrected on 2026-09-15: it is an estimator artefact, see the
+entry above). The 2026-09-10 addendum's extrapolation (200–600 Hz from the
 air skew) is corrected in place: measured 0.02–0.10 Γ in liquid.
 
 ### Docs — start prompt for the dedicated f_s-estimator session on liquid sweeps (2026-09-11)

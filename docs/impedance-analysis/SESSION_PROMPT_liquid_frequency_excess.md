@@ -69,9 +69,13 @@ sezione "Cose aperte" qui sotto è un inventario, non una coda di lavoro.
   newtoniano dà 1.0. Pendenze in √n: −Δf 819 e 1108 Hz/√n contro 674 e 902 di teoria; ΔΓ 656 e 867.
 - **Sul fondamentale è il contrario**: ΔΓ 29–35 % sopra la teoria, |Δf|/ΔΓ = 0.85–0.89; in aria D₁ = 26 ppm
   contro 9–10 sugli overtone.
-- **Non è lo stimatore.** argmax, punto medio a metà altezza, lorentziana danno tutti 1.14–1.53; il cerchio BVD
-  arriva a 1.0–1.14 solo con una rotazione libera θ = −25…−31° (uguale in aria) e si sovrappone male al
-  luogo (5–18 % del raggio): giudicato debole. L'asimmetria di G in liquido è 0.02–0.10 Γ.
+- **È lo stimatore** (corretto il 2026-09-15; il 2026-09-11 si era scritto il contrario). argmax, punto medio,
+  lorentziana simmetrica danno tutti 1.14–1.53; il cerchio BVD 1.0–1.14 con una rotazione libera e un fit che si
+  sovrappone male al luogo. La **lorentziana sfasata di Johannsmann adattata alla sola G** (eq. 3, cinque
+  parametri, `phase-shifted-lorentzian.md`) dà Δf/Δf_KG 0.99–1.08, ΔΓ/ΔΓ_KG 0.96–1.09, |Δf|/ΔΓ 0.98–1.08 su
+  n = 3–9 in entrambi i liquidi, con residuo 0.2–0.5 % contro 2–4 % della simmetrica. Il massimo di G sta a
+  f_res + Γ·tan(φ/2), φ = −8 → −27° con n, uguale in aria e liquido, verificato su 45 sweep e su sweep
+  sintetici (`psl-validation.md`). Sintesi per chi arriva ora: `synthesis-two-lorentzians.md`.
 - **Non è la fase, per quanto si è potuto provare.** In liquido su n ≥ 3 la lettura non arriva a zero (minimo
   9–45°) e il minimo è liscio, non un fold: il ramo "no fold" è fisicamente giusto (attraversamento solo se
   R1 < 1/(2ωC0); R1 in acqua 0.7–3.3 kΩ contro soglie 4.8→0.54 kΩ). Invertire sempre il segno spezza il luogo
@@ -84,8 +88,12 @@ sezione "Cose aperte" qui sotto è un inventario, non una coda di lavoro.
 
 ## Cose aperte (inventario, non piano)
 
-- **L'eccesso di |Δf| sugli overtone**, 20–30 %, con ΔΓ giusta. Non viene dallo stimatore né dalla catena di
-  fase. Ipotesi **non verificate**, elencate perché qualcuno le proverà: (a) fisica della superficie —
+- **L'eccesso di |Δf| sugli overtone è spiegato** dallo stimatore (vedi sopra). Restano aperti, per il blocco B
+  del piano di validazione del 2026-09-15: secondo sensore e seconda scheda; colonna parallela nel datalog con
+  f_res, Γ e φ del fit accanto ai valori pubblicati, per la ripetibilità su plateau lunghi e la stabilità di φ;
+  terzo liquido a viscosità nota con temperatura misurata; misura diretta di φ con un carico non risonante.
+  Le ipotesi che seguono erano state elencate quando l'eccesso sembrava fisico; restano utili solo per il
+  fondamentale, che nessuno stimatore muove: (a) fisica della superficie —
   Kanazawa–Gordon assume superficie liscia, rugosità o liquido intrappolato aggiungono −Δf con poca ΔΓ, e la
   firma sarebbe proprio questa; si discrimina con un **secondo sensore** e con un liquido a viscosità diversa;
   (b) il luogo fuori tondo, 5–18 %, e il residuo a S di G — un errore di scheda che deforma G in modo

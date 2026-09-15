@@ -570,7 +570,26 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
     argmax like the others. G is not a Lorentzian on this instrument (S-shaped residual, 2–7 % of Gmax, in
     every panel). Marco, 2026-09-11: the circle is weak; **`argmax` stays published**; the 20–30 % frequency
     excess over the theory is not an estimator artefact and is open. Repeatability over three sweeps on a
-    plateau: 1–37 Hz on f, 1–8 Hz on Γ, against 1.4–3.4 kHz shifts.
+    plateau: 1–37 Hz on f, 1–8 Hz on Γ, against 1.4–3.4 kHz shifts. ⚠️ **Corrected 2026-09-15**: it *is* an
+    estimator artefact — see the next bullet.
+  - `phase-shifted-lorentzian.md`, `psl-validation.md`, `synthesis-two-lorentzians.md` (2026-09-14/15): **the
+    phase-shifted Lorentzian fitted to G alone** — Y = e^{iφ}·iΓG_max/(f_res − f + iΓ) + offsets, Johannsmann
+    *Sensors* 2021 eq. 3, five parameters on G — brings Δf/Δf_KG to 0.99–1.08, ΔΓ/ΔΓ_KG to 0.96–1.09 and
+    |Δf|/ΔΓ to 0.98–1.08 on n = 3–9 in both liquids; slopes in √n 696/677 Hz/√n in water against 674, 926/932
+    in isopropanol against 902. It follows G to 0.2–0.5 % of range in liquid where the symmetric Lorentzian
+    leaves an S of 2–4 %. φ = −8 → −27° from n = 1 to 9, the same in air and liquid within 1–4°, identical on
+    the three replicas to 0.2°, the circle fit's θ with the other sign; the maximum of G sits at
+    f_res + Γ·tan(φ/2) (45 sweeps: +1 ± 28 Hz). Block A of the validation plan is done offline: independent of
+    the smoothing (raw samples: f_res within 5 Hz), of a ±5° offset error (≤ 21 Hz), of the window (±2…±6 Γ:
+    ≤ 60 Hz) and of a clipped sweep; synthetic sweeps with a known f_s through divider and detector are
+    recovered within 4 Hz while argmax is off by Γ·tan(φ/2). ⚠️ Eq. 13 of that paper as printed is *not* one
+    rotation (its G term has the dispersive sign flipped); use eq. 3. G and B agree on φ but not on f_res
+    (B places it 20–220 Hz lower): the joint six-parameter fit is a compromise (rms 4–5 %), the estimator is
+    the fit on G alone. The fundamental stays anomalous on ΔΓ (+29–37 %) with every estimator. Not done:
+    another sensor or board, a third liquid, the estimator running live beside the published one, the
+    physical origin of φ (a board delay of 0.76–1.10 ns gives 12–18° at 45 MHz but only 1.4–2° at 5 MHz), the
+    2026-09-10 air dump (its only copy was in the session scratchpad, cleared). **`argmax` stays published**
+    until Marco decides otherwise; a change moves the logged frequency by 170–700 Hz in liquid.
   `docs/impedance-analysis/SESSION_PROMPT_fs_estimators.md` is the prompt that session started from; it is done.
   The next session starts from `docs/impedance-analysis/SESSION_PROMPT_liquid_frequency_excess.md`.
 - `software/openQCM/sweep_data/plot_conductance.py`: offline analysis script — the reference
