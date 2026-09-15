@@ -56,6 +56,19 @@ on n ≥ 3.*
 *Air: peak 0.49–0.77 V high on a 0.9–1.0 V span. Liquids: 0.06–0.43 V span, the peak followed by a dip
 2–4 kHz to the right whose depth grows with n.*
 
+### The plateau at the fold (2026-09-14)
+
+![fold plateau](figures/rounding/fold_plateau.png)
+
+*`scripts/fold_rounding.py`. Where the chain undoes the fold (air n = 1–9, water and isopropanol n = 1), the
+signed phase and B flatten at the crossing: the slope at the fold is 2–12 % of the slope at ±Γ/2 after the
+chain's smoothing and 10–20 % on the raw samples — a resonance would give 125 %. The plateau is 18–53 Hz wide
+in air and 220–350 Hz on the liquid fundamentals, corresponding to readings within 0.8–1.7° of the minimum: the
+detector compresses the last degrees towards 0°, and the sign flip, which is at the right place within a few
+hertz, turns the rounded vertex into a plateau. Smoothing lifts the minimum by less than 0.4°. The depth of
+the rounding cannot be measured from the flanks without assuming their shape (two extrapolations gave 6° and
+12° at the fundamental); a bench measurement with a known phase ramp through zero would.*
+
 ### Zoom ±3 kHz around the V_MAG maximum, both channels
 
 ![zoom](figures/raw/raw_zoom_phase.png)

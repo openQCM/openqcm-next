@@ -237,3 +237,9 @@ rotation of 25–31°, and its fitted circle overlaps the measured locus poorly 
 circularity by 5–18 % of the radius. Marco's reading: the circle is weak on this data. The published
 estimator stays `argmax` for now; the frequency excess over Kanazawa–Gordon (Δf/Δf_KG = 1.2–1.3 on n = 3…9,
 ΔΓ within ±8 %) is not an estimator artefact and is open.
+
+> ⚠️ **Corrected 2026-09-15.** It *is* an estimator artefact. A fifth estimator, tried on 2026-09-14 — Johannsmann's
+> phase-shifted Lorentzian fitted to G alone (eq. 3 of *Sensors* 2021, 21, 3490) — brings Δf/Δf_KG to 0.99–1.08,
+> ΔΓ/ΔΓ_KG to 0.96–1.09 and |Δf|/ΔΓ to 0.98–1.08 on n = 3–9 in both liquids. The four estimators above miss the
+> asymmetry φ = −8…−28° of the peak, and the maximum of G sits at f_res + Γ·tan(φ/2). See
+> `phase-shifted-lorentzian.md`, `psl-validation.md` and the synthesis `synthesis-two-lorentzians.md`.
