@@ -12,8 +12,15 @@ admittance locus B vs G. A table with the numbers of every overtone: which
 estimator was published, f_res, Γ, D, φ, rms, the fallback pair, the phase offset
 δ the chain applied.
 
-B and the locus are the measurement as shipped, nothing more: the estimator fits
-G alone, so no model curve is drawn over them. ⚠️ Their axes are not the same
+B and the locus are the measurement as shipped. One drawing aid is added on the
+locus, and it is the only thing in this window that is not a shipped number: a
+circle. In an EXPERIMENTAL run it is the circle of the PUBLISHED fit — the rotated
+Lorentzian is a circle in the complex plane, of diameter G_max centred at
+offset + (G_max/2)·e^{jφ} — with its one unfitted freedom, the vertical offset,
+anchored on the measured B at f_res (the process fits G alone, so B_off was never
+estimated). In a STANDARD run no model exists, so the circle is fitted HERE, in
+closed form, on the ±Γ core of the measured locus, and the title says so: nothing
+is ever published from it, it is there to show whether the locus closes. ⚠️ Their axes are not the same
 frame — G travels with a constant baseline removed (the mean of its first 100
 samples, which the Data View's half-height marker is defined on) and B travels as
 the chain computed it, so the locus is the admittance circle translated along G.
@@ -72,6 +79,40 @@ DRAW_POINTS = 600
 def _overtone_label(idx):
     return (OVERTONE_NAMES[idx] if idx < len(OVERTONE_NAMES)
             else "overtone {}".format(2 * idx + 1))
+
+
+def _taubin_circle(x, y):
+    """Algebraic circle through a point cloud, closed form (Taubin). DISPLAY ONLY.
+
+    ⚠️ This is the one estimate this window makes, and nothing is published from
+    it: it draws a circle over the measured locus in a STANDARD run, where no
+    fitted model exists to draw. The published f_res, Γ and D never come from
+    here — they come from the acquisition process, through the G/B message. An
+    experimental run uses the published fit's own circle instead (see
+    _model_circle) and this function is not called.
+
+    Returns (xc, yc, r) or None.
+    """
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    keep = np.isfinite(x) & np.isfinite(y)
+    x, y = x[keep], y[keep]
+    if len(x) < 8:
+        return None
+    mx, my = x.mean(), y.mean()
+    u, v = x - mx, y - my
+    z = u * u + v * v
+    Muu, Mvv, Muv = (u * u).mean(), (v * v).mean(), (u * v).mean()
+    Muz, Mvz = (u * z).mean(), (v * z).mean()
+    cov = Muu * Mvv - Muv * Muv
+    if abs(cov) < 1e-30:
+        return None
+    xc = (Muz * Mvv - Mvz * Muv) / cov / 2.0
+    yc = (Mvz * Muu - Muz * Muv) / cov / 2.0
+    r2 = xc * xc + yc * yc + Muu + Mvv
+    if not np.isfinite(r2) or r2 <= 0:
+        return None
+    return xc + mx, yc + my, float(np.sqrt(r2))
 
 
 def _finite(x):
@@ -167,6 +208,11 @@ class _FitTab(QtWidgets.QWidget):
         self.markLocusArg = self.pC.plot(pen=None, symbol='x', symbolSize=10,
                                          symbolPen=pg.mkPen(palette["axis"], width=1.5),
                                          symbolBrush=None, name="maximum of G")
+        # the circle: the published fit's own in an experimental run, one fitted
+        # here in a standard run (see _taubin_circle -- display only)
+        self.curveCircle = self.pC.plot(pen=pg.mkPen(FIT_COLOUR, width=1,
+                                                     style=QtCore.Qt.DashLine),
+                                        name="circle")
         self.graph.ci.layout.setRowStretchFactor(0, 3)
         self.graph.ci.layout.setRowStretchFactor(1, 1)
         self.graph.ci.layout.setRowStretchFactor(2, 2)
@@ -190,7 +236,7 @@ class _FitTab(QtWidgets.QWidget):
     def clear(self):
         empty = np.array([], dtype=float)
         for c in (self.curveG, self.curveFit, self.curveR, self.zeroR,
-                  self.curveB, self.zeroB, self.curveLocus,
+                  self.curveB, self.zeroB, self.curveLocus, self.curveCircle,
                   self.markLocusFres, self.markLocusArg):
             c.setData(x=empty, y=empty)
         self.window.setRegion((0, 0))
@@ -278,11 +324,31 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         note.setWordWrap(True)
         note.setStyleSheet("color: %s; font-size: 11px;" % self._palette["muted"])
 
+        # The table and its note sit under a movable divider, so the plots can be
+        # given the whole window and the table dragged shut (Marco, 2026-09-16).
+        self._below = QtWidgets.QWidget()
+        below = QtWidgets.QVBoxLayout(self._below)
+        below.setContentsMargins(0, 0, 0, 0)
+        below.setSpacing(4)
+        below.addWidget(self.table)
+        below.addWidget(note)
+
+        self._splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+        self._splitter.setObjectName("fitSplitter")
+        self._splitter.setChildrenCollapsible(True)
+        self._splitter.addWidget(self._tabs)
+        self._splitter.addWidget(self._below)
+        # the plots keep the room when the window is resized; the table can be
+        # collapsed to nothing by dragging the handle down
+        self._splitter.setStretchFactor(0, 1)
+        self._splitter.setStretchFactor(1, 0)
+        self._splitter.setCollapsible(0, False)
+        self._splitter.setCollapsible(1, True)
+        self._splitter.setSizes([520, 240])
+
         lay = QtWidgets.QVBoxLayout(self)
         lay.addLayout(top)
-        lay.addWidget(self._tabs, 1)
-        lay.addWidget(self.table)
-        lay.addWidget(note)
+        lay.addWidget(self._splitter, 1)
 
         self._timer = QtCore.QTimer(self)
         self._timer.timeout.connect(self._tick)
@@ -340,10 +406,17 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
                     changed += 1
             if changed:
                 self._draw_selected()
-                fits = sum(1 for d in self._last if d is not None and d["fit"] is not None
-                           and d["fit"]["source"] == "fit")
-                self.lblStatus.setText("%d overtone(s) updated — %d published by the fit"
-                                       % (changed, fits))
+                seen = [d["fit"] for d in self._last if d is not None and d["fit"] is not None]
+                standard = bool(seen) and all(f.get("mode") == "argmax" for f in seen)
+                if standard:
+                    # in a standard run no fit runs at all: counting them would read
+                    # as "the fit keeps failing", which is not what is happening
+                    self.lblStatus.setText("%d overtone(s) updated — STANDARD estimator, "
+                                           "no fit in this run" % changed)
+                else:
+                    fits = sum(1 for f in seen if f.get("source") == "fit")
+                    self.lblStatus.setText("%d overtone(s) updated — %d published by the fit"
+                                           % (changed, fits))
         except Exception as e:
             self._timer.stop()
             print(TAG, "Warning: live fit view stopped:", e)
@@ -439,7 +512,7 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         fit = d["fit"]
         f_arg = None if not fit else fit.get("f_argmax")
         if b is None:
-            for c in (pane.curveB, pane.zeroB, pane.curveLocus,
+            for c in (pane.curveB, pane.zeroB, pane.curveLocus, pane.curveCircle,
                       pane.markLocusFres, pane.markLocusArg):
                 c.setData(x=np.array([]), y=np.array([]))
             pane.pB.setTitle("susceptance B(f) — not shipped by the process")
@@ -453,7 +526,7 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         # the published resonance and the maximum of G, READ OFF the measured
         # arrays (np.interp is a lookup between two samples, not an estimate)
         g_at = float(np.interp(d["f_pub"], d["f"], d["g"]))
-        b_at = float(np.interp(d["f_pub"], d["f"], b))
+        b_at = float(np.interp(d["f_pub"], d["f"], b))     # anchors the model circle below
         pane.markLocusFres.setData(x=[g_at], y=[b_at])
         if f_arg is not None and np.isfinite(f_arg):
             pane.markLocusArg.setData(x=[float(np.interp(f_arg, d["f"], d["g"]))],
@@ -468,8 +541,54 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         pane.pB.setTitle("B(f) measured &nbsp;|&nbsp; span %.3f mS &nbsp;|&nbsp; "
                          "largest step between samples %.1f %% of span"
                          % (span, jump / span))
-        pane.pC.setTitle("admittance locus, measured &nbsp;|&nbsp; ⚠️ G baseline-removed, "
-                         "B as computed: the circle is translated along G")
+        self._draw_circle(pane, d, b, b_at)
+
+    def _draw_circle(self, pane, d, b, b_at_fres):
+        """The circle over the locus: the published fit's own, or one fitted here.
+
+        Experimental run -- the rotated Lorentzian IS a circle in the complex
+        plane: diameter G_max, centre at offset + (G_max/2)·e^{jφ}. G_off comes
+        from the fit (shipped in the frame of the shipped G); B_off was never
+        fitted, because the process fits G alone, so it is anchored on the
+        measured B at f_res: one lookup, and it is what makes this the published
+        model rather than a new estimate.
+
+        Standard run -- there is no model. A circle is fitted HERE on the ±Γ core
+        of the measured locus (closed form, display only) and the title says so.
+        """
+        fit = d["fit"]
+        experimental = bool(fit) and fit.get("mode") != "argmax" and all(
+            _finite(fit.get(k)) for k in ("gmax_mS", "phi_deg", "g_off_mS"))
+        theta = np.linspace(0.0, 2.0 * np.pi, 361)
+        if experimental:
+            gmax, phi = float(fit["gmax_mS"]), np.radians(float(fit["phi_deg"]))
+            b_off = b_at_fres - gmax * np.sin(phi)
+            xc = float(fit["g_off_mS"]) + 0.5 * gmax * np.cos(phi)
+            yc = b_off + 0.5 * gmax * np.sin(phi)
+            r = 0.5 * abs(gmax)
+            what = ("circle of the published fit: R1 = %.0f Ω, φ = %+.1f°"
+                    % (1e3 / gmax if gmax else float("inf"), np.degrees(phi)))
+        else:
+            gam = None if not fit else fit.get("gamma_hh")
+            core = np.ones(len(d["f"]), dtype=bool)
+            if gam and np.isfinite(gam) and gam > 0:
+                sel = np.abs(d["f"] - d["f_pub"]) <= gam
+                if sel.sum() >= 12:
+                    core = sel
+            circ = _taubin_circle(d["g"][core], b[core])
+            if circ is None:
+                pane.curveCircle.setData(x=np.array([]), y=np.array([]))
+                pane.pC.setTitle("admittance locus, measured &nbsp;|&nbsp; no circle "
+                                 "(too few points)")
+                return
+            xc, yc, r = circ
+            rad = np.hypot(d["g"][core] - xc, b[core] - yc)
+            rms = 100.0 * float(np.sqrt(np.mean((rad - r) ** 2)) / r) if r else float("nan")
+            what = ("circle fitted HERE on the ±Γ core (display only): R1 = %.0f Ω, "
+                    "residual %.1f %% of r" % (1e3 / (2.0 * r) if r else float("inf"), rms))
+        pane.curveCircle.setData(x=xc + r * np.cos(theta), y=yc + r * np.sin(theta))
+        pane.pC.setTitle("locus &nbsp;|&nbsp; %s &nbsp;|&nbsp; ⚠️ G baseline-removed, B as "
+                         "computed" % what)
 
     def _draw_selected(self, *_args):
         idx = self._current_index()

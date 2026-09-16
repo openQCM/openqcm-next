@@ -14,7 +14,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import unittest
 
 import numpy as np
-from PyQt5 import QtWidgets
+from PyQt5 import QtCore, QtWidgets
 
 from openQCM.core import lorentzian as L
 from openQCM.core.constants import Constants
@@ -193,13 +193,67 @@ class FitWindowTests(unittest.TestCase):
         f_arg = self.w.fit[idx]["f_argmax"]
         self.assertAlmostEqual(xa[0], float(np.interp(f_arg, self.w.f[idx], self.w.g[idx])), places=9)
 
-    def test_no_model_is_drawn_over_B_or_the_locus(self):
-        """The estimator fits G alone, so B and the locus carry no fitted overlay."""
+    def test_no_model_curve_is_drawn_over_B(self):
+        """The estimator fits G alone: B carries the measurement and nothing else."""
         pane = self.win._panes[2]
-        for name in ("curveB", "curveLocus"):
-            self.assertTrue(hasattr(pane, name))
-        self.assertFalse(any(n.startswith(("curveBfit", "curveFitLocus", "curveCircle"))
-                             for n in vars(pane)))
+        self.assertTrue(hasattr(pane, "curveB"))
+        self.assertFalse(any(n.startswith("curveBfit") for n in vars(pane)))
+
+    def test_in_an_experimental_run_the_circle_is_the_published_fit(self):
+        """Diameter G_max, centre at offset + (G_max/2)e^{jphi}, vertical position
+        anchored on the measured B at f_res -- the published model, not a new fit."""
+        idx = 2
+        self.win._tabs.setCurrentIndex(idx); self.win._draw_selected()
+        x, y = self.win._panes[idx].curveCircle.getData()
+        self.assertGreater(len(x), 100)
+        fit = self.w.fit[idx]
+        gmax, phi = fit["gmax_mS"], np.radians(fit["phi_deg"])
+        b_at = float(np.interp(self.w.fr[idx], self.w.f[idx], self.w.b[idx]))
+        xc_exp = fit["g_off_mS"] + 0.5 * gmax * np.cos(phi)
+        yc_exp = (b_at - gmax * np.sin(phi)) + 0.5 * gmax * np.sin(phi)
+        xc, yc = 0.5 * (x.max() + x.min()), 0.5 * (y.max() + y.min())
+        r = 0.5 * (x.max() - x.min())
+        self.assertAlmostEqual(xc, xc_exp, places=6)
+        self.assertAlmostEqual(yc, yc_exp, places=6)
+        self.assertAlmostEqual(r, 0.5 * abs(gmax), places=6)
+        # what the anchor buys: the MODEL's own point at f_res, (G_off + G_max cos φ,
+        # B measured at f_res), lies on the circle -- the vertical freedom is what was
+        # anchored, so the measured G at f_res only lands on it to within its noise
+        g_model = fit["g_off_mS"] + gmax * np.cos(phi)
+        self.assertAlmostEqual(np.hypot(g_model - xc, b_at - yc), r, places=9)
+        g_at = float(np.interp(self.w.fr[idx], self.w.f[idx], self.w.g[idx]))
+        self.assertLess(abs(np.hypot(g_at - xc, b_at - yc) - r) / r, 0.01)
+        self.assertIn("circle of the published fit", self.win._panes[idx].pC.titleLabel.text)
+
+    def test_in_a_standard_run_the_circle_is_fitted_here_and_says_so(self):
+        w = FakeWorker(); w.ship(1, 14988740.0, 76.0, -14.5, 19e-3, 1.0e-3, mode="argmax")
+        win = W.ImpedanceFitWindow(w, 5, theme_name="light"); win._tick()
+        try:
+            win._tabs.setCurrentIndex(1); win._draw_selected()
+            pane = win._panes[1]
+            x, y = pane.curveCircle.getData()
+            self.assertGreater(len(x), 100)
+            xc, yc = 0.5 * (x.max() + x.min()), 0.5 * (y.max() + y.min())
+            r = 0.5 * (x.max() - x.min())
+            # the measured core sits on it: radial spread a few per cent of the radius
+            core = np.abs(w.f[1] - w.fr[1]) <= w.fit[1]["gamma_hh"]
+            rad = np.hypot(w.g[1][core] - xc, w.b[1][core] - yc)
+            self.assertLess(abs(rad.mean() - r) / r, 0.05)
+            self.assertLess(rad.std() / r, 0.10)
+            self.assertIn("fitted HERE", pane.pC.titleLabel.text)
+            self.assertIn("display only", pane.pC.titleLabel.text)
+        finally:
+            win.close()
+
+    def test_the_table_sits_under_a_movable_divider_and_can_be_collapsed(self):
+        sp = self.win._splitter
+        self.assertEqual(sp.orientation(), QtCore.Qt.Vertical)
+        self.assertEqual(sp.count(), 2)
+        self.assertIs(sp.widget(0), self.win._tabs)
+        self.assertTrue(sp.isCollapsible(1))          # the table can be dragged shut
+        self.assertFalse(sp.isCollapsible(0))         # the plots cannot
+        sp.setSizes([760, 0])
+        self.assertEqual(sp.sizes()[1], 0)
 
     def test_a_standard_run_still_draws_B_and_the_locus(self):
         w = FakeWorker(); w.ship(1, 14988740.0, 76.0, -14.5, 19e-3, 1.0e-3, mode="argmax")
