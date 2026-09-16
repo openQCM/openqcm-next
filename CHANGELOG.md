@@ -5,6 +5,20 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Fixed / Changed — the estimator box was overprinted on "Time elapsed"; B(f) and the locus are back in the live fit window (2026-09-16, evening)
+
+The checkbox had been added at row 5 of `gridSetup`, where the elapsed-time block already was: a
+QGridLayout draws two items of one cell on top of each other. Row 6 now, and the label shortened to
+"Experimental: PS Lorentzian" (a QCheckBox neither wraps nor elides, and the old text ran ~275 px past a
+~290 px sidebar; the full sentence stays in the tooltip). `tests/test_setup_card.py` asserts that no cell
+of the card holds two items — verified to fail on the defect.
+
+The live fit window gains B(f) under the residual and the admittance locus B vs G on the right, both as
+measured, with no fitted overlay (the estimator fits G alone) and two lookups for the published f_res and
+the maximum of G. ⚠️ G is shipped baseline-removed and B as computed, so the locus is translated along G:
+said in the panel title. 43 tests OK. ⚠️ Measured: offscreen this window segfaults on `grab()` as well as
+on `show()`, so it cannot be captured headless.
+
 ### Changed — the prudent setting: the standard estimator stays the maximum of G; the fit is an experimental mode chosen per run (2026-09-16, evening)
 
 `Constants.IMPEDANCE_ESTIMATOR = "argmax"` (default and standard; the fit does not run in a standard run).
