@@ -144,16 +144,25 @@ class Ui_MainWindow(object):
         self.pltSus.setObjectName("pltSus")
         self.pltSus.setAntialiasing(True)
 
-        # vertical splitter so either view can be given the whole panel
+        # admittance locus B vs G, all overtones, under B(f). Restored on
+        # 2026-09-16 (Marco) after the susceptance had taken its place: the
+        # three views share one vertical splitter and the handles can squash
+        # any of them, the locus included, to nothing.
+        self.pltLocus = GraphicsLayoutWidget(self.groupImpedance)
+        self.pltLocus.setObjectName("pltLocus")
+        self.pltLocus.setAntialiasing(True)
+
+        # vertical splitter so any view can be given the whole panel
         self.impedanceSplitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
         self.impedanceSplitter.setObjectName("impedanceSplitter")
         self.impedanceSplitter.addWidget(self.pltG)
         self.impedanceSplitter.addWidget(self.pltSus)
-        self.impedanceSplitter.setCollapsible(0, True)
-        self.impedanceSplitter.setCollapsible(1, True)
-        self.impedanceSplitter.setStretchFactor(0, 1)
-        self.impedanceSplitter.setStretchFactor(1, 1)
-        self.impedanceSplitter.setSizes([340, 340])
+        self.impedanceSplitter.addWidget(self.pltLocus)
+        self.impedanceSplitter.setChildrenCollapsible(True)
+        for i in range(3):
+            self.impedanceSplitter.setCollapsible(i, True)
+            self.impedanceSplitter.setStretchFactor(i, 1)
+        self.impedanceSplitter.setSizes([240, 200, 240])
         card.addWidget(self.impedanceSplitter, 1)
 
     # ------------------------------------------------------------------ #

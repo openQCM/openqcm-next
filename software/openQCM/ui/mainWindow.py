@@ -33,6 +33,7 @@ except Exception as _e:
     print("Warning: impedance fit window unavailable:", _e)
 from openQCM.ui import theme
 from openQCM.ui.plotMenu import PlotMenu
+from openQCM.ui import admittanceCircle
 from openQCM.ui.widgets import (_Chevroned, ChevronComboBox,
                                 ChevronSpinBox, ChevronDoubleSpinBox)
 from openQCM.common.logger import Logger as Log
@@ -207,6 +208,14 @@ class MainWindow(QtGui.QMainWindow):
         self._pltSus = None
         self._pltG_multiline = [None, None, None, None, None]
         self._pltSus_multiline = [None, None, None, None, None]
+        # admittance locus B vs G under the susceptance: measured points per
+        # overtone plus one circle each (admittanceCircle, display only)
+        self._pltLocus = None
+        self._pltLocus_multiline = [None, None, None, None, None]
+        self._pltLocus_circle = [None, None, None, None, None]
+        self._pltLocus_bounds = [None, None, None, None, None]
+        self._pltLocus_framer = None
+        self._numpy_empty = np.array([], dtype=float)
         # per-overtone revision of the spectra drawn in the impedance panel, so
         # a repaint tick with no new sweep costs nothing
         self._impedance_panel_seq = [None, None, None, None, None]
@@ -2016,7 +2025,8 @@ class MainWindow(QtGui.QMainWindow):
                   getattr(self.ui, "pltB", None),
                   getattr(self.ui, "pltD", None),
                   getattr(self.ui, "pltG", None),
-                  getattr(self.ui, "pltSus", None)):
+                  getattr(self.ui, "pltSus", None),
+                  getattr(self.ui, "pltLocus", None)):
             if w is not None:
                 try:
                     w.setBackground(pt["bg"])
@@ -2024,7 +2034,7 @@ class MainWindow(QtGui.QMainWindow):
                     pass
         # per-plot axes + title (guarded: some refs are ViewBoxes or None)
         for plot in (self._plt0, self._plt1, self._plt2, self._pltD, self._plt4,
-                     self._pltG, self._pltSus):
+                     self._pltG, self._pltSus, self._pltLocus):
             if plot is None:
                 continue
             for side in ("left", "bottom", "right", "top"):
@@ -2282,6 +2292,7 @@ class MainWindow(QtGui.QMainWindow):
         # VER 0.1.6G IMPEDANCE PANEL
         self.ui.pltG.setBackground(background=Constants.plot_background_color)
         self.ui.pltSus.setBackground(background=Constants.plot_background_color)
+        self.ui.pltLocus.setBackground(background=Constants.plot_background_color)
         #----------------------------------------------------------------------
 
         # defines the graph title
@@ -2344,6 +2355,7 @@ class MainWindow(QtGui.QMainWindow):
         '''
         self.ui.pltG.setAntialiasing(True)
         self.ui.pltSus.setAntialiasing(True)
+        self.ui.pltLocus.setAntialiasing(True)
 
         self._xaxis_G = NonScientificAxis(orientation='bottom')
         self._xaxis_G.enableAutoSIPrefix(False)
@@ -2386,6 +2398,25 @@ class MainWindow(QtGui.QMainWindow):
         self._pltSus.setMenuEnabled(False)
         self._pltSus.scene().contextMenu = None
         self._pltSus.addLegend()
+
+        # admittance locus B vs G under B(f), restored 2026-09-16 (Marco). The
+        # points are the shipped G and B of the same sweep, one cloud per
+        # overtone; the dashed circle over each is the published fit's own in
+        # an experimental run and one fitted in the view (display only) in a
+        # standard run -- same rule as the live fit window, one module
+        # (admittanceCircle). Aspect locked: a circle has to look like one; the
+        # range is set over measurement AND circle (LocusFramer), not
+        # auto-ranged, or the circle gets cut.
+        self._pltLocus = self.ui.pltLocus.addPlot(row=0, col=0,
+                                          title="Admittance locus B vs G (exact)",
+                                          **{'font-size': '10pt'})
+        self._pltLocus.setLabel('bottom', 'G', units='mS')
+        self._pltLocus.setLabel('left', 'B', units='mS')
+        self._pltLocus.setAspectLocked(True)
+        self._pltLocus.setMenuEnabled(False)
+        self._pltLocus.scene().contextMenu = None
+        self._pltLocus.addLegend(offset=(8, 8))
+        self._pltLocus_framer = admittanceCircle.LocusFramer(self._pltLocus)
 
         # VER 0.1.2
         # editing pyqtgraph context menu
@@ -3520,9 +3551,10 @@ class MainWindow(QtGui.QMainWindow):
         from. Wrapped in try/except -- a view must never take down the
         acquisition loop.
         """
-        if self._pltG is None or self._pltSus is None:
+        if self._pltG is None or self._pltSus is None or self._pltLocus is None:
             return
         try:
+            reframe = False
             for idx in range(self._overtones_number_all):
                 if self._pltG_multiline[idx] is None:
                     continue
@@ -3558,6 +3590,15 @@ class MainWindow(QtGui.QMainWindow):
                                                       y = self._numpy_nan_sweep)
                     self._pltSus_multiline[idx].setData(x = self._numpy_nan_sweep,
                                                       y = self._numpy_nan_sweep)
+                    # empty, not NaN: a scatter of NaN makes pyqtgraph warn on
+                    # every bounds query
+                    self._pltLocus_multiline[idx].setData(x = self._numpy_empty,
+                                                          y = self._numpy_empty)
+                    self._pltLocus_circle[idx].setData(x = self._numpy_empty,
+                                                       y = self._numpy_empty)
+                    if self._pltLocus_bounds[idx] is not None:
+                        self._pltLocus_bounds[idx] = None
+                        reframe = True
                     continue
 
                 # already numpy, converted once by the worker on arrival
@@ -3570,6 +3611,34 @@ class MainWindow(QtGui.QMainWindow):
                 step = max(1, len(g_axis) // 250)
                 self._pltG_multiline[idx].setData(x = f_np[::step], y = g_axis[::step])
                 self._pltSus_multiline[idx].setData(x = f_np[::step], y = b_axis[::step])
+
+                # the locus of the same sweep, and its circle: the published fit's
+                # own or one fitted in the view, per admittanceCircle. The fit dict
+                # is what the process shipped; peaks_mag[idx] is the published f_res.
+                self._pltLocus_multiline[idx].setData(x = g_axis[::step], y = b_axis[::step])
+                try:
+                    fit = self.worker.get_fit_G_buffer(idx)
+                except Exception:
+                    fit = None
+                c = admittanceCircle.circle_for(fit, f_axis, g_axis, b_axis, peaks_mag[idx])
+                if c is None:
+                    self._pltLocus_circle[idx].setData(x = self._numpy_empty,
+                                                       y = self._numpy_empty)
+                    bounds = admittanceCircle.union_bounds((g_axis, b_axis))
+                else:
+                    self._pltLocus_circle[idx].setData(x = c["x"], y = c["y"])
+                    bounds = admittanceCircle.union_bounds((g_axis, b_axis), (c["x"], c["y"]))
+                self._pltLocus_bounds[idx] = bounds
+                reframe = True
+
+            # one frame over every overtone shown, points and circles together
+            if reframe and self._pltLocus_framer is not None:
+                shown = [b for b in self._pltLocus_bounds if b is not None]
+                if shown:
+                    self._pltLocus_framer.frame(min(b[0] for b in shown),
+                                                max(b[1] for b in shown),
+                                                min(b[2] for b in shown),
+                                                max(b[3] for b in shown))
         except Exception as e:
             print("Warning: unable to update the impedance panel")
             print(f"error occurred: {e}")
@@ -5667,7 +5736,7 @@ class MainWindow(QtGui.QMainWindow):
         # the right-click menu apply to them as well. They are also why this
         # branch felt the defect hardest: six targets over FIVE scenes.
         self._plot_menu_targets = [self._plt0, self._plt4, self._plt2, self._pltD,
-                                   self._pltG, self._pltSus]
+                                   self._pltG, self._pltSus, self._pltLocus]
         self._plot_menu = PlotMenu(self, extra_actions=self._plot_menu_extras,
                                    apply_grid=self._apply_grid)
         self._plot_menu.attach(self._plot_menu_targets)
@@ -5819,11 +5888,12 @@ class MainWindow(QtGui.QMainWindow):
         time is also what keeps the count at exactly one and two -- adding the
         keys anywhere else would append a duplicate pair per acquisition.
         """
-        if self._pltG is None or self._pltSus is None:
+        if self._pltG is None or self._pltSus is None or self._pltLocus is None:
             return
 
         self._pltG.clear()
         self._pltSus.clear()
+        self._pltLocus.clear()
 
         colour = Constants.plot_color_multi[0]
         self._pltG.plot(pen = pg.mkPen(color = colour,
@@ -5832,6 +5902,12 @@ class MainWindow(QtGui.QMainWindow):
         self._pltSus.plot(pen = pg.mkPen(color = colour,
                                        width = Constants.plot_line_width),
                         name = "measured")
+        self._pltLocus.plot(pen = None, symbol = 'o', symbolSize = 3,
+                            symbolPen = None, symbolBrush = colour,
+                            name = "measured")
+        self._pltLocus.plot(pen = pg.mkPen(color = admittanceCircle.FIT_COLOUR,
+                                           width = 1, style = QtCore.Qt.DashLine),
+                            name = "circle (fit if experimental, else display only)")
 
         for idx in range(self._overtones_number_all):
             self._pltG_multiline[idx] = self._pltG.plot(
@@ -5840,8 +5916,17 @@ class MainWindow(QtGui.QMainWindow):
             self._pltSus_multiline[idx] = self._pltSus.plot(
                 pen = pg.mkPen(color = Constants.plot_color_multi[idx],
                                width = Constants.plot_line_width))
+            self._pltLocus_multiline[idx] = self._pltLocus.plot(
+                pen = None, symbol = 'o', symbolSize = 3, symbolPen = None,
+                symbolBrush = Constants.plot_color_multi[idx])
+            self._pltLocus_circle[idx] = self._pltLocus.plot(
+                pen = pg.mkPen(color = admittanceCircle.FIT_COLOUR, width = 1,
+                               style = QtCore.Qt.DashLine))
+            self._pltLocus_bounds[idx] = None
             # force a repaint on the next tick: the curves are new
             self._impedance_panel_seq[idx] = None
+        if self._pltLocus_framer is not None:
+            self._pltLocus_framer.reset()
 
     def _yrange_freq_diss(self, y_f_min, y_f_max, y_d_min, y_d_max):
         """The vertical axis of the frequency and dissipation panels.
