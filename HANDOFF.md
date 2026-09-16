@@ -529,11 +529,15 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   the baseline-corrected one is only kept for the classic amplitude path.
 - `software/openQCM/core/lorentzian.py` — **the published estimator** (2026-09-16): the phase-shifted
   Lorentzian on G, its gate and `publish()`; called from `Multiscan._publish_resonance()`. Tests in
-  `software/tests/` (`cd software && PYTHONPATH=. python -m unittest discover tests`, 32 tests).
+  `software/tests/` (`cd software && PYTHONPATH=. python -m unittest discover tests`, 62 tests).
 - `software/openQCM/ui/mainWindow.py` + `ui/mainWindow_ui.py` — the **live impedance panel**
-  (right-hand dock): `_build_impedance_panel`, `_update_impedance_panel`: G(f) over B(f) (`pltG`, `pltSus`),
-  same frequency offset, x-linked; the admittance locus and its Taubin overlay went on 2026-09-16.
-  Plus **Tools → Conductance Data** (`actionConductance_Data`).
+  (right-hand dock): `_build_impedance_panel`, `_update_impedance_panel`: G(f) over B(f) over the
+  admittance locus B vs G (`pltG`, `pltSus`, `pltLocus`) in one vertical splitter, every pane collapsible
+  by its handle; G and B share the frequency offset, x-linked; the locus shows the shipped G and B per
+  overtone with one dashed circle each, drawn by `ui/admittanceCircle.py` — the module shared with the
+  live fit window (published fit's circle in an experimental run, a display-only Taubin circle on the ±Γ
+  core in a standard run, `LocusFramer` for the range). The locus had gone on 2026-09-16 morning and
+  returned that evening (Marco). Plus **Tools → Conductance Data** (`actionConductance_Data`).
 - Data path `Multiscan → Parser.add_GB_multi → Worker.consume_queue_GB_multi → GUI`, one
   overtone per message, `f_r` and Γ travelling with each spectrum.
 - **Comparison datalog** (`817f847`, `Constants.DATALOG_AMPLITUDE_TOO`, test tool): beside `<ts>_multi.csv`
@@ -601,8 +605,10 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   experimental per-run mode** (Marco, 2026-09-16 evening, D8–D9 of the plan), datalog `_multi_lorentzian.csv`,
   not comparable with `_multi.csv`. T1 ✅ `core/lorentzian.py` with the gate and `tests/test_lorentzian.py`
   (the first versioned tests on this repo: `cd software && PYTHONPATH=. python -m unittest tests.test_lorentzian`);
-  T2 ✅ process integration, counters and log line, G/B message fields 11–23 (`Worker.get_fit_G_buffer`); T3 ✅ the main panel shows B(f) instead of
-  the locus (`pltSus`; B as the chain computes it, no baseline; the Taubin overlay and its constants are gone);
+  T2 ✅ process integration, counters and log line, G/B message fields 11–23 (`Worker.get_fit_G_buffer`); T3 ✅ the main panel shows B(f) under G(f)
+  (`pltSus`; B as the chain computes it, no baseline; the old Taubin overlay and its constants are gone —
+  the locus came back the same evening as a third collapsible pane, `pltLocus`, with the shared circle of
+  `ui/admittanceCircle.py`, `tests/test_main_panel.py`);
   T4 ✅ the live fit window rebuilt around the shipped fit: G(f) with the process's fit, the residual, B(f)
   and the admittance locus, all measured, no fitted overlay on B or the locus (`tests/test_fit_window.py`,
   fake worker; ⚠️ offscreen it segfaults on `grab()` as well as `show()` — no headless capture at all);
@@ -641,10 +647,13 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   the admittance locus to be a circle (closed-form Taubin, ~3 ms/overtone), with guards that
   reject an unidentifiable estimate. See the dedicated section below — this replaced two wrong
   attempts and is the single most consequential correction of the 2026-07-28 session.
-- ✅ **Live impedance panel**: G(f) over B(f), all overtones, matching colours (the locus and its circle
-  overlay went on 2026-09-16). ✅ **Tools > Impedance Fit (live)** (`ui/impedanceFitWindow.py`, rewritten
-  2026-09-16): draws the fit the process shipped, the published f_res, the maximum of G, the fit window
-  and the residual, and a table of process numbers only; it fits nothing and needs no `sweep_data/`.
+- ✅ **Live impedance panel**: G(f) over B(f) over the admittance locus, all overtones, matching colours,
+  three collapsible panes in one splitter (locus restored 2026-09-16 evening; its circle comes from
+  `ui/admittanceCircle.py`, shared with the fit window). ✅ **Tools > Impedance Fit (live)**
+  (`ui/impedanceFitWindow.py`, rewritten 2026-09-16): each tab is a horizontal splitter — G(f) with the
+  fit the process shipped, the residual and B(f) on the left (rows 5/2/4), the aspect-locked locus with
+  its circle on the right in a pane about square at the default 1180×860 — plus a table of process
+  numbers under a movable divider; it publishes nothing and needs no `sweep_data/`.
 - ✅ **Tools > Impedance Data View** (`ui/impedanceDataView.py`, 2026-09-02): a tab per overtone with
   G on top — published `f_r` and `f_r ∓ Γ` overlaid — and B below. Same pull model as Raw Data View.
   ⚠️ It reads the acquisition's own G/B buffers and **computes nothing**, so it cannot disagree with

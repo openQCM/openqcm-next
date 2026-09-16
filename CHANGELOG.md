@@ -5,6 +5,26 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Changed — the admittance locus is back in the main panel, its circle shared with the fit window; the fit window sized so all three plots fit (2026-09-16, evening)
+
+`3680d7c` The right-hand dock stacks G(f), B(f) and the admittance locus B vs G (`pltLocus`) in one vertical
+splitter, every pane collapsible by its handle (Marco: "il separatore deve schiacciare il cerchio"). The
+locus shows the shipped G and B of each overtone, decimated together, with one dashed circle each. The
+circle rule moved out of the fit window into `ui/admittanceCircle.py`, so both views draw the same circle
+for the same sweep: the published fit's own in an experimental run (diameter G_max, centre
+offset + (G_max/2)e^{jφ}, B_off anchored on the measured B at f_res), a display-only Taubin circle on the ±Γ
+core in a standard run, labelled so. `LocusFramer` (range over measurement AND circle, framed once, again
+only on a change of scale) is shared too; the main panel frames over every overtone shown. Nothing is
+published from either. `tests/test_admittance_circle.py`, `tests/test_main_panel.py`.
+
+`67bb754` Fit window. Measured on the previous layout at 1080×720 with the table at 240 px: the three left
+rows shared 520 px as 3/1/2, the residual strip kept ~85 px including title and axis, G(f) was flat, and the
+aspect-locked locus in a 2/5 column drew its circle no larger than the column was wide. Each tab is now a
+horizontal splitter: curves on the left (rows 5/2/4, minimum heights 180/90/150, one shared x label), the
+locus on the right in its own graphics widget (minimum 260×260, collapsible), default split 640/480 so the
+locus pane is about square; window 1180×860, table 200 px. Headless at the default size: left column
+675 px, locus pane 507×606. 62 tests OK.
+
 ### Fixed / Changed — the estimator box was overprinted on "Time elapsed"; B(f) and the locus are back in the live fit window (2026-09-16, evening)
 
 The checkbox had been added at row 5 of `gridSetup`, where the elapsed-time block already was: a
