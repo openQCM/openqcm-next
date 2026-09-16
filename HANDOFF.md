@@ -536,8 +536,10 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   by its handle; G and B share the frequency offset, x-linked; the locus shows the shipped G and B per
   overtone with one dashed circle each, drawn by `ui/admittanceCircle.py` — the module shared with the
   live fit window (published fit's circle in an experimental run, a display-only Taubin circle on the ±Γ
-  core in a standard run, `LocusFramer` for the range). The locus had gone on 2026-09-16 morning and
-  returned that evening (Marco). Plus **Tools → Conductance Data** (`actionConductance_Data`).
+  core in a standard run, `LocusFramer` for the range; ⚠️ anchored on the published f_res from
+  `get_fr_G_buffer`, NOT on `peaks_mag`, which is the calibration centre of the sweep and sat ~900 Hz off at
+  the bench — anchoring there gave a circle twice the fit window's). The locus had gone on 2026-09-16
+  morning and returned that evening (Marco). Plus **Tools → Conductance Data** (`actionConductance_Data`).
 - Data path `Multiscan → Parser.add_GB_multi → Worker.consume_queue_GB_multi → GUI`, one
   overtone per message, `f_r` and Γ travelling with each spectrum.
 - **Comparison datalog** (`817f847`, `Constants.DATALOG_AMPLITUDE_TOO`, test tool): beside `<ts>_multi.csv`

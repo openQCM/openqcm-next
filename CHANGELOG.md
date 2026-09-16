@@ -5,6 +5,16 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Fixed — the main-panel circle was not the fit window's circle (2026-09-16, evening)
+
+Bench, 5th overtone, standard mode: the fit window drew R1 = 188 Ω on the ±Γ core, the main panel a circle
+about twice the size over the same points, its top cut by the view. The panel had anchored the ±Γ core on
+`peaks_mag`, the calibration centre of the sweep (the origin of the panel's x axis), ~900 Hz from the
+resonance in that run: the core fell on the tail of the locus and Taubin fitted a large circle. Anchor is
+now the published f_res (`Worker.get_fr_G_buffer`, fallback the maximum of G), the same as the fit
+window's, so the two views draw one circle. Legend entry shortened to "circle". The test feeds
+`peaks_mag` 150 Hz off and a non-circular tail, and fails with the old anchor. 62 tests OK.
+
 ### Changed — the admittance locus is back in the main panel, its circle shared with the fit window; the fit window sized so all three plots fit (2026-09-16, evening)
 
 `3680d7c` The right-hand dock stacks G(f), B(f) and the admittance locus B vs G (`pltLocus`) in one vertical
