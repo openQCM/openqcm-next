@@ -596,22 +596,9 @@ class Constants:
     # outermost survivors - the usable region is contiguous by physics.
     IMPEDANCE_PANEL_MASK_SMOOTH = 5
 
-    # VER 0.1.6G draw the fitted circle on top of the measured locus. The fit is
-    # a Taubin algebraic estimate with one round of outlier trimming, so it
-    # follows the well-measured core and ignores the degraded wings — where the
-    # raw locus is distorted, the overlay still shows the circle the data
-    # actually supports (and its diameter is a far more robust 1/R_m than the
-    # peak of G).
-    IMPEDANCE_PANEL_SHOW_FIT = True
-
-    # VER 0.1.6G half-width of the region the overlay circle is FITTED on, in
-    # units of Gamma — deliberately narrower than the plotted window. Past about
-    # one half-bandwidth the deviation from a circle is systematic, not
-    # sporadic, so on a damped load a majority of a +-3 Gamma window can be
-    # off-circle and residual-based outlier rejection locks onto the wrong
-    # subset. Fitting the core instead reproduces the offline reference within a
-    # few percent in air and in liquid alike.
-    IMPEDANCE_PANEL_FIT_GAMMA = 1.0
+    # (IMPEDANCE_PANEL_SHOW_FIT and IMPEDANCE_PANEL_FIT_GAMMA, the Taubin circle
+    # overlay of the admittance locus, were removed on 2026-09-16 with the locus
+    # itself: the panel shows B(f) now. History in research/admittance-circle-fit/.)
     
 # =============================================================================
 #     #--------------

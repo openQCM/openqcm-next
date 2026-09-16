@@ -204,14 +204,12 @@ class MainWindow(QtGui.QMainWindow):
         # VER 0.1.6G live admittance-fit window, created on first use
         self._window_fit = None
         self._pltG = None
-        self._pltGB = None
+        self._pltSus = None
         self._pltG_multiline = [None, None, None, None, None]
-        self._pltGB_multiline = [None, None, None, None, None]
-        # fitted-circle overlay, one per overtone (dashed, same colour)
-        self._pltGB_fitline = [None, None, None, None, None]
-        # (revision, selected) of the last spectrum actually drawn per overtone,
-        # so the panel repaints only on new data instead of every 50 ms tick
-        self._pltGB_seq = [None, None, None, None, None]
+        self._pltSus_multiline = [None, None, None, None, None]
+        # per-overtone revision of the spectra drawn in the impedance panel, so
+        # a repaint tick with no new sweep costs nothing
+        self._impedance_panel_seq = [None, None, None, None, None]
 
         # VER 0.1.6 number of overtone lines/legend items; set per-run in start()
         # for serial/multiscan. Default 0 so stop()'s legend-removal loop is a
@@ -2000,7 +1998,7 @@ class MainWindow(QtGui.QMainWindow):
                   getattr(self.ui, "pltB", None),
                   getattr(self.ui, "pltD", None),
                   getattr(self.ui, "pltG", None),
-                  getattr(self.ui, "pltGB", None)):
+                  getattr(self.ui, "pltSus", None)):
             if w is not None:
                 try:
                     w.setBackground(pt["bg"])
@@ -2008,7 +2006,7 @@ class MainWindow(QtGui.QMainWindow):
                     pass
         # per-plot axes + title (guarded: some refs are ViewBoxes or None)
         for plot in (self._plt0, self._plt1, self._plt2, self._pltD, self._plt4,
-                     self._pltG, self._pltGB):
+                     self._pltG, self._pltSus):
             if plot is None:
                 continue
             for side in ("left", "bottom", "right", "top"):
@@ -2265,7 +2263,7 @@ class MainWindow(QtGui.QMainWindow):
         self.ui.pltD.setBackground(background=Constants.plot_background_color)
         # VER 0.1.6G IMPEDANCE PANEL
         self.ui.pltG.setBackground(background=Constants.plot_background_color)
-        self.ui.pltGB.setBackground(background=Constants.plot_background_color)
+        self.ui.pltSus.setBackground(background=Constants.plot_background_color)
         #----------------------------------------------------------------------
 
         # defines the graph title
@@ -2327,10 +2325,12 @@ class MainWindow(QtGui.QMainWindow):
         datalog, which still carries the approximate-formula values.
         '''
         self.ui.pltG.setAntialiasing(True)
-        self.ui.pltGB.setAntialiasing(True)
+        self.ui.pltSus.setAntialiasing(True)
 
         self._xaxis_G = NonScientificAxis(orientation='bottom')
         self._xaxis_G.enableAutoSIPrefix(False)
+        self._xaxis_B = NonScientificAxis(orientation='bottom')
+        self._xaxis_B.enableAutoSIPrefix(False)
 
         # conductance spectrum G(f) — x is the offset from the detected peak,
         # like the amplitude sweep plot, so all overtones share one axis
@@ -2351,21 +2351,23 @@ class MainWindow(QtGui.QMainWindow):
         # out. The keys themselves are filled in by _build_impedance_curves.
         self._pltG.addLegend()
 
-        # admittance locus B vs G — 1:1 aspect so a circle looks like a circle
-        self._pltGB = self.ui.pltGB.addPlot(row=0, col=0,
-                                            title="Admittance circle B vs G",
-                                            **{'font-size': '10pt'})
-        self._pltGB.setLabel('bottom', 'G', units='mS')
-        self._pltGB.setLabel('left', 'B', units='mS')
-        self._pltGB.setAspectLocked(True)
-        # same as the other plots: setMenuEnabled(False) silences the PlotItem
-        # menu AND the ViewBox one, which is the one right-click actually raises
-        self._pltGB.setMenuEnabled(False)
-        self._pltGB.scene().contextMenu = None
-        # dots are the measurement, the dashed line is the circle fitted to it
-        # (see _fit_circle_taubin, and the note there on how it differs from the
-        # live fit window). Keys filled in by _build_impedance_curves.
-        self._pltGB.addLegend()
+        # susceptance spectrum B(f) under G(f), same x axis (linked), so the two
+        # channels of the same sweep are read together. Replaced the admittance
+        # locus B vs G and its Taubin circle overlay on 2026-09-16 (Marco): the
+        # locus was not what the process publishes, and B(f) is where a defect
+        # of the phase channel shows first -- the plateau at the fold, a wrong
+        # sign flip -- while G, even in the phase, hides it. B is drawn as the
+        # chain computes it, no baseline removed (D1 of the plan).
+        self._pltSus = self.ui.pltSus.addPlot(row=0, col=0,
+                                          title="Susceptance B (exact)",
+                                          **{'font-size': '10pt'},
+                                          axisItems={"bottom": self._xaxis_B})
+        self._pltSus.setLabel('bottom', 'Frequency offset', units='Hz')
+        self._pltSus.setLabel('left', 'B', units='mS')
+        self._pltSus.setXLink(self._pltG)
+        self._pltSus.setMenuEnabled(False)
+        self._pltSus.scene().contextMenu = None
+        self._pltSus.addLegend()
 
         # VER 0.1.2
         # editing pyqtgraph context menu
@@ -3488,74 +3490,19 @@ class MainWindow(QtGui.QMainWindow):
             print("Warning: unable to open the impedance fit window")
             print(f"error occurred: {e}")
 
-    # VER 0.1.6G algebraic circle fit for the impedance panel overlay.
-    # Taubin estimate (closed form, a handful of numpy reductions - cheap enough
-    # for the 50 ms refresh) followed by one round of outlier trimming, so the
-    # circle follows the well-measured core instead of being dragged by the
-    # degraded wings. Returns (xc, yc, r) or None.
-    @staticmethod
-    def _fit_circle_taubin(x, y, trim_sigma = 2.0):
-        def _once(x, y):
-            n = len(x)
-            if n < 8:
-                return None
-            mx, my = x.mean(), y.mean()
-            u, v = x - mx, y - my
-            z = u * u + v * v
-            Muu, Mvv, Muv = (u * u).mean(), (v * v).mean(), (u * v).mean()
-            Muz, Mvz = (u * z).mean(), (v * z).mean()
-            Mz = Muu + Mvv
-            Cov = Muu * Mvv - Muv * Muv
-            det = Cov - 0.0
-            if abs(det) < 1e-30:
-                return None
-            xc = (Muz * Mvv - Mvz * Muv) / det / 2.0
-            yc = (Mvz * Muu - Muz * Muv) / det / 2.0
-            r = np.sqrt(max(xc * xc + yc * yc + Mz, 0.0))
-            if not np.isfinite([xc, yc, r]).all() or r <= 0:
-                return None
-            return xc + mx, yc + my, r
-
-        f = _once(x, y)
-        if f is None:
-            return None
-        # Iterate the trimming. One pass is not enough on a damped load: past
-        # roughly one half-bandwidth the deviation is systematic rather than
-        # sporadic, so the majority of a +-3 Gamma window can be off-circle and
-        # the first median residual is itself biased. Re-fitting a few times
-        # walks the estimate back onto the well-measured core; the floor at 25 %
-        # of the samples stops it collapsing onto a handful of points.
-        keep = np.ones(len(x), dtype=bool)
-        floor = max(8, int(0.25 * len(x)))
-        for _ in range(6):
-            d = np.hypot(x - f[0], y - f[1]) - f[2]
-            s = 1.4826 * np.median(np.abs(d[keep] - np.median(d[keep])))
-            if not np.isfinite(s) or s <= 0:
-                break
-            new_keep = np.abs(d) < trim_sigma * s
-            if new_keep.sum() < floor or np.array_equal(new_keep, keep):
-                break
-            f2 = _once(x[new_keep], y[new_keep])
-            if f2 is None:
-                break
-            keep, f = new_keep, f2
-        return f
-
     # VER 0.1.6G live impedance panel update (exact complex-divider formula)
     def _update_impedance_panel(self, peaks_mag):
         """Refresh the two right-panel views from the exact G/B spectra.
 
-        Left/top: conductance G(f), x plotted as the offset from the detected
-        peak so every overtone shares one axis. Bottom: the admittance locus
-        B vs G, aspect-locked. One curve per overtone, colours matching the
-        frequency/dissipation plots, and the scan selector is honoured so
-        deselected overtones disappear here too.
-
-        Display only: these come from the exact inversion, while the logged
-        values still come from the approximate formula. Wrapped in try/except —
-        a diagnostic view must never take down the acquisition loop.
+        Top: conductance G(f); bottom: susceptance B(f); both against the offset
+        from the detected peak so every overtone shares one axis, one curve per
+        overtone in the frequency/dissipation colours, honouring the scan
+        selector. Nothing is computed here: the arrays are the ones the process
+        shipped, the same it read the published frequency and half-bandwidth
+        from. Wrapped in try/except -- a view must never take down the
+        acquisition loop.
         """
-        if self._pltG is None or self._pltGB is None:
+        if self._pltG is None or self._pltSus is None:
             return
         try:
             for idx in range(self._overtones_number_all):
@@ -3564,19 +3511,18 @@ class MainWindow(QtGui.QMainWindow):
 
                 # Nothing to do unless this overtone produced a new spectrum.
                 # _update_plot runs every plot_update_ms (50 ms) while a sweep
-                # takes seconds, so without this the panel redid the decimation,
-                # the circle fit and three setData calls per overtone about
-                # twenty times for every single new measurement — the reason the
-                # whole GUI felt sluggish. The selector state is part of the key
-                # so toggling an overtone still repaints immediately.
+                # takes seconds, so without this the panel redid the decimation
+                # and the setData calls about twenty times for every single new
+                # measurement. The selector state is part of the key so toggling
+                # an overtone still repaints immediately.
                 try:
                     seq = (self.worker.get_GB_seq(idx),
                            bool(self.scan_selector[idx]))
                 except Exception:
                     seq = None
-                if seq is not None and seq == self._pltGB_seq[idx]:
+                if seq is not None and seq == self._impedance_panel_seq[idx]:
                     continue
-                self._pltGB_seq[idx] = seq
+                self._impedance_panel_seq[idx] = seq
 
                 g_axis = self.worker.get_G_exact_buffer(idx)
                 b_axis = self.worker.get_B_exact_buffer(idx)
@@ -3584,87 +3530,28 @@ class MainWindow(QtGui.QMainWindow):
 
                 ok = (self.scan_selector[idx] == True
                       and isinstance(g_axis, (list, np.ndarray))
+                      and isinstance(b_axis, (list, np.ndarray))
                       and isinstance(f_axis, (list, np.ndarray))
-                      and len(g_axis) > 1 and len(f_axis) == len(g_axis))
+                      and len(g_axis) > 1 and len(f_axis) == len(g_axis)
+                      and len(b_axis) == len(g_axis))
 
                 if not ok:
                     self._pltG_multiline[idx].setData(x = self._numpy_nan_sweep,
                                                       y = self._numpy_nan_sweep)
-                    self._pltGB_multiline[idx].setData(x = self._numpy_nan_sweep,
-                                                       y = self._numpy_nan_sweep)
-                    if self._pltGB_fitline[idx] is not None:
-                        self._pltGB_fitline[idx].setData(x = self._numpy_nan_sweep,
-                                                         y = self._numpy_nan_sweep)
+                    self._pltSus_multiline[idx].setData(x = self._numpy_nan_sweep,
+                                                      y = self._numpy_nan_sweep)
                     continue
 
                 # already numpy, converted once by the worker on arrival
-                g_np, b_np = g_axis, b_axis
                 f_np = f_axis - peaks_mag[idx]
 
                 # Adaptive decimation. The producer already clips the spectrum
                 # to a few Gamma around resonance, so the arrays are short in
                 # air and shorter still in a liquid; a fixed stride would leave
                 # too few points. Target ~250 samples per curve.
-                step = max(1, len(g_np) // 250)
-                gp, bp, fp = g_np[::step], b_np[::step], f_np[::step]
-
-                self._pltG_multiline[idx].setData(x = fp, y = gp)
-                self._pltGB_multiline[idx].setData(x = gp, y = bp)
-
-                # Fitted circle on top of the measured locus. The fit runs on
-                # the CORE of the resonance only, not on everything plotted: on
-                # a damped load the wings are acquired deep in the AD8302
-                # dynamic-range corner and pull the locus out of round, and past
-                # about one half-bandwidth that deviation is systematic rather
-                # than sporadic — so no amount of outlier rejection recovers it,
-                # only knowing where the trustworthy data is.
-                #
-                # ⚠️ This is NOT the same estimate as the live fit window, and
-                # the two are meant to stay side by side. That one fits the
-                # whole published band with a geometric (orthogonal-distance)
-                # least squares; this one fits the core with Taubin plus
-                # trimming. Measured on the archived air sweep, both starting
-                # from the same array: this circle comes out SMALLER every time,
-                # by 0.9 % (n=5) to 10.1 % (n=1) in radius, so the R1 it implies
-                # would read 0.9 % to 11.3 % high — which is why nothing reads a
-                # number off it.
-                #
-                # ⚠️ The cause is the DOMAIN, not the algorithm: the geometric
-                # estimator restricted to the same core gives -9.9 % of that
-                # -10.1 %, while Taubin plus trimming on the whole band gives
-                # -3.8 %. It matters only because the measured locus is not a
-                # circle — radial residual 1.5 % to 4.3 % of r, smooth and
-                # systematic — and the disagreement scales with that residual
-                # across the overtones (R2 = 0.92). So the difference between
-                # the two overlays is a model-error diagnostic, which is the
-                # reason for keeping both. Full analysis, with the
-                # decomposition and the residual against frequency:
-                # research/admittance-circle-fit/.
-                if self._pltGB_fitline[idx] is None:
-                    continue
-                fit = None
-                if Constants.IMPEDANCE_PANEL_SHOW_FIT:
-                    core = np.ones(len(gp), dtype=bool)
-                    try:
-                        gam = float(self.worker.get_gamma_G_buffer(idx))
-                        f_res = float(self.worker.get_fr_G_buffer(idx))
-                        if gam > 0:
-                            f_abs = f_axis[::step]
-                            sel = (np.abs(f_abs - f_res)
-                                   <= Constants.IMPEDANCE_PANEL_FIT_GAMMA * gam)
-                            if sel.sum() >= 12:
-                                core = sel
-                    except Exception:
-                        pass
-                    fit = self._fit_circle_taubin(gp[core], bp[core])
-                if fit is None:
-                    self._pltGB_fitline[idx].setData(x = self._numpy_nan_sweep,
-                                                     y = self._numpy_nan_sweep)
-                else:
-                    xc, yc, r = fit
-                    th = np.linspace(0.0, 2.0 * np.pi, 181)
-                    self._pltGB_fitline[idx].setData(x = xc + r * np.cos(th),
-                                                     y = yc + r * np.sin(th))
+                step = max(1, len(g_axis) // 250)
+                self._pltG_multiline[idx].setData(x = f_np[::step], y = g_axis[::step])
+                self._pltSus_multiline[idx].setData(x = f_np[::step], y = b_axis[::step])
         except Exception as e:
             print("Warning: unable to update the impedance panel")
             print(f"error occurred: {e}")
@@ -5762,7 +5649,7 @@ class MainWindow(QtGui.QMainWindow):
         # the right-click menu apply to them as well. They are also why this
         # branch felt the defect hardest: six targets over FIVE scenes.
         self._plot_menu_targets = [self._plt0, self._plt4, self._plt2, self._pltD,
-                                   self._pltG, self._pltGB]
+                                   self._pltG, self._pltSus]
         self._plot_menu = PlotMenu(self, extra_actions=self._plot_menu_extras,
                                    apply_grid=self._apply_grid)
         self._plot_menu.attach(self._plot_menu_targets)
@@ -5914,35 +5801,29 @@ class MainWindow(QtGui.QMainWindow):
         time is also what keeps the count at exactly one and two -- adding the
         keys anywhere else would append a duplicate pair per acquisition.
         """
-        if self._pltG is None or self._pltGB is None:
+        if self._pltG is None or self._pltSus is None:
             return
 
         self._pltG.clear()
-        self._pltGB.clear()
+        self._pltSus.clear()
 
         colour = Constants.plot_color_multi[0]
         self._pltG.plot(pen = pg.mkPen(color = colour,
                                        width = Constants.plot_line_width),
                         name = "measured")
-        self._pltGB.plot(pen = None, symbol = 'o', symbolSize = 3,
-                         symbolPen = None, symbolBrush = colour,
-                         name = "measured")
-        self._pltGB.plot(pen = pg.mkPen(color = colour, width = 1,
-                                        style = QtCore.Qt.DashLine),
-                         name = "BVD circle fit")
+        self._pltSus.plot(pen = pg.mkPen(color = colour,
+                                       width = Constants.plot_line_width),
+                        name = "measured")
 
         for idx in range(self._overtones_number_all):
             self._pltG_multiline[idx] = self._pltG.plot(
                 pen = pg.mkPen(color = Constants.plot_color_multi[idx],
                                width = Constants.plot_line_width))
-            self._pltGB_multiline[idx] = self._pltGB.plot(
-                pen = None, symbol = 'o', symbolSize = 3, symbolPen = None,
-                symbolBrush = Constants.plot_color_multi[idx])
-            self._pltGB_fitline[idx] = self._pltGB.plot(
+            self._pltSus_multiline[idx] = self._pltSus.plot(
                 pen = pg.mkPen(color = Constants.plot_color_multi[idx],
-                               width = 1, style = QtCore.Qt.DashLine))
+                               width = Constants.plot_line_width))
             # force a repaint on the next tick: the curves are new
-            self._pltGB_seq[idx] = None
+            self._impedance_panel_seq[idx] = None
 
     def _yrange_freq_diss(self, y_f_min, y_f_max, y_d_min, y_d_max):
         """The vertical axis of the frequency and dissipation panels.

@@ -102,12 +102,15 @@ class Ui_MainWindow(object):
     # ------------------------------------------------------------------ #
     def _build_impedance_panel(self):
         """VER 0.1.6G right-hand dock with the two live impedance views:
-        the exact conductance spectrum G(f) and the admittance locus B vs G,
-        both with all overtones overlaid in the standard per-overtone colours.
+        the exact conductance spectrum G(f) and, under it, the susceptance B(f),
+        both against the same frequency offset, all overtones overlaid in the
+        standard per-overtone colours. The admittance locus B vs G that used to
+        sit in the lower view was replaced by B(f) on 2026-09-16 (Marco): the
+        locus and its circle overlay were not what the process publishes.
 
-        Display only — these are computed with the exact complex-divider
-        inversion, while the logged frequency/dissipation still come from the
-        approximate formula in parameters_finder_impedance().
+        These are the very spectra the published frequency and dissipation are
+        read from (exact complex-divider inversion, then the phase-shifted
+        Lorentzian fit on G, core/lorentzian.py).
         """
         self.impedancePanel = QtWidgets.QWidget()
         self.impedancePanel.setObjectName("impedancePanel")
@@ -135,16 +138,17 @@ class Ui_MainWindow(object):
         self.pltG.setObjectName("pltG")
         self.pltG.setAntialiasing(True)
 
-        # admittance locus B vs G, all overtones
-        self.pltGB = GraphicsLayoutWidget(self.groupImpedance)
-        self.pltGB.setObjectName("pltGB")
-        self.pltGB.setAntialiasing(True)
+        # susceptance spectrum B(f), all overtones, under G(f). Not "pltB": that
+        # name is the resonance-frequency plot of the centre panel (below).
+        self.pltSus = GraphicsLayoutWidget(self.groupImpedance)
+        self.pltSus.setObjectName("pltSus")
+        self.pltSus.setAntialiasing(True)
 
         # vertical splitter so either view can be given the whole panel
         self.impedanceSplitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
         self.impedanceSplitter.setObjectName("impedanceSplitter")
         self.impedanceSplitter.addWidget(self.pltG)
-        self.impedanceSplitter.addWidget(self.pltGB)
+        self.impedanceSplitter.addWidget(self.pltSus)
         self.impedanceSplitter.setCollapsible(0, True)
         self.impedanceSplitter.setCollapsible(1, True)
         self.impedanceSplitter.setStretchFactor(0, 1)

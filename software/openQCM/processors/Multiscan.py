@@ -1141,7 +1141,11 @@ class MultiscanProcess(multiprocessing.Process):
             # curve and this is the offset that defines it
             g_baseline = np.average(G_exact[:n_base])
             G_exact = G_exact - g_baseline
-            B_exact = B_exact - np.average(B_exact[:n_base])
+            # B is shipped AS COMPUTED, no baseline removed (Marco, 2026-09-16,
+            # D1 of the plan). The edge value that used to be subtracted sits
+            # 73-140 uS above the circle centre in liquid (measured 2026-09-14)
+            # and only made B look asymmetric; with the locus gone from the panel
+            # there is nothing left that needs the circle to close on the origin.
 
             # Clip to a window of a few Gamma around the resonance before
             # shipping it. Off-resonance points carry no shape information (they
