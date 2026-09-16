@@ -91,8 +91,15 @@ class _FitTab(QtWidgets.QWidget):
         colour = Constants.plot_color_multi[
             overtone_index % len(Constants.plot_color_multi)]
 
+        # Two graphics widgets under a movable divider: the curves G(f),
+        # residual and B(f) stacked on the left, the locus on the right. The
+        # locus is aspect locked, so the circle is as large as the SHORTER side
+        # of its pane; a divider lets the pane be made square by hand, and the
+        # default split below gives it about that at the default window size.
         self.graph = pg.GraphicsLayoutWidget()
         self.graph.setBackground(palette["bg"])
+        self.graphC = pg.GraphicsLayoutWidget()
+        self.graphC.setBackground(palette["bg"])
 
         self.pG = self.graph.addPlot(row=0, col=0)
         self.pG.setTitle("conductance G(f)", color=palette["title"])
@@ -154,7 +161,7 @@ class _FitTab(QtWidgets.QWidget):
 
         # the admittance locus, spanning the three rows on the right: aspect
         # locked, because a circle has to look like one.
-        self.pC = self.graph.addPlot(row=0, col=1, rowspan=3)
+        self.pC = self.graphC.addPlot(row=0, col=0)
         self.pC.setTitle("admittance locus B vs G — measured", color=palette["title"])
         self.pC.setLabel('bottom', 'G', units='mS', color=palette["title"])
         self.pC.setLabel('left', 'B', units='mS', color=palette["title"])
@@ -176,12 +183,25 @@ class _FitTab(QtWidgets.QWidget):
         self.curveCircle = self.pC.plot(pen=pg.mkPen(FIT_COLOUR, width=1,
                                                      style=QtCore.Qt.DashLine),
                                         name="circle")
-        self.graph.ci.layout.setRowStretchFactor(0, 3)
-        self.graph.ci.layout.setRowStretchFactor(1, 1)
-        self.graph.ci.layout.setRowStretchFactor(2, 2)
-        # the locus gets a column of its own, about as wide as the curves
-        self.graph.ci.layout.setColumnStretchFactor(0, 3)
-        self.graph.ci.layout.setColumnStretchFactor(1, 2)
+        # Vertical shares of the left column: G is the plot the fit is judged
+        # on, B is a diagnostic, the residual is a strip. With 3/1/2 in a
+        # 520 px pane the residual kept ~85 px including its title and axis and
+        # the G pane was flat (Marco, 2026-09-16); 5/2/4 with a minimum height
+        # on each plot keeps every axis readable and lets the window grow into
+        # the curves rather than into the residual.
+        self.graph.ci.layout.setRowStretchFactor(0, 5)
+        self.graph.ci.layout.setRowStretchFactor(1, 2)
+        self.graph.ci.layout.setRowStretchFactor(2, 4)
+        self.pG.setMinimumHeight(180)
+        self.pR.setMinimumHeight(90)
+        self.pB.setMinimumHeight(150)
+        # only the bottom plot carries the x label: the three share one axis
+        # (linked) and the label repeated twice cost the curves 40 px
+        self.pG.setLabel('bottom', '', color=palette["title"])
+        self.pR.setLabel('bottom', '', color=palette["title"])
+        self.pG.getAxis('bottom').setStyle(showValues=False)
+        self.pR.getAxis('bottom').setStyle(showValues=False)
+        self.pC.setMinimumSize(260, 260)
 
         for plot in self.plots():
             for axis in ("left", "bottom"):
@@ -189,9 +209,19 @@ class _FitTab(QtWidgets.QWidget):
                 plot.getAxis(axis).setTextPen(palette["axis"])
             plot.showGrid(x=False, y=False)
 
+        self.split = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        self.split.setObjectName("fitTabSplitter")
+        self.split.addWidget(self.graph)
+        self.split.addWidget(self.graphC)
+        self.split.setCollapsible(0, False)
+        self.split.setCollapsible(1, True)
+        self.split.setStretchFactor(0, 4)
+        self.split.setStretchFactor(1, 3)
+        self.split.setSizes([640, 480])
+
         lay = QtWidgets.QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
-        lay.addWidget(self.graph)
+        lay.addWidget(self.split)
 
         # framing of the aspect-locked locus (shared rule, see admittanceCircle)
         self._framer = circ.LocusFramer(self.pC)
@@ -237,7 +267,10 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         self._paused = False
 
         self.setWindowTitle("openQCM NEXT — live fit (what the acquisition publishes)")
-        self.resize(1080, 720)
+        # sized so that the locus pane is about square at the default split:
+        # 1180 x 860 minus the toolbar and a 200 px table leaves ~600 px for the
+        # plots, and the locus gets ~480 of the 1180 in width
+        self.resize(1180, 860)
 
         self.chkPause = QtWidgets.QCheckBox("freeze")
         self.chkPause.setToolTip("stop following the acquisition; the last sweep stays on screen")
@@ -319,7 +352,7 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         self._splitter.setStretchFactor(1, 0)
         self._splitter.setCollapsible(0, False)
         self._splitter.setCollapsible(1, True)
-        self._splitter.setSizes([520, 240])
+        self._splitter.setSizes([600, 200])
 
         lay = QtWidgets.QVBoxLayout(self)
         lay.addLayout(top)

@@ -320,6 +320,27 @@ class FitWindowTests(unittest.TestCase):
         sp.setSizes([760, 0])
         self.assertEqual(sp.sizes()[1], 0)
 
+    def test_each_tab_splits_the_curves_from_the_locus_with_a_movable_divider(self):
+        """The locus is aspect locked, so the circle is as large as the shorter side
+        of its pane; a horizontal divider lets that pane be made square by hand."""
+        pane = self.win._panes[0]
+        sp = pane.split
+        self.assertEqual(sp.orientation(), QtCore.Qt.Horizontal)
+        self.assertEqual(sp.count(), 2)
+        self.assertIs(sp.widget(0), pane.graph)         # G, residual, B
+        self.assertIs(sp.widget(1), pane.graphC)        # the locus
+        self.assertFalse(sp.isCollapsible(0))
+        self.assertTrue(sp.isCollapsible(1))
+        self.assertIs(pane.pC.scene(), pane.graphC.scene())
+        for p in (pane.pG, pane.pR, pane.pB):
+            self.assertIs(p.scene(), pane.graph.scene())
+        # the strip gets the least, G the most, each with a floor so no axis collapses
+        lay = pane.graph.ci.layout
+        self.assertGreater(lay.rowStretchFactor(0), lay.rowStretchFactor(2))
+        self.assertGreater(lay.rowStretchFactor(2), lay.rowStretchFactor(1))
+        self.assertGreaterEqual(pane.pR.minimumHeight(), 80)
+        self.assertGreaterEqual(pane.pC.minimumHeight(), 200)
+
     def test_a_standard_run_still_draws_B_and_the_locus(self):
         w = FakeWorker(); w.ship(1, 14988740.0, 76.0, -14.5, 19e-3, 1.0e-3, mode="argmax")
         win = W.ImpedanceFitWindow(w, 5, theme_name="light"); win._tick()
