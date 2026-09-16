@@ -14,8 +14,11 @@ QGridLayout draws two items of one cell on top of each other. Row 6 now, and the
 of the card holds two items — verified to fail on the defect.
 
 The live fit window gains B(f) under the residual and the admittance locus B vs G on the right, both as
-measured, with no fitted overlay (the estimator fits G alone) and two lookups for the published f_res and
-the maximum of G. ⚠️ G is shipped baseline-removed and B as computed, so the locus is translated along G:
+measured, plus one circle: in an experimental run the circle **of the published fit** (diameter G_max,
+centre offset + (G_max/2)e^{jφ}, vertical position anchored on the measured B at f_res, since the process
+fits G alone), in a standard run one fitted **here** in closed form on the ±Γ core, display only and said
+so in the title. B carries no model curve. The table and its note sit under a movable divider and can be
+dragged shut; the status line no longer counts fits during a standard run. ⚠️ G is shipped baseline-removed and B as computed, so the locus is translated along G:
 said in the panel title. 43 tests OK. ⚠️ Measured: offscreen this window segfaults on `grab()` as well as
 on `show()`, so it cannot be captured headless.
 
