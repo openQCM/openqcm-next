@@ -210,7 +210,7 @@ date of the merge of T2; HANDOFF §4, CHANGELOG, `SESSION_PROMPT_liquid_frequenc
 | T2 ✅ | `elaborate_multi` integration, counters and log line, G/B message fields (no third datalog, D2) | a replay tool feeds the 45 dumps' samples to a headless `MultiscanProcess.elaborate_multi` with fake parsers and captures the published pair and the message: equal to the offline fit, source = fit on 45/45, cost printed; a synthetic flat sweep publishes the fallback with the reason |
 | T3 ✅ | main panel: `pltSus`, `_pltSus` (not `pltB`, taken by the frequency plot), removal of the circle overlay and its constants | `py_compile`, `setupUi` builds headless, the attribute lists reference no removed name; a screenshot on the real platform by Marco (a `QMainWindow.show()` segfaults offscreen) |
 | T4 ✅ | the live fit window rebuilt | the window builds and paints headless from a fake worker holding one dump's shipped arrays and fit fields (QWidget is fine offscreen); the curve drawn equals `rotated_lorentzian` of the shipped parameters to 10⁻⁹; real-platform look by Marco |
-| T5 | Impedance Data View band from the published source | headless as today's view is checked |
+| T5 ✅ | Impedance Data View band from the published source | headless as today's view is checked |
 | T6 | docs: ALGORITHM, data format, HANDOFF §4, CHANGELOG, session prompt | — |
 | T7 | bench: air, then one liquid, with the three datalogs | `_multi.csv` frequency equals `_multi_fit.csv`'s fit when source = 1; fallback count 0 or each case explained; the live window's curve on top of the measured G; the offline `psl_lib` on the same day's dumps agrees to the Hz |
 

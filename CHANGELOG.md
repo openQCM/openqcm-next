@@ -5,6 +5,12 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Changed — Impedance Data View: the band is f_r ± Γ of the fit when the fit was published (2026-09-16, T5)
+
+`ui/impedanceDataView.py` reads `get_fit_G_buffer`: fit published → band f_r ± Γ with edges on the measured
+curve and "published by the fit, φ, maximum of G at …" in the header; fallback or no fit → the measured
+crossings as before, with the fallback's reason. Computes nothing. `tests/test_data_view.py`, 4 tests; 32 in all.
+
 ### Changed — the live fit window shows the published estimator and computes nothing (2026-09-16, T4)
 
 `ui/impedanceFitWindow.py` rewritten around the fit the process ships in the G/B message: per overtone the

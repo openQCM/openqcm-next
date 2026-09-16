@@ -598,7 +598,7 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   T2 ✅ process integration, counters and log line, G/B message fields 11–23 (`Worker.get_fit_G_buffer`); T3 ✅ the main panel shows B(f) instead of
   the locus (`pltSus`; B as the chain computes it, no baseline; the Taubin overlay and its constants are gone);
   T4 ✅ the live fit window rebuilt around the shipped fit (`tests/test_fit_window.py`, fake worker, not shown offscreen);
-  T5 Data View band f_res ± Γ_fit; T6 docs; T7 bench. ⚠️ The three gate parameters (`PSL_RMS_MAX`,
+  T5 ✅ Data View band f_res ± Γ_fit when the fit was published, crossings otherwise (`tests/test_data_view.py`); T6 docs; T7 bench. ⚠️ The three gate parameters (`PSL_RMS_MAX`,
   `PSL_PHI_MAX_DEG`, `PSL_GAMMA_RATIO`) are parameters of the measurement, set at ten times the measured
   spread; keep them visible. No third datalog (Marco). Datalogs before and after T2 are not comparable.
 - `software/openQCM/sweep_data/plot_conductance.py`: offline analysis script — the reference
