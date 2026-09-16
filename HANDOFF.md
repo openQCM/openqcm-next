@@ -597,7 +597,9 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   `docs/impedance-analysis/SESSION_PROMPT_fs_estimators.md` is the prompt that session started from; it is done.
   The next session starts from `docs/impedance-analysis/SESSION_PROMPT_liquid_frequency_excess.md`.
 - **Making the fit the published estimator** (plan of 2026-09-16, `docs/impedance-analysis/PLAN_psl_live_estimator.md`,
-  Marco's decisions recorded in its §4): ⚠️ **since T2 the datalog's Frequency/Dissipation come from the fit** (before/after not comparable). T1 ✅ `core/lorentzian.py` with the gate and `tests/test_lorentzian.py`
+  Marco's decisions recorded in its §4): ⚠️ **the standard estimator stays the maximum of G; the fit is an
+  experimental per-run mode** (Marco, 2026-09-16 evening, D8–D9 of the plan), datalog `_multi_lorentzian.csv`,
+  not comparable with `_multi.csv`. T1 ✅ `core/lorentzian.py` with the gate and `tests/test_lorentzian.py`
   (the first versioned tests on this repo: `cd software && PYTHONPATH=. python -m unittest tests.test_lorentzian`);
   T2 ✅ process integration, counters and log line, G/B message fields 11–23 (`Worker.get_fit_G_buffer`); T3 ✅ the main panel shows B(f) instead of
   the locus (`pltSus`; B as the chain computes it, no baseline; the Taubin overlay and its constants are gone);
@@ -618,10 +620,13 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
 
 **State (2026-07-28)**:
 - ✅ The **exact** complex-divider inversion is the **published** path. G comes from
-  `Y_q = 1/(M·e^{-jφ} − R17)` on the raw absolute `V_MAG`. ✅ **Since 2026-09-16 `f_r` and Γ are the
-  phase-shifted Lorentzian fitted to G** (`core/lorentzian.py`, `ALGORITHM.md` §7.1), gated by
-  `Constants.PSL_*`; the maximum of G with the **two-sided**, sub-sample half-height Γ is the seed and the
-  fallback, counted and logged when it fires. The old approximate `parameters_finder_impedance()` and its helpers
+  `Y_q = 1/(M·e^{-jφ} − R17)` on the raw absolute `V_MAG`. The **standard** `f_r` and Γ are the maximum of G
+  and the **two-sided**, sub-sample half-height width. ✅ **Since 2026-09-16 a run can be EXPERIMENTAL**
+  (Measurement Setup box, chosen before START, locked while running): `f_r` and Γ are then the
+  phase-shifted Lorentzian fitted to G (`core/lorentzian.py`, `ALGORITHM.md` §7.1), gated by
+  `Constants.PSL_*`, with the standard as fallback, counted and logged; the datalog is named
+  `<ts>_multi_lorentzian.csv`. The mode reaches the spawned process through `Worker(estimator=…)` →
+  `set_estimator()` before `start()`, never through Constants. The old approximate `parameters_finder_impedance()` and its helpers
   (`_Zabs_Vmag`, `_G_calc`, `_B_calc`) are kept but **no longer called**.
 - ✅ **Attenuator compensation fixed**: the ADC→V conversion undoes the INPB R11/R19 attenuator
   with `Constants.V_MAG_DECADE_OFFSET = 0.61069 V` (= 20.3564 dB × 30 mV/dB), derived from the

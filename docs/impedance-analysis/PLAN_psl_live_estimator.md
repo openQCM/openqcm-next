@@ -227,6 +227,9 @@ T4 a ~300-line file replacing a 531-line one, T5 ~20 lines, T6 docs.
 | D4 | Data View band: f_res ± Γ_fit when the fit is published | yes — **Marco: yes**, f_res and Γ of the fit must be visible there |
 | D5 | `IMPEDANCE_ESTIMATOR` default `"lorentzian"` on this branch from T2 on | yes — **Marco: proceed**; earlier datalogs are assumed not comparable |
 | D6 | the saturation-mask code (off) and `research/admittance-circle-fit/`: leave as they are | yes — **Marco: confirmed** |
+| D7 | name of an experimental run's datalog | `<ts>_multi_lorentzian.csv` (+ `_multi_lorentzian_amplitude.csv`) — **Marco: confirmed** 2026-09-16 |
+| D8 | **the prudent setting** (Marco, 2026-09-16 evening): the STANDARD stays the maximum of G with the half-height width; the fit is an EXPERIMENTAL mode | done: `IMPEDANCE_ESTIMATOR = "argmax"` default; the fit does not run in a standard run |
+| D9 | where the mode is chosen | a box in the Measurement Setup, off by default, chosen before START, locked while running; handed to the spawned process at start (`Worker(estimator=…)` → `set_estimator()`); the views say STANDARD / EXPERIMENTAL from field 24 of the message — done |
 
 ## 5. What changes for whoever reads the datalog
 

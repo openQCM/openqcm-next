@@ -1,10 +1,11 @@
 # What the two datalogs actually record — `main` versus `impedance-analysis`
 
-> ⚠️ **Since 2026-09-16** this branch's `Frequency_n` and `Dissipation_n` come from the **phase-shifted
-> Lorentzian fitted to G** (`core/lorentzian.py`, `ALGORITHM.md` §7.1), with the maximum of G and the
-> half-height width described below as the seed and the fallback. Rows written before and after that date
-> are not comparable: the frequency moves by +2…+47 Hz in air and +170…+700 Hz in liquid, D by −7…+8 %.
-> The tables below describe the chain as it was on 2026-09-10.
+> ⚠️ **Since 2026-09-16** a run can be made in an **experimental** mode (Measurement Setup, box
+> "Experimental: phase-shifted Lorentzian fit"): its datalog is then named `<ts>_multi_lorentzian.csv` and
+> its `Frequency_n` / `Dissipation_n` come from the fit (`core/lorentzian.py`, `ALGORITHM.md` §7.1), with the
+> maximum of G and the half-height width described below as seed and fallback. A standard run keeps the
+> name `<ts>_multi.csv` and the quantities below, unchanged. The two are not comparable: the frequency
+> differs by +2…+47 Hz in air and +170…+700 Hz in liquid, D by −7…+8 %.
 
 *2026-09-10. Analysis before adding the second, `main`-style datalog to this branch for the
 comparison test. Written because two statements in the plan were deductions, not readings, and

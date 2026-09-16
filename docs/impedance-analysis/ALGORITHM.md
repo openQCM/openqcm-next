@@ -405,8 +405,10 @@ Kanazawa–Gordon, and the reason for this whole path.
 Resolution is therefore 1 Hz by construction; the smoothing of §3 is what keeps that from being
 noise-limited.
 
-⚠️ **Since 2026-09-16 this maximum is the SEED and the FALLBACK, not what is published.** On this
-instrument the conductance peak is not symmetric: it is a complex Lorentzian rotated by an angle φ of
+**This is the STANDARD estimator** (Marco, 2026-09-16), what a run publishes unless the box
+"Experimental: phase-shifted Lorentzian fit" in the Measurement Setup is checked before START. In that
+EXPERIMENTAL mode the maximum becomes the seed and the fallback of the fit of §7.1. Why the experimental
+mode exists: on this instrument the conductance peak is not symmetric: it is a complex Lorentzian rotated by an angle φ of
 −8 → −27° from the fundamental to the 9th overtone, the same in air and in liquid, and its maximum sits at
 `f_res + Γ·tan(φ/2)` — 2–47 Hz off in air, 170–700 Hz in liquid, a 20–30 % excess on the liquid frequency
 shifts that the half-bandwidth shifts did not show (`research/air-ipa-water-1920-2026-09-11/`,
@@ -437,8 +439,17 @@ f_res, Γ, φ as the full 1 Hz grid to the hertz, at 1–2 ms per overtone.
 | fitted Γ over the half-height Γ | `PSL_GAMMA_RATIO = (0.3, 3.0)` | 0.93–1.08 |
 
 plus convergence and f_res inside the window. A sweep that passes publishes `(f_res, Γ)` of the fit; one
-that fails publishes the seed — the maximum of G and the half-height width, exactly as before 2026-09-16.
-`Constants.IMPEDANCE_ESTIMATOR = "argmax"` publishes the seed always.
+that fails publishes the seed — the maximum of G and the half-height width, i.e. the standard estimator.
+
+**How a run gets its estimator.** `Constants.IMPEDANCE_ESTIMATOR = "argmax"` is only the default. The GUI's
+Measurement Setup box (off = standard, on = experimental) is read at START, handed to
+`Worker(estimator=…)`, set on the process with `MultiscanProcess.set_estimator()` **before** `start()` — the
+acquisition is a spawned child process and never sees the GUI's constants — and read by
+`_publish_resonance()` through `estimator_mode()`. In the standard mode the fit does not run at all. An
+experimental run writes `<ts>_multi_lorentzian.csv` (and `…_multi_lorentzian_amplitude.csv`) instead of
+`<ts>_multi.csv`: the two are not comparable, and the name says which one it is. The mode also travels as
+field 24 of the G/B message, so the live fit window and the Data View say "STANDARD" or "EXPERIMENTAL,
+published by the fit / by the FALLBACK".
 
 **The fallback is never silent.** The process counts, per overtone, the sweeps published by the fit and by
 the fallback; the first sweep of each overtone and every change of source write one line to the System Log
@@ -533,7 +544,8 @@ self._my_list_d[overtone_number].append( _dissipation_ppm )
 self.freq_res_current_array[overtone_number] = published.fres
 ```
 
-(since 2026-09-16; `published` is the fit of §7.1 or, through the gate, the seed of §7–§8.)
+(since 2026-09-16; in a standard run `published` is the seed of §7–§8; in an experimental run it is the fit
+of §7.1 or, through the gate, the seed.)
 
 **`Dissipation_n` is the dissipation factor D, in units of 10⁻⁶** — changed on 2026-09-02 to the
 definition in Johannsmann, Langhoff & Leppin, *Sensors* **2021**, 21, 3490, §2 (transcription of the
@@ -638,7 +650,8 @@ published arrays:
 4. Optionally the saturation mask (disabled today, §9).
 5. One overtone per queue message, `[idx, freq, G, B, f_r, Γ, δ, masked_%, f_left, f_right,
    half_level, f_argmax, Γ_hh, fit f_res, fit Γ, fit φ, fit rms, fit G_max (mS), fit G_off (shipped
-   frame), fit cost, source, used, fallback, reason]` — fields 4–5 are the PUBLISHED pair (§7.1) —
+   frame), fit cost, source, used, fallback, reason, mode]` — fields 4–5 are the PUBLISHED pair (§7.1),
+   field 24 the run's estimator ("argmax" standard, "lorentzian" experimental) —
    converted to numpy on the consumer side once per sweep. The live fit window and the Data View
    draw these numbers and compute nothing.
 
@@ -734,6 +747,7 @@ The order that matters:
 6. Invert the divider exactly: `M = R17·10^((V_CP−V_MAG)/0.6)`, `Z_q = M·e^{−jφ} − R17` (§5).
 7. Seed: argmax of `G` (§7) and the two-sided half-height width of `G`, baseline removed, crossings
    interpolated (§8).
-8. Fit the phase-shifted Lorentzian to `G` on ±3 seed-Γ (§7.1); publish its `f_res` and `Γ` if the gate
-   passes, the seed otherwise; count and log the fallback. Publish `D = 2Γ/f_res·10⁶` (§9).
+8. Standard run: publish the seed. Experimental run: fit the phase-shifted Lorentzian to `G` on ±3 seed-Γ
+   (§7.1); publish its `f_res` and `Γ` if the gate passes, the seed otherwise; count and log the fallback.
+   Publish `D = 2Γ/f_res·10⁶` (§9).
 9. Cross-check against `fit_admittance.py` on the same `g<n>.txt` before believing any of it (§12).

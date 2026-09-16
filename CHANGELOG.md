@@ -5,6 +5,17 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Changed — the prudent setting: the standard estimator stays the maximum of G; the fit is an experimental mode chosen per run (2026-09-16, evening)
+
+`Constants.IMPEDANCE_ESTIMATOR = "argmax"` (default and standard; the fit does not run in a standard run).
+A box "Experimental: phase-shifted Lorentzian fit" in the Measurement Setup, off by default, chosen before
+START and locked while running, hands the mode to the spawned acquisition process (`Worker(estimator=…)` →
+`MultiscanProcess.set_estimator()` before `start()`). An experimental run writes `<ts>_multi_lorentzian.csv`
+(+ `_amplitude`), not comparable with `<ts>_multi.csv`. The G/B message carries the mode (field 24); the live
+fit window and the Data View say "STANDARD" or "EXPERIMENTAL, published by the fit / by the FALLBACK
+(reason)"; the System Log says at START which estimator governs the run and at the first sweep of each
+overtone what was published. 36 tests OK. Plan decisions D7–D9.
+
 ### Docs — ALGORITHM §7.1 "the published estimator", datalog note, HANDOFF §4, session prompt (2026-09-16, T6)
 
 `ALGORITHM.md` gains §7.1 (model, seeds, window, the gate's three parameters with the measured values, the
