@@ -5,6 +5,19 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Added — `core/lorentzian.py`: the phase-shifted Lorentzian estimator, its fallback gate and the first versioned tests (2026-09-16, T1 of the plan)
+
+One shipped implementation of the rotated complex Lorentzian on G (Johannsmann eq. 3, real part, five
+parameters, LM on a ±3Γ window decimated to 300 points), `accept()` with a reason for every rejection and
+`publish()` returning the fit or the fallback (maximum of G, half-height width, untouched). Constants:
+`IMPEDANCE_ESTIMATOR = "lorentzian"` (`"argmax"` restores the previous estimator), `PSL_BAND_GAMMA`,
+`PSL_MAX_POINTS`, and the gate parameters `PSL_RMS_MAX` 5 %, `PSL_PHI_MAX_DEG` 60, `PSL_GAMMA_RATIO` (0.3, 3.0) —
+approved by Marco as parameters of the measurement, to be kept in view. `software/tests/test_lorentzian.py`
+(14 tests, `python -m unittest`): synthetic recovery, the argmax bias Γ·tan(φ/2), decimation, the gate, and the
+45 dumps of 2026-09-11 reproduced within 0.5 Hz and 0.05°; decimated cost 1–2 ms per overtone. The research
+library delegates its G-only fit to the module. ⚠️ Nothing in the process uses it yet (T2). Plan and decisions:
+`docs/impedance-analysis/PLAN_psl_live_estimator.md`.
+
 ### Docs — the phase-shifted Lorentzian on G closes the liquid frequency excess; block A validation; synthesis (2026-09-14/15)
 
 `research/air-ipa-water-1920-2026-09-11/`: `phase-shifted-lorentzian.md`, `psl-validation.md`,

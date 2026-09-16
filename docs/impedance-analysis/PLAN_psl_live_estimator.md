@@ -113,7 +113,7 @@ uniformly to at most `max_points` samples.
 
 Constants added: `IMPEDANCE_ESTIMATOR = "lorentzian"` (the other value `"argmax"` restores today's
 behaviour in one place), `PSL_BAND_GAMMA = 3.0`, `PSL_MAX_POINTS = 300`, `PSL_RMS_MAX = 0.05`,
-`PSL_PHI_MAX_DEG = 60.0`, `PSL_GAMMA_RATIO = (0.3, 3.0)`, `DATALOG_FIT_TOO = True`.
+`PSL_PHI_MAX_DEG = 60.0`, `PSL_GAMMA_RATIO = (0.3, 3.0)`. (`DATALOG_FIT_TOO` dropped with D2.)
 
 ### 2.2 The process publishes the fit, falls back to the maximum, and says which it did
 
@@ -141,7 +141,7 @@ that gives a plausible number needs a numeric witness):
 source (1 fit / 0 fallback), used_count, fallback_count]`. G_off is shipped **relative to the same baseline
 as the shipped G**, so the window can draw the curve over the shipped points without knowing the baseline.
 
-**A third datalog**, `<ts>_multi_fit.csv` (flag `DATALOG_FIT_TOO`, this branch only, like the amplitude
+~~**A third datalog**~~ — **dropped by Marco (D2)**. What follows was the proposal, kept for the record: `<ts>_multi_fit.csv` (flag `DATALOG_FIT_TOO`, this branch only, like the amplitude
 one): `Date, Time, Relative_time, Temperature`, then per overtone `Phi_n, Rms_n, Source_n, Fargmax_n,
 GammaHH_n`. It carries what `<ts>_multi.csv` cannot — φ (Marco: "if published, φ must be logged"), the fit
 quality, which estimator produced each row, and the fallback pair at the same instant, so the comparison
@@ -206,8 +206,8 @@ date of the merge of T2; HANDOFF §4, CHANGELOG, `SESSION_PROMPT_liquid_frequenc
 
 | # | what | verification (the number that says it works) |
 |---|---|---|
-| T1 | `core/lorentzian.py` + `software/tests/test_lorentzian.py` (headless, no Qt) + `psl_lib.py` switched to import it | synthetic sweeps: f_s within 4 Hz, Γ within 5 Hz, φ within 0.3°; the 45 dumps of 2026-09-11 reproduce the research numbers to the Hz; the gate rejects a flat G, a NaN-holed G, a window with no peak, each with its reason |
-| T2 | Constants, `elaborate_multi` integration, counters and log line, G/B message fields, `_multi_fit.csv` writer and worker plumbing | a replay tool feeds the 45 dumps' samples to a headless `MultiscanProcess.elaborate_multi` with fake parsers and captures the published pair and the message: equal to the offline fit, source = fit on 45/45, cost printed; a synthetic flat sweep publishes the fallback with the reason |
+| T1 ✅ `5f…` 2026-09-16 | `core/lorentzian.py` + `software/tests/test_lorentzian.py` (headless, no Qt) + `psl_lib.py` switched to import it | synthetic sweeps: f_s within 4 Hz, Γ within 5 Hz, φ within 0.3°; the 45 dumps of 2026-09-11 reproduce the research numbers to the Hz; the gate rejects a flat G, a NaN-holed G, a window with no peak, each with its reason |
+| T2 | `elaborate_multi` integration, counters and log line, G/B message fields (no third datalog, D2) | a replay tool feeds the 45 dumps' samples to a headless `MultiscanProcess.elaborate_multi` with fake parsers and captures the published pair and the message: equal to the offline fit, source = fit on 45/45, cost printed; a synthetic flat sweep publishes the fallback with the reason |
 | T3 | main panel: `pltB`, `_pltB`, removal of the circle overlay and its constants | `py_compile`, `setupUi` builds headless, the attribute lists reference no removed name; a screenshot on the real platform by Marco (a `QMainWindow.show()` segfaults offscreen) |
 | T4 | the live fit window rebuilt | the window builds and paints headless from a fake worker holding one dump's shipped arrays and fit fields (QWidget is fine offscreen); the curve drawn equals `rotated_lorentzian` of the shipped parameters to 10⁻⁹; real-platform look by Marco |
 | T5 | Impedance Data View band from the published source | headless as today's view is checked |
@@ -221,12 +221,12 @@ T4 a ~300-line file replacing a 531-line one, T5 ~20 lines, T6 docs.
 
 | | question | recommendation |
 |---|---|---|
-| D1 | B in the main panel: as the chain computes it, or minus the edge value as today? | as computed (2.3) |
-| D2 | the third datalog `_multi_fit.csv` with φ, rms, source and the fallback pair? | yes, behind `DATALOG_FIT_TOO`, like the amplitude file |
-| D3 | fallback thresholds: rms 5 % of range, \|φ\| ≤ 60°, Γ within 0.3–3× the half-height value | as proposed; all far from the measured values, so they catch broken sweeps, not marginal ones |
-| D4 | Data View band: f_res ± Γ_fit when the fit is published | yes |
-| D5 | `IMPEDANCE_ESTIMATOR` default `"lorentzian"` on this branch from T2 on | yes — that is goal 3; `"argmax"` is one edit away |
-| D6 | the saturation-mask code (off) and `research/admittance-circle-fit/`: leave as they are | yes, out of scope |
+| D1 | B in the main panel: as the chain computes it, or minus the edge value as today? | as computed (2.3) — **Marco: confirmed** |
+| D2 | the third datalog `_multi_fit.csv` with φ, rms, source and the fallback pair? | **Marco: no** — superfluous; φ, rms and the source live in the G/B message (live window) and in the System Log line |
+| D3 | fallback thresholds: rms 5 % of range, \|φ\| ≤ 60°, Γ within 0.3–3× the half-height value | as proposed — **Marco: approved**, as parameters to keep in the open: their existence, value and function must stay visible (constants block, ALGORITHM, the fit window shows them beside the values), and they may change |
+| D4 | Data View band: f_res ± Γ_fit when the fit is published | yes — **Marco: yes**, f_res and Γ of the fit must be visible there |
+| D5 | `IMPEDANCE_ESTIMATOR` default `"lorentzian"` on this branch from T2 on | yes — **Marco: proceed**; earlier datalogs are assumed not comparable |
+| D6 | the saturation-mask code (off) and `research/admittance-circle-fit/`: leave as they are | yes — **Marco: confirmed** |
 
 ## 5. What changes for whoever reads the datalog
 
