@@ -5,6 +5,15 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Changed — the live fit window shows the published estimator and computes nothing (2026-09-16, T4)
+
+`ui/impedanceFitWindow.py` rewritten around the fit the process ships in the G/B message: per overtone the
+shipped G, the phase-shifted Lorentzian drawn from the shipped parameters, the published f_res, the maximum
+of G (the fallback), the fit window and the residual; a ten-column table of process numbers only, the gate
+limits printed from `Constants` beside them. FIT 1, FIT 2, the B and locus panels, R1, L1, masked and the
+import of `sweep_data/fit_admittance.py` are gone; `IMPEDANCE_FIT_POINTS` removed. `tests/test_fit_window.py`
+with a fake worker (built and fed, not shown: the offscreen segfault of HANDOFF §6). 28 tests OK.
+
 ### Changed — the impedance panel shows B(f) under G(f); the admittance locus and its circle overlay are gone (2026-09-16, T3)
 
 `pltGB` → `pltSus`: the lower view of the right-hand dock is the susceptance against the same frequency offset
