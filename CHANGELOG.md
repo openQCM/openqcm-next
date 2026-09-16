@@ -5,6 +5,18 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Changed — the acquisition publishes the phase-shifted Lorentzian fit; the fallback is counted and logged (2026-09-16, T2)
+
+`Multiscan.elaborate_multi` → `_publish_resonance()` → `core.lorentzian.publish()`: the datalog's `Frequency_n`
+and `Dissipation_n`, the sweep tracker and fields 4–5 of the G/B message carry the fit when it passes the
+gate, the maximum of G and the half-height width otherwise. Per-overtone counts of fit/fallback sweeps, a
+System Log line on the first sweep and on every change of source with the reason; the G/B message gains the
+seed, the fit parameters, the source, the counts and the reason (fields 11–23), read by
+`Worker.get_fit_G_buffer()`. Replay of the 45 dumps of 2026-09-11 through the process: 45/45 by the fit,
+within 2 Hz of the offline numbers. ⚠️ Datalogs before and after this commit are not comparable: the
+frequency moves by +2…+47 Hz in air and +170…+700 Hz in liquid, D by −7…+8 %. `IMPEDANCE_ESTIMATOR = "argmax"`
+restores the previous behaviour. `tests/test_publish_process.py`, 8 tests.
+
 ### Added — `core/lorentzian.py`: the phase-shifted Lorentzian estimator, its fallback gate and the first versioned tests (2026-09-16, T1 of the plan)
 
 One shipped implementation of the rotated complex Lorentzian on G (Johannsmann eq. 3, real part, five

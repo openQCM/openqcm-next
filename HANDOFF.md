@@ -593,9 +593,9 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   `docs/impedance-analysis/SESSION_PROMPT_fs_estimators.md` is the prompt that session started from; it is done.
   The next session starts from `docs/impedance-analysis/SESSION_PROMPT_liquid_frequency_excess.md`.
 - **Making the fit the published estimator** (plan of 2026-09-16, `docs/impedance-analysis/PLAN_psl_live_estimator.md`,
-  Marco's decisions recorded in its §4): T1 ✅ `core/lorentzian.py` with the gate and `tests/test_lorentzian.py`
+  Marco's decisions recorded in its §4): ⚠️ **since T2 the datalog's Frequency/Dissipation come from the fit** (before/after not comparable). T1 ✅ `core/lorentzian.py` with the gate and `tests/test_lorentzian.py`
   (the first versioned tests on this repo: `cd software && PYTHONPATH=. python -m unittest tests.test_lorentzian`);
-  T2 process integration, counters and log line, G/B message fields; T3 the main panel shows B(f) instead of
+  T2 ✅ process integration, counters and log line, G/B message fields 11–23 (`Worker.get_fit_G_buffer`); T3 the main panel shows B(f) instead of
   the locus (B as the chain computes it, no baseline); T4 the live fit window rebuilt around the shipped fit;
   T5 Data View band f_res ± Γ_fit; T6 docs; T7 bench. ⚠️ The three gate parameters (`PSL_RMS_MAX`,
   `PSL_PHI_MAX_DEG`, `PSL_GAMMA_RATIO`) are parameters of the measurement, set at ten times the measured
