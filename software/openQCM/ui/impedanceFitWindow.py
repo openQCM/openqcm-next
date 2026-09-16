@@ -1,48 +1,38 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-VER 0.1.6G — live admittance-fit window.
+VER 0.1.6G — live fit window: what the acquisition publishes, and nothing else.
 
-Opens from Tools > "Impedance Fit (live)" and runs the SAME two fits as the
-offline reference `sweep_data/fit_admittance.py`, on the spectra the acquisition
-is already publishing:
+Opens from Tools > "Impedance Fit (live)". One tab per overtone with the exact
+conductance G(f) the process shipped, the phase-shifted Lorentzian the process
+FITTED to it (core/lorentzian.py) drawn from the parameters it shipped, the
+published f_res, the maximum of G that is the fallback, the ±band·Γ window the
+fit ran on, and the residual beneath. A table with the numbers of every
+overtone: which estimator was published, f_res, Γ, D, φ, rms, the fallback pair,
+the phase offset δ the chain applied.
 
-  FIT 1  Butterworth-Van Dyke circle on the complex admittance, with f_s and
-         Gamma read off the arc geometry by linear least squares
-  FIT 2  Levenberg-Marquardt Lorentzian on G(f), linear background free
+THE RULE (Marco, 2026-09-16): what this window shows is what the process used to
+produce the logged numbers. So this window fits NOTHING. Every curve is either a
+shipped array or the shipped model evaluated on the shipped axis; every number in
+the table came out of the process. If the producer shipped no fit (an older
+process, or Constants.IMPEDANCE_ESTIMATOR = "argmax") the window shows the
+measured G with the maximum marked and says so.
 
-The module is imported from its file path rather than as a package, on purpose:
-the offline script must stay standalone (it is run straight from the sweep_data
-directory on archived g<n>.txt), and importing the very same file is what
-guarantees the live numbers and the offline numbers cannot drift apart.
+What went away with the rewrite of 2026-09-16, on purpose: the BVD circle fit
+(FIT 1), the symmetric Lorentzian refitted in the GUI (FIT 2), the B(f) and locus
+panels, R1, L1, the masked-percent column, and the import of the offline module
+sweep_data/fit_admittance.py — the release tree no longer needs sweep_data/ for
+any live view. The research behind those is in research/air-ipa-water-1920-2026-09-11/.
 
-WHAT THIS WINDOW COSTS, and why it is built the way it is:
-  * It owns its own timer, started on show and stopped on hide, so a closed
-    window costs exactly nothing.
-  * It refits only when the per-overtone revision counter moves - once per sweep,
-    not once per repaint.
-  * The rotation search reuses the previous sweep's angle as a bracket instead of
-    re-running the 181-point grid. Measured on five overtones of a real air sweep:
-    123 ms for the first fit, 13 ms for every one after it, against a sweep that
-    takes seconds. A tick with no new sweep costs 2 microseconds.
-
-WHAT THE NUMBERS MEAN HERE, one caveat. The published spectra have a constant
-baseline removed (mean of the first 100 samples) before shipping, which
-TRANSLATES the admittance circle. f_s, Gamma, D and R1 are unaffected - a
-translation is exactly what C0 does, and the circle fit separates it - but the
-fitted offset is no longer the physical omega*C0, so C0 is not reported. Run the
-offline script on g<n>.txt when C0 is what you are after.
+Costs: its own timer, started on show and stopped on hide, so a closed window
+costs nothing; per-overtone revision counter, so a tick with no new sweep does
+nothing; the drawn curve is decimated to a few hundred points.
 """
 
-import importlib.util
-import os
 import sys
-import time
 
 import numpy as np
 
-# Same fallback as mainWindow: this module is imported at module level there, so a
-# hard PyQt5 import would take the whole application down on a PySide2 install.
 try:
     from PyQt5 import QtCore, QtGui, QtWidgets
 except ImportError:                                      # pragma: no cover
@@ -50,47 +40,23 @@ except ImportError:                                      # pragma: no cover
 import pyqtgraph as pg
 
 from openQCM.core.constants import Constants
+from openQCM.core.lorentzian import rotated_lorentzian
 from openQCM.common.logger import Logger as Log
-# one list of overtone labels for both live views, so the two windows cannot end
-# up naming the same overtone differently
 from openQCM.ui.rawDataView import OVERTONE_NAMES
 from openQCM.ui.plotMenu import PlotMenu
 from openQCM.ui import theme
 
 TAG = "[ImpedanceFit]"
 
+COLUMNS = ("n", "published by", "f_res [Hz]", "Gamma [Hz]", "D [ppm]", "phi [deg]",
+           "rms [% range]", "f argmax [Hz]", "Gamma half height [Hz]", "delta [deg]")
 
-# ---------------------------------------------------------------------------
-# import the offline reference module by path (see the note in the docstring)
-def _load_fit_module():
-    here = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(os.path.dirname(here), "sweep_data", "fit_admittance.py")
-    spec = importlib.util.spec_from_file_location("openqcm_fit_admittance", path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-# The offline module is loaded on the first window, not when this file is
-# imported: mainWindow.py imports this module at start-up, and a release tree
-# may not carry sweep_data/ at all. Until then `fa` is None, which the window
-# already reports as "offline fit module missing" and refuses to fit on.
-fa = None
-
-
-def _ensure_fit_module():
-    global fa
-    if fa is None:
-        try:
-            fa = _load_fit_module()
-        except Exception as e:                           # pragma: no cover
-            print(TAG, "Warning: offline fit module not available:", e)
-    return fa
-
-
-COLUMNS = ("n", "delta [deg]", "masked [%]", "f_s FIT1 [Hz]", "Gamma [Hz]",
-           "D [ppm]", "R1 [ohm]", "L1 [mH]", "rms [%r]", "f_s FIT2 [Hz]",
-           "dGamma [%]", "df_s [Hz]")
+# Colour of everything DERIVED from the measurement (the fit, the published
+# marker): Raw Data View paints the sweep in the overtone's colour and the
+# derived quantities in this red, and this window says the same thing the same way.
+FIT_COLOUR = "#f44336"
+# points drawn per curve; the fit is evaluated on the same decimated axis
+DRAW_POINTS = 600
 
 
 def _overtone_label(idx):
@@ -98,24 +64,15 @@ def _overtone_label(idx):
             else "overtone {}".format(2 * idx + 1))
 
 
-# Colour of every fitted overlay: the circle, the Lorentzian and the f_s
-# marker. Raw Data View paints the measured sweep in the overtone's colour and
-# the quantities DERIVED from it in this red, and this window says the same
-# thing about the same data, so it says it the same way.
-FIT_COLOUR = "#f44336"
+def _finite(x):
+    try:
+        return x is not None and np.isfinite(float(x))
+    except (TypeError, ValueError):
+        return False
 
 
 class _FitTab(QtWidgets.QWidget):
-    """One overtone's three panels: G(f), B(f) beneath it, and the locus.
-
-    One of these per tab. Building them all up front costs three empty plots per
-    overtone and buys a tab switch that is instant and keeps each overtone's own
-    zoom, which a single shared canvas cannot do.
-
-    Styled from ui/theme.py exactly as Raw Data View is: the two live windows
-    show the same sweep, and one of them painting it on a different background
-    in a different palette is a difference the reader has to explain away.
-    """
+    """One overtone: G(f) with the published fit on top, the residual beneath."""
 
     def __init__(self, overtone_index, theme_name, parent=None):
         super(_FitTab, self).__init__(parent)
@@ -127,60 +84,45 @@ class _FitTab(QtWidgets.QWidget):
         self.graph.setBackground(palette["bg"])
 
         self.pG = self.graph.addPlot(row=0, col=0)
-        self.pG.setTitle("conductance G(f) — FIT 2", color=palette["title"])
-        self.pG.setLabel('bottom', 'f - f_s', units='Hz', color=palette["title"])
+        self.pG.setTitle("conductance G(f)", color=palette["title"])
+        self.pG.setLabel('bottom', 'f - f_res (published)', units='Hz', color=palette["title"])
         self.pG.setLabel('left', 'G', units='mS', color=palette["title"])
-        self.pG.addLegend()   # default anchor: see the note in mainWindow
-        self.curveG = self.pG.plot(
-            pen=pg.mkPen(color=colour, width=Constants.plot_line_width),
-            name="measured")
-        self.curveG2 = self.pG.plot(pen=pg.mkPen(FIT_COLOUR, width=1,
-                                                 style=QtCore.Qt.DashLine),
-                                    name="FIT 2")
-
-        # B against frequency, under G and sharing its x axis: the two channels
-        # are read together, and a defect that is invisible in G (which is EVEN in
-        # the phase) shows up here. The reverted roundness-fitted offset was
-        # exactly that case - a step of up to 77 % of B's range that left G and the
-        # fitted circle looking fine.
-        self.pB = self.graph.addPlot(row=1, col=0)
-        self.pB.setTitle("susceptance B(f) — FIT 1", color=palette["title"])
-        self.pB.setLabel('bottom', 'f - f_s', units='Hz', color=palette["title"])
-        self.pB.setLabel('left', 'B', units='mS', color=palette["title"])
-        self.pB.setXLink(self.pG)
-        self.pB.addLegend()   # default anchor: see the note in mainWindow
-        self.zeroB = self.pB.plot(pen=pg.mkPen(palette["axis"], width=1,
-                                               style=QtCore.Qt.DotLine))
-        self.curveBf = self.pB.plot(
-            pen=pg.mkPen(color=colour, width=Constants.plot_line_width),
-            name="measured")
-        self.curveBfit = self.pB.plot(pen=pg.mkPen(FIT_COLOUR, width=1,
-                                                   style=QtCore.Qt.DashLine),
-                                      name="FIT 1")
-
-        # The locus spans both rows on the right: it is aspect-locked (a circle has
-        # to look like one), so a wide, short box would dilate the G axis and leave
-        # the circle a dot in the middle. A roughly square box avoids that.
-        self.pC = self.graph.addPlot(row=0, col=1, rowspan=2)
-        self.pC.setTitle("admittance plane — FIT 1", color=palette["title"])
-        self.pC.setLabel('bottom', 'G', units='mS', color=palette["title"])
-        self.pC.setLabel('left', 'B', units='mS', color=palette["title"])
-        self.pC.setAspectLocked(True)
-        self.pC.addLegend()   # default anchor: see the note in mainWindow
-        # the locus is the same measurement as the two curves on the left, so it
-        # carries the same overtone colour; only the fitted overlay is red
-        self.curveB = self.pC.plot(pen=None, symbol='o', symbolSize=2.5,
+        self.pG.addLegend()
+        # the fit window the process used, drawn first so it sits under the data
+        self.window = pg.LinearRegionItem(values=(0, 0), movable=False,
+                                          brush=pg.mkBrush(128, 128, 128, 28),
+                                          pen=pg.mkPen(None))
+        self.window.setZValue(-10)
+        self.pG.addItem(self.window)
+        self.curveG = self.pG.plot(pen=None, symbol='o', symbolSize=3,
                                    symbolPen=None, symbolBrush=colour,
-                                   name="measured")
-        self.curveFit = self.pC.plot(pen=pg.mkPen(FIT_COLOUR, width=1,
+                                   name="G measured (shipped)")
+        self.curveFit = self.pG.plot(pen=pg.mkPen(FIT_COLOUR, width=1.5,
                                                   style=QtCore.Qt.DashLine),
-                                     name="FIT 1 circle")
-        self.markFs = self.pC.plot(pen=None, symbol='o', symbolSize=11,
-                                   symbolPen=pg.mkPen(FIT_COLOUR, width=1.5),
-                                   symbolBrush=None, name="f_s on the arc")
+                                     name="phase-shifted Lorentzian (process)")
+        self.markFres = pg.InfiniteLine(pos=0.0, angle=90,
+                                        pen=pg.mkPen(FIT_COLOUR, width=1.5))
+        self.markArg = pg.InfiniteLine(pos=0.0, angle=90,
+                                       pen=pg.mkPen(colour, width=1,
+                                                    style=QtCore.Qt.DotLine))
+        self.pG.addItem(self.markFres)
+        self.pG.addItem(self.markArg)
+        # legend entries for the two markers (InfiniteLine has no legend of its own)
+        self.pG.plot(pen=pg.mkPen(FIT_COLOUR, width=1.5), name="f_res published")
+        self.pG.plot(pen=pg.mkPen(colour, width=1, style=QtCore.Qt.DotLine),
+                     name="maximum of G (fallback)")
 
-        # grid off by default, like every other plot panel in this GUI; it is
-        # turned on per plot from the right-click menu
+        self.pR = self.graph.addPlot(row=1, col=0)
+        self.pR.setTitle("residual, measured - fit", color=palette["title"])
+        self.pR.setLabel('bottom', 'f - f_res (published)', units='Hz', color=palette["title"])
+        self.pR.setLabel('left', '% of range', color=palette["title"])
+        self.pR.setXLink(self.pG)
+        self.zeroR = self.pR.plot(pen=pg.mkPen(palette["axis"], width=1,
+                                               style=QtCore.Qt.DotLine))
+        self.curveR = self.pR.plot(pen=pg.mkPen(FIT_COLOUR, width=1))
+        self.graph.ci.layout.setRowStretchFactor(0, 3)
+        self.graph.ci.layout.setRowStretchFactor(1, 1)
+
         for plot in self.plots():
             for axis in ("left", "bottom"):
                 plot.getAxis(axis).setPen(palette["axis"])
@@ -192,63 +134,48 @@ class _FitTab(QtWidgets.QWidget):
         lay.addWidget(self.graph)
 
     def plots(self):
-        return (self.pG, self.pB, self.pC)
+        return (self.pG, self.pR)
+
+    def clear(self):
+        empty = np.array([], dtype=float)
+        for c in (self.curveG, self.curveFit, self.curveR, self.zeroR):
+            c.setData(x=empty, y=empty)
+        self.window.setRegion((0, 0))
 
 
 class ImpedanceFitWindow(QtWidgets.QWidget):
-    """Live BVD circle + Lorentzian fit of the measured admittance."""
+    """The published estimator, live, per overtone."""
 
     def __init__(self, worker, overtones, theme_name="light", parent=None):
-        _ensure_fit_module()
         super(ImpedanceFitWindow, self).__init__(parent)
         self.worker = worker
         self.overtones = int(overtones)
-        # Given a parent, this widget would be laid out INSIDE it; the flag is
-        # what keeps it a window of its own. Raw Data View does the same, and
-        # the parent is the reason both inherit the application style sheet --
-        # without it the frame and the table stay in the platform's own colours
-        # while the rest of the GUI follows the theme.
         self.theme = theme_name if theme_name in theme.PLOT else "light"
+        # a window of its own even with a parent (the parent is what brings the
+        # application style sheet); its own sheet because the application's
+        # background rules name QMainWindow/QDialog, not a bare QWidget
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.Window)
-        # ⚠️ Its own sheet, not the parent's. The application sheet is set on the
-        # main window and reaches this one, but its background rules are written
-        # for QMainWindow / QDialog / #centralwidget and this is none of them:
-        # the text colour arrived and the background did not, which is how the
-        # window ended up pale-on-white. Naming it and setting the sheet here
-        # covers both cases, the way ChevronComboBox does for its popup.
         self.setObjectName("impedanceFitWindow")
         self.setStyleSheet(theme.qss(theme.palette(self.theme)))
         self._palette = theme.palette(self.theme)
         self._seq = [None] * self.overtones
-        self._theta = [None] * self.overtones        # rotation cache, per overtone
-        self._last = [None] * self.overtones         # last fit result, per overtone
-        self._cost_ms = 0.0
+        self._last = [None] * self.overtones
         self._paused = False
 
-        self.setWindowTitle("openQCM NEXT — live admittance fit "
-                            "(FIT 1 circle / FIT 2 Lorentzian)")
-        self.resize(1180, 760)
+        self.setWindowTitle("openQCM NEXT — live fit (what the acquisition publishes)")
+        self.resize(1080, 720)
 
-        # ------------------------------------------------------------- controls
         self.chkPause = QtWidgets.QCheckBox("freeze")
-        self.chkPause.setToolTip("stop refitting; the last fit stays on screen")
+        self.chkPause.setToolTip("stop following the acquisition; the last sweep stays on screen")
         self.chkPause.toggled.connect(self._on_pause)
-
         self.lblStatus = QtWidgets.QLabel("waiting for data")
         self.lblStatus.setStyleSheet("color: %s;" % self._palette["muted"])
-
         top = QtWidgets.QHBoxLayout()
         top.addWidget(self.chkPause)
         top.addStretch(1)
         top.addWidget(self.lblStatus)
 
-        # ----------------------------------------------------------------- tabs
-        # One tab per overtone, as in Raw Data View, so the two live windows are
-        # navigated the same way. The overtone is no longer picked from a combo
-        # box: the tab bar is the selector.
         self._tabs = QtWidgets.QTabWidget()
-        # same right-click menu as the other plot panels, from ui/plotMenu.py:
-        # Auto-scale, Reset zoom, pan/select, Show/Hide grid, Export
         self._menu = PlotMenu(self)
         self._panes = []
         for i in range(self.overtones):
@@ -256,20 +183,17 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
             self._tabs.addTab(pane, _overtone_label(i))
             self._panes.append(pane)
             self._menu.attach(pane.plots())
-        self._tabs.currentChanged.connect(self._force_redraw)
+        self._tabs.currentChanged.connect(self._draw_selected)
 
-        # ---------------------------------------------------------------- table
         self.table = QtWidgets.QTableWidget(self.overtones, len(COLUMNS))
         self.table.setHorizontalHeaderLabels(COLUMNS)
         self.table.verticalHeader().setVisible(False)
         self.table.setEditTriggers(QtWidgets.QTableWidget.NoEditTriggers)
         self.table.setSelectionBehavior(QtWidgets.QTableWidget.SelectRows)
-        self.table.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.table.setMaximumHeight(28 * (self.overtones + 1) + 8)
         mono = QtGui.QFont("Menlo" if sys.platform == "darwin" else
-                           "Consolas" if sys.platform.startswith("win") else
-                           "Monospace")
+                           "Consolas" if sys.platform.startswith("win") else "Monospace")
         mono.setStyleHint(QtGui.QFont.TypeWriter)
         mono.setPointSize(10)
         self.table.setFont(mono)
@@ -279,27 +203,21 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
                 it.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
                 self.table.setItem(row, col, it)
             self.table.item(row, 0).setText(str(2 * row + 1))
-        # the table stays a single overview across all overtones -- that is the
-        # point of it -- and clicking a row brings up that overtone's tab
-        self.table.clicked.connect(
-            lambda i: self._tabs.setCurrentIndex(i.row()))
+        self.table.clicked.connect(lambda i: self._tabs.setCurrentIndex(i.row()))
 
+        lo, hi = Constants.PSL_GAMMA_RATIO
         note = QtWidgets.QLabel(
-            "Gamma is the FULL width at half maximum (the main window reports the "
-            "half width; D is the same in both).  dGamma / df_s are FIT 2 minus "
-            "FIT 1 — two independent estimators, so their disagreement is the "
-            "honest error bar.  delta is the phase offset measured from the fold; "
-            "\"no fold\" means the phase never crosses zero (damped load), so the "
-            "reading is already the signed phase and no correction applies.  "
-            "\"masked\" is how much of the band the AD8302 could not measure "
-            "(below its usable ratio). It is the warning, not the rms: past ~20 % "
-            "the surviving arc no longer pins FIT 2's background nor FIT 1's "
-            "rotation, and the two Gamma estimates diverge while the circle "
-            "residual still looks fine. The logged frequency and dissipation are "
-            "computed BEFORE the mask, so they are unaffected either way.  "
-            "C0 is not shown: the "
-            "published spectra have a constant baseline removed, which is exactly "
-            "what C0 does.")
+            "Everything here is what the acquisition process used: G as shipped (mS, constant "
+            "baseline removed), the phase-shifted Lorentzian it fitted on the ±%.0fΓ window "
+            "(dashed, evaluated from the shipped parameters; nothing is refitted here), the "
+            "published f_res and the maximum of G, which is the fallback. Γ is the half width at "
+            "half maximum; D = 2Γ/f_res.  THE GATE, Constants.PSL_*: the fit is published when "
+            "rms ≤ %.0f %% of the range of G, |φ| ≤ %.0f° and Γ is within %.1f–%.1f× the half-height "
+            "width; otherwise the maximum of G is published, the sweep is counted as a fallback and "
+            "a line goes to the System Log. These three limits are parameters of the measurement.  "
+            "δ is the phase offset the chain applied (\"no fold\": the phase never crossed zero)."
+            % (Constants.PSL_BAND_GAMMA, 100.0 * Constants.PSL_RMS_MAX,
+               Constants.PSL_PHI_MAX_DEG, lo, hi))
         note.setWordWrap(True)
         note.setStyleSheet("color: %s; font-size: 11px;" % self._palette["muted"])
 
@@ -309,21 +227,16 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         lay.addWidget(self.table)
         lay.addWidget(note)
 
-        # ---------------------------------------------------------------- timer
         self._timer = QtCore.QTimer(self)
         self._timer.timeout.connect(self._tick)
-
-        if fa is None:
-            self.lblStatus.setText("offline fit module missing — cannot fit")
 
     # ----------------------------------------------------------------- events
     def showEvent(self, event):
         super(ImpedanceFitWindow, self).showEvent(event)
-        if fa is not None and not self._paused:
+        if not self._paused:
             self._timer.start(Constants.IMPEDANCE_FIT_UPDATE_MS)
 
     def hideEvent(self, event):
-        # a window nobody is looking at must cost nothing
         self._timer.stop()
         super(ImpedanceFitWindow, self).hideEvent(event)
 
@@ -338,36 +251,26 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         elif self.isVisible():
             self._timer.start(Constants.IMPEDANCE_FIT_UPDATE_MS)
 
-    # Green / amber / red for a "is this trustworthy" reading. Two sets: the
-    # dark table is #37393b, on which the light theme's inks are muddy.
     GRADES = {"light": ("#2e7d32", "#ef6c00", "#c62828"),
               "dark": ("#81c784", "#ffb74d", "#ef9a9a")}
 
-    def _grade(self, value, good, fair):
-        ok, warn, bad = self.GRADES[self.theme]
-        return ok if value < good else warn if value < fair else bad
+    def _grade(self, value, good, bad):
+        ok, warn, no = self.GRADES[self.theme]
+        return ok if value < good else warn if value < bad else no
 
     def _current_index(self):
-        """The overtone on screen: the current tab, or None if there is none."""
         idx = self._tabs.currentIndex()
         return idx if 0 <= idx < self.overtones else None
 
-    def _force_redraw(self, *_args):
-        idx = self._current_index()
-        if idx is not None:
-            self._seq[idx] = None            # make the next tick refit this one
-        self._draw_selected()
-
     # ------------------------------------------------------------------- work
     def _tick(self):
-        """Refit every overtone whose spectrum changed, then redraw the selected
-        one. Wrapped whole: a diagnostic view must never disturb an acquisition.
-        """
+        """Pick up every overtone whose spectrum changed, refresh its row, and
+        redraw the visible tab. Wrapped whole: a view must never disturb an
+        acquisition."""
         if self.worker is None:
             return
         try:
-            t0 = time.perf_counter()
-            done = 0
+            changed = 0
             for idx in range(self.overtones):
                 try:
                     seq = self.worker.get_GB_seq(idx)
@@ -376,156 +279,131 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
                 if seq == self._seq[idx]:
                     continue
                 self._seq[idx] = seq
-                if self._fit_one(idx):
-                    done += 1
-            if done:
-                self._cost_ms = 1e3 * (time.perf_counter() - t0)
+                if self._collect(idx):
+                    changed += 1
+            if changed:
                 self._draw_selected()
-                self.lblStatus.setText(
-                    "%d overtone(s) refitted in %.0f ms" % (done, self._cost_ms))
+                fits = sum(1 for d in self._last if d is not None and d["fit"] is not None
+                           and d["fit"]["source"] == "fit")
+                self.lblStatus.setText("%d overtone(s) updated — %d published by the fit"
+                                       % (changed, fits))
         except Exception as e:
             self._timer.stop()
-            print(TAG, "Warning: live fit stopped:", e)
-            Log.i(TAG, "Warning: live fit stopped: %s" % e)
+            print(TAG, "Warning: live fit view stopped:", e)
+            Log.i(TAG, "Warning: live fit view stopped: %s" % e)
             self.lblStatus.setText("stopped: %s" % e)
 
-    def _fit_one(self, idx):
+    def _collect(self, idx):
+        """Read one overtone from the worker: shipped arrays, published pair,
+        fit fields. No computation beyond evaluating the shipped model."""
         g = self.worker.get_G_exact_buffer(idx)
-        b = self.worker.get_B_exact_buffer(idx)
         f = self.worker.get_F_G_values_buffer(idx)
-        if not (isinstance(g, np.ndarray) and isinstance(b, np.ndarray)
-                and isinstance(f, np.ndarray)):
+        if not (isinstance(g, np.ndarray) and isinstance(f, np.ndarray)):
             return False
-        if len(g) < 32 or len(b) != len(g) or len(f) != len(g):
+        if len(g) < 8 or len(f) != len(g):
             return False
-
-        # The producer already clipped to +-IMPEDANCE_PANEL_BAND_GAMMA half
-        # widths, which is the offline default band, so the whole array is the
-        # fit window. Decimate only to bound the cost.
-        step = max(1, len(f) // Constants.IMPEDANCE_FIT_POINTS)
-        fb = np.asarray(f[::step], dtype=float)
-        Y = np.asarray(g[::step], dtype=float) / 1e3 \
-            + 1j * np.asarray(b[::step], dtype=float) / 1e3      # mS -> S
-        keep = np.isfinite(fb) & np.isfinite(Y.real) & np.isfinite(Y.imag)
-        if keep.sum() < 32:
-            return False
-        fb, Y = fb[keep], Y[keep]
-        all_true = np.ones(len(fb), dtype=bool)
-
-        try:
-            a1 = fa.fit1_circle(fb, Y, all_true, theta0=self._theta[idx])
-            self._theta[idx] = a1["theta"]
-            fs0, hw = fa._seed(fb, Y.real, all_true)
-            a2 = fa.fit2_lorentzian(fb, Y.real, all_true, fs0, 2.0 * hw)
-        except Exception as e:
-            # a single bad sweep must not kill the window or poison the cache
-            self._theta[idx] = None
-            print(TAG, "Warning: fit failed on overtone %d: %s" % (idx, e))
-            return False
-
+        f_pub = float(self.worker.get_fr_G_buffer(idx))
+        gam_pub = float(self.worker.get_gamma_G_buffer(idx))
         try:
             delta = float(self.worker.get_delta_G_buffer(idx))
         except Exception:
-            delta = float('nan')
+            delta = float("nan")
         try:
-            masked = float(self.worker.get_masked_G_buffer(idx))
+            fit = self.worker.get_fit_G_buffer(idx)
         except Exception:
-            masked = 0.0
-
-        # fs_seed travels with the result: fit2's linear background is written
-        # relative to it, so evaluating the curve against anything else shifts it
-        self._last[idx] = dict(f=fb, Y=Y, a1=a1, a2=a2, delta=delta,
-                               masked=masked, fs_seed=float(fs0))
-        self._update_row(idx, a1, a2, delta, masked)
+            fit = None
+        self._last[idx] = dict(f=np.asarray(f, dtype=float), g=np.asarray(g, dtype=float),
+                               f_pub=f_pub, gam_pub=gam_pub, delta=delta, fit=fit)
+        self._update_row(idx, self._last[idx])
         return True
 
-    # ------------------------------------------------------------------- view
-    def _update_row(self, idx, a1, a2, delta, masked):
-        vals = ("%d" % (2 * idx + 1),
-                "no fold" if delta == 0.0 else "%+.2f" % delta,
-                "-" if not masked else "%.0f" % masked,
-                "%.2f" % a1["fs"],
-                "%.2f" % a1["gamma"],
-                "%.2f" % (a1["D"] * 1e6),
-                "%.2f" % a1["R1"],
-                "%.2f" % (a1["L1"] * 1e3),
-                "%.2f" % (100.0 * a1["rms_rel"]),
-                "%.2f" % a2["fs"],
-                "%+.1f" % (100.0 * (a2["gamma"] - a1["gamma"]) / a1["gamma"]
-                           if a1["gamma"] else float('nan')),
-                "%+.1f" % (a2["fs"] - a1["fs"]))
+    def _update_row(self, idx, d):
+        fit = d["fit"]
+        f_pub, gam_pub = d["f_pub"], d["gam_pub"]
+        D = 2.0 * gam_pub / f_pub * 1e6 if f_pub else float("nan")
+        delta_txt = ("-" if not _finite(d["delta"]) else
+                     "no fold" if d["delta"] == 0.0 else "%+.2f" % d["delta"])
+        if fit is None:
+            vals = ("%d" % (2 * idx + 1), "maximum of G (no fit shipped)",
+                    "%.1f" % f_pub, "%.1f" % gam_pub, "%.2f" % D, "-", "-",
+                    "%.1f" % f_pub, "%.1f" % gam_pub, delta_txt)
+            colour = self._palette["muted"]
+        else:
+            src = ("fit  (%d fit / %d fallback)" % (fit["used"], fit["fallback"])
+                   if fit["source"] == "fit" else
+                   "FALLBACK: %s  (%d fit / %d fallback)"
+                   % (fit["reason"], fit["used"], fit["fallback"]))
+            vals = ("%d" % (2 * idx + 1), src,
+                    "%.1f" % f_pub, "%.1f" % gam_pub, "%.2f" % D,
+                    "%+.1f" % fit["phi_deg"] if _finite(fit["phi_deg"]) else "-",
+                    "%.2f" % (100.0 * fit["rms_rel"]) if _finite(fit["rms_rel"]) else "-",
+                    "%.1f" % fit["f_argmax"], "%.1f" % fit["gamma_hh"], delta_txt)
+            colour = (self.GRADES[self.theme][0] if fit["source"] == "fit"
+                      else self.GRADES[self.theme][2])
         for col, v in enumerate(vals):
             self.table.item(idx, col).setText(v)
-        # colour the circle residual: it is the single best "do I trust this"
-        # indicator on screen. 2 % is the clean-air figure, 5 % is the
-        # acceptance threshold the offset estimator itself uses.
-        rms = 100.0 * a1["rms_rel"]
-        colour = self._grade(rms, 2.0, 5.0)
-        self.table.item(idx, 8).setForeground(QtGui.QColor(colour))
-        # and the masked fraction. Thresholds from measurement, not taste: at 20 %
-        # dropped the two Gamma estimators already disagree by 20 % (air, 9th
-        # overtone, 2026-07-28) because the surviving arc no longer pins FIT 2's
-        # background nor FIT 1's rotation. The circle residual keeps looking fine
-        # while that happens, so this column is the warning, not the rms.
-        mcol = (self._palette["muted"] if not masked
-                else self._grade(masked, 10.0, 20.0))
-        self.table.item(idx, 2).setForeground(QtGui.QColor(mcol))
+        self.table.item(idx, 1).setForeground(QtGui.QColor(colour))
+        self.table.item(idx, 1).setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        if fit is not None and _finite(fit["rms_rel"]):
+            rms = 100.0 * fit["rms_rel"]
+            lim = 100.0 * Constants.PSL_RMS_MAX
+            self.table.item(idx, 6).setForeground(QtGui.QColor(self._grade(rms, 0.4 * lim, lim)))
+        if fit is not None and _finite(fit["phi_deg"]):
+            self.table.item(idx, 5).setForeground(QtGui.QColor(
+                self._grade(abs(fit["phi_deg"]), 0.5 * Constants.PSL_PHI_MAX_DEG,
+                            Constants.PSL_PHI_MAX_DEG)))
 
-    def _draw_selected(self):
-        """Draw the visible tab only.
+    def model_curve(self, idx, f):
+        """The shipped model on an axis, in mS of the shipped curve; None if the
+        producer shipped no fit. Public so a test can compare it with
+        core.lorentzian.rotated_lorentzian on the same parameters."""
+        d = self._last[idx]
+        if d is None or d["fit"] is None:
+            return None
+        fit = d["fit"]
+        if not all(_finite(fit[k]) for k in ("fres", "gamma", "phi_deg", "gmax_mS", "g_off_mS")):
+            return None
+        return rotated_lorentzian(f, fit["fres"], fit["gamma"], fit["phi_deg"],
+                                  fit["gmax_mS"], fit["g_off_mS"])
 
-        Every overtone is refitted on every tick because the table shows them all,
-        but only one set of curves is ever updated: switching tab redraws from the
-        cached fit rather than recomputing it.
-        """
+    def _draw_selected(self, *_args):
         idx = self._current_index()
         if idx is None or self._last[idx] is None:
             return
         pane = self._panes[idx]
         d = self._last[idx]
-        f, Y, a1, a2 = d["f"], d["Y"], d["a1"], d["a2"]
-
-        # G(f), x as the detuning from the fitted f_s
-        pane.curveG.setData(x=f - a2["fs"], y=Y.real * 1e3)
-        ff = np.linspace(f[0], f[-1], 400)
-        pane.curveG2.setData(x=ff - a2["fs"],
-                             y=fa.fit2_curve(ff, dict(fit2=a2,
-                                             fs_seed=d["fs_seed"])) * 1e3)
-        # separators, not runs of spaces: the title is rendered as HTML and
-        # collapses them
-        pane.pG.setTitle("FIT 2 &nbsp;|&nbsp; f_s = %.1f Hz &nbsp;|&nbsp; "
-                         "Gamma = %.1f Hz (FWHM) &nbsp;|&nbsp; D = %.2f ppm"
-                         % (a2["fs"], a2["gamma"], a2["D"] * 1e6))
-
-        # B(f), with what FIT 1 predicts for it. The model comes from the circle's
-        # own geometry - psi = -2*arctan(x) is the position on the arc - so the
-        # dashed line is the same fit shown in the locus, read in the B channel.
-        pane.curveBf.setData(x=f - a2["fs"], y=Y.imag * 1e3)
-        x_det = (ff * ff - a1["fs"] ** 2) / (ff * max(a1["gamma"], 1e-9))
-        psi = -2.0 * np.arctan(x_det)
-        Bm = (a1["yc"] + a1["r"] * np.sin(psi + a1["theta"])) * 1e3
-        pane.curveBfit.setData(x=ff - a2["fs"], y=Bm)
-        pane.zeroB.setData(x=[f[0] - a2["fs"], f[-1] - a2["fs"]], y=[0.0, 0.0])
-        # B is where a broken reconstruction shows up: report the largest step
-        # between adjacent samples as a fraction of B's own range. A continuous
-        # trajectory keeps this at a few per cent.
-        Bmea = Y.imag * 1e3
-        span = float(np.ptp(Bmea)) or 1.0
-        jump = 100.0 * float(np.max(np.abs(np.diff(Bmea)))) / span
-        pane.pB.setTitle("FIT 1 &nbsp;|&nbsp; B span = %.3f mS &nbsp;|&nbsp; "
-                         "largest step between samples = %.1f %% of span"
-                         % (span, jump))
-
-        # the locus and the fitted circle
-        pane.curveB.setData(x=Y.real * 1e3, y=Y.imag * 1e3)
-        th = np.linspace(0.0, 2.0 * np.pi, 181)
-        pane.curveFit.setData(x=(a1["xc"] + a1["r"] * np.cos(th)) * 1e3,
-                              y=(a1["yc"] + a1["r"] * np.sin(th)) * 1e3)
-        # psi = 0 on the arc is the fitted resonance; where it lands makes the
-        # rotation the fit had to absorb visible
-        pane.markFs.setData(x=[(a1["xc"] + a1["r"] * np.cos(a1["theta"])) * 1e3],
-                            y=[(a1["yc"] + a1["r"] * np.sin(a1["theta"])) * 1e3])
-        pane.pC.setTitle("FIT 1 &nbsp;|&nbsp; R1 = %.2f ohm &nbsp;|&nbsp; "
-                         "rms = %.2f %% of r &nbsp;|&nbsp; theta = %+.1f deg"
-                         % (a1["R1"], 100.0 * a1["rms_rel"],
-                            np.rad2deg(a1["theta"])))
+        f, g, f_pub = d["f"], d["g"], d["f_pub"]
+        step = max(1, len(f) // DRAW_POINTS)
+        fx, gx = f[::step], g[::step]
+        x = fx - f_pub
+        pane.curveG.setData(x=x, y=gx)
+        pane.markFres.setPos(0.0)
+        model = self.model_curve(idx, fx)
+        fit = d["fit"]
+        if model is None:
+            pane.curveFit.setData(x=np.array([]), y=np.array([]))
+            pane.curveR.setData(x=np.array([]), y=np.array([]))
+            pane.zeroR.setData(x=np.array([]), y=np.array([]))
+            pane.window.setRegion((0, 0))
+            pane.markArg.setPos(0.0)
+            pane.pG.setTitle("G(f) &nbsp;|&nbsp; published: maximum of G, %.1f Hz &nbsp;|&nbsp; "
+                             "Γ half height %.1f Hz &nbsp;|&nbsp; no fit shipped by the process"
+                             % (f_pub, d["gam_pub"]))
+            pane.pR.setTitle("residual: no fit")
+            return
+        pane.curveFit.setData(x=x, y=model)
+        span = float(np.ptp(gx)) or 1.0
+        pane.curveR.setData(x=x, y=(gx - model) / span * 100.0)
+        pane.zeroR.setData(x=[x[0], x[-1]], y=[0.0, 0.0])
+        band = Constants.PSL_BAND_GAMMA * fit["gamma_hh"]
+        pane.window.setRegion((fit["f_argmax"] - band - f_pub, fit["f_argmax"] + band - f_pub))
+        pane.markArg.setPos(fit["f_argmax"] - f_pub)
+        who = ("fit" if fit["source"] == "fit" else "FALLBACK (%s)" % fit["reason"])
+        pane.pG.setTitle("published by the %s &nbsp;|&nbsp; f_res = %.1f Hz &nbsp;|&nbsp; "
+                         "Γ = %.1f Hz &nbsp;|&nbsp; D = %.2f ppm &nbsp;|&nbsp; φ = %+.1f° "
+                         "&nbsp;|&nbsp; maximum of G %+.0f Hz from f_res"
+                         % (who, f_pub, d["gam_pub"], 2.0 * d["gam_pub"] / f_pub * 1e6,
+                            fit["phi_deg"], fit["f_argmax"] - f_pub))
+        pane.pR.setTitle("residual, measured − fit: rms %.2f %% of range (gate: ≤ %.0f %%) "
+                         "&nbsp;|&nbsp; fit cost %.1f ms in the process"
+                         % (100.0 * fit["rms_rel"], 100.0 * Constants.PSL_RMS_MAX, fit["cost_ms"]))

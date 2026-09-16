@@ -463,10 +463,8 @@ class Constants:
     # Refresh period: the fits only re-run when a sweep actually completed, so
     # this is just how promptly the window notices - not how often it works.
     IMPEDANCE_FIT_UPDATE_MS = 500
-    # Samples the fits run on, per overtone, after decimation. 250 keeps the two
-    # fits at a few ms each; the estimators are not sample-starved well below it
-    # (the covariance on f_s stays sub-hertz at 150).
-    IMPEDANCE_FIT_POINTS = 250
+    # (IMPEDANCE_FIT_POINTS, the decimation of the fits the window used to run
+    # itself, went with them on 2026-09-16: the window fits nothing now.)
 
     # VER 0.1.6G INPB attenuator R11/R19 (from the schematic). The ADC->V
     # conversion has to undo it, and the amount is NOT one clean decade:
