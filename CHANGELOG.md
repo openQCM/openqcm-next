@@ -5,6 +5,13 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Changed — the impedance panel shows B(f) under G(f); the admittance locus and its circle overlay are gone (2026-09-16, T3)
+
+`pltGB` → `pltSus`: the lower view of the right-hand dock is the susceptance against the same frequency offset
+as G, x-linked, one curve per overtone. `_fit_circle_taubin`, `IMPEDANCE_PANEL_SHOW_FIT` and
+`IMPEDANCE_PANEL_FIT_GAMMA` removed. The process ships B as the chain computes it, no baseline removed (D1).
+Verified headless (setupUi, module import, 22 tests); the look on the real platform is Marco's check.
+
 ### Changed — the acquisition publishes the phase-shifted Lorentzian fit; the fallback is counted and logged (2026-09-16, T2)
 
 `Multiscan.elaborate_multi` → `_publish_resonance()` → `core.lorentzian.publish()`: the datalog's `Frequency_n`
