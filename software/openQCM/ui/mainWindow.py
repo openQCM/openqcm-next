@@ -3614,13 +3614,26 @@ class MainWindow(QtGui.QMainWindow):
 
                 # the locus of the same sweep, and its circle: the published fit's
                 # own or one fitted in the view, per admittanceCircle. The fit dict
-                # is what the process shipped; peaks_mag[idx] is the published f_res.
+                # is what the process shipped.
+                # ⚠️ The circle is anchored on the PUBLISHED f_res (get_fr_G_buffer),
+                # not on peaks_mag: peaks_mag is the calibration centre of the
+                # sweep, the origin of the x axis above, and in the 2026-09-16
+                # bench run it sat ~900 Hz from the resonance. Centring the ±Γ
+                # core there took the tail of the locus and fitted a circle twice
+                # the size of the fit window's for the same sweep (Marco's
+                # screenshot). Same anchor as the fit window now: same circle.
                 self._pltLocus_multiline[idx].setData(x = g_axis[::step], y = b_axis[::step])
                 try:
                     fit = self.worker.get_fit_G_buffer(idx)
                 except Exception:
                     fit = None
-                c = admittanceCircle.circle_for(fit, f_axis, g_axis, b_axis, peaks_mag[idx])
+                try:
+                    f_pub = float(self.worker.get_fr_G_buffer(idx))
+                except Exception:
+                    f_pub = float("nan")
+                if not np.isfinite(f_pub):
+                    f_pub = float(f_axis[int(np.argmax(g_axis))])
+                c = admittanceCircle.circle_for(fit, f_axis, g_axis, b_axis, f_pub)
                 if c is None:
                     self._pltLocus_circle[idx].setData(x = self._numpy_empty,
                                                        y = self._numpy_empty)
@@ -5907,7 +5920,7 @@ class MainWindow(QtGui.QMainWindow):
                             name = "measured")
         self._pltLocus.plot(pen = pg.mkPen(color = admittanceCircle.FIT_COLOUR,
                                            width = 1, style = QtCore.Qt.DashLine),
-                            name = "circle (fit if experimental, else display only)")
+                            name = "circle")
 
         for idx in range(self._overtones_number_all):
             self._pltG_multiline[idx] = self._pltG.plot(
