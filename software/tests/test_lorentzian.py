@@ -154,9 +154,10 @@ class GateTests(unittest.TestCase):
         pub, fit = L.publish(f, g, 5.006e6, 150.0, estimator="argmax")
         self.assertIsNone(fit)
         self.assertEqual((pub.fres, pub.gamma, pub.source), (5.006e6, 150.0, L.SOURCE_FALLBACK))
+        self.assertIn("standard estimator", pub.reason)
 
     def test_defaults_are_the_constants(self):
-        self.assertEqual(Constants.IMPEDANCE_ESTIMATOR, "lorentzian")
+        self.assertEqual(Constants.IMPEDANCE_ESTIMATOR, "argmax")      # the standard; "lorentzian" is experimental
         self.assertEqual(Constants.PSL_RMS_MAX, 0.05)
         self.assertEqual(Constants.PSL_PHI_MAX_DEG, 60.0)
         self.assertEqual(tuple(Constants.PSL_GAMMA_RATIO), (0.3, 3.0))
@@ -191,7 +192,7 @@ class DumpRegressionTests(unittest.TestCase):
             self.assertLess(abs(full.fres - exp["fres"]), 0.5, key)
             self.assertLess(abs(full.gamma - exp["gamma"]), 0.5, key)
             self.assertLess(abs(full.phi_deg - exp["phi_deg"]), 0.05, key)
-            pub, fit = L.publish(fr, G, f_arg, gam0)
+            pub, fit = L.publish(fr, G, f_arg, gam0, estimator="lorentzian")   # the experimental mode
             self.assertEqual(pub.source, L.SOURCE_FIT, "%s: %s" % (key, pub.reason))
             self.assertLess(abs(pub.fres - exp["fres"]), 2.0, key)
             self.assertLess(abs(pub.gamma - exp["gamma"]), 3.0, key)

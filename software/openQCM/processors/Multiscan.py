@@ -541,21 +541,36 @@ class MultiscanProcess(multiprocessing.Process):
     # live fit window in the G/B message. A path with a fallback that returns a
     # plausible number needs a witness that says which path ran, or it is not
     # verifiable (HANDOFF §6).
+    def set_estimator(self, mode):
+        """"argmax" (standard) or "lorentzian" (experimental); None keeps the default.
+        Must be called before start(): the acquisition runs in a child process."""
+        self._estimator = mode
+
+    def estimator_mode(self):
+        return self._estimator or Constants.IMPEDANCE_ESTIMATOR
+
     def _publish_resonance(self, overtone_number, freq, G, f_argmax, gamma_hh):
-        published, fit = lorentzian.publish(freq, G, f_argmax, gamma_hh)
+        mode = self.estimator_mode()
+        published, fit = lorentzian.publish(freq, G, f_argmax, gamma_hh, estimator=mode)
         if not hasattr(self, "_psl_counts"):
             self._psl_counts = {}
             self._psl_source = {}
-        used, fallen = self._psl_counts.get(overtone_number, (0, 0))
-        if published.source == lorentzian.SOURCE_FIT:
-            used += 1
-        else:
-            fallen += 1
-        self._psl_counts[overtone_number] = (used, fallen)
-        if self._psl_source.get(overtone_number) != published.source:
-            self._psl_source[overtone_number] = published.source
+        if mode == "lorentzian":
+            used, fallen = self._psl_counts.get(overtone_number, (0, 0))
             if published.source == lorentzian.SOURCE_FIT:
-                line = ("Resonance (overtone %d): published by the phase-shifted "
+                used += 1
+            else:
+                fallen += 1
+            self._psl_counts[overtone_number] = (used, fallen)
+        key = (mode, published.source)
+        if self._psl_source.get(overtone_number) != key:
+            self._psl_source[overtone_number] = key
+            if mode != "lorentzian":
+                line = ("Resonance (overtone %d): STANDARD estimator -- maximum of G %.1f Hz, "
+                        "half-height Gamma %.1f Hz (experimental fit off)"
+                        % (overtone_number, f_argmax, gamma_hh))
+            elif published.source == lorentzian.SOURCE_FIT:
+                line = ("Resonance (overtone %d): EXPERIMENTAL, published by the phase-shifted "
                         "Lorentzian fit -- f_res %.1f Hz, Gamma %.1f Hz, phi %+.1f deg, "
                         "rms %.2f %% of range, %d points, %.1f ms"
                         % (overtone_number, fit.fres, fit.gamma, fit.phi_deg,
@@ -565,7 +580,7 @@ class MultiscanProcess(multiprocessing.Process):
                           " (fit gave f_res %.1f Hz, Gamma %.1f Hz, phi %+.1f deg, "
                           "rms %.2f %%)" % (fit.fres, fit.gamma, fit.phi_deg,
                                             100.0 * fit.rms_rel))
-                line = ("Resonance (overtone %d): published by the FALLBACK, maximum "
+                line = ("Resonance (overtone %d): EXPERIMENTAL, published by the FALLBACK, maximum "
                         "of G %.1f Hz and half-height width %.1f Hz -- %s%s"
                         % (overtone_number, f_argmax, gamma_hh, published.reason,
                            detail))
@@ -1276,7 +1291,11 @@ class MultiscanProcess(multiprocessing.Process):
                                                 1.0 if published.source == lorentzian.SOURCE_FIT else 0.0,
                                                 float(_used), float(_fallen),
                                                 # 23: why (a string)
-                                                str(published.reason)])
+                                                str(published.reason),
+                                                # 24: the run's estimator mode,
+                                                # "argmax" (standard) or
+                                                # "lorentzian" (experimental)
+                                                str(self.estimator_mode())])
         except Exception as e:
             # The panel is a diagnostic view: never let it break an acquisition.
             print("Warning: exact G/B for the impedance panel failed:", e)
@@ -1519,6 +1538,10 @@ class MultiscanProcess(multiprocessing.Process):
         self._parser_P_multi = parser_process
         # VER 0.1.6G exact conductance / susceptance, for the live impedance panel
         self._parser_GB_multi = parser_process
+        # VER 0.1.6G the estimator of this run, set by the Worker through
+        # set_estimator() BEFORE start() (this object is pickled into the child
+        # process at start; the GUI's Constants are not). None -> the default.
+        self._estimator = None
 
         # serial process 
         self._serial = serial.Serial()

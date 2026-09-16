@@ -38,7 +38,8 @@ class Worker:
                       samples = Constants.argument_default_samples,
                       source = SourceType.serial,
                       export_enabled = False, 
-                      sampling_time = None):
+                      sampling_time = None,
+                      estimator = None):
         """
         :param port: Port to open on start :type port: str.
         :param speed: Speed for the specified port :type speed: float.
@@ -190,6 +191,9 @@ class Worker:
         
         # VER 0.1.4
         self._sampling_time = sampling_time
+        # VER 0.1.6G the run's estimator, chosen in the Measurement Setup before
+        # START: "argmax" (standard) or "lorentzian" (experimental); None = default
+        self._estimator = estimator
         self.time_elapsed = 0
 
         # VER 0.1.6 wall-clock start of the run, in SECONDS.
@@ -271,6 +275,9 @@ class Worker:
         # multi frequency measurement 
         elif self._source == SourceType.multiscan:
             self._acquisition_process = MultiscanProcess(self._parser_process)
+            # the estimator has to be on the object BEFORE start(): the child
+            # process is a pickled copy, the GUI's Constants never reach it
+            self._acquisition_process.set_estimator(self._estimator)
             
         # OPEN PROCESS 
         # ---------------------------------------------------------------------    
@@ -714,7 +721,10 @@ class Worker:
                 cost_ms=float(data[19]),
                 source="fit" if float(data[20]) >= 0.5 else "fallback",
                 used=int(float(data[21])), fallback=int(float(data[22])),
-                reason=str(data[23]))
+                reason=str(data[23]),
+                # 24: the run's estimator mode; a producer without it was
+                # necessarily running the fit
+                mode=str(data[24]) if len(data) > 24 else "lorentzian")
         # bump the per-overtone revision so the GUI can skip untouched curves
         self._GB_seq[idx] += 1
 
@@ -977,7 +987,7 @@ class Worker:
             
             # VER 0.1.2
             # init the new datalog file in multi mode: <ts>_multi.csv
-            filenameCSV = "{}_{}".format(self._csv_filename, "multi")
+            filenameCSV = "{}_{}".format(self._csv_filename, self._multi_suffix())
 
             # TODO change the way the file is logged , there are duplicate in the data file 
             # FileStorage.CSVsave_Multi(filenameCSV, Constants.csv_export_path, time() - self._timestart, self._d3_store, self._F_store, self._D_store)
@@ -1127,9 +1137,20 @@ class Worker:
     ###########################################################################
     # Returns the datalog CSV filename of the current acquisition
     ###########################################################################
+    def get_estimator(self):
+        """The run's estimator mode: "argmax" (standard) or "lorentzian" (experimental)."""
+        return self._estimator or Constants.IMPEDANCE_ESTIMATOR
+
+    def _multi_suffix(self):
+        """`multi` for the standard estimator, `multi_lorentzian` for the experimental
+        one (Marco, D7): a datalog says by its name which estimator wrote it, and the
+        two are not comparable."""
+        return "multi" if self.get_estimator() != "lorentzian" else "multi_lorentzian"
+
     def _amplitude_datalog_name(self):
-        """`<ts>_multi_amplitude`: main's quantities, beside `<ts>_multi` (this branch's)."""
-        return "{}_{}".format(self._csv_filename, "multi_amplitude")
+        """`<ts>_multi_amplitude` (or `<ts>_multi_lorentzian_amplitude`): main's quantities,
+        beside this branch's datalog."""
+        return "{}_{}".format(self._csv_filename, self._multi_suffix() + "_amplitude")
 
     def get_csv_filename(self):
         # Phase 3d: mirrors the names composed in the storing loop below
@@ -1141,7 +1162,7 @@ class Worker:
             return "{}_{}.{}".format(self._csv_filename, self._overtone_name,
                                      Constants.csv_extension)
         if self._source == SourceType.multiscan:
-            return "{}_{}.{}".format(self._csv_filename, "multi",
+            return "{}_{}.{}".format(self._csv_filename, self._multi_suffix(),
                                      Constants.csv_extension)
         return ""
 

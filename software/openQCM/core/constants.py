@@ -506,18 +506,24 @@ class Constants:
     # ------------------------------------------------------------------ #
     # VER 0.1.6G THE PUBLISHED ESTIMATOR OF f_res AND GAMMA (2026-09-16)  #
     # ------------------------------------------------------------------ #
-    # "lorentzian": the phase-shifted Lorentzian fitted to the exact G alone
-    #   (core/lorentzian.py; Johannsmann, Sensors 2021, 21, 3490, eq. 3). Measured
+    # "argmax" -- THE STANDARD (Marco, 2026-09-16): the sample where G is
+    #   maximum and the two-sided half-height width, exactly as published
+    #   before the fit existed. The fit does not run at all in this mode.
+    # "lorentzian" -- EXPERIMENTAL: the phase-shifted Lorentzian fitted to the
+    #   exact G alone (core/lorentzian.py; Johannsmann, Sensors 2021, 21, 3490,
+    #   eq. 3), with "argmax" as its fallback through the gate below. Measured
     #   on board 1920 in water and isopropanol, 2026-09-11..15: frequency AND
-    #   half-bandwidth shifts on Kanazawa-Gordon within 8 % on overtones 3-9.
-    # "argmax": the sample where G is maximum and the two-sided half-height
-    #   width - the estimator published until 2026-09-16, and the FALLBACK of
-    #   the other one. Its maximum sits off the resonance by Gamma*tan(phi/2):
-    #   2-47 Hz in air, 170-700 Hz in liquid, a 20-30 % excess on the shifts.
-    # ⚠️ Datalogs written under the two estimators are NOT comparable; a change
-    # of this value is a change of what the instrument measures, dated in the
-    # CHANGELOG.
-    IMPEDANCE_ESTIMATOR = "lorentzian"
+    #   half-bandwidth shifts on Kanazawa-Gordon within 8 % on overtones 3-9,
+    #   where the maximum of G sits off the resonance by Gamma*tan(phi/2)
+    #   (2-47 Hz in air, 170-700 Hz in liquid, a 20-30 % excess on the shifts).
+    # This value is the DEFAULT only: the run's mode is chosen in the GUI's
+    # Measurement Setup before START (the "Experimental: phase-shifted
+    # Lorentzian fit" box) and handed to the acquisition process, which is a
+    # separate process and does not see the GUI's constants. A run in the
+    # experimental mode writes <ts>_multi_lorentzian.csv instead of
+    # <ts>_multi.csv: the two are NOT comparable (the frequency differs by
+    # +2..+47 Hz in air and +170..+700 Hz in liquid).
+    IMPEDANCE_ESTIMATOR = "argmax"
 
     # Fit window, in units of the half-height Gamma the process already has
     # (the same +-3 Gamma the impedance panel ships), and the cap on the number

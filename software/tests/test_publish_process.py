@@ -19,6 +19,7 @@ from openQCM.core import lorentzian as L
 from openQCM.core.constants import Constants
 from openQCM.processors.Multiscan import MultiscanProcess
 from openQCM.core.worker import Worker
+from openQCM.core.constants import Constants, SourceType
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RESEARCH = os.path.normpath(os.path.join(HERE, "..", "..", "research",
@@ -38,6 +39,7 @@ class PublishResonanceTests(unittest.TestCase):
 
     def setUp(self):
         self.proc = MultiscanProcess(None)
+        self.proc.set_estimator("lorentzian")          # the experimental mode; the default is "argmax"
 
     def _run(self, idx, f, g, f_seed, gam_seed):
         out = io.StringIO()
@@ -78,17 +80,22 @@ class PublishResonanceTests(unittest.TestCase):
         self.assertIn("published by the phase-shifted Lorentzian fit", text3)
         self.assertEqual(self.proc.psl_counts(0), (1, 2))
 
-    def test_argmax_mode_publishes_the_seed(self):
-        saved = Constants.IMPEDANCE_ESTIMATOR
-        try:
-            Constants.IMPEDANCE_ESTIMATOR = "argmax"
-            f, g = _synthetic(24971700.0, 1600.0, -24.0, 0.5e-3, 0.3e-3)
-            pub, fit, text = self._run(1, f, g, 24971380.0, 1580.0)
-            self.assertIsNone(fit)
-            self.assertEqual((pub.fres, pub.gamma, pub.source), (24971380.0, 1580.0, L.SOURCE_FALLBACK))
-            self.assertIn("estimator=argmax", text)
-        finally:
-            Constants.IMPEDANCE_ESTIMATOR = saved
+    def test_standard_mode_publishes_the_seed_and_runs_no_fit(self):
+        self.proc.set_estimator("argmax")
+        f, g = _synthetic(24971700.0, 1600.0, -24.0, 0.5e-3, 0.3e-3)
+        pub, fit, text = self._run(1, f, g, 24971380.0, 1580.0)
+        self.assertIsNone(fit)
+        self.assertEqual((pub.fres, pub.gamma, pub.source), (24971380.0, 1580.0, L.SOURCE_FALLBACK))
+        self.assertIn("STANDARD estimator", text)
+        self.assertNotIn("FALLBACK", text)
+        self.assertEqual(self.proc.psl_counts(1), (0, 0))          # nothing to count: no fit ran
+        _, _, text2 = self._run(1, f, g, 24971380.0, 1580.0)
+        self.assertEqual(text2, "")
+
+    def test_the_default_mode_is_the_standard(self):
+        proc = MultiscanProcess(None)                              # no set_estimator()
+        self.assertEqual(proc.estimator_mode(), "argmax")
+        self.assertEqual(Constants.IMPEDANCE_ESTIMATOR, "argmax")
 
     def test_counts_start_at_zero_for_an_unseen_overtone(self):
         self.assertEqual(self.proc.psl_counts(4), (0, 0))
@@ -110,6 +117,7 @@ class ReplayDumpsThroughTheProcessTests(unittest.TestCase):
 
     def test_all_45_sweeps_publish_the_fit(self):
         proc = MultiscanProcess(None)
+        proc.set_estimator("lorentzian")
         n_of = {"g1": 0, "g3": 1, "g5": 2, "g7": 3, "g9": 4}
         with contextlib.redirect_stdout(io.StringIO()):
             for key, exp in self.expected.items():
@@ -128,7 +136,7 @@ class ReplayDumpsThroughTheProcessTests(unittest.TestCase):
 class WorkerMessageTests(unittest.TestCase):
 
     def setUp(self):
-        self.w = Worker(sampling_time=7)     # reset_buffers divides by it
+        self.w = Worker(sampling_time=7, estimator="lorentzian")     # reset_buffers divides by the sampling time
         self.w.reset_buffers(Constants.argument_default_samples)
 
     @staticmethod
@@ -139,7 +147,7 @@ class WorkerMessageTests(unittest.TestCase):
         if with_fit:
             msg += [24971737.0, 1582.0,                         # seed = fallback
                     24972088.0, 1646.0, -24.0, 0.0017, 0.55, -0.02, 1.4,   # fit
-                    1.0, 12.0, 0.0, "ok"]
+                    1.0, 12.0, 0.0, "ok", "lorentzian"]
         return msg
 
     def test_the_published_pair_and_the_fit_fields_are_unpacked(self):
@@ -153,7 +161,16 @@ class WorkerMessageTests(unittest.TestCase):
         self.assertEqual(fit["gamma_hh"], 1582.0)
         self.assertAlmostEqual(fit["phi_deg"], -24.0)
         self.assertEqual(fit["reason"], "ok")
+        self.assertEqual(fit["mode"], "lorentzian")
         self.assertEqual(self.w.get_GB_seq(2), 1)
+
+    def test_the_datalog_name_says_which_estimator_wrote_it(self):
+        for mode, suffix in (("lorentzian", "multi_lorentzian"), ("argmax", "multi"), (None, "multi")):
+            w = Worker(sampling_time=7, estimator=mode)
+            w._csv_filename = "2026-09-16_10-00-00"; w._source = SourceType.multiscan
+            self.assertEqual(w.get_csv_filename(), "2026-09-16_10-00-00_%s.csv" % suffix, mode)
+            self.assertEqual(w._amplitude_datalog_name(), "2026-09-16_10-00-00_%s_amplitude" % suffix, mode)
+            self.assertEqual(w.get_estimator(), mode or "argmax")
 
     def test_an_older_message_leaves_the_fit_buffer_empty(self):
         self.w._queue_data_GB_multi(self._message(1, with_fit=False))

@@ -196,14 +196,15 @@ def accept(fit, f_seed, gamma_seed, f_lo, f_hi, rms_max=None, phi_max_deg=None,
 def publish(freq, G, f_seed, gamma_seed, estimator=None):
     """What the process logs for one sweep: (Published, PSLFit or None).
 
-    estimator: Constants.IMPEDANCE_ESTIMATOR unless given — "lorentzian" runs
-    the fit and the gate, "argmax" publishes the seeds untouched (today's
-    estimator, one edit away).
+    estimator: Constants.IMPEDANCE_ESTIMATOR unless given — "argmax" (the
+    standard) publishes the seeds untouched without running the fit;
+    "lorentzian" (experimental) runs the fit and the gate.
     """
     estimator = Constants.IMPEDANCE_ESTIMATOR if estimator is None else estimator
     if estimator != "lorentzian":
+        # the STANDARD estimator: the seed itself, no fit run, not a fallback
         return Published(float(f_seed), float(gamma_seed), SOURCE_FALLBACK,
-                         "estimator=%s" % estimator), None
+                         "standard estimator (maximum of G, half-height width)"), None
     fit = fit_phase_shifted_lorentzian(freq, G, f_seed, gamma_seed)
     f = np.asarray(freq, dtype=float)
     w = fit_window(f, f_seed, gamma_seed)
