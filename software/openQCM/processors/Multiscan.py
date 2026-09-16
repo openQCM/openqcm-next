@@ -3,6 +3,7 @@ from collections import namedtuple
 from openQCM.core.ringBuffer import RingBuffer
 from openQCM.core.constants import Constants
 from openQCM.core import resonance
+from openQCM.core import lorentzian
 from openQCM.common.fileStorage import FileStorage
 from openQCM.common import sweepDump as SweepDump
 from openQCM.common.pidQuery import read_pid
@@ -522,6 +523,63 @@ class MultiscanProcess(multiprocessing.Process):
         idx_max, fr = self._Freq_G(G_conductance, freq)
         band = self._half_bandwidth_G_exact(G_conductance, freq)
         return idx_max, fr, band
+
+    # VER 0.1.6G THE PUBLISHED ESTIMATOR (2026-09-16). What goes to the datalog,
+    # to the sweep tracker and to the GUI as f_r / Gamma of one sweep.
+    #
+    # core/lorentzian.publish() fits the phase-shifted Lorentzian to G on a
+    # +-PSL_BAND_GAMMA window around the maximum, seeded with the maximum and the
+    # half-height width the parameters finder just produced, and puts the fit
+    # through the gate (Constants.PSL_RMS_MAX / PSL_PHI_MAX_DEG / PSL_GAMMA_RATIO).
+    # If the gate says no -- or Constants.IMPEDANCE_ESTIMATOR is "argmax" -- the
+    # published pair is the seed itself, untouched: the estimator of before.
+    #
+    # ⚠️ The fallback is never silent. Per overtone this keeps a count of sweeps
+    # published by the fit and by the fallback; the first sweep of an overtone
+    # and every CHANGE of source write one line to the System Log (and to the
+    # console) with the reason and the numbers, and the counts travel to the
+    # live fit window in the G/B message. A path with a fallback that returns a
+    # plausible number needs a witness that says which path ran, or it is not
+    # verifiable (HANDOFF §6).
+    def _publish_resonance(self, overtone_number, freq, G, f_argmax, gamma_hh):
+        published, fit = lorentzian.publish(freq, G, f_argmax, gamma_hh)
+        if not hasattr(self, "_psl_counts"):
+            self._psl_counts = {}
+            self._psl_source = {}
+        used, fallen = self._psl_counts.get(overtone_number, (0, 0))
+        if published.source == lorentzian.SOURCE_FIT:
+            used += 1
+        else:
+            fallen += 1
+        self._psl_counts[overtone_number] = (used, fallen)
+        if self._psl_source.get(overtone_number) != published.source:
+            self._psl_source[overtone_number] = published.source
+            if published.source == lorentzian.SOURCE_FIT:
+                line = ("Resonance (overtone %d): published by the phase-shifted "
+                        "Lorentzian fit -- f_res %.1f Hz, Gamma %.1f Hz, phi %+.1f deg, "
+                        "rms %.2f %% of range, %d points, %.1f ms"
+                        % (overtone_number, fit.fres, fit.gamma, fit.phi_deg,
+                           100.0 * fit.rms_rel, fit.n_fit, fit.cost_ms))
+            else:
+                detail = ("" if fit is None else
+                          " (fit gave f_res %.1f Hz, Gamma %.1f Hz, phi %+.1f deg, "
+                          "rms %.2f %%)" % (fit.fres, fit.gamma, fit.phi_deg,
+                                            100.0 * fit.rms_rel))
+                line = ("Resonance (overtone %d): published by the FALLBACK, maximum "
+                        "of G %.1f Hz and half-height width %.1f Hz -- %s%s"
+                        % (overtone_number, f_argmax, gamma_hh, published.reason,
+                           detail))
+            print(line)
+            if getattr(self, "_parser6", None) is not None:
+                try:
+                    self._parser6.add_message(line)
+                except Exception:
+                    pass
+        return published, fit
+
+    def psl_counts(self, overtone_number):
+        """(sweeps published by the fit, sweeps published by the fallback)."""
+        return getattr(self, "_psl_counts", {}).get(overtone_number, (0, 0))
 
     # VER 0.1.6G half-bandwidth Gamma at half height of the conductance peak.
     #
@@ -1048,6 +1106,16 @@ class MultiscanProcess(multiprocessing.Process):
             self.parameters_finder_impedance_exact(freq_range, G_exact_S)
         half_bandwidth = G_band.bandwidth
 
+        # VER 0.1.6G what this sweep PUBLISHES: the phase-shifted Lorentzian fit
+        # when it passes the gate, the maximum of G and the half-height width
+        # otherwise. See _publish_resonance. frequency_resonance_G and
+        # half_bandwidth keep their meaning below -- the seed, i.e. the fallback --
+        # and the panel's window is still cut around them, which is the fit's
+        # own window.
+        published, psl_fit = self._publish_resonance(
+            overtone_number, freq_range, G_exact_S,
+            float(frequency_resonance_G), float(abs(half_bandwidth)))
+
         # B is ODD in phi and needs the sign, which comes from undoing the fold.
         # ONLY when there is a fold: on a damped load the true phase never
         # crosses zero, the reading already IS the signed phase, and flipping
@@ -1153,12 +1221,25 @@ class MultiscanProcess(multiprocessing.Process):
             # circle fit to the core of the resonance. The measured phase offset
             # travels too, so the live fit window can show it without the user
             # having to read the console.
+            # fields 4-5 are the PUBLISHED pair (fit or fallback, as the
+            # datalog gets them); the seed and the fit travel in the fields
+            # appended after the band, so the live window can draw both without
+            # computing either.
+            _fit_fields = ([float(psl_fit.fres), float(psl_fit.gamma),
+                            float(psl_fit.phi_deg), float(psl_fit.rms_rel),
+                            float(psl_fit.gmax * 1000.0),
+                            # G_off in the frame of the SHIPPED curve (mS,
+                            # baseline removed), like the half level below
+                            float(psl_fit.g_off * 1000.0 - g_baseline),
+                            float(psl_fit.cost_ms)]
+                           if psl_fit is not None else [float("nan")] * 7)
+            _used, _fallen = self.psl_counts(overtone_number)
             self._parser_GB_multi.add_GB_multi([int(overtone_number),
                                                 freq_range[keep].tolist(),
                                                 G_exact[keep].tolist(),
                                                 B_exact[keep].tolist(),
-                                                float(f_res),
-                                                float(abs(half_bandwidth)),
+                                                float(published.fres),
+                                                float(published.gamma),
                                                 float(phase_offset),
                                                 float(frac),
                                                 # ⚠️ the crossings Gamma was
@@ -1180,7 +1261,18 @@ class MultiscanProcess(multiprocessing.Process):
                                                 # on the floor of the plot.
                                                 _shipped_half_level(
                                                     G_band.half_level,
-                                                    g_baseline)])
+                                                    g_baseline),
+                                                # 11-12: the seed = the fallback
+                                                float(f_res),
+                                                float(abs(half_bandwidth)),
+                                                # 13-19: the fit (NaN if none)
+                                                *_fit_fields,
+                                                # 20-22: which one was published,
+                                                # and the counts so far
+                                                1.0 if published.source == lorentzian.SOURCE_FIT else 0.0,
+                                                float(_used), float(_fallen),
+                                                # 23: why (a string)
+                                                str(published.reason)])
         except Exception as e:
             # The panel is a diagnostic view: never let it break an acquisition.
             print("Warning: exact G/B for the impedance panel failed:", e)
@@ -1191,7 +1283,8 @@ class MultiscanProcess(multiprocessing.Process):
         # change the dissipation calculation as the inverse of the bandwidth defined above in parameter finder 
         # VER 0.1.5a_G_DEV
         # self._my_list_f[overtone_number].append( frequency_resonance )
-        self._my_list_f[overtone_number].append( frequency_resonance_G )
+        # VER 0.1.6G the PUBLISHED frequency: fit or fallback, see _publish_resonance
+        self._my_list_f[overtone_number].append( published.fres )
         
         # self._my_list_d[overtone_number].append( (Qfac_fit/1000000) )
         # VER 0.1.5a_G_DEV
@@ -1219,9 +1312,9 @@ class MultiscanProcess(multiprocessing.Process):
         # what HANDOFF records independently ("Gamma reaches 2.5 kHz", "a 62 Hz
         # band inside an 18 kHz span"). The published column did not hold the
         # quantity the instrument had been validated against.
-        _f_res = frequency_resonance_G
+        _f_res = published.fres
         if _f_res and np.isfinite(_f_res) and _f_res > 0:
-            _dissipation_ppm = 2.0 * abs(half_bandwidth) / _f_res * 1e6
+            _dissipation_ppm = 2.0 * published.gamma / _f_res * 1e6
         else:
             _dissipation_ppm = float("nan")
         self._my_list_d[overtone_number].append( _dissipation_ppm )
@@ -1265,8 +1358,8 @@ class MultiscanProcess(multiprocessing.Process):
         # set the current value of resonance frequecy at specific overtone 
         if self._k <= self._environment:
             # current value is raw
-            # VER 0.1.5a_G_DEV
-            self.freq_res_current_array [overtone_number] = freq_range[int(index_peak_fit_G)]
+            # VER 0.1.5a_G_DEV / 0.1.6G: the published value, fit or fallback
+            self.freq_res_current_array [overtone_number] = published.fres
         else:
             # current value as average 
             self.freq_res_current_array [overtone_number] = int( self._freq_range_mean [overtone_number])

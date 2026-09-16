@@ -102,6 +102,7 @@ class Worker:
         # height in raw G units: [f_left, f_right, half_level] per overtone
         self._band_G_buffer = None
         self._GB_seq = None
+        self._fit_G_buffer = None
         
         # data buffers
         self._data1_buffer = None # amplitude 
@@ -674,7 +675,10 @@ class Worker:
 
     def _queue_data_GB_multi(self, data):
         # One overtone per message:
-        # [idx, freq, G, B, f_r, Gamma, delta, masked_percent].
+        # [idx, freq, G, B, f_r, Gamma, delta, masked_percent, f_left, f_right,
+        #  half_level, f_argmax, Gamma_hh, fit fres, fit Gamma, fit phi, fit rms,
+        #  fit gmax (mS), fit G_off (mS, shipped frame), fit cost ms, source,
+        #  used, fallback, reason]. Fields 4-5 are the PUBLISHED pair.
         # Convert to numpy HERE, once per new sweep, instead of in the GUI
         # repaint: the panel is refreshed every plot_update_ms (50 ms) but the
         # spectra only change once per sweep, so converting on the consumer side
@@ -698,6 +702,19 @@ class Worker:
             # window held no crossing on that side
             self._band_G_buffer[idx] = (float(data[8]), float(data[9]),
                                         float(data[10]))
+        if len(data) > 23:
+            # VER 0.1.6G the estimator that produced fields 4-5, with the seed
+            # (= the fallback) and the fit, so the live window draws what the
+            # process used and nothing it computed itself
+            self._fit_G_buffer[idx] = dict(
+                f_argmax=float(data[11]), gamma_hh=float(data[12]),
+                fres=float(data[13]), gamma=float(data[14]),
+                phi_deg=float(data[15]), rms_rel=float(data[16]),
+                gmax_mS=float(data[17]), g_off_mS=float(data[18]),
+                cost_ms=float(data[19]),
+                source="fit" if float(data[20]) >= 0.5 else "fallback",
+                used=int(float(data[21])), fallback=int(float(data[22])),
+                reason=str(data[23]))
         # bump the per-overtone revision so the GUI can skip untouched curves
         self._GB_seq[idx] += 1
 
@@ -727,6 +744,14 @@ class Worker:
         # published as their half-difference, so drawing f_r ± Gamma instead
         # shows an interval that was never measured.
         return self._band_G_buffer[idx]
+
+    def get_fit_G_buffer(self, idx = 0):
+        # The published estimator of the last sweep of this overtone, as a dict:
+        # f_argmax / gamma_hh (the seed and the fallback), fres / gamma / phi_deg /
+        # rms_rel / gmax_mS / g_off_mS / cost_ms (the fit, NaN if none), source
+        # ("fit" or "fallback"), used / fallback (counts so far), reason. None
+        # until the producer has shipped a message with these fields.
+        return self._fit_G_buffer[idx]
 
     def get_GB_seq(self, idx = 0):
         # revision counter of the exact G/B spectrum of one overtone; the panel
@@ -1331,6 +1356,9 @@ class Worker:
         self._band_G_buffer = [(float('nan'), float('nan'), float('nan'))
                                for _ in Constants.overtone_dummy]
         self._GB_seq = self._zerolistmaker(len(Constants.overtone_dummy))
+        # VER 0.1.6G the published estimator of the last sweep, per overtone (see
+        # get_fit_G_buffer); None until the producer has shipped one
+        self._fit_G_buffer = [None for _ in Constants.overtone_dummy]
         
         # INIT self._F_store and self._D_store list 
         # TODO IMPORTANT self._F_store and self._D_store same legth of self._F_multi_buffer and self._D_multi_buffer
