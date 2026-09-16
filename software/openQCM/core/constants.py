@@ -505,6 +505,46 @@ class Constants:
     # (1.5-2) to trade coverage for robustness on heavily damped loads.
     IMPEDANCE_PANEL_BAND_GAMMA = 3.0
 
+    # ------------------------------------------------------------------ #
+    # VER 0.1.6G THE PUBLISHED ESTIMATOR OF f_res AND GAMMA (2026-09-16)  #
+    # ------------------------------------------------------------------ #
+    # "lorentzian": the phase-shifted Lorentzian fitted to the exact G alone
+    #   (core/lorentzian.py; Johannsmann, Sensors 2021, 21, 3490, eq. 3). Measured
+    #   on board 1920 in water and isopropanol, 2026-09-11..15: frequency AND
+    #   half-bandwidth shifts on Kanazawa-Gordon within 8 % on overtones 3-9.
+    # "argmax": the sample where G is maximum and the two-sided half-height
+    #   width - the estimator published until 2026-09-16, and the FALLBACK of
+    #   the other one. Its maximum sits off the resonance by Gamma*tan(phi/2):
+    #   2-47 Hz in air, 170-700 Hz in liquid, a 20-30 % excess on the shifts.
+    # ⚠️ Datalogs written under the two estimators are NOT comparable; a change
+    # of this value is a change of what the instrument measures, dated in the
+    # CHANGELOG.
+    IMPEDANCE_ESTIMATOR = "lorentzian"
+
+    # Fit window, in units of the half-height Gamma the process already has
+    # (the same +-3 Gamma the impedance panel ships), and the cap on the number
+    # of samples the solver sees: 300 give the same f_res, Gamma and phi as the
+    # full 1 Hz grid to the hertz, at 11-16 ms per overtone instead of 17-53.
+    PSL_BAND_GAMMA = 3.0
+    PSL_MAX_POINTS = 300
+
+    # ⚠️ THE FALLBACK GATE - three parameters that decide, sweep by sweep,
+    # whether the published pair is the fit or the maximum of G. They are
+    # PARAMETERS of the measurement, kept here in the open on purpose:
+    #   PSL_RMS_MAX      residual of the fit over the range of G on the window.
+    #                    Measured: 0.16-0.50 % in liquid, 1.0-2.6 % in air.
+    #   PSL_PHI_MAX_DEG  |phi| of the rotation. Measured: 5-28 deg on board 1920.
+    #   PSL_GAMMA_RATIO  fitted Gamma over the half-height Gamma. Measured 0.93-1.08.
+    # Set at about ten times the measured spread so they reject a broken sweep
+    # (flat G, a spur, a lost fold) and not a marginal one. Every rejection is
+    # counted per overtone and written to the System Log with its reason; the
+    # live fit window shows the counters and these limits beside the values.
+    # Whoever changes the front end, the sweep window or the smoothing must
+    # look at these three again - they are not facts of nature.
+    PSL_RMS_MAX = 0.05
+    PSL_PHI_MAX_DEG = 60.0
+    PSL_GAMMA_RATIO = (0.3, 3.0)
+
     # VER 0.1.6G saturation mask. The AD8302 is specified over +-30 dB of input
     # ratio; below that the magnitude output compresses and the phase output
     # degrades with it, and both channels fail together. Samples acquired past

@@ -9,6 +9,7 @@ if SW not in sys.path: sys.path.insert(0, SW)
 from openQCM.core.constants import Constants
 from openQCM.core import resonance
 from openQCM.processors.Multiscan import MultiscanProcess
+from openQCM.core import lorentzian
 _spec = importlib.util.spec_from_file_location("fa", os.path.join(SW, "openQCM/sweep_data/fit_admittance.py")); fa = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(fa)
 proc = MultiscanProcess(None)
 N = (1, 3, 5, 7, 9); SETS = {"air": ["air_0", "air_1", "air_2"], "water": ["wat_0", "wat_1", "wat_2"], "ipa": ["ipa_0", "ipa_1", "ipa_2"]}
@@ -55,7 +56,19 @@ def model_lin(p, f, f0):
 
 def fit(fr, G, B, mask, f_arg, gam0, which="G", linear=False):
     """which: "G", "B" or "GB". Returns fres, gamma (HWHM, Hz), phi_deg (rotation sign), rms per channel (fraction
-    of that channel's range on the window), sd_fres from the covariance, and the parameter vector."""
+    of that channel's range on the window), sd_fres from the covariance, and the parameter vector.
+
+    ⚠️ The G-only fit without linear background -- the published estimator -- is NOT implemented here: it
+    delegates to the shipped module openQCM/core/lorentzian.py (2026-09-16), so the research numbers and the
+    instrument's numbers come from one implementation. Full grid (max_points=None), as the research tables
+    were made. The B-only, joint and linear-background variants are research-only and stay here.
+    """
+    if which == "G" and not linear:
+        r = lorentzian.fit_phase_shifted_lorentzian(fr, G, f_arg, gam0, mask=mask, max_points=None)
+        # the parameter vector in this module's units, so the plotting code (model()) keeps working
+        gam_k = r.gamma / 1e3; p = np.array([r.gmax * 1e3 * gam_k, (r.fres - f_arg) / 1e3, gam_k, np.radians(r.phi_deg), r.g_off * 1e3, 0.0])
+        return dict(fres=r.fres, sd_fres=float("nan"), gamma=r.gamma, sd_gamma=float("nan"), phi_deg=r.phi_deg,
+                    rmsG=r.rms_rel, rmsB=float("nan"), p=p, n_fit=r.n_fit, ok=r.converged)
     f = fr[mask]; g = G[mask] * 1e3; b = B[mask] * 1e3; sg_, sb_ = np.ptp(g) or 1.0, np.ptp(b) or 1.0
     p0 = [float(np.ptp(g) * gam0 / 1e3), 0.0, gam0 / 1e3, 0.0, float(g.min()), float(np.median(b))] + ([0.0] if linear else [])
     mdl = model_lin if linear else model
