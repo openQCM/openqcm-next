@@ -36,7 +36,7 @@ class FakeWorker(object):
         self.fit = [None] * n
 
     def ship(self, idx, fres, gamma, phi_deg, gmax_S, g_off_S, source="fit", reason="ok",
-             used=7, fallback=0, with_fit=True):
+             used=7, fallback=0, with_fit=True, mode="lorentzian"):
         f = np.arange(fres - 12000.0, fres + 6001.0, 1.0)
         G = L.rotated_lorentzian(f, fres, gamma, phi_deg, gmax_S, g_off_S)
         G = G + np.random.default_rng(idx).normal(0.0, 0.002 * gmax_S, f.size)
@@ -46,10 +46,17 @@ class FakeWorker(object):
         self.f[idx] = f[keep]; self.g[idx] = (G_mS - baseline)[keep]
         pub_f, pub_g = (fres, gamma) if source == "fit" else (f_arg, gam_hh)
         self.fr[idx] = pub_f; self.gam[idx] = pub_g; self.delta[idx] = 4.1 if idx < 3 else 0.0
+        nan = float("nan")
+        if mode == "argmax":          # a STANDARD run: the process shipped no fit numbers
+            self.fit[idx] = dict(f_argmax=f_arg, gamma_hh=gam_hh, fres=nan, gamma=nan, phi_deg=nan,
+                                 rms_rel=nan, gmax_mS=nan, g_off_mS=nan, cost_ms=nan, source="fallback",
+                                 used=0, fallback=0, reason="standard estimator (maximum of G, half-height width)",
+                                 mode="argmax")
+            return
         self.fit[idx] = None if not with_fit else dict(
             f_argmax=f_arg, gamma_hh=gam_hh, fres=fres, gamma=gamma, phi_deg=phi_deg,
             rms_rel=0.0021, gmax_mS=gmax_S * 1e3, g_off_mS=g_off_S * 1e3 - baseline, cost_ms=1.3,
-            source=source, used=used, fallback=fallback, reason=reason)
+            source=source, used=used, fallback=fallback, reason=reason, mode=mode)
         self.seq[idx] += 1
 
     def get_GB_seq(self, idx): return self.seq[idx]
@@ -129,6 +136,20 @@ class FitWindowTests(unittest.TestCase):
         self.win._tabs.setCurrentIndex(4)
         x4, y4 = self.win._panes[4].curveFit.getData()
         self.assertTrue(x4 is None or len(x4) == 0)
+
+    def test_a_standard_run_shows_the_maximum_and_no_fit(self):
+        w = FakeWorker(); w.ship(1, 14988740.0, 76.0, -14.5, 19e-3, 1.0e-3, mode="argmax")
+        win = W.ImpedanceFitWindow(w, 5, theme_name="light"); win._tick()
+        try:
+            self.assertTrue(win.table.item(1, 1).text().startswith("STANDARD"))
+            self.assertEqual(win.table.item(1, 5).text(), "-")           # no phi in a standard run
+            self.assertEqual(float(win.table.item(1, 2).text()), w.fr[1])
+            win._tabs.setCurrentIndex(1)
+            x, y = win._panes[1].curveFit.getData()
+            self.assertTrue(x is None or len(x) == 0)
+            self.assertIn("STANDARD estimator", win._panes[1].pG.titleLabel.text)
+        finally:
+            win.close()
 
     def test_a_tick_without_new_sweeps_changes_nothing(self):
         before = self.win.lblStatus.text()

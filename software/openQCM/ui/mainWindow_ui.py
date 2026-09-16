@@ -464,6 +464,25 @@ class Ui_MainWindow(object):
         self.line_2.hide()
         self.gridSetup.addLayout(self.gridLayout_D, 4, 0, 1, 2)
 
+        # VER 0.1.6G the estimator of the run (2026-09-16, Marco). Unchecked =
+        # the STANDARD, maximum of G and half-height width, as always. Checked =
+        # the EXPERIMENTAL phase-shifted Lorentzian fit on G (core/lorentzian.py),
+        # with the standard as its fallback. Chosen BEFORE START and locked while
+        # running (see mainWindow._enable_ui): the acquisition process receives it
+        # once, at start. A run with the box checked writes
+        # <ts>_multi_lorentzian.csv, not comparable with a standard <ts>_multi.csv.
+        self.chk_ExperimentalFit = QtWidgets.QCheckBox(
+            "Experimental: phase-shifted Lorentzian fit", self.groupSetup)
+        self.chk_ExperimentalFit.setObjectName("chk_ExperimentalFit")
+        self.chk_ExperimentalFit.setChecked(False)
+        self.chk_ExperimentalFit.setToolTip(
+            "Off (standard): resonance frequency = maximum of the exact conductance G, "
+            "half-bandwidth = two-sided half-height width.\n"
+            "On (experimental): both from the phase-shifted Lorentzian fitted to G, with the "
+            "standard as fallback; the datalog is named _multi_lorentzian.csv.\n"
+            "Choose before START; locked during a run.")
+        self.gridSetup.addWidget(self.chk_ExperimentalFit, 5, 0, 1, 2)
+
         # --- datalog sampling / elapsed time (gridLayout_5) ------------- #
         self.gridLayout_5 = QtWidgets.QGridLayout()
         self.gridLayout_5.setObjectName("gridLayout_5")

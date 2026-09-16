@@ -524,7 +524,14 @@ class MainWindow(QtGui.QMainWindow):
                              samples = Constants.argument_default_samples,
                              source = self._get_source(),
                              export_enabled = False,
-                             sampling_time = self._get_sampling_time())
+                             sampling_time = self._get_sampling_time(),
+                             estimator = self._get_estimator())
+        # VER 0.1.6G say which estimator governs this run, in the System Log,
+        # before the first sweep: the datalog's name will say it too
+        print("Estimator for this run: %s" % (
+            "EXPERIMENTAL phase-shifted Lorentzian fit on G (fallback: maximum of G), "
+            "datalog *_multi_lorentzian.csv" if self._get_estimator() == "lorentzian"
+            else "STANDARD maximum of G and half-height width, datalog *_multi.csv"))
 
         # Hand the serial port over to the acquisition process: release the
         # persistent GUI handle so the child can open it exclusively.
@@ -1199,6 +1206,14 @@ class MainWindow(QtGui.QMainWindow):
         _my_index = self.ui.cBox_sampling_time.currentIndex()
         return _my_index
         
+    def _get_estimator(self):
+        """The run's estimator from the Measurement Setup box: "lorentzian" when the
+        experimental fit is checked, "argmax" (the standard) otherwise."""
+        try:
+            return "lorentzian" if self.ui.chk_ExperimentalFit.isChecked() else "argmax"
+        except AttributeError:
+            return Constants.IMPEDANCE_ESTIMATOR
+
     def _get_sampling_time(self):
         index = self.ui.cBox_sampling_time.currentIndex()
         if index == 0:
@@ -1749,6 +1764,9 @@ class MainWindow(QtGui.QMainWindow):
         # self.ui.chBox_export.setEnabled(enabled)
 
         self.ui.cBox_Source.setEnabled(enabled)
+        # VER 0.1.6G the estimator is chosen before START and locked while running:
+        # the acquisition process received it once, at start
+        self.ui.chk_ExperimentalFit.setEnabled(enabled)
         self.ui.pButton_Stop.setEnabled(not enabled)
 
         # TODO delete the sample

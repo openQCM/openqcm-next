@@ -174,6 +174,10 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         top.addWidget(self.chkPause)
         top.addStretch(1)
         top.addWidget(self.lblStatus)
+        # ⚠️ In a STANDARD run (the Measurement Setup box unchecked) the process
+        # runs no fit: this window then shows the measured G with the published
+        # maximum, and the table says "STANDARD". The fit appears only in an
+        # EXPERIMENTAL run, and only as the process shipped it.
 
         self._tabs = QtWidgets.QTabWidget()
         self._menu = PlotMenu(self)
@@ -323,11 +327,14 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         D = 2.0 * gam_pub / f_pub * 1e6 if f_pub else float("nan")
         delta_txt = ("-" if not _finite(d["delta"]) else
                      "no fold" if d["delta"] == 0.0 else "%+.2f" % d["delta"])
-        if fit is None:
-            vals = ("%d" % (2 * idx + 1), "maximum of G (no fit shipped)",
+        standard = fit is not None and fit.get("mode") == "argmax"
+        if fit is None or standard:
+            vals = ("%d" % (2 * idx + 1),
+                    "STANDARD: maximum of G, half-height width" if standard
+                    else "maximum of G (no fit shipped)",
                     "%.1f" % f_pub, "%.1f" % gam_pub, "%.2f" % D, "-", "-",
                     "%.1f" % f_pub, "%.1f" % gam_pub, delta_txt)
-            colour = self._palette["muted"]
+            colour = self._palette["text"] if standard else self._palette["muted"]
         else:
             src = ("fit  (%d fit / %d fallback)" % (fit["used"], fit["fallback"])
                    if fit["source"] == "fit" else
@@ -380,16 +387,21 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         pane.markFres.setPos(0.0)
         model = self.model_curve(idx, fx)
         fit = d["fit"]
+        if fit is not None and fit.get("mode") == "argmax":
+            model = None                      # the standard run: no fit exists to draw
         if model is None:
             pane.curveFit.setData(x=np.array([]), y=np.array([]))
             pane.curveR.setData(x=np.array([]), y=np.array([]))
             pane.zeroR.setData(x=np.array([]), y=np.array([]))
             pane.window.setRegion((0, 0))
             pane.markArg.setPos(0.0)
-            pane.pG.setTitle("G(f) &nbsp;|&nbsp; published: maximum of G, %.1f Hz &nbsp;|&nbsp; "
-                             "Γ half height %.1f Hz &nbsp;|&nbsp; no fit shipped by the process"
-                             % (f_pub, d["gam_pub"]))
-            pane.pR.setTitle("residual: no fit")
+            standard = fit is not None and fit.get("mode") == "argmax"
+            pane.pG.setTitle("G(f) &nbsp;|&nbsp; %s: maximum of G %.1f Hz &nbsp;|&nbsp; "
+                             "Γ half height %.1f Hz &nbsp;|&nbsp; D = %.2f ppm%s"
+                             % ("STANDARD estimator" if standard else "published",
+                                f_pub, d["gam_pub"], 2.0 * d["gam_pub"] / f_pub * 1e6,
+                                "" if standard else " &nbsp;|&nbsp; no fit shipped by the process"))
+            pane.pR.setTitle("residual: no fit in this run" if standard else "residual: no fit")
             return
         pane.curveFit.setData(x=x, y=model)
         span = float(np.ptp(gx)) or 1.0

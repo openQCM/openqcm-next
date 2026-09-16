@@ -308,6 +308,7 @@ class ImpedanceDataViewDialog(QtWidgets.QDialog):
         except (AttributeError, TypeError, IndexError):
             fit = None            # a worker from before the fit travelled
         by_fit = bool(fit) and fit.get("source") == "fit"
+        standard = bool(fit) and fit.get("mode") == "argmax"       # a STANDARD run: no fit exists
 
         if freq is None or g is None or freq.size != g.size:
             pane.clear_overlay()
@@ -367,11 +368,13 @@ class ImpedanceDataViewDialog(QtWidgets.QDialog):
         pane.frame_once(f_res, gamma, float(freq[0]), float(freq[-1]))
 
         notes = ""
-        if by_fit:
-            notes += ("  |  published by the fit: band f_r ± Γ, φ {:+.1f}°, maximum of G "
+        if standard:
+            notes += "  |  STANDARD estimator: maximum of G, band = measured half-height crossings"
+        elif by_fit:
+            notes += ("  |  EXPERIMENTAL, published by the fit: band f_r ± Γ, φ {:+.1f}°, maximum of G "
                       "at {:+.0f} Hz from f_r".format(fit["phi_deg"], fit["f_argmax"] - f_res))
         elif fit:
-            notes += "  |  published by the FALLBACK ({}): band = measured crossings".format(
+            notes += "  |  EXPERIMENTAL, published by the FALLBACK ({}): band = measured crossings".format(
                 fit.get("reason", ""))
         if guessed:
             notes += "  |  {} edge from f_r ∓ Γ (no crossing in window)".format(

@@ -36,6 +36,9 @@ class DataViewBandTests(unittest.TestCase):
         self.w.band[3] = (34955750.0 - 1700.0, 34955750.0 + 2000.0, 0.31)
         self.w.ship(4, 44941160.0, 2130.0, -27.9, 0.25e-3, 0.7e-3, with_fit=False)
         self.w.band[4] = (44941160.0 - 2100.0, float("nan"), 0.2)
+        # overtone 0: a STANDARD run -- crossings, header says standard, no fit words
+        self.w.ship(0, 5004600.0, 65.0, -8.0, 28e-3, 1.5e-3, mode="argmax")
+        self.w.band[0] = (self.w.fr[0] - 60.0, self.w.fr[0] + 70.0, 14.0)
         self.view = V.ImpedanceDataViewDialog(Host(self.w), theme_name="dark")
 
     def tearDown(self):
@@ -52,7 +55,7 @@ class DataViewBandTests(unittest.TestCase):
         self.assertAlmostEqual(lo, 24972090.0 - 1646.0, places=6)
         self.assertAlmostEqual(hi, 24972090.0 + 1646.0, places=6)
         self.assertFalse(pane.half_line.isVisible())
-        self.assertIn("published by the fit", pane.info.text())
+        self.assertIn("EXPERIMENTAL, published by the fit", pane.info.text())
         self.assertIn("φ -24.0°", pane.info.text())
         self.assertIn("f_r 24972090.0 Hz", pane.info.text())
         self.assertIn("Γ 1646.0 Hz", pane.info.text())
@@ -72,6 +75,16 @@ class DataViewBandTests(unittest.TestCase):
         self.assertAlmostEqual(hi, 44941160.0 + self.w.gam[4], places=6)     # right edge guessed from f_r + Γ
         self.assertIn("right edge from f_r ∓ Γ", pane.info.text())
         self.assertNotIn("published by", pane.info.text())
+
+    def test_a_standard_run_draws_the_crossings_and_says_standard(self):
+        pane = self._pane(0)
+        lo, hi = pane.band.getRegion()
+        self.assertAlmostEqual(lo, self.w.fr[0] - 60.0, places=6)
+        self.assertAlmostEqual(hi, self.w.fr[0] + 70.0, places=6)
+        self.assertTrue(pane.half_line.isVisible())
+        self.assertIn("STANDARD estimator", pane.info.text())
+        self.assertNotIn("FALLBACK", pane.info.text())
+        self.assertNotIn("φ", pane.info.text())
 
     def test_the_view_imports_no_processing(self):
         src = open(V.__file__, encoding="utf-8").read()
