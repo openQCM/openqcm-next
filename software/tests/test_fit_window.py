@@ -3,10 +3,11 @@
 
     cd software && PYTHONPATH=. python -m unittest tests.test_fit_window -v
 
-Runs on the offscreen Qt platform WITHOUT showing the window: a QTabWidget full of GraphicsLayoutWidgets
-segfaults offscreen when shown (HANDOFF §6, the known list), so the tests build the window, feed it and read
-its items back. Set SCREENSHOT=/path.png on the real platform (QT_QPA_PLATFORM unset) to also show it and
-save a capture.
+Runs on the offscreen Qt platform WITHOUT rendering the window: a QTabWidget full of
+GraphicsLayoutWidgets segfaults offscreen (HANDOFF §6, the known list) -- measured 2026-09-16, exit 139 on
+both `show()` AND `grab()`, so there is no way to capture this window headless at all. The tests build it,
+feed it and read its items back, which is where the numbers are anyway. Set SCREENSHOT=/path.png on the
+real platform (QT_QPA_PLATFORM unset) to show it and save a capture.
 """
 import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -30,6 +31,7 @@ class FakeWorker(object):
         self.seq = [0] * n
         self.f = [None] * n
         self.g = [None] * n
+        self.b = [None] * n
         self.fr = [0.0] * n
         self.gam = [0.0] * n
         self.delta = [0.0] * n
@@ -38,16 +40,21 @@ class FakeWorker(object):
     def ship(self, idx, fres, gamma, phi_deg, gmax_S, g_off_S, source="fit", reason="ok",
              used=7, fallback=0, with_fit=True, mode="lorentzian"):
         f = np.arange(fres - 12000.0, fres + 6001.0, 1.0)
-        G = L.rotated_lorentzian(f, fres, gamma, phi_deg, gmax_S, g_off_S)
-        G = G + np.random.default_rng(idx).normal(0.0, 0.002 * gmax_S, f.size)
+        # the same rotated Lorentzian in the complex plane: G is its real part (what
+        # the process fits), B its imaginary part plus a C0-like offset (what the
+        # chain computes and ships untouched)
+        Y = gmax_S * gamma * np.exp(1j * np.radians(phi_deg)) / (gamma - 1j * (fres - f))
+        G = Y.real + g_off_S + np.random.default_rng(idx).normal(0.0, 0.002 * gmax_S, f.size)
+        B = Y.imag + 0.5 * gmax_S
         f_arg = float(f[np.argmax(G)]); gam_hh = gamma * 0.98
-        # what the process ships: the +-3 Gamma clip in mS with the edge baseline removed
+        # what the process ships: the +-3 Gamma clip in mS, G with the edge baseline
+        # removed and B as computed (T3)
         G_mS = G * 1e3; baseline = float(np.mean(G_mS[:100])); keep = np.abs(f - f_arg) <= 3 * gam_hh
-        self.f[idx] = f[keep]; self.g[idx] = (G_mS - baseline)[keep]
+        self.f[idx] = f[keep]; self.g[idx] = (G_mS - baseline)[keep]; self.b[idx] = (B * 1e3)[keep]
         pub_f, pub_g = (fres, gamma) if source == "fit" else (f_arg, gam_hh)
         self.fr[idx] = pub_f; self.gam[idx] = pub_g; self.delta[idx] = 4.1 if idx < 3 else 0.0
         nan = float("nan")
-        if mode == "argmax":          # a STANDARD run: the process shipped no fit numbers
+        if mode == "argmax":          # a STANDARD run: the process shipped no fit numbers, but G and B as always
             self.fit[idx] = dict(f_argmax=f_arg, gamma_hh=gam_hh, fres=nan, gamma=nan, phi_deg=nan,
                                  rms_rel=nan, gmax_mS=nan, g_off_mS=nan, cost_ms=nan, source="fallback",
                                  used=0, fallback=0, reason="standard estimator (maximum of G, half-height width)",
@@ -61,7 +68,7 @@ class FakeWorker(object):
 
     def get_GB_seq(self, idx): return self.seq[idx]
     def get_G_exact_buffer(self, idx): return self.g[idx]
-    def get_B_exact_buffer(self, idx): return None if self.g[idx] is None else np.zeros_like(self.g[idx])
+    def get_B_exact_buffer(self, idx): return self.b[idx]
     def get_F_G_values_buffer(self, idx): return self.f[idx]
     def get_fr_G_buffer(self, idx): return self.fr[idx]
     def get_gamma_G_buffer(self, idx): return self.gam[idx]
@@ -148,6 +155,61 @@ class FitWindowTests(unittest.TestCase):
             x, y = win._panes[1].curveFit.getData()
             self.assertTrue(x is None or len(x) == 0)
             self.assertIn("STANDARD estimator", win._panes[1].pG.titleLabel.text)
+        finally:
+            win.close()
+
+    def test_the_susceptance_and_the_locus_are_the_shipped_arrays(self):
+        idx = 2
+        self.win._tabs.setCurrentIndex(idx)
+        self.win._draw_selected()
+        pane = self.win._panes[idx]
+        xb, yb = pane.curveB.getData()
+        step = max(1, len(self.w.f[idx]) // W.DRAW_POINTS)
+        np.testing.assert_allclose(yb, self.w.b[idx][::step][:len(yb)], rtol=0, atol=1e-12)
+        np.testing.assert_allclose(xb, (self.w.f[idx][::step] - self.w.fr[idx])[:len(yb)],
+                                   rtol=0, atol=1e-9)
+        # the locus is B against G, both shipped
+        xl, yl = pane.curveLocus.getData()
+        np.testing.assert_allclose(xl, self.w.g[idx][::step][:len(yl)], rtol=0, atol=1e-12)
+        np.testing.assert_allclose(yl, self.w.b[idx][::step][:len(yl)], rtol=0, atol=1e-12)
+        # and it closes into something circular: the radial spread of the +-Gamma core
+        # around its own centre is a few per cent
+        core = np.abs(self.w.f[idx] - self.w.fr[idx]) <= self.w.gam[idx]
+        gc, bc = self.w.g[idx][core], self.w.b[idx][core]
+        xc, yc = 0.5 * (gc.max() + gc.min()), 0.5 * (bc.max() + bc.min())
+        r = np.hypot(gc - xc, bc - yc)
+        self.assertLess(r.std() / r.mean(), 0.25)
+
+    def test_the_markers_on_the_locus_are_lookups_on_the_measurement(self):
+        idx = 2
+        self.win._tabs.setCurrentIndex(idx)
+        self.win._draw_selected()
+        pane = self.win._panes[idx]
+        xf, yf = pane.markLocusFres.getData()
+        self.assertEqual(len(xf), 1)
+        self.assertAlmostEqual(xf[0], float(np.interp(self.w.fr[idx], self.w.f[idx], self.w.g[idx])), places=9)
+        self.assertAlmostEqual(yf[0], float(np.interp(self.w.fr[idx], self.w.f[idx], self.w.b[idx])), places=9)
+        xa, ya = pane.markLocusArg.getData()
+        f_arg = self.w.fit[idx]["f_argmax"]
+        self.assertAlmostEqual(xa[0], float(np.interp(f_arg, self.w.f[idx], self.w.g[idx])), places=9)
+
+    def test_no_model_is_drawn_over_B_or_the_locus(self):
+        """The estimator fits G alone, so B and the locus carry no fitted overlay."""
+        pane = self.win._panes[2]
+        for name in ("curveB", "curveLocus"):
+            self.assertTrue(hasattr(pane, name))
+        self.assertFalse(any(n.startswith(("curveBfit", "curveFitLocus", "curveCircle"))
+                             for n in vars(pane)))
+
+    def test_a_standard_run_still_draws_B_and_the_locus(self):
+        w = FakeWorker(); w.ship(1, 14988740.0, 76.0, -14.5, 19e-3, 1.0e-3, mode="argmax")
+        win = W.ImpedanceFitWindow(w, 5, theme_name="light"); win._tick()
+        try:
+            win._tabs.setCurrentIndex(1); win._draw_selected()
+            pane = win._panes[1]
+            self.assertGreater(len(pane.curveB.getData()[0]), 50)
+            self.assertGreater(len(pane.curveLocus.getData()[0]), 50)
+            self.assertEqual(len(pane.markLocusFres.getData()[0]), 1)
         finally:
             win.close()
 

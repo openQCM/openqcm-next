@@ -3,13 +3,22 @@
 """
 VER 0.1.6G — live fit window: what the acquisition publishes, and nothing else.
 
-Opens from Tools > "Impedance Fit (live)". One tab per overtone with the exact
-conductance G(f) the process shipped, the phase-shifted Lorentzian the process
-FITTED to it (core/lorentzian.py) drawn from the parameters it shipped, the
-published f_res, the maximum of G that is the fallback, the ±band·Γ window the
-fit ran on, and the residual beneath. A table with the numbers of every
-overtone: which estimator was published, f_res, Γ, D, φ, rms, the fallback pair,
-the phase offset δ the chain applied.
+Opens from Tools > "Impedance Fit (live)". One tab per overtone with, on the left,
+the exact conductance G(f) the process shipped, the phase-shifted Lorentzian the
+process FITTED to it (core/lorentzian.py) drawn from the parameters it shipped,
+the published f_res, the maximum of G that is the fallback, the ±band·Γ window the
+fit ran on, the residual, and the susceptance B(f) beneath; on the right the
+admittance locus B vs G. A table with the numbers of every overtone: which
+estimator was published, f_res, Γ, D, φ, rms, the fallback pair, the phase offset
+δ the chain applied.
+
+B and the locus are the measurement as shipped, nothing more: the estimator fits
+G alone, so no model curve is drawn over them. ⚠️ Their axes are not the same
+frame — G travels with a constant baseline removed (the mean of its first 100
+samples, which the Data View's half-height marker is defined on) and B travels as
+the chain computed it, so the locus is the admittance circle translated along G.
+Its shape, its closure and where the published f_res falls on it are all
+unaffected; an absolute G read off it is not meaningful.
 
 THE RULE (Marco, 2026-09-16): what this window shows is what the process used to
 produce the logged numbers. So this window fits NOTHING. Every curve is either a
@@ -19,10 +28,11 @@ process, or Constants.IMPEDANCE_ESTIMATOR = "argmax") the window shows the
 measured G with the maximum marked and says so.
 
 What went away with the rewrite of 2026-09-16, on purpose: the BVD circle fit
-(FIT 1), the symmetric Lorentzian refitted in the GUI (FIT 2), the B(f) and locus
-panels, R1, L1, the masked-percent column, and the import of the offline module
+(FIT 1), the symmetric Lorentzian refitted in the GUI (FIT 2), R1, L1, the
+masked-percent column, and the import of the offline module
 sweep_data/fit_admittance.py — the release tree no longer needs sweep_data/ for
-any live view. The research behind those is in research/air-ipa-water-1920-2026-09-11/.
+any live view. B(f) and the locus came back on Marco's ask the same evening, as
+measured curves with no fitted overlay. The research behind those is in research/air-ipa-water-1920-2026-09-11/.
 
 Costs: its own timer, started on show and stopped on hide, so a closed window
 costs nothing; per-overtone revision counter, so a tick with no new sweep does
@@ -120,8 +130,49 @@ class _FitTab(QtWidgets.QWidget):
         self.zeroR = self.pR.plot(pen=pg.mkPen(palette["axis"], width=1,
                                                style=QtCore.Qt.DotLine))
         self.curveR = self.pR.plot(pen=pg.mkPen(FIT_COLOUR, width=1))
+
+        # susceptance B(f), under the residual and on the same x axis: B is where
+        # a defect of the phase channel shows first -- the plateau at the fold, a
+        # sign flip where the phase never crossed zero -- while G, even in the
+        # phase, hides it. Measured only: the estimator fits G alone.
+        self.pB = self.graph.addPlot(row=2, col=0)
+        self.pB.setTitle("susceptance B(f) — measured", color=palette["title"])
+        self.pB.setLabel('bottom', 'f - f_res (published)', units='Hz', color=palette["title"])
+        self.pB.setLabel('left', 'B', units='mS', color=palette["title"])
+        self.pB.setXLink(self.pG)
+        self.zeroB = self.pB.plot(pen=pg.mkPen(palette["axis"], width=1,
+                                               style=QtCore.Qt.DotLine))
+        self.curveB = self.pB.plot(pen=pg.mkPen(colour, width=Constants.plot_line_width),
+                                   name="B measured (shipped)")
+        self.markFresB = pg.InfiniteLine(pos=0.0, angle=90,
+                                         pen=pg.mkPen(FIT_COLOUR, width=1.5))
+        self.pB.addItem(self.markFresB)
+
+        # the admittance locus, spanning the three rows on the right: aspect
+        # locked, because a circle has to look like one.
+        self.pC = self.graph.addPlot(row=0, col=1, rowspan=3)
+        self.pC.setTitle("admittance locus B vs G — measured", color=palette["title"])
+        self.pC.setLabel('bottom', 'G', units='mS', color=palette["title"])
+        self.pC.setLabel('left', 'B', units='mS', color=palette["title"])
+        self.pC.setAspectLocked(True)
+        self.pC.addLegend()
+        self.curveLocus = self.pC.plot(pen=None, symbol='o', symbolSize=2.5,
+                                       symbolPen=None, symbolBrush=colour,
+                                       name="measured (shipped)")
+        # where the published resonance falls on the locus: read off the measured
+        # arrays, not computed
+        self.markLocusFres = self.pC.plot(pen=None, symbol='o', symbolSize=11,
+                                          symbolPen=pg.mkPen(FIT_COLOUR, width=1.5),
+                                          symbolBrush=None, name="f_res published")
+        self.markLocusArg = self.pC.plot(pen=None, symbol='x', symbolSize=10,
+                                         symbolPen=pg.mkPen(palette["axis"], width=1.5),
+                                         symbolBrush=None, name="maximum of G")
         self.graph.ci.layout.setRowStretchFactor(0, 3)
         self.graph.ci.layout.setRowStretchFactor(1, 1)
+        self.graph.ci.layout.setRowStretchFactor(2, 2)
+        # the locus gets a column of its own, about as wide as the curves
+        self.graph.ci.layout.setColumnStretchFactor(0, 3)
+        self.graph.ci.layout.setColumnStretchFactor(1, 2)
 
         for plot in self.plots():
             for axis in ("left", "bottom"):
@@ -134,11 +185,13 @@ class _FitTab(QtWidgets.QWidget):
         lay.addWidget(self.graph)
 
     def plots(self):
-        return (self.pG, self.pR)
+        return (self.pG, self.pR, self.pB, self.pC)
 
     def clear(self):
         empty = np.array([], dtype=float)
-        for c in (self.curveG, self.curveFit, self.curveR, self.zeroR):
+        for c in (self.curveG, self.curveFit, self.curveR, self.zeroR,
+                  self.curveB, self.zeroB, self.curveLocus,
+                  self.markLocusFres, self.markLocusArg):
             c.setData(x=empty, y=empty)
         self.window.setRegion((0, 0))
 
@@ -306,6 +359,12 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
             return False
         if len(g) < 8 or len(f) != len(g):
             return False
+        try:
+            b = self.worker.get_B_exact_buffer(idx)
+        except Exception:
+            b = None
+        if not (isinstance(b, np.ndarray) and len(b) == len(g)):
+            b = None
         f_pub = float(self.worker.get_fr_G_buffer(idx))
         gam_pub = float(self.worker.get_gamma_G_buffer(idx))
         try:
@@ -317,6 +376,7 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         except Exception:
             fit = None
         self._last[idx] = dict(f=np.asarray(f, dtype=float), g=np.asarray(g, dtype=float),
+                               b=None if b is None else np.asarray(b, dtype=float),
                                f_pub=f_pub, gam_pub=gam_pub, delta=delta, fit=fit)
         self._update_row(idx, self._last[idx])
         return True
@@ -373,6 +433,44 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         return rotated_lorentzian(f, fit["fres"], fit["gamma"], fit["phi_deg"],
                                   fit["gmax_mS"], fit["g_off_mS"])
 
+    def _draw_channels(self, pane, d, fx, gx, x):
+        """B(f) and the locus: shipped arrays and two lookups on them, no model."""
+        b = d["b"]
+        fit = d["fit"]
+        f_arg = None if not fit else fit.get("f_argmax")
+        if b is None:
+            for c in (pane.curveB, pane.zeroB, pane.curveLocus,
+                      pane.markLocusFres, pane.markLocusArg):
+                c.setData(x=np.array([]), y=np.array([]))
+            pane.pB.setTitle("susceptance B(f) — not shipped by the process")
+            pane.pC.setTitle("admittance locus — B not shipped")
+            return
+        bx = b[::max(1, len(b) // DRAW_POINTS)][:len(x)]
+        pane.curveB.setData(x=x[:len(bx)], y=bx)
+        pane.zeroB.setData(x=[x[0], x[-1]], y=[0.0, 0.0])
+        pane.markFresB.setPos(0.0)
+        pane.curveLocus.setData(x=gx[:len(bx)], y=bx)
+        # the published resonance and the maximum of G, READ OFF the measured
+        # arrays (np.interp is a lookup between two samples, not an estimate)
+        g_at = float(np.interp(d["f_pub"], d["f"], d["g"]))
+        b_at = float(np.interp(d["f_pub"], d["f"], b))
+        pane.markLocusFres.setData(x=[g_at], y=[b_at])
+        if f_arg is not None and np.isfinite(f_arg):
+            pane.markLocusArg.setData(x=[float(np.interp(f_arg, d["f"], d["g"]))],
+                                      y=[float(np.interp(f_arg, d["f"], b))])
+        else:
+            pane.markLocusArg.setData(x=np.array([]), y=np.array([]))
+        # B is where a broken phase reconstruction shows: the largest step between
+        # adjacent samples, as a fraction of B's own range. A continuous
+        # trajectory keeps this at a few per cent.
+        span = float(np.ptp(bx)) or 1.0
+        jump = 100.0 * float(np.max(np.abs(np.diff(bx)))) if len(bx) > 1 else 0.0
+        pane.pB.setTitle("B(f) measured &nbsp;|&nbsp; span %.3f mS &nbsp;|&nbsp; "
+                         "largest step between samples %.1f %% of span"
+                         % (span, jump / span))
+        pane.pC.setTitle("admittance locus, measured &nbsp;|&nbsp; ⚠️ G baseline-removed, "
+                         "B as computed: the circle is translated along G")
+
     def _draw_selected(self, *_args):
         idx = self._current_index()
         if idx is None or self._last[idx] is None:
@@ -385,6 +483,7 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         x = fx - f_pub
         pane.curveG.setData(x=x, y=gx)
         pane.markFres.setPos(0.0)
+        self._draw_channels(pane, d, fx, gx, x)
         model = self.model_curve(idx, fx)
         fit = d["fit"]
         if fit is not None and fit.get("mode") == "argmax":
