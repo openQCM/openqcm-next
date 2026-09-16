@@ -138,7 +138,10 @@ class _FitTab(QtWidgets.QWidget):
         self.pG.setTitle("conductance G(f)", color=palette["title"])
         self.pG.setLabel('bottom', 'f - f_res (published)', units='Hz', color=palette["title"])
         self.pG.setLabel('left', 'G', units='mS', color=palette["title"])
-        self.pG.addLegend()
+        # legends pinned to the top-left corner with a small inset: the default
+        # anchor put them over the curve, and on a resonance the top left is the
+        # one corner that is always empty
+        self.pG.addLegend(offset=(8, 8))
         # the fit window the process used, drawn first so it sits under the data
         self.window = pg.LinearRegionItem(values=(0, 0), movable=False,
                                           brush=pg.mkBrush(128, 128, 128, 28),
@@ -196,7 +199,7 @@ class _FitTab(QtWidgets.QWidget):
         self.pC.setLabel('bottom', 'G', units='mS', color=palette["title"])
         self.pC.setLabel('left', 'B', units='mS', color=palette["title"])
         self.pC.setAspectLocked(True)
-        self.pC.addLegend()
+        self.pC.addLegend(offset=(8, 8))
         self.curveLocus = self.pC.plot(pen=None, symbol='o', symbolSize=2.5,
                                        symbolPen=None, symbolBrush=colour,
                                        name="measured (shipped)")
@@ -230,6 +233,38 @@ class _FitTab(QtWidgets.QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.addWidget(self.graph)
 
+        # bounds the locus was last framed on (see frame_locus)
+        self._framed = None
+
+    def frame_locus(self, xmin, xmax, ymin, ymax):
+        """Fit the locus view to the measurement AND the circle, once.
+
+        ⚠️ Auto-range does not do this. With the aspect locked -- and it has to be,
+        a circle must look like one -- pyqtgraph frames the data and then expands
+        one axis to satisfy the ratio; the circle overlay, which reaches further
+        than the arc it is drawn over, came out cut on the right (measured on the
+        fundamental in air, 2026-09-16). So the range is set here, over the union
+        of both.
+
+        Framed only when the required bounds are new or have changed by more than
+        a fifth -- a new liquid, a new overtone -- so that a zoom made by hand
+        survives the next sweep instead of being reset twenty times a second. The
+        right-click menu's Auto-scale is still there to give the view back.
+        """
+        want = (float(xmin), float(xmax), float(ymin), float(ymax))
+        if not all(np.isfinite(want)):
+            return
+        span = max(want[1] - want[0], want[3] - want[2])
+        if span <= 0:
+            return
+        if self._framed is not None:
+            moved = max(abs(a - b) for a, b in zip(want, self._framed))
+            if moved < 0.2 * span:
+                return
+        self._framed = want
+        self.pC.setRange(xRange=(want[0], want[1]), yRange=(want[2], want[3]),
+                         padding=0.06)
+
     def plots(self):
         return (self.pG, self.pR, self.pB, self.pC)
 
@@ -240,6 +275,7 @@ class _FitTab(QtWidgets.QWidget):
                   self.markLocusFres, self.markLocusArg):
             c.setData(x=empty, y=empty)
         self.window.setRegion((0, 0))
+        self._framed = None
 
 
 class ImpedanceFitWindow(QtWidgets.QWidget):
@@ -394,6 +430,8 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
             return
         try:
             changed = 0
+            visible = self._current_index()
+            redraw = False
             for idx in range(self.overtones):
                 try:
                     seq = self.worker.get_GB_seq(idx)
@@ -404,8 +442,12 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
                 self._seq[idx] = seq
                 if self._collect(idx):
                     changed += 1
+                    # the table holds every overtone, so each one is collected;
+                    # only the tab on screen is worth redrawing
+                    redraw = redraw or idx == visible
             if changed:
-                self._draw_selected()
+                if redraw:
+                    self._draw_selected()
                 seen = [d["fit"] for d in self._last if d is not None and d["fit"] is not None]
                 standard = bool(seen) and all(f.get("mode") == "argmax" for f in seen)
                 if standard:
@@ -578,6 +620,8 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
             circ = _taubin_circle(d["g"][core], b[core])
             if circ is None:
                 pane.curveCircle.setData(x=np.array([]), y=np.array([]))
+                pane.frame_locus(float(np.nanmin(d["g"])), float(np.nanmax(d["g"])),
+                                 float(np.nanmin(b)), float(np.nanmax(b)))
                 pane.pC.setTitle("admittance locus, measured &nbsp;|&nbsp; no circle "
                                  "(too few points)")
                 return
@@ -586,7 +630,14 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
             rms = 100.0 * float(np.sqrt(np.mean((rad - r) ** 2)) / r) if r else float("nan")
             what = ("circle fitted HERE on the ±Γ core (display only): R1 = %.0f Ω, "
                     "residual %.1f %% of r" % (1e3 / (2.0 * r) if r else float("inf"), rms))
-        pane.curveCircle.setData(x=xc + r * np.cos(theta), y=yc + r * np.sin(theta))
+        cx, cy = xc + r * np.cos(theta), yc + r * np.sin(theta)
+        pane.curveCircle.setData(x=cx, y=cy)
+        # the view has to hold the measurement AND the circle: see frame_locus
+        g, bb = d["g"], b
+        pane.frame_locus(min(float(np.nanmin(g)), float(cx.min())),
+                         max(float(np.nanmax(g)), float(cx.max())),
+                         min(float(np.nanmin(bb)), float(cy.min())),
+                         max(float(np.nanmax(bb)), float(cy.max())))
         pane.pC.setTitle("locus &nbsp;|&nbsp; %s &nbsp;|&nbsp; ⚠️ G baseline-removed, B as "
                          "computed" % what)
 

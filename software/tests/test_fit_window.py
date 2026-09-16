@@ -245,6 +245,71 @@ class FitWindowTests(unittest.TestCase):
         finally:
             win.close()
 
+    def test_the_locus_is_framed_on_the_union_of_the_measurement_and_the_circle(self):
+        """The circle came out cut on the right with plain auto-range (2026-09-16).
+
+        ⚠️ This asserts the FRAMING, not the pixels: offscreen the view box is a
+        91x440 sliver (the window is never shown, so the layout is unresolved) and
+        the aspect lock expands the range so far that nothing would look cut
+        whatever the code did. What makes cutting impossible is the framing itself
+        -- the range is set over the union of the measured locus and the circle,
+        and the aspect lock can then only ADD to it, never shrink it. The look on
+        a real screen is Marco's check.
+        """
+        for idx in (0, 2):
+            self.win._tabs.setCurrentIndex(idx); self.win._draw_selected()
+            pane = self.win._panes[idx]
+            cx, cy = pane.curveCircle.getData()
+            self.assertGreater(len(cx), 100, "overtone index %d" % idx)
+            want = (min(self.w.g[idx].min(), cx.min()), max(self.w.g[idx].max(), cx.max()),
+                    min(self.w.b[idx].min(), cy.min()), max(self.w.b[idx].max(), cy.max()))
+            self.assertIsNotNone(pane._framed, "overtone %d was never framed" % idx)
+            for got, exp in zip(pane._framed, want):
+                self.assertAlmostEqual(got, exp, places=9, msg="overtone %d" % idx)
+            # and the range that was set holds it (the aspect lock only expands)
+            (x0, x1), (y0, y1) = pane.pC.getViewBox().viewRange()
+            self.assertLessEqual(x0, want[0]); self.assertGreaterEqual(x1, want[1])
+            self.assertLessEqual(y0, want[2]); self.assertGreaterEqual(y1, want[3])
+
+    def test_a_hand_made_zoom_survives_the_next_sweep(self):
+        idx = 2
+        self.win._tabs.setCurrentIndex(idx); self.win._draw_selected()
+        pane = self.win._panes[idx]
+        pane.pC.setRange(xRange=(0.0, 1.0), yRange=(0.0, 1.0), padding=0)
+        zoomed = pane.pC.getViewBox().viewRange()
+        self.w.ship(idx, 24972090.0, 1646.0, -24.0, 0.5e-3, 0.3e-3, used=42)   # same scale
+        self.win._tick()
+        self.assertEqual(pane.pC.getViewBox().viewRange(), zoomed)
+
+    def test_a_change_of_scale_reframes(self):
+        idx = 2
+        self.win._tabs.setCurrentIndex(idx); self.win._draw_selected()
+        pane = self.win._panes[idx]
+        before = pane.pC.getViewBox().viewRange()
+        # ten times the conductance: a new liquid, a new overtone -- the view follows
+        self.w.ship(idx, 24972090.0, 1646.0, -24.0, 5.0e-3, 3.0e-3, used=43)
+        self.win._tick()
+        self.assertNotEqual(pane.pC.getViewBox().viewRange(), before)
+        cx, cy = pane.curveCircle.getData()
+        (x0, x1), (y0, y1) = pane.pC.getViewBox().viewRange()
+        self.assertGreaterEqual(cx.min(), x0)
+        self.assertLessEqual(cx.max(), x1)
+
+    def test_only_the_visible_tab_is_redrawn(self):
+        """The table holds every overtone, so all are collected; drawing the four
+        panels of an overtone nobody is looking at is work for nothing."""
+        self.win._tabs.setCurrentIndex(0)
+        self.win._draw_selected()
+        before = self.win._panes[3].curveG.getData()[0]
+        self.w.ship(3, 34955750.0, 1868.0, -22.5, 0.4e-3, 0.45e-3, source="fallback",
+                    reason="rms 7.3 % of range > 5 %", used=40, fallback=2)
+        self.win._tick()
+        after = self.win._panes[3].curveG.getData()[0]
+        np.testing.assert_array_equal(before if before is not None else np.array([]),
+                                      after if after is not None else np.array([]))
+        # but its row in the table did move: the numbers are collected for all
+        self.assertIn("2 fallback", self.win.table.item(3, 1).text())
+
     def test_the_table_sits_under_a_movable_divider_and_can_be_collapsed(self):
         sp = self.win._splitter
         self.assertEqual(sp.orientation(), QtCore.Qt.Vertical)
