@@ -471,8 +471,12 @@ class Ui_MainWindow(object):
         # running (see mainWindow._enable_ui): the acquisition process receives it
         # once, at start. A run with the box checked writes
         # <ts>_multi_lorentzian.csv, not comparable with a standard <ts>_multi.csv.
+        # ⚠️ Short text on purpose. The sidebar card is ~290 px wide and a
+        # QCheckBox neither wraps nor elides: "Experimental: phase-shifted
+        # Lorentzian fit" ran ~275 px of text past the panel edge. The full
+        # sentence lives in the tooltip.
         self.chk_ExperimentalFit = QtWidgets.QCheckBox(
-            "Experimental: phase-shifted Lorentzian fit", self.groupSetup)
+            "Experimental: PS Lorentzian", self.groupSetup)
         self.chk_ExperimentalFit.setObjectName("chk_ExperimentalFit")
         self.chk_ExperimentalFit.setChecked(False)
         self.chk_ExperimentalFit.setToolTip(
@@ -510,8 +514,11 @@ class Ui_MainWindow(object):
         # it; acquisition uses the default sampling time). "Time elapsed" stays.
         self.sampling_time_lbl.hide()
         self.cBox_sampling_time.hide()
-        # R2: datalog sampling settings live in the Measurement Setup card
-        self.gridSetup.addLayout(self.gridLayout_5, 5, 0, 1, 2)
+        # R2: datalog sampling settings live in the Measurement Setup card.
+        # ⚠️ Row 6, not 5: row 5 is the estimator checkbox above. Two items in
+        # one cell of a QGridLayout are drawn ON TOP of each other, which is how
+        # "Time elapsed (sec)" and the checkbox ended up overprinted (2026-09-16).
+        self.gridSetup.addLayout(self.gridLayout_5, 6, 0, 1, 2)
 
         # kept for structural compatibility, cards replace the separators
         self.line_3 = self._hline(self.sidebarContainer, "line_3")
