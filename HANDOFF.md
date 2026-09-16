@@ -527,9 +527,13 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   **published** resonance frequency / dissipation and for the live panel, so the two can
   never disagree. The RAW absolute `V_MAG` chain (`Vmag_raw_result_fit`) feeds the inversion;
   the baseline-corrected one is only kept for the classic amplitude path.
+- `software/openQCM/core/lorentzian.py` — **the published estimator** (2026-09-16): the phase-shifted
+  Lorentzian on G, its gate and `publish()`; called from `Multiscan._publish_resonance()`. Tests in
+  `software/tests/` (`cd software && PYTHONPATH=. python -m unittest discover tests`, 32 tests).
 - `software/openQCM/ui/mainWindow.py` + `ui/mainWindow_ui.py` — the **live impedance panel**
-  (right-hand dock): `_build_impedance_panel`, `_update_impedance_panel`,
-  `_fit_circle_taubin`, plus **Tools → Conductance Data** (`actionConductance_Data`).
+  (right-hand dock): `_build_impedance_panel`, `_update_impedance_panel`: G(f) over B(f) (`pltG`, `pltSus`),
+  same frequency offset, x-linked; the admittance locus and its Taubin overlay went on 2026-09-16.
+  Plus **Tools → Conductance Data** (`actionConductance_Data`).
 - Data path `Multiscan → Parser.add_GB_multi → Worker.consume_queue_GB_multi → GUI`, one
   overtone per message, `f_r` and Γ travelling with each spectrum.
 - **Comparison datalog** (`817f847`, `Constants.DATALOG_AMPLITUDE_TOO`, test tool): beside `<ts>_multi.csv`
@@ -613,9 +617,11 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   `openQCM_Next_G_Impedance_Analysis.md`, 3 PDFs).
 
 **State (2026-07-28)**:
-- ✅ The **exact** complex-divider inversion is the **published** path. `f_r` and Γ come from
-  `Y_q = 1/(M·e^{-jφ} − R17)` on the raw absolute `V_MAG`. Γ is measured **two-sided** and
-  interpolated sub-sample. The old approximate `parameters_finder_impedance()` and its helpers
+- ✅ The **exact** complex-divider inversion is the **published** path. G comes from
+  `Y_q = 1/(M·e^{-jφ} − R17)` on the raw absolute `V_MAG`. ✅ **Since 2026-09-16 `f_r` and Γ are the
+  phase-shifted Lorentzian fitted to G** (`core/lorentzian.py`, `ALGORITHM.md` §7.1), gated by
+  `Constants.PSL_*`; the maximum of G with the **two-sided**, sub-sample half-height Γ is the seed and the
+  fallback, counted and logged when it fires. The old approximate `parameters_finder_impedance()` and its helpers
   (`_Zabs_Vmag`, `_G_calc`, `_B_calc`) are kept but **no longer called**.
 - ✅ **Attenuator compensation fixed**: the ADC→V conversion undoes the INPB R11/R19 attenuator
   with `Constants.V_MAG_DECADE_OFFSET = 0.61069 V` (= 20.3564 dB × 30 mV/dB), derived from the
@@ -628,8 +634,10 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   the admittance locus to be a circle (closed-form Taubin, ~3 ms/overtone), with guards that
   reject an unidentifiable estimate. See the dedicated section below — this replaced two wrong
   attempts and is the single most consequential correction of the 2026-07-28 session.
-- ✅ **Live impedance panel**: G(f) and the B–G admittance circle, all overtones, matching
-  colours, fitted-circle overlay. See the three `Constants.IMPEDANCE_PANEL_*` knobs.
+- ✅ **Live impedance panel**: G(f) over B(f), all overtones, matching colours (the locus and its circle
+  overlay went on 2026-09-16). ✅ **Tools > Impedance Fit (live)** (`ui/impedanceFitWindow.py`, rewritten
+  2026-09-16): draws the fit the process shipped, the published f_res, the maximum of G, the fit window
+  and the residual, and a table of process numbers only; it fits nothing and needs no `sweep_data/`.
 - ✅ **Tools > Impedance Data View** (`ui/impedanceDataView.py`, 2026-09-02): a tab per overtone with
   G on top — published `f_r` and `f_r ∓ Γ` overlaid — and B below. Same pull model as Raw Data View.
   ⚠️ It reads the acquisition's own G/B buffers and **computes nothing**, so it cannot disagree with

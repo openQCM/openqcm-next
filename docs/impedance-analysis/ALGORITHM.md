@@ -403,8 +403,55 @@ is the **series resonance frequency** — the physically meaningful one for Saue
 Kanazawa–Gordon, and the reason for this whole path.
 
 Resolution is therefore 1 Hz by construction; the smoothing of §3 is what keeps that from being
-noise-limited. Sub-sample interpolation of the peak would be the next refinement and is *not* done
-today.
+noise-limited.
+
+⚠️ **Since 2026-09-16 this maximum is the SEED and the FALLBACK, not what is published.** On this
+instrument the conductance peak is not symmetric: it is a complex Lorentzian rotated by an angle φ of
+−8 → −27° from the fundamental to the 9th overtone, the same in air and in liquid, and its maximum sits at
+`f_res + Γ·tan(φ/2)` — 2–47 Hz off in air, 170–700 Hz in liquid, a 20–30 % excess on the liquid frequency
+shifts that the half-bandwidth shifts did not show (`research/air-ipa-water-1920-2026-09-11/`,
+`synthesis-two-lorentzians.md`). What is published is §7.1.
+
+### 7.1 Step 6b — the published estimator: the phase-shifted Lorentzian on G
+
+`core/lorentzian.py`, called from `Multiscan._publish_resonance()` right after
+`parameters_finder_impedance_exact()`:
+
+```
+G(f) = G_max · Γ · (Γ·cos φ − Δ·sin φ) / (Δ² + Γ²) + G_off ,   Δ = f_res − f
+```
+
+the real part of Johannsmann's rotated Lorentzian (*Sensors* 2021, 21, 3490, eq. 3). Five parameters
+(G_max, f_res, Γ, φ, G_off), Levenberg–Marquardt, frequencies in kHz from the seed and G in mS inside the
+solver. Seeds: the maximum of §7 and the half-height Γ of §8. Window: ±`Constants.PSL_BAND_GAMMA` (3) times
+the seed Γ, decimated uniformly to `Constants.PSL_MAX_POINTS` (300) samples — measured to give the same
+f_res, Γ, φ as the full 1 Hz grid to the hertz, at 1–2 ms per overtone.
+
+**The gate** (`lorentzian.accept()`), three parameters of the measurement kept in the open in
+`Constants` and printed by the live fit window beside the values:
+
+| check | constant | measured on the 45 sweeps of 2026-09-11 |
+|---|---|---|
+| rms of the fit over the range of G on the window | `PSL_RMS_MAX = 0.05` | 0.16–0.50 % liquid, 1.0–2.6 % air |
+| \|φ\| | `PSL_PHI_MAX_DEG = 60` | 5–28° |
+| fitted Γ over the half-height Γ | `PSL_GAMMA_RATIO = (0.3, 3.0)` | 0.93–1.08 |
+
+plus convergence and f_res inside the window. A sweep that passes publishes `(f_res, Γ)` of the fit; one
+that fails publishes the seed — the maximum of G and the half-height width, exactly as before 2026-09-16.
+`Constants.IMPEDANCE_ESTIMATOR = "argmax"` publishes the seed always.
+
+**The fallback is never silent.** The process counts, per overtone, the sweeps published by the fit and by
+the fallback; the first sweep of each overtone and every change of source write one line to the System Log
+with the reason and the numbers; the counts, the reason and the fit itself travel in the G/B message
+(fields 11–23) to the live fit window, which draws the shipped model and computes nothing.
+
+Validated offline before it went live (`research/air-ipa-water-1920-2026-09-11/psl-validation.md`): the
+bias formula on 45 sweeps (+1 ± 28 Hz), independence from the smoothing (raw samples: f_res within 5 Hz),
+from a ±5° offset error (≤ 21 Hz), from the window (±2…±6 Γ: ≤ 60 Hz); synthetic sweeps through divider and
+detector recovered within 4 Hz while the maximum is off by Γ·tan(φ/2). With this estimator Δf and ΔΓ of
+water and isopropanol both land on Kanazawa–Gordon within 8 % on overtones 3–9. ⚠️ Datalogs before and
+after 2026-09-16 are not comparable. Versioned tests: `software/tests/test_lorentzian.py`,
+`test_publish_process.py`.
 
 ---
 
@@ -478,15 +525,15 @@ return 0.0
 `Multiscan.py:1176` and `:1180`:
 
 ```python
-self._my_list_f[overtone_number].append( frequency_resonance_G )
-self._my_list_d[overtone_number].append( (half_bandwidth/1000000) )
+published, psl_fit = self._publish_resonance(overtone_number, freq_range, G_exact_S,
+                                             float(frequency_resonance_G), float(abs(half_bandwidth)))
+self._my_list_f[overtone_number].append( published.fres )
+_dissipation_ppm = 2.0 * published.gamma / published.fres * 1e6
+self._my_list_d[overtone_number].append( _dissipation_ppm )
+self.freq_res_current_array[overtone_number] = published.fres
 ```
 
-and `Multiscan.py:1213`:
-
-```python
-self.freq_res_current_array[overtone_number] = freq_range[int(index_peak_fit_G)]
-```
+(since 2026-09-16; `published` is the fit of §7.1 or, through the gate, the seed of §7–§8.)
 
 **`Dissipation_n` is the dissipation factor D, in units of 10⁻⁶** — changed on 2026-09-02 to the
 definition in Johannsmann, Langhoff & Leppin, *Sensors* **2021**, 21, 3490, §2 (transcription of the
@@ -580,18 +627,20 @@ a log that depended on a combo box would be unreadable a week later.
 published arrays:
 
 1. `G` and `B` are converted to mS.
-2. A constant baseline is removed from **both** (mean of the first 100 samples) so the locus closes
-   into a circle centred near the origin. ⚠️ This is why the fit window does not report `C0`:
-   translating the circle is exactly what `C0` does, so the fitted offset is no longer `ω·C0`.
-   `f_s`, `Γ`, `D` and `R_m` are unaffected — they come from the radius and the arc, both
-   translation-invariant.
+2. A constant baseline is removed from **G** (mean of the first 100 samples): the half-height marker
+   of the Data View is defined on that curve. **B is shipped as computed** since 2026-09-16 (the edge
+   value that used to be subtracted sits 73–140 µS above the circle centre in liquid, and the locus that
+   needed a closed circle is no longer drawn: the panel shows B(f) under G(f)).
 3. The spectrum is clipped to `Constants.IMPEDANCE_PANEL_BAND_GAMMA = 3.0` half widths around the
    peak, floored at 5 % and capped at 100 % of the sweep span. Off-resonance samples carry no shape
    information — they collapse onto one point of the locus — and on a damped load they are the ones
    measured deepest in the dynamic-range corner.
 4. Optionally the saturation mask (disabled today, §9).
-5. One overtone per queue message, `[idx, freq, G, B, f_r, Γ, δ, masked_%]`, converted to numpy on
-   the consumer side once per sweep rather than once per repaint.
+5. One overtone per queue message, `[idx, freq, G, B, f_r, Γ, δ, masked_%, f_left, f_right,
+   half_level, f_argmax, Γ_hh, fit f_res, fit Γ, fit φ, fit rms, fit G_max (mS), fit G_off (shipped
+   frame), fit cost, source, used, fallback, reason]` — fields 4–5 are the PUBLISHED pair (§7.1) —
+   converted to numpy on the consumer side once per sweep. The live fit window and the Data View
+   draw these numbers and compute nothing.
 
 ---
 
@@ -683,7 +732,8 @@ The order that matters:
 5. Compute `G` from the offset-corrected phase **without** the sign flip; `B` from it **with** the
    flip, and only where a fold exists (§4.4).
 6. Invert the divider exactly: `M = R17·10^((V_CP−V_MAG)/0.6)`, `Z_q = M·e^{−jφ} − R17` (§5).
-7. `f_r` = argmax of `G` (§7); `Γ_half` = two-sided half-height width of `G`, baseline removed,
-   crossings interpolated (§8).
-8. Publish `f_r` in Hz and `Γ_half/1e6`, and remember that the second is a half width in MHz (§9).
+7. Seed: argmax of `G` (§7) and the two-sided half-height width of `G`, baseline removed, crossings
+   interpolated (§8).
+8. Fit the phase-shifted Lorentzian to `G` on ±3 seed-Γ (§7.1); publish its `f_res` and `Γ` if the gate
+   passes, the seed otherwise; count and log the fallback. Publish `D = 2Γ/f_res·10⁶` (§9).
 9. Cross-check against `fit_admittance.py` on the same `g<n>.txt` before believing any of it (§12).

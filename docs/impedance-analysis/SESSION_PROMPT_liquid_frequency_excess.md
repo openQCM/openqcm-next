@@ -88,9 +88,14 @@ sezione "Cose aperte" qui sotto è un inventario, non una coda di lavoro.
 
 ## Cose aperte (inventario, non piano)
 
-- **L'eccesso di |Δf| sugli overtone è spiegato** dallo stimatore (vedi sopra). Restano aperti, per il blocco B
-  del piano di validazione del 2026-09-15: secondo sensore e seconda scheda; colonna parallela nel datalog con
-  f_res, Γ e φ del fit accanto ai valori pubblicati, per la ripetibilità su plateau lunghi e la stabilità di φ;
+- **L'eccesso di |Δf| sugli overtone è spiegato** dallo stimatore (vedi sopra), e **dal 2026-09-16 il fit è lo
+  stimatore pubblicato** (`core/lorentzian.py`, `ALGORITHM.md` §7.1, piano `PLAN_psl_live_estimator.md`
+  T1–T6 fatti, T7 banco da fare): il datalog scrive f_res e Γ del fit, il pannello mostra B(f) al posto del
+  cerchio, la finestra del live fit disegna solo ciò che il processo ha spedito. I datalog prima e dopo
+  quella data non sono confrontabili. Le tre soglie della porta (`PSL_RMS_MAX`, `PSL_PHI_MAX_DEG`,
+  `PSL_GAMMA_RATIO`) sono parametri della misura: tenerle sotto gli occhi. Restano aperti, per il blocco B
+  del piano di validazione del 2026-09-15: la prova al banco con i contatori di fallback e la riga di log
+  (T7); secondo sensore e seconda scheda; ripetibilità su plateau lunghi e stabilità di φ dal datalog nuovo;
   terzo liquido a viscosità nota con temperatura misurata; misura diretta di φ con un carico non risonante.
   Le ipotesi che seguono erano state elencate quando l'eccesso sembrava fisico; restano utili solo per il
   fondamentale, che nessuno stimatore muove: (a) fisica della superficie —

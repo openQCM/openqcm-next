@@ -211,7 +211,7 @@ date of the merge of T2; HANDOFF §4, CHANGELOG, `SESSION_PROMPT_liquid_frequenc
 | T3 ✅ | main panel: `pltSus`, `_pltSus` (not `pltB`, taken by the frequency plot), removal of the circle overlay and its constants | `py_compile`, `setupUi` builds headless, the attribute lists reference no removed name; a screenshot on the real platform by Marco (a `QMainWindow.show()` segfaults offscreen) |
 | T4 ✅ | the live fit window rebuilt | the window builds and paints headless from a fake worker holding one dump's shipped arrays and fit fields (QWidget is fine offscreen); the curve drawn equals `rotated_lorentzian` of the shipped parameters to 10⁻⁹; real-platform look by Marco |
 | T5 ✅ | Impedance Data View band from the published source | headless as today's view is checked |
-| T6 | docs: ALGORITHM, data format, HANDOFF §4, CHANGELOG, session prompt | — |
+| T6 ✅ | docs: ALGORITHM §7.1, datalog note, HANDOFF §4, CHANGELOG, session prompt (no data-format change: no new file, D2) | — |
 | T7 | bench: air, then one liquid, with the three datalogs | `_multi.csv` frequency equals `_multi_fit.csv`'s fit when source = 1; fallback count 0 or each case explained; the live window's curve on top of the measured G; the offline `psl_lib` on the same day's dumps agrees to the Hz |
 
 Estimated size: T1 ~250 lines with tests, T2 ~150 lines across four files, T3 ~60 lines removed and ~40 added,

@@ -5,6 +5,14 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Docs — ALGORITHM §7.1 "the published estimator", datalog note, HANDOFF §4, session prompt (2026-09-16, T6)
+
+`ALGORITHM.md` gains §7.1 (model, seeds, window, the gate's three parameters with the measured values, the
+fallback and its witnesses, the message fields) and its §9/§10/rebuild list follow the code;
+`datalog-quantities-2026-09-10.md` carries the dated note that the impedance datalog changed estimator;
+HANDOFF §4 names `core/lorentzian.py`, the B(f) panel and the rewritten fit window; the session prompt
+records T1–T6 done and T7 (bench) pending.
+
 ### Changed — Impedance Data View: the band is f_r ± Γ of the fit when the fit was published (2026-09-16, T5)
 
 `ui/impedanceDataView.py` reads `get_fit_G_buffer`: fit published → band f_r ± Γ with edges on the measured
