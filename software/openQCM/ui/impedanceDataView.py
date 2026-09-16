@@ -38,6 +38,17 @@ the picture shows what was measured.
 If the sweep window held no crossing on one side -- damped loads, where Γ reaches
 kilohertz and the window is sized for air -- that side arrives as NaN and the
 view falls back to ``f_r ∓ Γ`` for it, and says so in the header.
+
+**Since 2026-09-16 the published pair is normally the phase-shifted Lorentzian
+fit** (core/lorentzian.py, T2 of docs/impedance-analysis/PLAN_psl_live_estimator.md).
+When ``get_fit_G_buffer`` says the fit was published, f_r is the fit's f_res and Γ
+the fit's half width: the band is then drawn as ``f_r ± Γ`` -- symmetric in the
+model's own frame, which is what those two numbers mean -- with its edges read
+off the measured curve, and the header says "published by the fit" with φ and
+where the maximum of G sits. When the fallback was published, or no fit was
+shipped, the view draws the measured crossings exactly as before. Still nothing
+is computed here: both cases are lookups on numbers the process shipped
+(Marco, D4: f_res and Γ of the fit must be visible in this view).
 """
 
 import numpy as np
@@ -292,6 +303,11 @@ class ImpedanceDataViewDialog(QtWidgets.QDialog):
             # a worker that has been stopped, or a buffer list not yet sized
             Log.d(TAG, "buffers unavailable: {}".format(error))
             return
+        try:
+            fit = worker.get_fit_G_buffer(index)
+        except (AttributeError, TypeError, IndexError):
+            fit = None            # a worker from before the fit travelled
+        by_fit = bool(fit) and fit.get("source") == "fit"
 
         if freq is None or g is None or freq.size != g.size:
             pane.clear_overlay()
@@ -314,27 +330,35 @@ class ImpedanceDataViewDialog(QtWidgets.QDialog):
                     freq.size))
             return
 
-        # ⚠️ The band is drawn between the crossings the instrument MEASURED,
-        # which are not symmetric about f_r. Only where a side is missing --
-        # the window held no crossing there -- does it fall back to f_r ∓ Γ for
-        # that side, and the header says so.
         guessed = []
-        if not np.isfinite(f_left):
-            f_left, _ = f_res - gamma, guessed.append("left")
-        if not np.isfinite(f_right):
-            f_right, _ = f_res + gamma, guessed.append("right")
-
-        edges = np.array([f_left, f_right], dtype=float)
-        g_peak = float(np.interp(f_res, freq, g))
-        # heights: the measured level where it travelled, otherwise read off the
-        # curve. Both are lookups on data already in hand, not a measurement.
-        if np.isfinite(half_level):
-            g_edges = np.array([half_level, half_level], dtype=float)
-            pane.half_line.setValue(float(half_level))
-            pane.half_line.setVisible(True)
-        else:
+        if by_fit:
+            # The published pair is the fit's: f_r ± Γ is the band those two
+            # numbers describe (symmetric in the model's frame). Edges read off
+            # the measured curve; the measured half-height line does not apply.
+            f_left, f_right = f_res - gamma, f_res + gamma
+            edges = np.array([f_left, f_right], dtype=float)
             g_edges = np.interp(edges, freq, g)
             pane.half_line.setVisible(False)
+        else:
+            # ⚠️ The band is drawn between the crossings the instrument MEASURED,
+            # which are not symmetric about f_r. Only where a side is missing --
+            # the window held no crossing there -- does it fall back to f_r ∓ Γ
+            # for that side, and the header says so.
+            if not np.isfinite(f_left):
+                f_left, _ = f_res - gamma, guessed.append("left")
+            if not np.isfinite(f_right):
+                f_right, _ = f_res + gamma, guessed.append("right")
+            edges = np.array([f_left, f_right], dtype=float)
+            # heights: the measured level where it travelled, otherwise read off
+            # the curve. Both are lookups on data already in hand.
+            if np.isfinite(half_level):
+                g_edges = np.array([half_level, half_level], dtype=float)
+                pane.half_line.setValue(float(half_level))
+                pane.half_line.setVisible(True)
+            else:
+                g_edges = np.interp(edges, freq, g)
+                pane.half_line.setVisible(False)
+        g_peak = float(np.interp(f_res, freq, g))
 
         pane.peak.setData(x=[f_res], y=[g_peak])
         pane.band_points.setData(x=edges, y=g_edges)
@@ -343,6 +367,12 @@ class ImpedanceDataViewDialog(QtWidgets.QDialog):
         pane.frame_once(f_res, gamma, float(freq[0]), float(freq[-1]))
 
         notes = ""
+        if by_fit:
+            notes += ("  |  published by the fit: band f_r ± Γ, φ {:+.1f}°, maximum of G "
+                      "at {:+.0f} Hz from f_r".format(fit["phi_deg"], fit["f_argmax"] - f_res))
+        elif fit:
+            notes += "  |  published by the FALLBACK ({}): band = measured crossings".format(
+                fit.get("reason", ""))
         if guessed:
             notes += "  |  {} edge from f_r ∓ Γ (no crossing in window)".format(
                 " and ".join(guessed))

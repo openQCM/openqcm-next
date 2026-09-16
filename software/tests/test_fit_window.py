@@ -54,6 +54,7 @@ class FakeWorker(object):
 
     def get_GB_seq(self, idx): return self.seq[idx]
     def get_G_exact_buffer(self, idx): return self.g[idx]
+    def get_B_exact_buffer(self, idx): return None if self.g[idx] is None else np.zeros_like(self.g[idx])
     def get_F_G_values_buffer(self, idx): return self.f[idx]
     def get_fr_G_buffer(self, idx): return self.fr[idx]
     def get_gamma_G_buffer(self, idx): return self.gam[idx]
