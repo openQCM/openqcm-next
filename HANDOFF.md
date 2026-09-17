@@ -1178,6 +1178,10 @@ selectable).
     software/openQCM/sweep_data/9.txt
   ```
 
+- ⚠️ **Two CRLF files**: `processors/Calibration.py` (815 CRLF) and `common/fileStorage.py` (179 CRLF), no bare
+  LF (`main`'s HANDOFF lists five, the other three are not touched here). Edit them in binary: a text-mode
+  read/write normalises to LF and the diff becomes the whole file — 2026-09-17, on both branches, caught by
+  the 351-line stat before the push and rewritten. Count `\r\n` before committing.
 - **GUI can't be tested headless**: run static checks (`python -m py_compile ...` and
   `python -c "from openQCM.app import OPENQCM"` from `software/`), then leave the on-device smoke test
   to a human.
