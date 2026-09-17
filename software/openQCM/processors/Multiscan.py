@@ -1454,9 +1454,13 @@ class MultiscanProcess(multiprocessing.Process):
         # behind a backlog, must still carry ITS cycle's values and not whatever
         # the F/D stores hold by then (measured: with two cycles drained at once
         # the first row took the second cycle's frequencies).
-        self._parser5.add5([self._my_time, self._temperature_mean, overtone_number,
-                            overtone_number == self._overtones_in_cycle - 1,
-                            list(self._freq_range_mean), list(self._diss_mean)])
+        clock = [self._my_time, self._temperature_mean, overtone_number,
+                 overtone_number == self._overtones_in_cycle - 1,
+                 list(self._freq_range_mean), list(self._diss_mean)]
+        if Constants.DATALOG_AMPLITUDE_TOO:
+            # fields 6-7, this branch only: main's pair for the comparison datalog
+            clock += [list(self._freq_range_mean_a), list(self._diss_mean_a)]
+        self._parser5.add5(clock)
         
         # TODO single sweeep data log 
        
