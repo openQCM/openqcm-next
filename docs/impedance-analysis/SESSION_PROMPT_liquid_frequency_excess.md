@@ -3,6 +3,8 @@ Italian on purpose, like docs/SESSION_PROMPT.md: this is the literal text to pas
 of the session that takes over the liquid-frequency question after the 2026-09-11 measurements.
 Everything it points at is in English. Written 2026-09-11, after commits 9e2a480, dfbb6fe, 3006d7e.
 The previous prompt of this series, SESSION_PROMPT_fs_estimators.md, is done: its question is answered.
+DONE on 2026-09-17: this prompt's question is answered too (the excess is the estimator's rotation bias;
+the fit ships as an experimental mode). The next session starts from SESSION_PROMPT_2026-09-17.md.
 -->
 
 # openQCM NEXT — prompt per la sessione che prende in carico l'eccesso di frequenza in liquido
@@ -93,7 +95,8 @@ sezione "Cose aperte" qui sotto è un inventario, non una coda di lavoro.
   `PLAN_psl_live_estimator.md` T1–T6 fatti, T7 banco da fare): lo **standard resta il massimo di G con la
   metà altezza**; la casella "Experimental: phase-shifted Lorentzian fit" nel Measurement Setup, scelta
   prima di START, fa pubblicare il fit e nomina il datalog `<ts>_multi_lorentzian.csv`, non confrontabile
-  con `_multi.csv`. Il pannello mostra B(f) al posto del cerchio; la finestra del live fit e la Data View
+  con `_multi.csv`. Il pannello mostra G(f), B(f) e il luogo delle ammettenze con il cerchio (modulo condiviso
+  `ui/admittanceCircle.py`); la finestra del live fit e la Data View
   dicono "STANDARD" o "EXPERIMENTAL" e disegnano solo ciò che il processo ha spedito. Le tre soglie della porta (`PSL_RMS_MAX`, `PSL_PHI_MAX_DEG`,
   `PSL_GAMMA_RATIO`) sono parametri della misura: tenerle sotto gli occhi. Restano aperti, per il blocco B
   del piano di validazione del 2026-09-15: la prova al banco con i contatori di fallback e la riga di log

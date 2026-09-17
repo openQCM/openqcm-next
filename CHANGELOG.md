@@ -5,6 +5,16 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Docs — the branch's documents brought to the state of 2026-09-17, and a prompt for the next session
+
+`docs/impedance-analysis/SESSION_PROMPT_2026-09-17.md`: the text to paste as the first message of the next
+session; it tells the assistant to read `docs/SESSION_PROMPT.md`, HANDOFF §4/§6/§1, the `[Unreleased]`
+entries here, the plan and ALGORITHM §7.1, report the state in ten lines and wait for Marco. The previous
+prompt (`SESSION_PROMPT_liquid_frequency_excess.md`) is marked done. HANDOFF: date line, pointer to the new
+prompt, §4 state on 2026-09-17 with T7 open (Marco's) and the two things noted and not changed (the main
+panel's x axis is f − `peaks_mag`; the 2×2 fit-window layout offered and not taken). Plan: §2.3 superseded
+note, T7 marked open, decisions D10 (locus back, shared circle) and D11 (fit window layout) recorded.
+
 ### Fixed — the main-panel circle was not the fit window's circle (2026-09-16, evening)
 
 Bench, 5th overtone, standard mode: the fit window drew R1 = 188 Ω on the ±Γ core, the main panel a circle

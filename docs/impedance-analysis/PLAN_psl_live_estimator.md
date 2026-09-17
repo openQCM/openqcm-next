@@ -151,6 +151,10 @@ third.
 
 ### 2.3 Main panel: B(f) instead of the locus
 
+> **Superseded in part on 2026-09-16 evening (D10):** B(f) stayed, and the locus came back as a third
+> collapsible pane under it, with a circle drawn by the shared `ui/admittanceCircle.py`. The text below is
+> the design as decided in the morning.
+
 `mainWindow_ui`: `pltGB` → `pltB`, same splitter, same card. `mainWindow`: `_pltGB` → `_pltB`, title
 "Susceptance B (exact)", x = frequency offset from the published f (the G panel's axis), y = B in mS, x-linked
 to `_pltG`; per-overtone curves as for G; `_fit_circle_taubin`, `_pltGB_fitline`, `IMPEDANCE_PANEL_SHOW_FIT`
@@ -212,7 +216,7 @@ date of the merge of T2; HANDOFF §4, CHANGELOG, `SESSION_PROMPT_liquid_frequenc
 | T4 ✅ | the live fit window rebuilt | the window builds and paints headless from a fake worker holding one dump's shipped arrays and fit fields (QWidget is fine offscreen); the curve drawn equals `rotated_lorentzian` of the shipped parameters to 10⁻⁹; real-platform look by Marco |
 | T5 ✅ | Impedance Data View band from the published source | headless as today's view is checked |
 | T6 ✅ | docs: ALGORITHM §7.1, datalog note, HANDOFF §4, CHANGELOG, session prompt (no data-format change: no new file, D2) | — |
-| T7 | bench: air, then one liquid, with the three datalogs | `_multi.csv` frequency equals `_multi_fit.csv`'s fit when source = 1; fallback count 0 or each case explained; the live window's curve on top of the measured G; the offline `psl_lib` on the same day's dumps agrees to the Hz |
+| T7 **open — Marco's** | bench: air, then one liquid, standard run and experimental run | `_multi.csv` frequency equals `_multi_fit.csv`'s fit when source = 1; fallback count 0 or each case explained; the live window's curve on top of the measured G; the offline `psl_lib` on the same day's dumps agrees to the Hz |
 
 Estimated size: T1 ~250 lines with tests, T2 ~150 lines across four files, T3 ~60 lines removed and ~40 added,
 T4 a ~300-line file replacing a 531-line one, T5 ~20 lines, T6 docs.
@@ -229,6 +233,8 @@ T4 a ~300-line file replacing a 531-line one, T5 ~20 lines, T6 docs.
 | D6 | the saturation-mask code (off) and `research/admittance-circle-fit/`: leave as they are | yes — **Marco: confirmed** |
 | D7 | name of an experimental run's datalog | `<ts>_multi_lorentzian.csv` (+ `_multi_lorentzian_amplitude.csv`) — **Marco: confirmed** 2026-09-16 |
 | D8 | **the prudent setting** (Marco, 2026-09-16 evening): the STANDARD stays the maximum of G with the half-height width; the fit is an EXPERIMENTAL mode | done: `IMPEDANCE_ESTIMATOR = "argmax"` default; the fit does not run in a standard run |
+| D10 | the admittance locus in the main panel (Marco, 2026-09-16 evening: "ripristina il cerchio nella GUI principale dopo susceptance; il separatore deve schiacciare il cerchio") | back as the third pane of the impedance splitter, collapsible; shipped G and B per overtone plus one circle each from `ui/admittanceCircle.py`, the module shared with the fit window (published fit's circle in an experimental run, display-only Taubin on the ±Γ core in a standard run, anchored on the published f_res); `tests/test_main_panel.py` — done, `3680d7c`, `204575f` |
+| D11 | fit window layout (Marco, 2026-09-16 evening: the three plots must fit the window) | horizontal divider between the curves (G, residual, B; rows 5/2/4) and the aspect-locked locus, default 1180×860, locus pane about square — done, `67bb754`. Marco's alternative, a 2×2 (G \| B over residual \| locus), was offered "se ti viene più comodo" and not taken: the locus has more room as it is. Still his to call |
 | D9 | where the mode is chosen | a box in the Measurement Setup, off by default, chosen before START, locked while running; handed to the spawned process at start (`Worker(estimator=…)` → `set_estimator()`); the views say STANDARD / EXPERIMENTAL from field 24 of the message — done |
 
 ## 5. What changes for whoever reads the datalog

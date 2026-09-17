@@ -2,10 +2,13 @@
 
 > Technical starting point to continue development of the software and of the
 > `impedance-analysis` branch. Working language: Italian in chat, English in the repo.
-> Last updated: 2026-09-01.
+> Last updated: 2026-09-17.
 >
 > Starting a new session: paste [`docs/SESSION_PROMPT.md`](docs/SESSION_PROMPT.md)
-> as the first message. It is a shortcut into this file, not a replacement for it.
+> as the first message. It is a shortcut into this file, not a replacement for it. On this branch the
+> session of 2026-09-17 onwards starts from
+> [`docs/impedance-analysis/SESSION_PROMPT_2026-09-17.md`](docs/impedance-analysis/SESSION_PROMPT_2026-09-17.md),
+> which points here and at the plan.
 
 ---
 
@@ -600,8 +603,9 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
     physical origin of φ (a board delay of 0.76–1.10 ns gives 12–18° at 45 MHz but only 1.4–2° at 5 MHz), the
     2026-09-10 air dump (its only copy was in the session scratchpad, cleared). **`argmax` stays published**
     until Marco decides otherwise; a change moves the logged frequency by 170–700 Hz in liquid.
-  `docs/impedance-analysis/SESSION_PROMPT_fs_estimators.md` is the prompt that session started from; it is done.
-  The next session starts from `docs/impedance-analysis/SESSION_PROMPT_liquid_frequency_excess.md`.
+  `docs/impedance-analysis/SESSION_PROMPT_fs_estimators.md` and `SESSION_PROMPT_liquid_frequency_excess.md` are
+  the prompts those sessions started from; both are done. The next session starts from
+  `docs/impedance-analysis/SESSION_PROMPT_2026-09-17.md`.
 - **Making the fit the published estimator** (plan of 2026-09-16, `docs/impedance-analysis/PLAN_psl_live_estimator.md`,
   Marco's decisions recorded in its §4): ⚠️ **the standard estimator stays the maximum of G; the fit is an
   experimental per-run mode** (Marco, 2026-09-16 evening, D8–D9 of the plan), datalog `_multi_lorentzian.csv`,
@@ -614,7 +618,17 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   T4 ✅ the live fit window rebuilt around the shipped fit: G(f) with the process's fit, the residual, B(f)
   and the admittance locus, all measured, no fitted overlay on B or the locus (`tests/test_fit_window.py`,
   fake worker; ⚠️ offscreen it segfaults on `grab()` as well as `show()` — no headless capture at all);
-  T5 ✅ Data View band f_res ± Γ_fit when the fit was published, crossings otherwise (`tests/test_data_view.py`); T6 docs; T7 bench. ⚠️ The three gate parameters (`PSL_RMS_MAX`,
+  T5 ✅ Data View band f_res ± Γ_fit when the fit was published, crossings otherwise (`tests/test_data_view.py`); T6 ✅ docs;
+  **T7 bench — open, Marco's** (standard run vs experimental run: log line, fallback counters, datalog names,
+  the live window's curve on the measured G). **State on 2026-09-17** (head `8e0e35f`): the evening of
+  2026-09-16 the locus returned to the main panel (`pltLocus`, third collapsible pane), the circle rule
+  moved to `ui/admittanceCircle.py` (shared, anchored on the published f_res — anchoring on `peaks_mag`
+  gave a circle twice the size at the bench), the fit window got a horizontal divider between curves and
+  locus and was resized. Bench screenshots of both windows in a standard run on the 5th overtone look
+  right. Noted, not changed: the main panel's x axis is f − `peaks_mag` (the calibration centre of the
+  sweep, ~900 Hz from the resonance at the bench), while the fit window's is f − f_res published; and
+  Marco offered a 2×2 fit-window layout (G | B over residual | locus) that was not taken because the
+  locus has more room in the current one. ⚠️ The three gate parameters (`PSL_RMS_MAX`,
   `PSL_PHI_MAX_DEG`, `PSL_GAMMA_RATIO`) are parameters of the measurement, set at ten times the measured
   spread; keep them visible. No third datalog (Marco). Datalogs before and after T2 are not comparable.
 - `software/openQCM/sweep_data/plot_conductance.py`: offline analysis script — the reference
