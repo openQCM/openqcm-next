@@ -145,6 +145,10 @@ class Worker:
         # message, never from another queue (see _queue_data5, store_data)
         self._cycle_overtone = 0
         self._cycle_end = False
+        self._cycle_F = None
+        self._cycle_D = None
+        self._cycle_F_a = None
+        self._cycle_D_a = None
         # total number of overtone 
         self._number_of_peaks = 0
         
@@ -837,6 +841,13 @@ class Worker:
         # cycle end and therefore writes no multiscan row.
         self._cycle_overtone = int(data[2]) if len(data) > 2 else self._overtone_number
         self._cycle_end = bool(data[3]) if len(data) > 3 else False
+        # fields 4-5: the cycle's own F and D, so a row drained behind a backlog
+        # carries its cycle's values; without them the stores are used
+        self._cycle_F = list(data[4]) if len(data) > 5 else None
+        self._cycle_D = list(data[5]) if len(data) > 5 else None
+        # fields 6-7 (this branch only): main's pair for the comparison datalog
+        self._cycle_F_a = list(data[6]) if len(data) > 7 else None
+        self._cycle_D_a = list(data[7]) if len(data) > 7 else None
         
         
         
@@ -1050,12 +1061,18 @@ class Worker:
                     if self._cycle_end:
                         FileStorage.CSVsave_Multi(filenameCSV, Constants.csv_export_path, 
                                                   int((time_current - self._timestart))/_millisec, 
-                                                  self._d3_store, self._F_store, self._D_store)
-                        # the comparison row: main's pair, same instant, same temperature
+                                                  self._d3_store,
+                                                  self._F_store if self._cycle_F is None else self._cycle_F,
+                                                  self._D_store if self._cycle_D is None else self._cycle_D)
+                        # the comparison row: main's pair, same instant, same temperature --
+                        # from the same clock message (fields 6-7, this branch), so the two
+                        # files describe the same cycle even behind a backlog
                         if Constants.DATALOG_AMPLITUDE_TOO:
                             FileStorage.CSVsave_Multi(self._amplitude_datalog_name(), Constants.csv_export_path,
                                                       int((time_current - self._timestart))/_millisec,
-                                                      self._d3_store, self._F_store_a, self._D_store_a)
+                                                      self._d3_store,
+                                                      self._F_store_a if self._cycle_F_a is None else self._cycle_F_a,
+                                                      self._D_store_a if self._cycle_D_a is None else self._cycle_D_a)
                         # VER 0.1.4 store the current time for the next loop 
                         self.time_pre = time_current
                 
