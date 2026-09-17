@@ -15,8 +15,14 @@ message is now the datalog clock: `[time, T, overtone, is_last_of_cycle, F[], D[
 F and D; the worker drains F and D before it and writes one row per cycle, from the message's own copies of F and
 D (a backlog no longer shifts a row onto the next cycle's values). On this branch the message also carries
 main's pair as fields 6–7, so `<ts>_multi_amplitude.csv` describes the same cycle as `<ts>_multi.csv`.
-`tests/test_datalog_rows.py` (5 tests, the worker fed as the process feeds it, three drain patterns). 68 tests
-OK. ⚠️ Any noise statistic on a datalog written before this commit must drop the duplicate rows first.
+`91d8e51` (main `4e491da`), after the first bench run on `main` (93 consecutive steps of 7.84–8.07 s once the GUI
+was idle, three pairs 0.00 s apart after 13–18 s gaps in the first three minutes): the row is stamped with the
+**process's** time of the overtone that closed the cycle — `Relative_time`, `Date`/`Time` via `CSVsave_Multi(...,
+when_s=)`, the sampling readout — never with the GUI's clock at drain time; the comparison file gets the same
+stamp. ⚠️ `common/fileStorage.py` is a **CRLF** file (179 CRLF, 0 bare LF) like `Calibration.py`: edit it in
+binary — a text-mode write turned the first version of this commit into a whole-file diff on both branches, and
+it was rewritten before the push. `tests/test_datalog_rows.py` (6 tests, the worker fed as the process feeds it,
+three drain patterns, the stamps checked against the messages' own times). 69 tests OK. ⚠️ Any noise statistic on a datalog written before this commit must drop the duplicate rows first.
 
 ### Docs — plan of analysis for the signal chain, ADC to logged f and D (2026-09-17)
 

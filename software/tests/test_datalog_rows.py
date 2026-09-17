@@ -45,7 +45,9 @@ class _Harness(object):
         self.all_rows = []                 # every file: the datalog and, on this branch, its _amplitude twin
         self._saved = W.FileStorage.CSVsave_Multi
         W.FileStorage.CSVsave_Multi = staticmethod(
-            lambda fn, path, t, T, F, D: self.all_rows.append((fn, t, T, list(F), list(D))))
+            lambda fn, path, t, T, F, D, when_s=None: self.all_rows.append((fn, t, T, list(F), list(D), when_s)))
+        self.first_t = None                # the process time of the first clock message (the run's zero)
+        self.end_t = []                    # the process time of each cycle end
 
     @property
     def rows(self):
@@ -68,6 +70,10 @@ class _Harness(object):
         self.w._queue_F_multi.put([[t] * N, _f(c, k)])
         self.w._queue_D_multi.put([[t] * N, d])
         msg = [t, 25.0 + 0.01 * c]
+        if self.first_t is None:
+            self.first_t = t
+        if cycle_fields and k == N - 1:
+            self.end_t.append(t)
         if cycle_fields:                   # the datalog clock: overtone, end of cycle, the cycle's F and D
             msg += [k, k == N - 1, list(_f(c, k)), list(d)]
             if Constants.DATALOG_AMPLITUDE_TOO:
@@ -116,6 +122,24 @@ class DatalogRowsTests(unittest.TestCase):
             times = [row[1] for row in rows]
             self.assertEqual(times, sorted(times))
             self.assertEqual(len(set(times)), CYCLES, pattern)
+
+    def test_rows_are_stamped_with_the_process_time_of_the_cycle_not_the_drain_time(self):
+        """Bench, main, 2026-09-17: two cycle ends drained in one GUI tick shared one
+        Relative_time (three pairs 0.00 s apart after 13-18 s gaps). The stamp is the
+        clock message's own time -- Relative_time from the run's first message, the
+        Date/Time instant passed to the writer -- so the drain pattern cannot move it."""
+        for pattern in ("per overtone", "all at once"):
+            h = _Harness()
+            try:
+                h.run(pattern)
+                self.assertEqual(len(h.rows), CYCLES, pattern)
+                for row, t_end in zip(h.rows, h.end_t):
+                    self.assertAlmostEqual(row[1], (t_end - h.first_t) / 1e6, places=3, msg=pattern)
+                    self.assertAlmostEqual(row[5], t_end / 1e6, places=3, msg=pattern)
+                steps = [h.rows[i + 1][1] - h.rows[i][1] for i in range(CYCLES - 1)]
+                self.assertTrue(all(st > 0.05 for st in steps), (pattern, steps))   # 5 posts x 20 ms per cycle
+            finally:
+                h.close()
 
     def test_the_comparison_datalog_gets_one_row_per_row_of_the_datalog(self):
         h = _Harness()
