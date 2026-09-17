@@ -625,7 +625,13 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   moved to `ui/admittanceCircle.py` (shared, anchored on the published f_res — anchoring on `peaks_mag`
   gave a circle twice the size at the bench), the fit window got a horizontal divider between curves and
   locus and was resized. Bench screenshots of both windows in a standard run on the 5th overtone look
-  right. Noted, not changed: the main panel's x axis is f − `peaks_mag` (the calibration centre of the
+  right. ⚠️ On the fundamental the next day the circle sat cut on the right: a pyqtgraph title's MINIMUM
+  width is its text width, so the long dynamic titles made the plots wider than their panes and the panes
+  clipped them (the frame itself was right). Since 2026-09-17 every dynamic title of the fit window goes
+  through `fit_title()` — elided to the pane minus the left axis, measured on the rendered item, full
+  text in the tooltip, refitted one event-loop turn after each resize of the graphics widgets. Rule for
+  any pyqtgraph title on this repo: **a title must never be longer than the pane it sits in**; the
+  framer and the divider were not the cause. Noted, not changed: the main panel's x axis is f − `peaks_mag` (the calibration centre of the
   sweep, ~900 Hz from the resonance at the bench), while the fit window's is f − f_res published; and
   Marco offered a 2×2 fit-window layout (G | B over residual | locus) that was not taken because the
   locus has more room in the current one. ⚠️ The three gate parameters (`PSL_RMS_MAX`,

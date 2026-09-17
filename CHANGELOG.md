@@ -5,6 +5,31 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Fixed — the live fit window's long titles widened the plots past their panes, and the pane clipped the locus circle (2026-09-17)
+
+Bench, fundamental in air, standard run: the locus circle sat cut on the right and off-centre while the
+scale of the locus had not changed. Reproduced on the real platform with a fake worker at 910×690: the
+locus pane was 369 px wide and its view box 677 px. A pyqtgraph title is a `LabelItem` whose **minimum
+width is the width of its text** (`LabelItem.updateMin`), the title shares the view box's column, so a
+title like "locus | circle fitted HERE on the ±Γ core (display only): R1 = 65 Ω, residual 2.3 % of r"
+makes the plot at least that wide, the graphics layout cannot shrink it and the pane clips it on the
+right — the frame was right (`viewRange` held the whole circle), the operator saw its left part. The
+same happened to the left column's G(f) and B(f) titles. Not the divider, and not the framer: pyqtgraph
+keeps a framed target whole through any resize of an aspect-locked view. Fix in `ui/impedanceFitWindow.py`:
+every dynamic title goes through `fit_title()`, which elides it from the right to the width of its pane
+minus the left axis, measured on the rendered item (`itemRect`) so it holds whatever the font is; the full
+text becomes the plot's tooltip; the titles are re-elided after each resize of either graphics widget
+(event filter, deferred one event-loop turn: done inside the resize event the geometry is still the old
+one — measured, 395 px in a 345 px plot). Measured after the fix on the real platform: title ≤ plot ≤
+pane and the circle whole at 910×690, 1180×860, and with the divider at 700/200 and 500/400.
+`tests/test_fit_window.py`: no title wider than its pane minus the axis, the tooltip carries the whole
+text, a resize schedules one refit; the three assertions that read a title now read the tooltip
+(offscreen fonts elide it to a few characters). 63 tests OK.
+
+⚠️ The first diagnosis of the day was wrong and was withdrawn before commit: "a trackpad scroll zoomed
+the view and the framer left it so" — Marco had not scrolled, and the real-platform measurement found the
+title. The framer is unchanged.
+
 ### Docs — the branch's documents brought to the state of 2026-09-17, and a prompt for the next session
 
 `docs/impedance-analysis/SESSION_PROMPT_2026-09-17.md`: the text to paste as the first message of the next
