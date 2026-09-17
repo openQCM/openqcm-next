@@ -82,6 +82,39 @@ def _overtone_label(idx):
             else "overtone {}".format(2 * idx + 1))
 
 
+def fit_title(plot, text, width):
+    """setTitle(text), elided from the right to `width` pixels.
+
+    ⚠️ Why. A pyqtgraph title is a LabelItem whose MINIMUM width is the width of
+    its text (LabelItem.updateMin), so a long title makes the whole PlotItem at
+    least that wide, the graphics layout cannot shrink it, and the pane clips
+    the plot on the right -- the view box still believes it has the wider rect,
+    frames the data in it, and what the operator sees is the left part of a
+    correct frame. Bench, fundamental in air, 2026-09-17: the locus circle cut
+    on the right and "off-centre", with a 369 px pane and a 677 px view box.
+    The elision is measured on the rendered item (itemRect), not on a font, so
+    it holds whatever the font is; the full text stays as the plot's tooltip.
+    Returns the text actually set.
+    """
+    plot.setTitle(text)
+    plot.setToolTip(text)
+    lab = plot.titleLabel
+    # the title sits in the view box's column, beside the left axis: what it may
+    # take is the pane minus that axis and the layout's margins (measured: with
+    # only the margins subtracted the plot still overhung the pane by ~30 px)
+    axis = float(plot.getAxis("left").width()) if plot.getAxis("left").isVisible() else 0.0
+    avail = max(40.0, float(width) - axis - 24.0)
+    shown = text
+    for _ in range(12):
+        w = float(lab.itemRect().width())
+        if w <= avail or len(shown) <= 4:
+            break
+        keep = max(3, int(len(shown) * avail / w) - 2)
+        shown = shown[:keep].rstrip(" |") + "…"
+        plot.setTitle(shown)
+    return shown
+
+
 class _FitTab(QtWidgets.QWidget):
     """One overtone: G(f) with the published fit on top, the residual beneath."""
 
@@ -225,6 +258,47 @@ class _FitTab(QtWidgets.QWidget):
 
         # framing of the aspect-locked locus (shared rule, see admittanceCircle)
         self._framer = circ.LocusFramer(self.pC)
+
+        # the dynamic titles, kept whole here and elided to the pane they sit in
+        # (fit_title): a title wider than its pane widens the plot and the pane
+        # clips it -- the cut circle of 2026-09-17. Re-elided when the tab or the
+        # divider changes the panes' widths.
+        self._titles = {}
+        self._pane_of = {self.pG: self.graph, self.pR: self.graph,
+                         self.pB: self.graph, self.pC: self.graphC}
+        # the two graphics widgets report their own resizes (a window resize, a
+        # divider drag, a programmatic setSizes -- splitterMoved fires only for
+        # the drag, and this tab's own resizeEvent not at all for a divider)
+        self.graph.installEventFilter(self)
+        self.graphC.installEventFilter(self)
+        self._refit_pending = False
+
+    def set_title(self, plot, text):
+        """The plot's title, elided to the width of the pane it is in."""
+        self._titles[plot] = text
+        return fit_title(plot, text, self._pane_of[plot].viewport().width())
+
+    def _refit_titles(self, *_args):
+        for plot, text in list(self._titles.items()):
+            fit_title(plot, text, self._pane_of[plot].viewport().width())
+
+    def _schedule_refit(self):
+        """Refit once the layout has settled. Measured on the real platform: done
+        inside the resize event itself, the viewport and the axis still carry the
+        previous geometry, and the titles came out one step late -- 395 px in a
+        345 px plot after a shrink, 101 px in a 359 px plot after a widen."""
+        if not self._refit_pending:
+            self._refit_pending = True
+            QtCore.QTimer.singleShot(0, self._refit_now)
+
+    def _refit_now(self):
+        self._refit_pending = False
+        self._refit_titles()
+
+    def eventFilter(self, obj, ev):
+        if ev.type() == QtCore.QEvent.Resize and obj in (self.graph, self.graphC):
+            self._schedule_refit()
+        return super(_FitTab, self).eventFilter(obj, ev)
 
     @property
     def _framed(self):
@@ -529,8 +603,8 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
             for c in (pane.curveB, pane.zeroB, pane.curveLocus, pane.curveCircle,
                       pane.markLocusFres, pane.markLocusArg):
                 c.setData(x=np.array([]), y=np.array([]))
-            pane.pB.setTitle("susceptance B(f) — not shipped by the process")
-            pane.pC.setTitle("admittance locus — B not shipped")
+            pane.set_title(pane.pB, "susceptance B(f) — not shipped by the process")
+            pane.set_title(pane.pC, "admittance locus — B not shipped")
             return
         bx = b[::max(1, len(b) // DRAW_POINTS)][:len(x)]
         pane.curveB.setData(x=x[:len(bx)], y=bx)
@@ -552,9 +626,9 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         # trajectory keeps this at a few per cent.
         span = float(np.ptp(bx)) or 1.0
         jump = 100.0 * float(np.max(np.abs(np.diff(bx)))) if len(bx) > 1 else 0.0
-        pane.pB.setTitle("B(f) measured &nbsp;|&nbsp; span %.3f mS &nbsp;|&nbsp; "
-                         "largest step between samples %.1f %% of span"
-                         % (span, jump / span))
+        pane.set_title(pane.pB, "B(f) measured | span %.3f mS | "
+                       "largest step between samples %.1f %% of span"
+                       % (span, jump / span))
         self._draw_circle(pane, d, b)
 
     def _draw_circle(self, pane, d, b):
@@ -567,14 +641,14 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
             pane.curveCircle.setData(x=np.array([]), y=np.array([]))
             pane.frame_locus(float(np.nanmin(d["g"])), float(np.nanmax(d["g"])),
                              float(np.nanmin(b)), float(np.nanmax(b)))
-            pane.pC.setTitle("admittance locus, measured &nbsp;|&nbsp; no circle "
-                             "(too few points)")
+            pane.set_title(pane.pC, "admittance locus, measured | no circle "
+                           "(too few points)")
             return
         pane.curveCircle.setData(x=c["x"], y=c["y"])
         # the view has to hold the measurement AND the circle: see LocusFramer
         pane.frame_locus(*circ.union_bounds((d["g"], b), (c["x"], c["y"])))
-        pane.pC.setTitle("locus &nbsp;|&nbsp; %s &nbsp;|&nbsp; ⚠️ G baseline-removed, B as "
-                         "computed" % c["label"])
+        pane.set_title(pane.pC, "locus | %s | ⚠️ G baseline-removed, B as "
+                       "computed" % c["label"])
 
     def _draw_selected(self, *_args):
         idx = self._current_index()
@@ -600,12 +674,12 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
             pane.window.setRegion((0, 0))
             pane.markArg.setPos(0.0)
             standard = fit is not None and fit.get("mode") == "argmax"
-            pane.pG.setTitle("G(f) &nbsp;|&nbsp; %s: maximum of G %.1f Hz &nbsp;|&nbsp; "
-                             "Γ half height %.1f Hz &nbsp;|&nbsp; D = %.2f ppm%s"
-                             % ("STANDARD estimator" if standard else "published",
-                                f_pub, d["gam_pub"], 2.0 * d["gam_pub"] / f_pub * 1e6,
-                                "" if standard else " &nbsp;|&nbsp; no fit shipped by the process"))
-            pane.pR.setTitle("residual: no fit in this run" if standard else "residual: no fit")
+            pane.set_title(pane.pG, "G(f) | %s: maximum of G %.1f Hz | "
+                           "Γ half height %.1f Hz | D = %.2f ppm%s"
+                           % ("STANDARD estimator" if standard else "published",
+                              f_pub, d["gam_pub"], 2.0 * d["gam_pub"] / f_pub * 1e6,
+                              "" if standard else " | no fit shipped by the process"))
+            pane.set_title(pane.pR, "residual: no fit in this run" if standard else "residual: no fit")
             return
         pane.curveFit.setData(x=x, y=model)
         span = float(np.ptp(gx)) or 1.0
@@ -615,11 +689,11 @@ class ImpedanceFitWindow(QtWidgets.QWidget):
         pane.window.setRegion((fit["f_argmax"] - band - f_pub, fit["f_argmax"] + band - f_pub))
         pane.markArg.setPos(fit["f_argmax"] - f_pub)
         who = ("fit" if fit["source"] == "fit" else "FALLBACK (%s)" % fit["reason"])
-        pane.pG.setTitle("published by the %s &nbsp;|&nbsp; f_res = %.1f Hz &nbsp;|&nbsp; "
-                         "Γ = %.1f Hz &nbsp;|&nbsp; D = %.2f ppm &nbsp;|&nbsp; φ = %+.1f° "
-                         "&nbsp;|&nbsp; maximum of G %+.0f Hz from f_res"
-                         % (who, f_pub, d["gam_pub"], 2.0 * d["gam_pub"] / f_pub * 1e6,
-                            fit["phi_deg"], fit["f_argmax"] - f_pub))
-        pane.pR.setTitle("residual, measured − fit: rms %.2f %% of range (gate: ≤ %.0f %%) "
-                         "&nbsp;|&nbsp; fit cost %.1f ms in the process"
-                         % (100.0 * fit["rms_rel"], 100.0 * Constants.PSL_RMS_MAX, fit["cost_ms"]))
+        pane.set_title(pane.pG, "published by the %s | f_res = %.1f Hz | "
+                       "Γ = %.1f Hz | D = %.2f ppm | φ = %+.1f° "
+                       "| maximum of G %+.0f Hz from f_res"
+                       % (who, f_pub, d["gam_pub"], 2.0 * d["gam_pub"] / f_pub * 1e6,
+                          fit["phi_deg"], fit["f_argmax"] - f_pub))
+        pane.set_title(pane.pR, "residual, measured − fit: rms %.2f %% of range (gate: ≤ %.0f %%) "
+                       "| fit cost %.1f ms in the process"
+                       % (100.0 * fit["rms_rel"], 100.0 * Constants.PSL_RMS_MAX, fit["cost_ms"]))

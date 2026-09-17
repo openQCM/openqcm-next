@@ -14,7 +14,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import unittest
 
 import numpy as np
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 from openQCM.core import lorentzian as L
 from openQCM.core.constants import Constants
@@ -154,7 +154,7 @@ class FitWindowTests(unittest.TestCase):
             win._tabs.setCurrentIndex(1)
             x, y = win._panes[1].curveFit.getData()
             self.assertTrue(x is None or len(x) == 0)
-            self.assertIn("STANDARD estimator", win._panes[1].pG.titleLabel.text)
+            self.assertIn("STANDARD estimator", win._panes[1].pG.toolTip())    # the whole title; the label is elided to the pane
         finally:
             win.close()
 
@@ -223,7 +223,7 @@ class FitWindowTests(unittest.TestCase):
         self.assertAlmostEqual(np.hypot(g_model - xc, b_at - yc), r, places=9)
         g_at = float(np.interp(self.w.fr[idx], self.w.f[idx], self.w.g[idx]))
         self.assertLess(abs(np.hypot(g_at - xc, b_at - yc) - r) / r, 0.01)
-        self.assertIn("circle of the published fit", self.win._panes[idx].pC.titleLabel.text)
+        self.assertIn("circle of the published fit", self.win._panes[idx].pC.toolTip())
 
     def test_in_a_standard_run_the_circle_is_fitted_here_and_says_so(self):
         w = FakeWorker(); w.ship(1, 14988740.0, 76.0, -14.5, 19e-3, 1.0e-3, mode="argmax")
@@ -240,8 +240,8 @@ class FitWindowTests(unittest.TestCase):
             rad = np.hypot(w.g[1][core] - xc, w.b[1][core] - yc)
             self.assertLess(abs(rad.mean() - r) / r, 0.05)
             self.assertLess(rad.std() / r, 0.10)
-            self.assertIn("fitted HERE", pane.pC.titleLabel.text)
-            self.assertIn("display only", pane.pC.titleLabel.text)
+            self.assertIn("fitted HERE", pane.pC.toolTip())
+            self.assertIn("display only", pane.pC.toolTip())
         finally:
             win.close()
 
@@ -352,6 +352,42 @@ class FitWindowTests(unittest.TestCase):
             self.assertEqual(len(pane.markLocusFres.getData()[0]), 1)
         finally:
             win.close()
+
+    def test_no_title_is_wider_than_the_pane_it_sits_in(self):
+        """Bench, fundamental in air, 2026-09-17: the locus circle cut on the right in
+        a 369 px pane whose view box was 677 px wide. A pyqtgraph title's MINIMUM
+        width is its text width, so a long title widens the plot past its pane and
+        the pane clips it -- the frame was right, the operator saw its left part.
+        Titles are now elided to the pane (measured on the rendered item), the full
+        text kept as the plot's tooltip, and re-elided when the divider moves."""
+        for idx in (0, 2, 3):
+            self.win._tabs.setCurrentIndex(idx); self.win._draw_selected()
+            pane = self.win._panes[idx]
+            for plot in pane.plots():
+                width = pane._pane_of[plot].viewport().width() - plot.getAxis("left").width()
+                self.assertLessEqual(plot.titleLabel.itemRect().width(), width,
+                                     "overtone %d, title %r" % (idx, plot.titleLabel.text))
+            self.assertIn("maximum of G", pane.pG.toolTip())          # the whole text survives
+        # the pane shrinks (a divider move): the titles follow
+        pane = self.win._panes[2]
+        full = pane._titles[pane.pC]
+        shown = W.fit_title(pane.pC, full, 120)
+        self.assertLess(len(shown), len(full))
+        self.assertTrue(shown.endswith("…"))
+        self.assertLessEqual(pane.pC.titleLabel.itemRect().width(), 120)
+        # a resize of either graphics widget refits every title (event filter): the
+        # widths themselves are not meaningful offscreen, the call is what is checked
+        # (a hidden widget gets no resize event from resize(), so the event is sent;
+        # two resizes in one pass are coalesced into one refit after the layout)
+        calls = []
+        pane._refit_titles = lambda *a: calls.append(1)
+        for glw in (pane.graphC, pane.graph):
+            QtWidgets.QApplication.sendEvent(glw, QtGui.QResizeEvent(QtCore.QSize(500, 400), glw.size()))
+        self.assertEqual(len(calls), 0)
+        for _ in range(5):
+            _app.processEvents()
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(pane.pC.toolTip(), full)
 
     def test_a_tick_without_new_sweeps_changes_nothing(self):
         before = self.win.lblStatus.text()
