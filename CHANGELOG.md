@@ -5,6 +5,30 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — one datalog row per cycle, clocked by the temperature message (2026-09-17)
+
+`ef8491c` (main `2da0705`) and `22089e6` (main `ab33541`), plus the branch-only follow-up: the multiscan row was
+written from the temperature handler when the **status** queue's overtone number read 0 — another queue,
+consumed later — so one GUI drain wrote 0, 1 or up to 5 identical rows per cycle. Measured on this branch's
+datalog of 2026-09-11: 96 duplicate rows in 486 with identical `Relative_time`, and 19 s gaps. The temperature
+message is now the datalog clock: `[time, T, overtone, is_last_of_cycle, F[], D[]]`, posted after that overtone's
+F and D; the worker drains F and D before it and writes one row per cycle, from the message's own copies of F and
+D (a backlog no longer shifts a row onto the next cycle's values). On this branch the message also carries
+main's pair as fields 6–7, so `<ts>_multi_amplitude.csv` describes the same cycle as `<ts>_multi.csv`.
+`tests/test_datalog_rows.py` (5 tests, the worker fed as the process feeds it, three drain patterns). 68 tests
+OK. ⚠️ Any noise statistic on a datalog written before this commit must drop the duplicate rows first.
+
+### Docs — plan of analysis for the signal chain, ADC to logged f and D (2026-09-17)
+
+`docs/impedance-analysis/PLAN_signal_chain_noise.md`: the chain as read (firmware ADC loop, SG 51/3, the
+stage-6 spline, the estimators, the buffer, the datalog writer), what the data already say — per-point raw
+noise of half an ADC count on V_MAG and one to two on V_PHS; logged f white noise 0.1–0.8 Hz in air and
+0.5–2 Hz in liquid against a 2–10× larger spread over ten minutes, i.e. drift dominates — and two answers
+measured on Marco's questions: the `UnivariateSpline(s = 0.001)` stage is a smoother (0.236 mV rms whatever the
+signal, up to +31 Hz on Γ in liquid, n = 9), and the duplicate-row mechanism above. Blocks A–E of analysis,
+levers A–H ranked, Marco's verdicts of the day recorded in §5 (A later; F would be increased; G done; H: 0.01 °C
+is enough).
+
 ### Fixed — the live fit window's long titles widened the plots past their panes, and the pane clipped the locus circle (2026-09-17)
 
 Bench, fundamental in air, standard run: the locus circle sat cut on the right and off-centre while the
