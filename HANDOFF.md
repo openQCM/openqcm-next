@@ -647,6 +647,11 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   may drop the directory, and matplotlib and tkinter no longer load at start-up (measured).
 - `docs/impedance-analysis/`: method documentation (`conductance-calculation.md`,
   `openQCM_Next_G_Impedance_Analysis.md`, 3 PDFs).
+- `README.md` § "Impedance Measurement Method" (2026-09-29): the public summary of the method, divider to
+  D, with the experimental fit; figures in `docs/impedance-analysis/figures/method/` (circuit SVG drawn by
+  hand; the measured-sweep SVG from `make_conductance_figure.py`, 5th overtone in air, `air_1/g5` of the
+  2026-09-11 dumps). ⚠️ Keep it in step with `ALGORITHM.md`: a change of estimator, gate or phase rule
+  changes that section too.
 
 **State (2026-07-28)**:
 - ✅ The **exact** complex-divider inversion is the **published** path. G comes from

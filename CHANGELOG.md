@@ -5,6 +5,22 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Docs — the impedance measurement method on the README's front page (2026-09-29)
+
+`60e9830`: a section "Impedance Measurement Method" in `README.md` — the divider (crystal and R = 52.3 Ω read
+by the AD8302), ADC counts to volts with the front-end gains and the INPB attenuator, the detector's two laws,
+M = |Z_q + R|, the phase rebuilt from the fold, the exact inversion to G and B, f_res / Γ / D = 2Γ/f_res after
+Johannsmann, Langhoff and Leppin (*Sensors* 2021), and the phase-shifted Lorentzian as the experimental
+estimator. Two SVG figures in `docs/impedance-analysis/figures/method/`: the measurement circuit, and G(f) with
+the admittance locus of the 5th overtone in air of 2026-09-11, board 1920 (`air_1/g5`), chosen as the most
+circular locus of the 61 sweeps in the repository (1.17 % rms of the radius on ±3Γ; the frozen water
+reference sweep 4.1 %). `make_conductance_figure.py` redraws it and first checks its chain against
+ALGORITHM §11. Measured while choosing, and why no liquid sweep was used: every liquid locus is 5–18 % out of
+round (n = 5: water 10.2 %, isopropanol 9.3 %; n = 3 in water 15–18 %, its fold depth on the 0.88 threshold) —
+the open point of `fold-hypothesis.md`, unchanged. The version table's branch row follows the code (the fit
+window and the Data View compute nothing; δ is measured at the fold vertex, not by roundness) and the note
+under it says cherry-pick, not merge.
+
 ### Carried from `main` — one datalog row per cycle, clocked by the temperature message (2026-09-17)
 
 `ef8491c` (main `2da0705`) and `22089e6` (main `ab33541`), plus the branch-only follow-up: the multiscan row was
