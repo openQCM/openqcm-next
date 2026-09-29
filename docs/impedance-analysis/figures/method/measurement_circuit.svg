@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 380" width="1000" height="380" font-family="Helvetica, Arial, sans-serif">
+  <title>openQCM NEXT impedance measurement: the crystal in a divider with R, read by the AD8302</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3a3a38"/>
+    </marker>
+    <g id="gnd" stroke="#3a3a38" stroke-width="1.6" stroke-linecap="round">
+      <line x1="-12" y1="0" x2="12" y2="0"/>
+      <line x1="-7.5" y1="5" x2="7.5" y2="5"/>
+      <line x1="-3" y1="10" x2="3" y2="10"/>
+    </g>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="999" height="379" rx="10" fill="#ffffff" stroke="#e4e3df"/>
+
+  <!-- wires -->
+  <g fill="none" stroke="#3a3a38" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+    <!-- source to drive node -->
+    <path d="M70,196 V90 H170"/>
+    <path d="M70,244 V300"/>
+    <!-- drive node to crystal, crystal to measuring node, to INPA -->
+    <path d="M170,90 H258"/>
+    <path d="M298,90 H410 H560"/>
+    <!-- R to ground -->
+    <path d="M410,90 V124"/>
+    <path d="M410,180 V206"/>
+    <!-- attenuator -->
+    <path d="M170,90 V124"/>
+    <path d="M170,180 V240"/>
+    <path d="M170,240 V254"/>
+    <path d="M170,310 V330"/>
+    <path d="M170,240 H560"/>
+    <!-- AD8302 outputs through the front-end gains to the ADC -->
+    <path d="M700,130 H736"/>
+    <path d="M780,130 H830"/>
+    <path d="M700,200 H736"/>
+    <path d="M780,200 H830"/>
+  </g>
+
+  <!-- junction dots -->
+  <g fill="#3a3a38">
+    <circle cx="170" cy="90" r="3.6"/>
+    <circle cx="410" cy="90" r="3.6"/>
+    <circle cx="170" cy="240" r="3.6"/>
+  </g>
+
+  <!-- grounds -->
+  <use href="#gnd" x="70" y="300"/>
+  <use href="#gnd" x="410" y="206"/>
+  <use href="#gnd" x="170" y="330"/>
+
+  <!-- DDS source -->
+  <circle cx="70" cy="220" r="24" fill="#ffffff" stroke="#3a3a38" stroke-width="1.6"/>
+  <path d="M56,220 C61,208 66,208 70,220 S79,232 84,220" fill="none" stroke="#3a3a38" stroke-width="1.6"/>
+  <text x="104" y="216" font-size="12" fill="#0b0b0b">DDS</text>
+  <text x="104" y="232" font-size="11" fill="#8a8984">sweep</text>
+
+  <!-- quartz crystal -->
+  <g stroke="#1f1f1e" stroke-width="1.8">
+    <line x1="258" y1="68" x2="258" y2="112"/>
+    <line x1="298" y1="68" x2="298" y2="112"/>
+  </g>
+  <rect x="266" y="74" width="24" height="32" fill="#eaf2fc" stroke="#2a78d6" stroke-width="1.8"/>
+  <text x="278" y="54" font-size="13" fill="#0b0b0b" text-anchor="middle">Z<tspan font-size="10" dy="3">q</tspan></text>
+  <text x="278" y="136" font-size="11" fill="#52514e" text-anchor="middle">quartz sensor</text>
+
+  <!-- measuring resistor R -->
+  <rect x="402" y="124" width="16" height="56" fill="#ffffff" stroke="#1f1f1e" stroke-width="1.8"/>
+  <text x="430" y="149" font-size="13" fill="#0b0b0b">R</text>
+  <text x="430" y="166" font-size="11" fill="#52514e">52.3 Ω</text>
+
+  <!-- INPB attenuator -->
+  <rect x="162" y="124" width="16" height="56" fill="#ffffff" stroke="#1f1f1e" stroke-width="1.8"/>
+  <text x="188" y="149" font-size="13" fill="#0b0b0b">R<tspan font-size="10" dy="3">11</tspan></text>
+  <text x="188" y="166" font-size="11" fill="#52514e">47 Ω</text>
+  <rect x="162" y="254" width="16" height="56" fill="#ffffff" stroke="#1f1f1e" stroke-width="1.8"/>
+  <text x="188" y="279" font-size="13" fill="#0b0b0b">R<tspan font-size="10" dy="3">19</tspan></text>
+  <text x="188" y="296" font-size="11" fill="#52514e">4.99 Ω</text>
+  <text x="188" y="316" font-size="11" fill="#8a8984"><tspan x="188" dy="0">INPB attenuator</tspan><tspan x="188" dy="14">20.36 dB</tspan></text>
+
+  <!-- node names -->
+  <text x="150" y="80" font-size="13" fill="#0b0b0b" text-anchor="end">V<tspan font-size="10" dy="3">B</tspan></text>
+  <text x="410" y="78" font-size="13" fill="#0b0b0b" text-anchor="middle">V<tspan font-size="10" dy="3">A</tspan></text>
+
+  <!-- divider callout -->
+  <rect x="226" y="164" width="170" height="46" rx="6" fill="#f6f6f4" stroke="#e4e3df"/>
+  <text x="311" y="183" font-size="11" fill="#52514e" text-anchor="middle">divider transfer</text>
+  <text x="311" y="201" font-size="13" fill="#0b0b0b" text-anchor="middle" font-style="italic">H = V<tspan font-size="10" dy="3">A</tspan><tspan dx="3" dy="-3">/ V</tspan><tspan font-size="10" dy="3">B</tspan><tspan dx="4" dy="-3">= R / (Z</tspan><tspan font-size="10" dy="3">q</tspan><tspan dx="4" dy="-3">+ R)</tspan></text>
+
+  <!-- AD8302 -->
+  <rect x="560" y="56" width="140" height="224" rx="6" fill="#eaf2fc" stroke="#2a78d6" stroke-width="1.8"/>
+  <text x="630" y="44" font-size="13" font-weight="bold" fill="#0b0b0b" text-anchor="middle">AD8302</text>
+  <text x="630" y="164" font-size="11" fill="#52514e" text-anchor="middle">gain / phase</text>
+  <text x="630" y="178" font-size="11" fill="#52514e" text-anchor="middle">detector</text>
+  <text x="568" y="94" font-size="11" fill="#0b0b0b">INPA</text>
+  <text x="568" y="244" font-size="11" fill="#0b0b0b">INPB</text>
+  <text x="692" y="126" font-size="11" fill="#0b0b0b" text-anchor="end">V<tspan font-size="9" dy="3">MAG</tspan></text>
+  <text x="692" y="210" font-size="11" fill="#0b0b0b" text-anchor="end">V<tspan font-size="9" dy="3">PHS</tspan></text>
+  <text x="692" y="146" font-size="10" fill="#8a8984" text-anchor="end">30 mV/dB</text>
+  <text x="692" y="230" font-size="10" fill="#8a8984" text-anchor="end">10 mV/°</text>
+
+  <!-- front-end gains -->
+  <g fill="#ffffff" stroke="#1f1f1e" stroke-width="1.6" stroke-linejoin="round">
+    <path d="M736,112 L780,130 L736,148 z"/>
+    <path d="M736,182 L780,200 L736,218 z"/>
+  </g>
+  <text x="744" y="134" font-size="10" fill="#0b0b0b">×2</text>
+  <text x="742" y="204" font-size="10" fill="#0b0b0b">×1.5</text>
+
+  <!-- Teensy ADC -->
+  <rect x="830" y="96" width="136" height="140" rx="6" fill="#f6f6f4" stroke="#3a3a38" stroke-width="1.6"/>
+  <text x="898" y="150" font-size="13" font-weight="bold" fill="#0b0b0b" text-anchor="middle">Teensy 4.0</text>
+  <text x="898" y="170" font-size="11" fill="#52514e" text-anchor="middle">12-bit ADC, 3.3 V</text>
+  <text x="898" y="186" font-size="11" fill="#52514e" text-anchor="middle">N<tspan font-size="9" dy="3">MAG</tspan><tspan dy="-3">, N</tspan><tspan font-size="9" dy="3">PHS</tspan></text>
+  <path d="M898,236 V300" fill="none" stroke="#3a3a38" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <text x="898" y="322" font-size="11" fill="#52514e" text-anchor="middle">USB to host:</text>
+  <text x="898" y="338" font-size="11" fill="#52514e" text-anchor="middle">M, φ → Z<tspan font-size="9" dy="3">q</tspan><tspan dx="4" dy="-3">→ G(f)</tspan></text>
+</svg>

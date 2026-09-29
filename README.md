@@ -15,6 +15,7 @@ An open-source Python application to display, process, and store data in real-ti
 ## Table of Contents
 
 - [About QCM Technology](#about-qcm-technology)
+- [Impedance Measurement Method](#impedance-measurement-method)
 - [Quick Start](#quick-start)
 - [Features](#features)
   - [Acquisition and Operating Modes](#acquisition-and-operating-modes)
@@ -40,6 +41,144 @@ A **Quartz Crystal Microbalance (QCM)** measures mass changes and material prope
 **[openQCM](https://openqcm.com/)** is an open-hardware initiative — powered by Novaetech S.r.l. — built on the principle that high-quality research does not require expensive proprietary instruments.
 
 **openQCM NEXT** is a QCM instrument for frequency and dissipation monitoring with multiple-overtone support (fundamental and n = 3, 5, 7, 9). It couples an **AD8302** RF/IF gain and phase detector with a frequency sweep driven by a **Teensy 4.0** microcontroller, and connects to the host over a plug-and-play USB serial link. Applications include protein biosensing, bacteria detection, drug discovery, material science, environmental monitoring, and electrochemistry.
+
+---
+
+## Impedance Measurement Method
+
+On the `impedance-analysis` branch, the resonance frequency and the dissipation come from the
+crystal's **electrical admittance**. The firmware, the sweep and the serial protocol are the same as on
+`main`. The conversion from the two AD8302 voltages to the logged f and D is software only.
+
+### The divider
+
+The crystal impedance $Z_q$ and a reference resistor $R = 52.3\ \Omega$ form a voltage divider. The
+AD8302 compares the two nodes of that divider: the drive node (INPB) and the node between the crystal
+and $R$ (INPA).
+
+<p align="center">
+  <img src="docs/impedance-analysis/figures/method/measurement_circuit.svg"
+       alt="Measurement circuit: the DDS drives the quartz sensor Z_q in series with R = 52.3 Ω to ground; the AD8302 reads the node between them on INPA and the drive node, through the R11/R19 attenuator, on INPB; its V_MAG and V_PHS outputs reach the Teensy 4.0 ADC through gains of 2 and 1.5"
+       width="900">
+</p>
+
+$$
+H = \frac{V_A}{V_B} = \frac{R}{Z_q + R}
+$$
+
+### From the AD8302 outputs to modulus and phase
+
+The firmware samples both detector outputs with the 12-bit ADC of the Teensy (3.3 V full scale).
+The conversion to volts undoes the gain of each analog front end (2 on the magnitude channel, 1.5 on
+the phase channel). It also undoes the attenuator that the INPB input sees
+($R_{11} = 47\ \Omega$, $R_{19} = 4.99\ \Omega$, 20.36 dB):
+
+$$
+V_{MAG} = \frac{3.3}{4096}\,\frac{N_{MAG}}{2} - 0.6\log_{10}\frac{R_{11}+R_{19}}{R_{19}},
+\qquad
+V_{PHS} = \frac{3.3}{4096}\,\frac{N_{PHS}}{1.5}
+$$
+
+The attenuator term is 0.61069 V. Both channels are then smoothed with a Savitzky–Golay filter
+(51 points, order 3) and resampled on a 1 Hz grid.
+
+The AD8302 reads the divider through two laws, both centred on $V_{CP} = 0.9\ \text{V}$:
+
+$$
+V_{MAG} = V_{CP} + 0.6\,\log_{10}|H| \quad (30\ \text{mV/dB}),
+\qquad
+r = \frac{1.8\ \text{V} - V_{PHS}}{10\ \text{mV/°}} = |\angle H|
+$$
+
+The magnitude law gives the modulus of the divider's series branch:
+
+$$
+M \equiv |Z_q + R| = \frac{R}{|H|} = R \cdot 10^{(V_{CP} - V_{MAG})/0.6}
+$$
+
+The phase law gives only the magnitude of the phase, read with an offset of the channel:
+$r = |\varphi| - \delta$. The phase is rebuilt in two steps.
+
+- **Offset.** In air the phase crosses zero at resonance, and the reading folds into a V. At the
+  vertex $r = -\delta$, so the offset is measured on every sweep, $\delta = -\min r$, and
+  $|\varphi| = r + \delta$.
+- **Sign.** The sign of $\varphi$ is inverted beyond the vertex.
+
+A fold is accepted only when the minimum reaches zero relative to the off-resonance baseline. On a
+damped load (liquid, higher overtones) the phase never crosses zero, and the reading is already the
+signed phase. $G$ is even in the sign of $\varphi$, so only the offset matters to it. The sign
+matters only to $B$.
+
+### The exact inversion
+
+With $Z_q + R = M\,e^{-j\varphi}$, the crystal impedance and admittance are
+
+$$
+R_q = M\cos\varphi - R, \qquad X_q = -M\sin\varphi
+$$
+
+$$
+Y_q = \frac{1}{Z_q} = G + jB, \qquad
+G = \frac{R_q}{R_q^2 + X_q^2}, \qquad
+B = \frac{-X_q}{R_q^2 + X_q^2}
+$$
+
+The quantity of interest is the **conductance** $G(f)$. In the Butterworth–Van Dyke model, the real
+part of the motional admittance is a Lorentzian centred on the series resonance, and the locus of $Y$
+is a circle that the parallel capacitance $C_0$ only translates. Neither property holds for the
+magnitude channel. Its peak lies between the series and parallel resonances and moves with $C_0$.
+
+### Resonance frequency, bandwidth, dissipation
+
+The terms and the definition of D follow Johannsmann, Langhoff and Leppin, *Sensors* **2021**, 21,
+3490, §2. The paper writes the complex resonance frequency as $\tilde f = f_{res} + i\Gamma$.
+
+- **Resonance frequency** $f_{res}$ is the frequency of the maximum of $G(f)$. The grid is 1 Hz,
+  after Savitzky–Golay smoothing.
+- **Half bandwidth** $\Gamma$ is the half width at half height of $G(f)$. It is measured two-sided,
+  $\Gamma = (f_{right} - f_{left})/2$, above an off-resonance baseline, with both crossings
+  interpolated between samples.
+- **Dissipation** is the dissipation factor $D = Q^{-1} = 2\Gamma / f_{res}$, logged in units of
+  $10^{-6}$. It is not the −0.3 dB magnitude width that `main` logs, so the Dissipation columns of the
+  two branches are not comparable.
+
+<p align="center">
+  <img src="docs/impedance-analysis/figures/method/conductance_measured_sweep.svg"
+       alt="Measured conductance G(f) of the 5th overtone in air: the resonance frequency at the maximum of G and the full width 2Γ at half height; beside it the admittance locus B versus G, a circle to 1.2 percent of its radius"
+       width="900">
+</p>
+
+*5th overtone in air, board 1920, 2026-09-11, processed by the chain above. The dashed circle is fitted
+on the ±3Γ core, as a guide only. The peak is skewed: this is the rotation that the experimental
+estimator below models. Reproduced by
+[`make_conductance_figure.py`](docs/impedance-analysis/figures/method/make_conductance_figure.py), which
+first checks the chain against the worked example of `ALGORITHM.md` §11.*
+
+### Experimental estimator: phase-shifted Lorentzian
+
+On this instrument the conductance peak is a complex Lorentzian rotated by an angle $\varphi$. The
+angle runs from −8° on the fundamental to −27° on the 9th overtone, the same in air and in liquid.
+This rotation moves the maximum of $G$ to $f_{res} + \Gamma\tan(\varphi/2)$: a few hertz in air, up to
+several hundred hertz in liquid.
+
+The optional estimator fits the real part of the rotated Lorentzian (Johannsmann *et al.* 2021,
+eq. 3) to $G$ alone, with five free parameters ($G_{max}$, $f_{res}$, $\Gamma$, $\varphi$, $G_{off}$):
+
+$$
+G(f) = G_{max}\,\frac{\Gamma\,(\Gamma\cos\varphi - \Delta\sin\varphi)}{\Delta^2 + \Gamma^2} + G_{off},
+\qquad \Delta = f_{res} - f
+$$
+
+- **Fit:** the window is ±3Γ around the standard estimate, which is also the seed of the fit.
+- **Gate:** each fit must pass checks on the rms residual, $|\varphi|$ and the fitted Γ. A sweep that
+  fails publishes the standard estimate instead. Every such fallback is counted and logged.
+- **Status:** this estimator is **experimental**. It is enabled per run in the Measurement Setup,
+  before START.
+- **Datalog:** an experimental run writes `<ts>_multi_lorentzian.csv`. It is not comparable with the
+  standard `<ts>_multi.csv`.
+
+The full chain, with every constant, guard and validation, is in
+[`docs/impedance-analysis/ALGORITHM.md`](docs/impedance-analysis/ALGORITHM.md).
 
 ---
 
@@ -285,10 +424,10 @@ The application uses a **multiprocessing pipeline** to keep acquisition independ
 | *(unreleased)* | `main` | **GUI redesign** — programmatic single-window shell: sidebar control cards, light/dark theme, Plots/System Log tabs, single Start/Stop toggle, overtone chips, per-plot frequency/dissipation readout cards, collapsible amplitude/temperature pane, plot right-click menu + Δ cursors, bottom status bar. **Robust trimmed-mean anti-outlier averaging** of the raw acquisition buffer; development plot auto-range. See `CHANGELOG.md`. |
 | `v0.1.6G-test` | `impedance-analysis` | **Experimental**: impedance analysis via conductance spectrum `G(f)` derived from the AD8302 signals. |
 | `v0.1.6G-pre-merge` | `impedance-analysis` | State of the impedance branch just before it was aligned with `main`. |
-| *(unreleased)* | `impedance-analysis` | 📌 **Algorithm reference: [`docs/impedance-analysis/ALGORITHM.md`](docs/impedance-analysis/ALGORITHM.md)** — the full chain from the two AD8302 voltages to the published frequency and bandwidth.<br><br> Aligned with `main`. The **exact** complex-divider inversion is now the published path (resonance frequency and dissipation), the half-bandwidth is measured two-sided, a **live impedance panel** shows G(f) and the B–G admittance circle for all overtones, and Tools > *Impedance Fit (live)* runs the full BVD circle + Lorentzian fit on every sweep. Two measurement bugs fixed: the INPB attenuator compensation (0.600 → 0.61069 V, up to −22 % on `R_m`) and the phase-channel offset, now **measured** at runtime by requiring the admittance locus to be circular instead of guessed. Validated in air and isopropanol across three central bodies and three sensor modules: `f_r` agrees with an independent Lorentzian fit to 0.007–0.32 ppm. See `CHANGELOG.md`. |
+| *(unreleased)* | `impedance-analysis` | 📌 **Algorithm reference: [`docs/impedance-analysis/ALGORITHM.md`](docs/impedance-analysis/ALGORITHM.md)**: the full chain from the two AD8302 voltages to the published frequency and dissipation. Method summary: [Impedance Measurement Method](#impedance-measurement-method).<br><br> Aligned with `main` by cherry-pick. The **exact** complex-divider inversion is the published path. The **standard** estimator is the maximum of G with the two-sided half width at half height, and the logged dissipation is D = 2Γ/f_res. The **phase-shifted Lorentzian** fit on G is an **experimental** mode, chosen per run, with its own datalog (`_multi_lorentzian.csv`). A **live impedance panel** shows G(f), B(f) and the admittance locus for all overtones. Tools > *Impedance Fit (live)* and *Impedance Data View* show what the acquisition published and compute nothing. Two measurement bugs are fixed: the INPB attenuator compensation (0.600 → 0.61069 V, up to −22 % on `R_m`) and the phase-channel offset, which is now **measured** on every sweep at the vertex of the phase fold. Validated in air, water and isopropanol: in liquid, ΔΓ follows Kanazawa–Gordon within 8 % on overtones 3–9. See `CHANGELOG.md`. |
 
-The `impedance-analysis` branch is experimental and not merged into `main`. It is kept aligned by
-merging `main` into it; its documentation lives under `docs/impedance-analysis/` on that branch,
+The `impedance-analysis` branch is experimental and not merged into `main`. `main`'s changes reach
+it by cherry-pick, never by merge (see `HANDOFF.md`); its documentation lives under `docs/impedance-analysis/` on that branch,
 and the raw sweep format it consumes is described in `software/docs/DATA_FORMAT_sweep_data.md`.
 
 ---
