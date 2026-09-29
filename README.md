@@ -50,83 +50,126 @@ On the `impedance-analysis` branch, the resonance frequency and the dissipation 
 crystal's **electrical admittance**. The firmware, the sweep and the serial protocol are the same as on
 `main`. The conversion from the two AD8302 voltages to the logged f and D is software only.
 
-### The divider
+### The measuring divider
 
-The crystal impedance $Z_q$ and a reference resistor $R = 52.3\ \Omega$ form a voltage divider. The
-AD8302 compares the two nodes of that divider: the drive node (INPB) and the node between the crystal
-and $R$ (INPA).
+The crystal impedance $Z_q$ and the resistor $R_{17} = 52.3\ \Omega$ to ground form the measuring
+divider, shown in blue in the figure. The AD8302 compares the two ends of the divider, each through a
+1 nF DC-blocking capacitor:
+
+- **INPA** reads the node $V_A$ between the crystal and $R_{17}$.
+- **INPB** reads the drive voltage $V_{in}$ through the $R_{11}/R_{19}$ attenuator, so it sees
+  $V_{in}/K$ with $K = (R_{11}+R_{19})/R_{19} = 10.42$ (20.36 dB).
 
 <p align="center">
   <img src="docs/impedance-analysis/figures/method/measurement_circuit.svg"
-       alt="Measurement circuit: the DDS drives the quartz sensor Z_q in series with R = 52.3 Ω to ground; the AD8302 reads the node between them on INPA and the drive node, through the R11/R19 attenuator, on INPB; its V_MAG and V_PHS outputs reach the Teensy 4.0 ADC through gains of 2 and 1.5"
+       alt="Measurement circuit after the openQCM NEXT schematic: the DDS drive reaches QCM_IN through R7, C7 and R37; the quartz sensor on connector J2 returns through R38 and R12 to the node V_A, loaded by R17 = 52.3 Ω to ground; the AD8302 reads V_A on INPA through C11 and QCM_IN on INPB through the R11/R19 attenuator and C19; its V_MAG and V_PHS outputs reach the Teensy 4.0 pins A9 and A3 through two LM7301 stages of gain 2 and 1.5"
        width="900">
 </p>
 
-$$
-H = \frac{V_A}{V_B} = \frac{R}{Z_q + R}
-$$
+The circuit is drawn after [`docs/schematic/openQCM_NEXT_A4.pdf`](docs/schematic/openQCM_NEXT_A4.pdf)
+(rev. 3.0).
 
-### From the AD8302 outputs to modulus and phase
+### AD8302 output characteristics
 
-The firmware samples both detector outputs with the 12-bit ADC of the Teensy (3.3 V full scale).
-The conversion to volts undoes the gain of each analog front end (2 on the magnitude channel, 1.5 on
-the phase channel). It also undoes the attenuator that the INPB input sees
-($R_{11} = 47\ \Omega$, $R_{19} = 4.99\ \Omega$, 20.36 dB):
+The AD8302 works in measurement mode: VMAG is tied to MSET and VPHS to PSET. Its two outputs are then
+(Analog Devices, *AD8302 LF–2.7 GHz RF/IF Gain and Phase Detector*, rev. B, eq. 8a and 9;
+[`docs/datasheet/ad8302.pdf`](docs/datasheet/ad8302.pdf)):
 
 $$
-V_{MAG} = \frac{3.3}{4096}\,\frac{N_{MAG}}{2} - 0.6\log_{10}\frac{R_{11}+R_{19}}{R_{19}},
+V_{MAG} = 30\ \text{mV/dB} \cdot 20\log_{10}\left(\frac{V_{INPA}}{V_{INPB}}\right) + V_{CP}
+$$
+
+$$
+V_{PHS} = -10\ \text{mV/deg} \cdot \left(|\phi_{meas}| - 90^\circ\right) + V_{CP}
+$$
+
+Here $V_{CP} = 0.9\ \text{V}$ is the centre point, and $\phi_{meas}$ is the phase difference between the
+two inputs. The phase output gives only its **absolute value**.
+
+The two outputs reach the 12-bit ADC of the Teensy 4.0 (3.3 V) through two non-inverting stages: ×2 on
+V_MAG (pin A9) and ×1.5 on V_PHS (pin A3). The software converts the counts back to the detector's
+voltages and removes the attenuator from V_MAG:
+
+$$
+V_{MAG} = \frac{3.3}{4096}\,\frac{N_{MAG}}{2} - 0.6\log_{10}K,
 \qquad
 V_{PHS} = \frac{3.3}{4096}\,\frac{N_{PHS}}{1.5}
 $$
 
-The attenuator term is 0.61069 V. Both channels are then smoothed with a Savitzky–Golay filter
-(51 points, order 3) and resampled on a 1 Hz grid.
+The attenuator term is $0.6\log_{10}K = 0.61069\ \text{V}$. Both channels are then smoothed with a
+Savitzky–Golay filter (51 points, order 3) and resampled on a 1 Hz grid.
 
-The AD8302 reads the divider through two laws, both centred on $V_{CP} = 0.9\ \text{V}$:
+### Transfer function
 
-$$
-V_{MAG} = V_{CP} + 0.6\,\log_{10}|H| \quad (30\ \text{mV/dB}),
-\qquad
-r = \frac{1.8\ \text{V} - V_{PHS}}{10\ \text{mV/°}} = |\angle H|
-$$
-
-The magnitude law gives the modulus of the divider's series branch:
+The divider's transfer function is
 
 $$
-M \equiv |Z_q + R| = \frac{R}{|H|} = R \cdot 10^{(V_{CP} - V_{MAG})/0.6}
+H = \frac{V_A}{V_{in}} = \frac{R_{17}}{Z_q + R_{17}}
 $$
 
-The phase law gives only the magnitude of the phase, read with an offset of the channel:
-$r = |\varphi| - \delta$. The phase is rebuilt in two steps.
+Once V_MAG is corrected for the attenuator, the AD8302 measures:
 
-- **Offset.** In air the phase crosses zero at resonance, and the reading folds into a V. At the
-  vertex $r = -\delta$, so the offset is measured on every sweep, $\delta = -\min r$, and
-  $|\varphi| = r + \delta$.
-- **Sign.** The sign of $\varphi$ is inverted beyond the vertex.
+- $|H|^{-1} = |Z_q + R_{17}|\,/\,R_{17}$
+- $\angle H = -\angle(Z_q + R_{17})$, as an absolute value
+
+### Exact calculation procedure
+
+**Step 1: extract $|Z_q + R_{17}|$ from V_MAG.** From the magnitude law, $V_{MAG} = V_{CP} + 0.6\log_{10}|H|$,
+so
+
+$$
+M = |Z_q + R_{17}| = R_{17} \cdot 10^{\frac{V_{CP} - V_{MAG}}{0.6}}
+$$
+
+The 0.6 is 20 × 30 mV/dB, the detector's volts per decade. It is not the attenuator.
+
+**Step 2: extract the phase from V_PHS.** The reading is
+
+$$
+\phi_{meas} = \frac{V_{CP} - V_{PHS}}{0.01} + 90^\circ \quad \text{[degrees]}
+$$
+
+This is the magnitude of the phase of $H$, read with an offset of the channel:
+$\phi_{meas} = |\phi| - \delta$. The phase $\phi$ is rebuilt in two steps:
+
+- **Offset.** In air the phase crosses zero at resonance, and the reading folds into a V. At the vertex
+  $\phi_{meas} = -\delta$, so the offset is measured on every sweep, $\delta = -\min\phi_{meas}$, and
+  $|\phi| = \phi_{meas} + \delta$.
+- **Sign.** The sign of $\phi$ is inverted beyond the vertex.
 
 A fold is accepted only when the minimum reaches zero relative to the off-resonance baseline. On a
-damped load (liquid, higher overtones) the phase never crosses zero, and the reading is already the
-signed phase. $G$ is even in the sign of $\varphi$, so only the offset matters to it. The sign
-matters only to $B$.
+damped load (liquid, higher overtones) the phase never crosses zero, and the reading is used as it is.
+$G$ is even in the sign of $\phi$, so only the offset matters to it. The sign matters only to $B$.
 
-### The exact inversion
-
-With $Z_q + R = M\,e^{-j\varphi}$, the crystal impedance and admittance are
+**Step 3: reconstruct $Z_q$.** Since $Z_q + R_{17} = M\,e^{-j\phi}$:
 
 $$
-R_q = M\cos\varphi - R, \qquad X_q = -M\sin\varphi
+R_q = M\cos\phi - R_{17}, \qquad X_q = -M\sin\phi
 $$
 
+Here $R_q$ is the resistance (real part of $Z_q$) and $X_q$ the reactance (imaginary part).
+
+**Step 4: calculate the conductance.** $Y_q = 1/Z_q = G + jB$, with
+
 $$
-Y_q = \frac{1}{Z_q} = G + jB, \qquad
-G = \frac{R_q}{R_q^2 + X_q^2}, \qquad
-B = \frac{-X_q}{R_q^2 + X_q^2}
+G = \frac{R_q}{R_q^2 + X_q^2}, \qquad B = \frac{-X_q}{R_q^2 + X_q^2}
 $$
 
-The quantity of interest is the **conductance** $G(f)$. In the Butterworth–Van Dyke model, the real
-part of the motional admittance is a Lorentzian centred on the series resonance, and the locus of $Y$
-is a circle that the parallel capacitance $C_0$ only translates. Neither property holds for the
-magnitude channel. Its peak lies between the series and parallel resonances and moves with $C_0$.
+**Compact formula:**
+
+$$
+\boxed{G = \frac{M\cos\phi - R_{17}}{(M\cos\phi - R_{17})^2 + (M\sin\phi)^2}}
+$$
+
+where:
+
+- $M = 52.3 \cdot 10^{(0.9 - V_{MAG})/0.6}$, with V_MAG corrected for the attenuator;
+- $\phi = (0.9 - V_{PHS})/0.01 + 90^\circ + \delta$, converted to radians.
+
+The conductance is the quantity of interest. In the Butterworth–Van Dyke model, the real part of the
+motional admittance is a Lorentzian centred on the series resonance, and the locus of $Y$ is a circle
+that the parallel capacitance $C_0$ only translates. Neither property holds for the magnitude channel.
+Its peak lies between the series and parallel resonances and moves with $C_0$.
 
 ### Resonance frequency, bandwidth, dissipation
 
