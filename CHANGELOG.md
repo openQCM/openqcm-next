@@ -5,6 +5,21 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Docs — datasheets and schematic in the repo; the README method in steps; the AD8302 ratio corrected in two documents (2026-09-29)
+
+`684af2d`: `docs/datasheet/` (AD8302 rev. B, MTD415T, Teensy 4.0 cards) and `docs/schematic/` (the original
+`openQCM_NEXT-MAIN` rev. 3.0 of 2021-08-25, the one-sheet A4 reconstruction whose netlist matches it — 85
+components, 94 nets — and its LEGGIMI). What they settled: R11 = 47 Ω and R19 = 4.99 Ω, as in `Constants`
+(the 2023 supporting-info PDF drew 46.9 Ω and 5 Ω); the ×2 and ×1.5 ahead of the ADC are two LM7301
+non-inverting stages (1 + R21/R23, 1 + R20/R22) to A9 and A3, the pins the firmware reads; the sensor sits on
+J2 between QCM_IN and QCM_OUT, with R38 and R12 (0 Ω) on the return and C11/C19 (1 nF) into the detector.
+`223ada7`: the README section rewritten in steps — divider, the AD8302 laws cited from the datasheet (eq. 8a,
+9), digitization, transfer function, four steps to G, the compact formula — and the circuit redrawn after the
+A4 schematic. `02ff7d6`: `ALGORITHM.md` §1 and `conductance-calculation.md` wrote the magnitude law with
+V_INPB/V_INPA; the datasheet has V_INPA/V_INPB. Every conversion in the code was read and uses the datasheet's
+sign; the inverted law would give a negative crystal resistance on every measured sweep (air n = 1: −21 Ω,
+water n = 1: −48 Ω). **The code was never affected.**
+
 ### Docs — the impedance measurement method on the README's front page (2026-09-29)
 
 `60e9830`: a section "Impedance Measurement Method" in `README.md` — the divider (crystal and R = 52.3 Ω read

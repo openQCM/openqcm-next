@@ -652,6 +652,11 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   hand; the measured-sweep SVG from `make_conductance_figure.py`, 5th overtone in air, `air_1/g5` of the
   2026-09-11 dumps). ⚠️ Keep it in step with `ALGORITHM.md`: a change of estimator, gate or phase rule
   changes that section too.
+- **Hardware references in the repo** (2026-09-29): `docs/schematic/openQCM_NEXT_A4.pdf` (one sheet, readable;
+  netlist identical to the original `openQCM_NEXT-MAIN_schematic.PDF`, see `LEGGIMI.md`) and
+  `docs/datasheet/` (AD8302 rev. B, MTD415T, Teensy 4.0). ⚠️ Read them before stating a component value, a
+  pin or a detector law: on 2026-09-29 two documents of this branch carried the AD8302 magnitude ratio
+  inverted, and the circuit was first drawn without C11/C19/R12.
 
 **State (2026-07-28)**:
 - ✅ The **exact** complex-divider inversion is the **published** path. G comes from
