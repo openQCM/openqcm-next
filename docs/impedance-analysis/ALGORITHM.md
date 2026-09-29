@@ -72,13 +72,16 @@ V_in ──┬── Z_q ──┬── R17 ──┬── GND
 
 - `Z_q` — the quartz impedance, complex, unknown. This is what we want.
 - `R17 = 52.3 Ω` — `Constants`… no: `MultiscanProcess.R17_EXACT`, class attribute, `Multiscan.py:395`.
-- The divider transfer function is `H = V_INPA/V_INPB = R17/(Z_q + R17)`.
+- The divider transfer function is `H = V_A/V_in = R17/(Z_q + R17)`. INPA reads `V_A`; INPB reads
+  `V_in/K` through the attenuator below, `K = (R11 + R19)/R19`.
 
 The AD8302 puts out two DC voltages:
 
 - **`V_MAG`** — the magnitude ratio, **30 mV/dB**, centred on `V_CP = 0.9 V`
   (`MultiscanProcess.V_CP_EXACT`, `Multiscan.py:396`):
-  `V_MAG = 0.030·20·log10(V_INPB/V_INPA) + V_CP`.
+  `V_MAG = 0.030·20·log10(V_INPA/V_INPB) + V_CP` — AD8302 datasheet rev. B, eq. 8a
+  (`docs/datasheet/ad8302.pdf`). ⚠️ Until 2026-09-29 this line had the ratio inverted; §5 and the code
+  always used the datasheet's sign.
 - **`V_PHS`** — the phase difference, **10 mV/deg**, also centred on `V_CP`, and it is a
   **magnitude**: the device cannot tell the sign of the phase difference.
   `V_PHS = −0.010·(|Δφ| − 90°) + V_CP`.
@@ -335,7 +338,8 @@ X_q = -M * np.sin(phi)
 
 Derivation, so it can be rebuilt from nothing:
 
-1. The detector measures `|V_INPB/V_INPA| = |Z_q + R17|/R17`. Inverting the 30 mV/dB law:
+1. The detector's law is `V_MAG = V_CP + 0.6·log10|V_INPA/V_INPB|`, and `|V_INPA/V_INPB| = K·|H|`. With
+   `K` removed in §2.1, `V_MAG = V_CP + 0.6·log10|H|` and `1/|H| = |Z_q + R17|/R17`, so
    `20·log10(|Z_q+R17|/R17) = (V_CP − V_MAG)/0.030`, hence
 
    ```

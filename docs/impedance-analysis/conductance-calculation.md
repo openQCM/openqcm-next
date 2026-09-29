@@ -121,8 +121,13 @@ V_in ──┬── Z_q ──┬── R_17 ──┬── GND
 
 ## AD8302 Output Characteristics
 
+The AD8302 datasheet (rev. B, eq. 8a and 9, measurement mode; `docs/datasheet/ad8302.pdf`) gives:
+
 **Magnitude output (V_MAG):**
-$$V_{MAG} = 30 \text{ mV/dB} \cdot 20\log_{10}\left(\frac{V_{INPB}}{V_{INPA}}\right) + V_{CP}$$
+$$V_{MAG} = 30 \text{ mV/dB} \cdot 20\log_{10}\left(\frac{V_{INPA}}{V_{INPB}}\right) + V_{CP}$$
+
+> ⚠️ Corrected 2026-09-29: this line had the ratio inverted (`V_INPB/V_INPA`), against the datasheet and
+> against the inversion below, which has always used the datasheet's sign. The code was never affected.
 
 **Phase output (V_PHS):**
 $$V_{PHS} = -10 \text{ mV/deg} \cdot (|\phi_{meas}| - 90°) + V_{CP}$$
@@ -132,7 +137,10 @@ Where $V_{CP} = 0.9$ V (center point).
 ## Transfer Function Analysis
 
 The voltage divider transfer function:
-$$H = \frac{V_{INPA}}{V_{INPB}} = \frac{R_{17}}{Z_q + R_{17}}$$
+$$H = \frac{V_A}{V_{in}} = \frac{R_{17}}{Z_q + R_{17}}$$
+
+INPA reads $V_A$; INPB reads $V_{in}/K$ through the R11/R19 attenuator, $K = (R_{11}+R_{19})/R_{19}$. Once the
+attenuator is removed from V_MAG (0.61069 V), $V_{MAG} = V_{CP} + 0.6\log_{10}|H|$.
 
 AD8302 measures:
 - $|H|^{-1} = |Z_q + R_{17}| / R_{17}$
