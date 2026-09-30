@@ -13,7 +13,9 @@ process with `Worker` and `MainWindow`. Read from the code, and corrected in the
 the `multiprocessing.Queue` objects (its `run()` is commented out); the `Worker` is not a process, it lives in the
 GUI process, is drained by `_update_plot()` on the 50 ms `QTimer`, writes the datalog (one row per cycle, on the
 temperature message) and sends TEC/PID commands through `serial_write()`. Serial link read from the code and the
-0.1.5c firmware: 115200 baud, 8 bits, 1 stop bit.
+0.1.5c firmware: 115200 baud, 8 bits, 1 stop bit. Then a simplified block diagram,
+`docs/figures/software_blocks.svg`, heads the section: the multiprocessing pipeline — two processes, the queue
+between them — with the three `multiprocessing.Event` flags they also share (stop, PID read, TEC reset).
 
 ### Docs — datasheets and schematic in the repo; the README method in steps; the AD8302 ratio corrected in two documents (2026-09-29)
 
