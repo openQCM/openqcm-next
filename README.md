@@ -438,22 +438,26 @@ openqcm-next/
 
 ## Architecture
 
-The application uses a **multiprocessing pipeline** to keep acquisition independent from the UI:
+Acquisition and display run in **two processes**, so redrawing the plots does not hold up the sweep:
 
-```text
-+----------------+   Queues    +----------+   Buffers    +----------------+
-| Serial process |----------->|  Worker   |------------->|   MainWindow   |
-| (acquisition)  |            |           |              | (Qt event loop)|
-+----------------+            +----------+               +----------------+
-       |                                                         |
-       v                                                         v
-   USB serial                                            PyQtGraph plots
- (openQCM NEXT)                                             CSV export
-```
+<p align="center">
+  <img src="docs/figures/software_architecture.svg"
+       alt="Software architecture: the openQCM NEXT board streams each sweep over USB serial to an acquisition process (MultiscanProcess, SerialProcess or CalibrationProcess), which reads, smooths, inverts and estimates, then publishes through multiprocessing queues held by ParserProcess; in the GUI process a 50 ms QTimer makes the Worker drain the queues into ring buffers and write the datalog, and MainWindow redraws the plots; TEC and PID commands go back over the same serial port"
+       width="900">
+</p>
 
-- **Serial / Multiscan process** — reads raw ADC data, applies baseline correction, Savitzky-Golay filtering, spline interpolation, and peak/bandwidth computation.
-- **Worker** — consumes the multiprocessing queues and stores data into ring buffers.
-- **MainWindow** — a Qt timer (50 ms) reads the buffers and updates the plots via efficient `setData()` calls.
+- **Acquisition process** — a `multiprocessing.Process` started at every START: `MultiscanProcess`
+  (multi-overtone), `SerialProcess` (single overtone) or `CalibrationProcess` (peak detection). It drives the
+  sweep over USB serial and processes each one: ADC counts to volts, Savitzky–Golay and spline on a 1 Hz
+  grid, the exact inversion to G(f) and B(f), and the estimator (f_res, Γ, D). Results go out through
+  `parser.add_*()`, one message per overtone and then the temperature.
+- **Queues** — `ParserProcess` only holds the `multiprocessing.Queue` objects (frequency, dissipation, G/B
+  spectra, amplitude/phase, temperature, TEC/PID, status, System Log); its own `run()` does nothing.
+- **Worker** — lives in the GUI process. It creates the queues, starts the acquisition process (handing it
+  the estimator chosen before START), drains every queue into ring buffers, writes the datalog (one row
+  per cycle, clocked by the temperature message) and sends TEC/PID commands to the board.
+- **MainWindow** — a Qt timer (`Constants.plot_update_ms`, 50 ms) calls `_update_plot()`, which drains the
+  queues through the Worker and redraws the plots with PyQtGraph `setData()`.
 
 ---
 

@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" width="1200" height="520" font-family="Helvetica, Arial, sans-serif">
+  <title>openQCM NEXT software architecture: acquisition process, queues, GUI process</title>
+  <!-- Read from the code on 2026-09-30: core/worker.py (Worker.start, consume_queue_*, store_data),
+       processors/Parser.py (queues only; run() is commented out), processors/Multiscan.py,
+       ui/mainWindow.py (_update_plot on a QTimer of Constants.plot_update_ms = 50 ms). -->
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2a78d6"/>
+    </marker>
+    <marker id="ahg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8a8984"/>
+    </marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="1199" height="519" rx="10" fill="#ffffff" stroke="#e4e3df"/>
+
+  <!-- column headings -->
+  <g font-size="11" fill="#8a8984" letter-spacing="0.6">
+    <text x="30" y="34">INSTRUMENT</text>
+    <text x="250" y="34">ACQUISITION PROCESS</text>
+    <text x="596" y="34">QUEUES</text>
+    <text x="760" y="34">GUI PROCESS</text>
+  </g>
+
+  <!-- ============ instrument ============ -->
+  <rect x="30" y="50" width="160" height="250" rx="8" fill="#f6f6f4" stroke="#3a3a38" stroke-width="1.6"/>
+  <text x="110" y="78" font-size="13" font-weight="bold" fill="#0b0b0b" text-anchor="middle">openQCM NEXT</text>
+  <text x="110" y="96" font-size="11" fill="#52514e" text-anchor="middle">Teensy 4.0 firmware</text>
+  <g font-size="11" fill="#0b0b0b">
+    <rect x="42" y="112" width="136" height="34" rx="5" fill="#ffffff" stroke="#c9c8c3"/>
+    <text x="110" y="133" text-anchor="middle">DDS frequency sweep</text>
+    <rect x="42" y="154" width="136" height="34" rx="5" fill="#ffffff" stroke="#c9c8c3"/>
+    <text x="110" y="175" text-anchor="middle">AD8302 → 12-bit ADC</text>
+    <rect x="42" y="196" width="136" height="34" rx="5" fill="#ffffff" stroke="#c9c8c3"/>
+    <text x="110" y="217" text-anchor="middle">temperature, TEC</text>
+  </g>
+  <text x="110" y="262" font-size="10.5" fill="#52514e" text-anchor="middle">USB serial</text>
+  <text x="110" y="277" font-size="10.5" fill="#8a8984" text-anchor="middle">115200 baud, 8N1</text>
+
+  <!-- ============ acquisition process ============ -->
+  <rect x="250" y="50" width="300" height="410" rx="10" fill="none" stroke="#8a8984" stroke-width="1.2" stroke-dasharray="6 4"/>
+  <text x="264" y="72" font-size="10.5" fill="#8a8984">multiprocessing.Process, one per START</text>
+
+  <rect x="266" y="84" width="268" height="62" rx="7" fill="#eaf2fc" stroke="#2a78d6" stroke-width="1.8"/>
+  <text x="400" y="108" font-size="13" font-weight="bold" fill="#0b0b0b" text-anchor="middle">MultiscanProcess</text>
+  <text x="400" y="126" font-size="10.5" fill="#52514e" text-anchor="middle">multi-overtone measurement</text>
+  <text x="400" y="140" font-size="10" fill="#8a8984" text-anchor="middle">or SerialProcess (single) · CalibrationProcess (peaks)</text>
+
+  <g font-size="11" fill="#0b0b0b">
+    <rect x="266" y="160" width="268" height="44" rx="6" fill="#ffffff" stroke="#c9c8c3"/>
+    <text x="280" y="178" font-weight="bold">1  Read the sweep</text>
+    <text x="280" y="194" fill="#52514e" font-size="10.5">ADC counts → V_MAG, V_PHS (volts)</text>
+    <rect x="266" y="212" width="268" height="44" rx="6" fill="#ffffff" stroke="#c9c8c3"/>
+    <text x="280" y="230" font-weight="bold">2  Smooth and resample</text>
+    <text x="280" y="246" fill="#52514e" font-size="10.5">Savitzky–Golay, spline on a 1 Hz grid</text>
+    <rect x="266" y="264" width="268" height="44" rx="6" fill="#ffffff" stroke="#c9c8c3"/>
+    <text x="280" y="282" font-weight="bold">3  Exact inversion</text>
+    <text x="280" y="298" fill="#52514e" font-size="10.5">phase fold and offset δ, Z_q, G(f), B(f)</text>
+    <rect x="266" y="316" width="268" height="44" rx="6" fill="#ffffff" stroke="#c9c8c3"/>
+    <text x="280" y="334" font-weight="bold">4  Estimator</text>
+    <text x="280" y="350" fill="#52514e" font-size="10.5">f_res, Γ, D = 2Γ/f_res · standard or experimental</text>
+    <rect x="266" y="368" width="268" height="44" rx="6" fill="#ffffff" stroke="#c9c8c3"/>
+    <text x="280" y="386" font-weight="bold">5  Publish</text>
+    <text x="280" y="402" fill="#52514e" font-size="10.5">parser.add_*(…) per overtone, then temperature</text>
+  </g>
+  <g stroke="#8a8984" stroke-width="1.2" fill="none" marker-end="url(#ahg)">
+    <path d="M400,204 V210"/><path d="M400,256 V262"/><path d="M400,308 V314"/><path d="M400,360 V366"/>
+  </g>
+  <text x="400" y="440" font-size="10" fill="#8a8984" text-anchor="middle">Estimator chosen before START: Worker(estimator=…) → set_estimator()</text>
+
+  <!-- instrument <-> acquisition -->
+  <path d="M190,120 H262" fill="none" stroke="#2a78d6" stroke-width="2" marker-end="url(#ah)"/>
+  <text x="224" y="136" font-size="9.5" fill="#2a78d6" text-anchor="middle">data</text>
+  <path d="M262,98 H194" fill="none" stroke="#8a8984" stroke-width="1.4" marker-end="url(#ahg)"/>
+  <text x="224" y="90" font-size="9.5" fill="#8a8984" text-anchor="middle">commands</text>
+
+  <!-- ============ queues ============ -->
+  <rect x="580" y="50" width="150" height="410" rx="10" fill="#f6f6f4" stroke="#c9c8c3"/>
+  <text x="655" y="72" font-size="10.5" fill="#52514e" text-anchor="middle">ParserProcess</text>
+  <text x="655" y="86" font-size="9.5" fill="#8a8984" text-anchor="middle">holds the queues, runs nothing</text>
+  <g font-size="10.5" fill="#0b0b0b" text-anchor="middle">
+    <rect x="596" y="102" width="118" height="28" rx="14" fill="#ffffff" stroke="#2a78d6" stroke-width="1.4"/>
+    <text x="655" y="120">F per overtone</text>
+    <rect x="596" y="138" width="118" height="28" rx="14" fill="#ffffff" stroke="#2a78d6" stroke-width="1.4"/>
+    <text x="655" y="156">D per overtone</text>
+    <rect x="596" y="174" width="118" height="28" rx="14" fill="#ffffff" stroke="#2a78d6" stroke-width="1.4"/>
+    <text x="655" y="192">G, B spectra, fit</text>
+    <rect x="596" y="210" width="118" height="28" rx="14" fill="#ffffff" stroke="#2a78d6" stroke-width="1.4"/>
+    <text x="655" y="228">amplitude, phase</text>
+    <rect x="596" y="246" width="118" height="28" rx="14" fill="#ffffff" stroke="#2a78d6" stroke-width="1.4"/>
+    <text x="655" y="264">temperature (clock)</text>
+    <rect x="596" y="282" width="118" height="28" rx="14" fill="#ffffff" stroke="#c9c8c3"/>
+    <text x="655" y="300">TEC, PID</text>
+    <rect x="596" y="318" width="118" height="28" rx="14" fill="#ffffff" stroke="#c9c8c3"/>
+    <text x="655" y="336">status, errors</text>
+    <rect x="596" y="354" width="118" height="28" rx="14" fill="#ffffff" stroke="#c9c8c3"/>
+    <text x="655" y="372">System Log</text>
+  </g>
+  <text x="655" y="410" font-size="10" fill="#8a8984" text-anchor="middle">multiprocessing.Queue</text>
+
+  <path d="M534,390 H592" fill="none" stroke="#2a78d6" stroke-width="2" marker-end="url(#ah)"/>
+
+  <!-- ============ GUI process ============ -->
+  <rect x="760" y="50" width="420" height="410" rx="10" fill="none" stroke="#8a8984" stroke-width="1.2" stroke-dasharray="6 4"/>
+  <text x="774" y="72" font-size="10.5" fill="#8a8984">main process, Qt event loop</text>
+
+  <!-- Worker -->
+  <rect x="776" y="84" width="180" height="250" rx="7" fill="#eaf2fc" stroke="#2a78d6" stroke-width="1.8"/>
+  <text x="866" y="108" font-size="13" font-weight="bold" fill="#0b0b0b" text-anchor="middle">Worker</text>
+  <g font-size="10.5" fill="#0b0b0b">
+    <text x="790" y="132">consume_queue_*()</text>
+    <text x="790" y="147" fill="#52514e">drains every queue</text>
+    <text x="790" y="175">ring buffers</text>
+    <text x="790" y="190" fill="#52514e">F, D, T, G/B per overtone</text>
+    <text x="790" y="218">datalog writer</text>
+    <text x="790" y="233" fill="#52514e">one row per cycle,</text>
+    <text x="790" y="248" fill="#52514e">on the temperature message</text>
+    <text x="790" y="276">starts the processes</text>
+    <text x="790" y="291" fill="#52514e">serial_write(): TEC commands</text>
+  </g>
+
+  <!-- MainWindow -->
+  <rect x="984" y="84" width="180" height="250" rx="7" fill="#f6f6f4" stroke="#3a3a38" stroke-width="1.6"/>
+  <text x="1074" y="108" font-size="13" font-weight="bold" fill="#0b0b0b" text-anchor="middle">MainWindow</text>
+  <g font-size="10.5" fill="#0b0b0b">
+    <text x="998" y="132">QTimer, 50 ms</text>
+    <text x="998" y="147" fill="#52514e">_update_plot()</text>
+    <text x="998" y="175">PyQtGraph setData()</text>
+    <text x="998" y="190" fill="#52514e">frequency, dissipation,</text>
+    <text x="998" y="205" fill="#52514e">temperature</text>
+    <text x="998" y="233">impedance panel</text>
+    <text x="998" y="248" fill="#52514e">G(f), B(f), locus</text>
+    <text x="998" y="276">Tools windows</text>
+    <text x="998" y="291" fill="#52514e">fit, data views, PID</text>
+  </g>
+
+  <!-- queues -> Worker ; timer -> Worker ; Worker -> MainWindow -->
+  <path d="M730,200 H772" fill="none" stroke="#2a78d6" stroke-width="2" marker-end="url(#ah)"/>
+  <path d="M984,140 H960" fill="none" stroke="#8a8984" stroke-width="1.4" marker-end="url(#ahg)"/>
+  <text x="972" y="132" font-size="9.5" fill="#8a8984" text-anchor="middle">tick</text>
+  <path d="M956,190 H980" fill="none" stroke="#2a78d6" stroke-width="2" marker-end="url(#ah)"/>
+  
+  <!-- outputs -->
+  <rect x="776" y="360" width="180" height="84" rx="7" fill="#ffffff" stroke="#c9c8c3"/>
+  <text x="866" y="382" font-size="12" font-weight="bold" fill="#0b0b0b" text-anchor="middle">Datalog, CSV</text>
+  <text x="866" y="400" font-size="10.5" fill="#52514e" text-anchor="middle">&lt;ts&gt;_multi.csv</text>
+  <text x="866" y="415" font-size="10.5" fill="#52514e" text-anchor="middle">&lt;ts&gt;_multi_lorentzian.csv</text>
+  <text x="866" y="430" font-size="9.5" fill="#8a8984" text-anchor="middle">(experimental run)</text>
+  <path d="M866,334 V356" fill="none" stroke="#2a78d6" stroke-width="2" marker-end="url(#ah)"/>
+
+  <rect x="984" y="360" width="180" height="84" rx="7" fill="#ffffff" stroke="#c9c8c3"/>
+  <text x="1074" y="382" font-size="12" font-weight="bold" fill="#0b0b0b" text-anchor="middle">Screen</text>
+  <text x="1074" y="400" font-size="10.5" fill="#52514e" text-anchor="middle">plots, readout cards,</text>
+  <text x="1074" y="415" font-size="10.5" fill="#52514e" text-anchor="middle">status bar, System Log</text>
+  <path d="M1074,334 V356" fill="none" stroke="#2a78d6" stroke-width="2" marker-end="url(#ah)"/>
+
+  <!-- TEC commands back to the instrument -->
+  <path d="M866,460 V490 H110 V304" fill="none" stroke="#8a8984" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#ahg)"/>
+  <text x="480" y="484" font-size="10" fill="#8a8984" text-anchor="middle">TEC and PID commands over the same serial port</text>
+</svg>
