@@ -382,56 +382,61 @@ python run.py          # or: python -m openQCM
 
 ## Repository Structure
 
+The tree below is the `impedance-analysis` branch. Files marked *runtime* are rewritten by the application
+and are not versioned, except the two `PeakFrequencies` files, which the application needs at start-up.
+
 ```text
 openqcm-next/
-├── software/                                # Python application
-│   ├── run.py                               # application entry point (thin launcher)
-│   ├── openQCM/                             # main package
-│   │   ├── __main__.py                      # `python -m openQCM` entry
-│   │   ├── app.py                           # OPENQCM application class (bootstrap)
+├── software/                                  # Python application
+│   ├── run.py                                 # entry point (thin launcher)
+│   ├── environment.yml · requirements.txt     # conda / pip dependencies
+│   ├── openQCM/                               # main package
+│   │   ├── __main__.py · app.py               # `python -m openQCM`, OPENQCM bootstrap
 │   │   ├── core/
-│   │   │   ├── constants.py                 # configuration parameters & tunables
-│   │   │   ├── worker.py                    # multiprocessing manager (queues → ring buffers)
-│   │   │   └── ringBuffer.py                # circular buffer for time series
-│   │   ├── common/
-│   │   │   ├── architecture.py              # OS / platform detection
-│   │   │   ├── arguments.py                 # CLI arguments & logging setup
-│   │   │   ├── fileManager.py               # file / path helpers
-│   │   │   ├── fileStorage.py               # CSV data logging
-│   │   │   ├── logger.py                    # application logger
-│   │   │   └── switcher.py                  # source switcher
+│   │   │   ├── worker.py                      # queues, processes, ring buffers, datalog writer
+│   │   │   ├── constants.py                   # configuration parameters and tunables
+│   │   │   ├── resonance.py                   # peak detection, dissipation band, filtering chain
+│   │   │   ├── lorentzian.py                  # phase-shifted Lorentzian on G (experimental estimator)
+│   │   │   ├── averaging.py                   # robust averaging of the ring buffers
+│   │   │   ├── logAnalysis.py                 # two-window statistics over a logged run
+│   │   │   └── ringBuffer.py                  # circular buffer for time series
 │   │   ├── processors/
-│   │   │   ├── Serial.py                    # serial acquisition process (SerialProcess)
-│   │   │   ├── Multiscan.py                 # multi-overtone acquisition & processing
-│   │   │   ├── Calibration.py               # peak-detection / calibration process
-│   │   │   ├── Parser.py                    # data-queue distribution
-│   │   │   ├── Sigma_Clip.py                # sigma-clipping filter
-│   │   │   ├── Simulator.py                 # simulated data source
-│   │   │   └── SocketClient.py              # socket data source
+│   │   │   ├── Multiscan.py                   # multi-overtone acquisition, exact inversion to G(f), B(f)
+│   │   │   ├── Serial.py                      # single-overtone acquisition
+│   │   │   ├── Calibration.py                 # peak detection
+│   │   │   ├── Parser.py                      # holds the multiprocessing queues
+│   │   │   └── Sigma_Clip.py · Simulator.py · SocketClient.py
+│   │   ├── common/
+│   │   │   ├── fileStorage.py                 # CSV datalog
+│   │   │   ├── tecStatus.py · tecReset.py · pidQuery.py   # TEC controller (MTD415T) over serial
+│   │   │   ├── sweepDump.py                   # raw sweep dump (development only)
+│   │   │   └── architecture.py · arguments.py · fdLimit.py · fileManager.py · logger.py · switcher.py
 │   │   ├── ui/
-│   │   │   ├── mainWindow.py                # main window controller
-│   │   │   ├── mainWindow_new_ui.py         # generated Qt UI layout
-│   │   │   └── popUp.py                     # notification dialogs
-│   │   ├── data_view/
-│   │   │   ├── main.py                      # standalone CSV data viewer
-│   │   │   ├── mplwidget.py                 # matplotlib widget
-│   │   │   └── qt_designer_ui.py            # generated Qt UI
-│   │   ├── util/
-│   │   │   ├── ReadLine.py                  # serial line reader helper
-│   │   │   └── embedding_in_qt_sgskip.py    # matplotlib-in-Qt embedding helper
-│   │   ├── sweep_data/
-│   │   │   ├── 1.txt / 3.txt / 5.txt / 7.txt / 9.txt   # sweep data read by the Raw Data view
-│   │   │   └── plot_sweep_spline.py         # Raw Data view plotting
-│   │   ├── Calibration_5MHz.txt / Calibration_10MHz.txt  # calibration lookup tables
-│   │   ├── PeakFrequencies.txt / PeakFrequenciesRT.txt   # detected peak frequencies
-│   │   ├── config.txt                       # sweep / sampling parameters
-│   │   ├── res/ , icon/                     # Qt resources (.ui files, icons)
-│   │   └── firmware_update/                 # bundled Teensy flashing tools (Teensy.app, TyUploader.exe, .hex)
-│   ├── docs/                                # license (GPL)
-│   └── *.ino.hex                            # firmware release images
-├── firmware/                                # Teensy 4.0 firmware source (.ino + libraries)
-├── research/                                # development materials (peak-detection prototypes, notes)
-└── docs/                                    # documentation (impedance analysis on the dedicated branch)
+│   │   │   ├── mainWindow.py · mainWindow_ui.py   # main window: controller and programmatic layout
+│   │   │   ├── impedanceFitWindow.py · impedanceDataView.py · admittanceCircle.py   # impedance views
+│   │   │   ├── rawDataView.py · peakDataView.py · dataLogView.py                    # data views
+│   │   │   ├── pidControlDialog.py · tecCurrentView.py                              # TEC windows
+│   │   │   └── theme.py · widgets.py · plotMenu.py · popUp.py
+│   │   ├── sweep_data/                        # offline analysis scripts; sweep files are runtime
+│   │   │   └── plot_conductance.py · fit_admittance.py · plot_sweep_spline.py
+│   │   ├── util/                              # serial line reader, matplotlib-in-Qt helper
+│   │   ├── res/ · icon/                       # icons and images
+│   │   ├── firmware_update/                   # Teensy loaders (macOS, Windows) and firmware images
+│   │   ├── config.txt                         # sweep / sampling parameters (per machine)
+│   │   ├── PeakFrequencies.txt · PeakFrequenciesRT.txt   # detected peaks (runtime, versioned)
+│   │   └── Calibration_5MHz.txt · Calibration_10MHz.txt  # peak-detection sweeps (runtime)
+│   ├── tests/                                 # unittest suite (PYTHONPATH=. python -m unittest discover tests)
+│   ├── *.ino.hex                              # older firmware release images
+│   └── docs/                                  # sweep file format, license (GPL)
+├── firmware/                                  # Teensy 4.0 sketches: 0.1.5a/b/c, -TEST variants, serial-number writer
+├── docs/
+│   ├── impedance-analysis/                    # ALGORITHM.md, plans, method notes, reference sweep, figures
+│   ├── figures/                               # architecture diagrams
+│   ├── schematic/                             # openQCM NEXT schematic (original and A4)
+│   └── datasheet/                             # AD8302, MTD415T, Teensy 4.0
+├── research/                                  # measurement campaigns and analyses (air, water, isopropanol)
+├── CHANGELOG.md · HANDOFF.md                  # history and developer notes
+└── README.md
 ```
 
 ---
