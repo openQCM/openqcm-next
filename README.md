@@ -438,7 +438,16 @@ openqcm-next/
 
 ## Architecture
 
-Acquisition and display run in **two processes**, so redrawing the plots does not hold up the sweep:
+The program is built as a **multiprocessing pipeline**: acquisition and display run in two separate
+processes linked by queues, so redrawing the plots does not hold up the sweep.
+
+<p align="center">
+  <img src="docs/figures/software_blocks.svg"
+       alt="The multiprocessing pipeline: process 1, acquisition (MultiscanProcess, a multiprocessing.Process), turns each sweep from the instrument into G(f), B(f), f_res, Γ and D and puts one message per overtone on a multiprocessing.Queue; process 2, the GUI with its Qt event loop, has the Worker drain the queues into buffers and the datalog every 50 ms and MainWindow redraw the plots; only three control flags are shared, as multiprocessing.Event"
+       width="820">
+</p>
+
+In detail:
 
 <p align="center">
   <img src="docs/figures/software_architecture.svg"

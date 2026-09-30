@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300" width="1000" height="300" font-family="Helvetica, Arial, sans-serif">
+  <title>openQCM NEXT: the multiprocessing pipeline, simplified</title>
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2a78d6"/>
+    </marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="999" height="299" rx="10" fill="#ffffff" stroke="#e4e3df"/>
+
+  <!-- instrument -->
+  <rect x="24" y="96" width="140" height="86" rx="10" fill="#f6f6f4" stroke="#3a3a38" stroke-width="1.6"/>
+  <text x="94" y="126" font-size="14" font-weight="bold" fill="#0b0b0b" text-anchor="middle">Instrument</text>
+  <text x="94" y="146" font-size="11" fill="#52514e" text-anchor="middle">sweep, AD8302,</text>
+  <text x="94" y="162" font-size="11" fill="#52514e" text-anchor="middle">ADC, temperature</text>
+
+  <!-- process 1 -->
+  <rect x="196" y="36" width="262" height="206" rx="14" fill="#f3f7fd" stroke="#2a78d6" stroke-width="1.6" stroke-dasharray="7 4"/>
+  <text x="214" y="60" font-size="12" font-weight="bold" fill="#2a78d6" letter-spacing="0.5">PROCESS 1 · ACQUISITION</text>
+  <text x="214" y="76" font-size="10.5" fill="#52514e">multiprocessing.Process</text>
+  <rect x="214" y="96" width="226" height="86" rx="10" fill="#ffffff" stroke="#2a78d6" stroke-width="1.8"/>
+  <text x="327" y="124" font-size="13" font-weight="bold" fill="#0b0b0b" text-anchor="middle">MultiscanProcess</text>
+  <text x="327" y="144" font-size="11" fill="#52514e" text-anchor="middle">voltages → G(f), B(f)</text>
+  <text x="327" y="160" font-size="11" fill="#52514e" text-anchor="middle">→ f_res, Γ, D per overtone</text>
+  <text x="327" y="214" font-size="10.5" fill="#52514e" text-anchor="middle">runs the sweep at its own pace</text>
+
+  <!-- the queue: the only link between the processes -->
+  <text x="529" y="84" font-size="11" font-weight="bold" fill="#0b0b0b" text-anchor="middle">multiprocessing.Queue</text>
+  <rect x="478" y="114" width="102" height="50" rx="25" fill="#ffffff" stroke="#2a78d6" stroke-width="1.8"/>
+  <g fill="#2a78d6">
+    <rect x="494" y="128" width="16" height="22" rx="3" opacity="0.35"/>
+    <rect x="514" y="128" width="16" height="22" rx="3" opacity="0.6"/>
+    <rect x="534" y="128" width="16" height="22" rx="3" opacity="0.85"/>
+    <rect x="554" y="128" width="12" height="22" rx="3" opacity="1"/>
+  </g>
+  <text x="529" y="190" font-size="10.5" fill="#52514e" text-anchor="middle">one message</text>
+  <text x="529" y="204" font-size="10.5" fill="#52514e" text-anchor="middle">per overtone</text>
+
+  <!-- process 2 -->
+  <rect x="600" y="36" width="376" height="206" rx="14" fill="#f7f7f5" stroke="#3a3a38" stroke-width="1.6" stroke-dasharray="7 4"/>
+  <text x="618" y="60" font-size="12" font-weight="bold" fill="#3a3a38" letter-spacing="0.5">PROCESS 2 · GUI</text>
+  <text x="618" y="76" font-size="10.5" fill="#52514e">Qt event loop</text>
+  <rect x="618" y="96" width="160" height="86" rx="10" fill="#ffffff" stroke="#2a78d6" stroke-width="1.8"/>
+  <text x="698" y="124" font-size="13" font-weight="bold" fill="#0b0b0b" text-anchor="middle">Worker</text>
+  <text x="698" y="144" font-size="11" fill="#52514e" text-anchor="middle">drains the queues</text>
+  <text x="698" y="160" font-size="11" fill="#52514e" text-anchor="middle">buffers, datalog</text>
+  <rect x="800" y="96" width="158" height="86" rx="10" fill="#ffffff" stroke="#3a3a38" stroke-width="1.6"/>
+  <text x="879" y="124" font-size="13" font-weight="bold" fill="#0b0b0b" text-anchor="middle">MainWindow</text>
+  <text x="879" y="144" font-size="11" fill="#52514e" text-anchor="middle">plots, impedance</text>
+  <text x="879" y="160" font-size="11" fill="#52514e" text-anchor="middle">panel, windows</text>
+  <text x="788" y="214" font-size="10.5" fill="#52514e" text-anchor="middle">QTimer every 50 ms: drain, then redraw</text>
+
+  <!-- flow -->
+  <g fill="none" stroke="#2a78d6" stroke-width="2.2" marker-end="url(#ah)">
+    <path d="M164,139 H208"/>
+    <path d="M440,139 H474"/>
+    <path d="M580,139 H612"/>
+    <path d="M778,139 H794"/>
+  </g>
+  <text x="180" y="130" font-size="10" fill="#2a78d6" text-anchor="middle">USB</text>
+
+  <text x="500" y="276" font-size="11" fill="#52514e" text-anchor="middle">Every result crosses from acquisition to GUI through the queues; only three control flags (stop, PID read, TEC reset) are shared, as multiprocessing.Event.</text>
+</svg>
