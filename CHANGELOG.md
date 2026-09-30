@@ -16,6 +16,9 @@ temperature message) and sends TEC/PID commands through `serial_write()`. Serial
 0.1.5c firmware: 115200 baud, 8 bits, 1 stop bit. Then a simplified block diagram,
 `docs/figures/software_blocks.svg`, heads the section: the multiprocessing pipeline — two processes, the queue
 between them — with the three `multiprocessing.Event` flags they also share (stop, PID read, TEC reset).
+The section Repository Structure is rebuilt from the tracked files and the modules' docstrings (gone:
+`data_view/`, `mainWindow_new_ui.py`; added: the modules of the last months, `tests/`, `docs/figures`,
+`docs/schematic`, `docs/datasheet`, `research/`; runtime files marked).
 
 ### Docs — datasheets and schematic in the repo; the README method in steps; the AD8302 ratio corrected in two documents (2026-09-29)
 
