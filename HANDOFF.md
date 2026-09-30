@@ -652,6 +652,9 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   hand; the measured-sweep SVG from `make_conductance_figure.py`, 5th overtone in air, `air_1/g5` of the
   2026-09-11 dumps). ⚠️ Keep it in step with `ALGORITHM.md`: a change of estimator, gate or phase rule
   changes that section too.
+- **Software architecture diagram** (2026-09-30): `docs/figures/software_architecture.svg`, drawn by hand from the
+  code, shown in the README's Architecture section. ⚠️ Redraw it if the process/queue/Worker structure changes;
+  note that `ParserProcess` holds queues only and the `Worker` runs in the GUI process.
 - **Hardware references in the repo** (2026-09-29): `docs/schematic/openQCM_NEXT_A4.pdf` (one sheet, readable;
   netlist identical to the original `openQCM_NEXT-MAIN_schematic.PDF`, see `LEGGIMI.md`) and
   `docs/datasheet/` (AD8302 rev. B, MTD415T, Teensy 4.0). ⚠️ Read them before stating a component value, a

@@ -5,6 +5,16 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Docs — the README's Architecture section drawn, and corrected against the code (2026-09-30)
+
+The ASCII sketch becomes `docs/figures/software_architecture.svg`: instrument, acquisition process
+(`MultiscanProcess` / `SerialProcess` / `CalibrationProcess`, the five steps of a sweep), the queues, and the GUI
+process with `Worker` and `MainWindow`. Read from the code, and corrected in the text: `ParserProcess` only holds
+the `multiprocessing.Queue` objects (its `run()` is commented out); the `Worker` is not a process, it lives in the
+GUI process, is drained by `_update_plot()` on the 50 ms `QTimer`, writes the datalog (one row per cycle, on the
+temperature message) and sends TEC/PID commands through `serial_write()`. Serial link read from the code and the
+0.1.5c firmware: 115200 baud, 8 bits, 1 stop bit.
+
 ### Docs — datasheets and schematic in the repo; the README method in steps; the AD8302 ratio corrected in two documents (2026-09-29)
 
 `684af2d`: `docs/datasheet/` (AD8302 rev. B, MTD415T, Teensy 4.0 cards) and `docs/schematic/` (the original
