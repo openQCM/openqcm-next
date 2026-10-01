@@ -195,15 +195,18 @@ r(f) = | φ(f) + φ_b | − δ
 ```
 
 - `φ(f)` is the phase we want: `−∠(Z_q + R17)`, the quantity §4.4 needs.
-- `φ_b` is a board/cable phase, **inside** the absolute value. Measured at −12…−20° and reproducible
-  to 0.2–0.4° across acquisitions, but **not corrected today** — see §9.
+- `φ_b` is a board/cable phase, **inside** the absolute value. Measured on board 1920 in air on
+  2026-09-11 at −7.6° (n = 1) to −22.1° (n = 7), the same to 0.4° across three replicas, and
+  identifiable only where the phase crosses zero ([`handoff-tables.md`](../../research/air-ipa-water-1920-2026-09-11/handoff-tables.md), Table 7) — but **not corrected today**,
+  see §9.
 - `δ` is a voltage offset of the channel, **outside** the absolute value.
 
 Two consequences that are not obvious:
 
 - Where the argument crosses zero — air, low damping — the reading reaches its minimum, and there
-  `min(r) = −δ` **exactly**. On this instrument `min(r)` comes out **negative** (as low as −14°),
-  which looks impossible for a magnitude detector and is in fact the signature of `δ`.
+  `min(r) = −δ` **exactly**. On this instrument `min(r)` comes out **negative** (as low as −6.9° in
+  air on board 1920, 2026-09-11, [`handoff-tables.md`](../../research/air-ipa-water-1920-2026-09-11/handoff-tables.md) Table 1a), which looks impossible for a magnitude detector
+  and is in fact the signature of `δ`.
 - **So `δ` is measured, not fitted.** A fold determines it; there is no freedom left.
 
 ### 4.3 Taking `δ` from the fold — `_phase_offset_fold()`, `Multiscan.py:508`
@@ -307,21 +310,23 @@ odd, so `B` changes sign. The flip is needed to give `B` the sign the unfolded b
 and it cannot affect the published frequency and bandwidth, which come from `G` alone.
 
 ⚠️ **`G` is even in the SIGN but not in the OFFSET.** `δ` matters to `G`. A change on 2026-07-28
-dropped the offset correction on the grounds that "G is even in φ" and took the circle residual from
-1.6–3.1 % to 4.1–14.6 % of the radius. Reverted.
+dropped the offset correction on the grounds that "G is even in φ"; the locus lost its roundness.
+Reverted.
 
 ⚠️ **The flip must be applied only where a fold exists.** Flipping on a damped load makes `B` jump
-by up to **80 %** of its own range at the flip point and breaks the locus into two disconnected
-arcs. Measured on the 2026-07-28 water run.
+by **28–84 %** of its own range in water and **43–89 %** in isopropanol at the flip point (n ≥ 3)
+and breaks the locus into two disconnected arcs (2026-09-11, [`fold-hypothesis.md`](../../research/air-ipa-water-1920-2026-09-11/fold-hypothesis.md), rule H1).
 
 ⚠️ **Do not estimate `δ` by making the locus round.** It was tried
 (`_phase_offset_deg()`, still in the file, unused, documented as superseded). The objective is
 computed on the point *cloud* and the sign flip happens *inside* it, so the search buys roundness by
-pushing `δ` until the flip lands on the antipode of the circle: `δ` came out up to 12° beyond
-`−min(r)`, `B` jumped by up to 77 % of its range, and the *cloud* looked rounder (1.4 % against
-4.5 %) while the trajectory was broken. In water it split the locus and the residual metric called
-that an improvement (11.1 % against 19.8 %) because a circle through two disconnected arcs can have
-a small radial residual and no physical meaning. **A continuous trajectory is not negotiable;
+pushing `δ` until the flip lands on the antipode of the circle. On the 45 sweeps of 2026-09-11
+([`handoff-tables.md`](../../research/air-ipa-water-1920-2026-09-11/handoff-tables.md), Table 1) `δ` comes out 3.7–20.5° above `−min(r)` wherever the search is accepted, `B` jumps
+by 25–63 % of its range inside the ±3Γ window (the fold rule: at most 3.8 %), and the *cloud* looks
+rounder (1.1–3.0 % against 2.7–6.5 %) while the trajectory is broken. The same metric prefers two
+disconnected arcs: flipping on a damped load gives a circle residual of 2.3–10 % against 4.8–18 %
+for the continuous locus ([`fold-hypothesis.md`](../../research/air-ipa-water-1920-2026-09-11/fold-hypothesis.md)), because a circle through two arcs can have a small radial residual
+and no physical meaning. **A continuous trajectory is not negotiable;
 roundness is a diagnostic, never an objective.**
 
 ---
@@ -567,25 +572,27 @@ a log that depended on a combo box would be unreadable a week later.
 
 - **In liquid the baseline of §8.1 is taken on the resonance.** The sweep window is fixed at
   −12 kHz/+6 kHz around the previous peak (`Constants.LEFT`/`RIGHT` through
-  `getMultiscanParameters_5Mhz`), sized for air, while `Γ_FWHM` in water is 1.9–5.0 kHz. So the
-  first 100 samples sit 2.4–6.3 half-widths from resonance and the "baseline" is **13 % of the peak
-  on the 3rd overtone and 66 % on the 9th**. The circle fit does not care — subtracting a constant
-  translates the locus and the fit is translation-invariant — but the half-height crossings do:
-  measured against a Lorentzian with a free background, the published width is low by **−2.5 %
-  (n=1), −4.3 %, −4.3 %, −7.4 %, −13.9 % (n=9)**. Fix by taking the width from a Lorentzian fit, or
+  `getMultiscanParameters_5Mhz`), sized for air, while the half width in liquid is 0.9–2.7 kHz. So the
+  first 100 samples sit on the skirt and the "baseline" is **11–18 % of the peak on the 3rd overtone
+  in water and 67 % on the 9th** (74 % in isopropanol). The circle fit does not care — subtracting a
+  constant translates the locus and the fit is translation-invariant — but the half-height crossings
+  do: against a Lorentzian with a free background the published width is low by **−2 to −4 %** in
+  water on n = 3–9 and **−3 to −16 %** in isopropanol, growing with overtone (2026-09-11, [`handoff-tables.md`](../../research/air-ipa-water-1920-2026-09-11/handoff-tables.md),
+  Table 6). Fix by taking the width from a Lorentzian fit, or
   by scaling the sweep window with the measured `Γ`. Changes published values, so it waits.
 - **The board phase `φ_b` of §4.2 is not corrected.** With `δ` taken from the fold the locus is
-  still 1.2–7.9 % out of round in air, systematically and reproducibly. Fitting the forward model to
-  both channels gives `φ_b` = −12…−20°, reproducible to 0.2–0.4° across acquisitions 83 minutes
-  apart, and improves both channel residuals 4–5× — but applying it as a rotation *after* unfolding
-  restores continuity without recovering roundness, so it is not yet the whole story. Reference-load
-  (RLC standard) calibration is the only way to settle whether the two-parameter model is right or
-  merely better.
-- **Dynamic range.** `R17 = 52.3 Ω` against a liquid load of 0.6–3 kΩ puts the *whole* sweep at
-  −23 to −36 dB of divider ratio, against the AD8302's specified ±30 dB, with a resonance contrast
-  of about 6 dB. A saturation mask exists (`Constants.RATIO_DB_FLOOR = −28.0`,
-  `IMPEDANCE_PANEL_MASK_SATURATED`) and **ships disabled**: at that floor it removes 35–63 % of the
-  band in water, which is too much to be a default. The real fix is a larger or switchable reference
+  still 1.2–6.5 % out of round in air. Fitting a BVD forward model to both channels gives `φ_b` =
+  −7.6…−22.1°, the same to 0.4° across three replicas 4–25 minutes apart, and lowers the residual
+  1.4–5.5× on V_MAG and 1.8–6.0× on V_PHS in air, still leaving 1.3–1.9° rms on the phase ([`handoff-tables.md`](../../research/air-ipa-water-1920-2026-09-11/handoff-tables.md),
+  Table 7). Whether `φ_b` applied as a correction recovers roundness has not been measured.
+  Reference-load (RLC standard) calibration is the only way to settle whether the two-parameter
+  model is right or merely better.
+- **Dynamic range.** `R17 = 52.3 Ω` against a liquid load of 0.7–4.4 kΩ puts the *whole* sweep at
+  −22.2 to −36.6 dB of divider ratio, against the AD8302's specified ±30 dB, with a resonance
+  contrast of 1.6–14.3 dB ([`handoff-tables.md`](../../research/air-ipa-water-1920-2026-09-11/handoff-tables.md), Table 5). A saturation mask exists (`Constants.RATIO_DB_FLOOR =
+  −28.0`, `IMPEDANCE_PANEL_MASK_SATURATED`) and **ships disabled**: at that floor it removes 37–58 %
+  of the ±3Γ window in water and 32–76 % in isopropanol (Table 4), which is too much to be a
+  default. The real fix is a larger or switchable reference
   resistor.
 
 ---
@@ -664,8 +671,10 @@ share nothing**:
 - **FIT 2** — Levenberg–Marquardt Lorentzian on `G(f)` with a free linear background.
 
 Their **disagreement is the honest error bar**, and it is the metric to trust when a residual looks
-good: in clean air they agree to 1.4–5.4 ppm on `f_s` and a few percent on `Γ`; when they diverge by
-20 % something is wrong with the data, not with the fits. The same module is imported by the live fit
+good: on 2026-09-11 in air they agree to 1.2–2.6 ppm on `f_s` and within 2.5 % on `Γ` on n = 1–7,
+and FIT 1 is 13 % low on n = 9; in liquid the `f_s` split is 3–18 ppm (92 ppm on the isopropanol
+fundamental) and the `Γ` split 0.2–18.5 % ([`handoff-tables.md`](../../research/air-ipa-water-1920-2026-09-11/handoff-tables.md), Table 3). When they diverge by 20 % something is
+wrong with the data, not with the fits. The same module is imported by the live fit
 window (Tools → Impedance Fit) **by file path**, so the live and offline numbers cannot drift apart —
 verified to the 8th significant digit.
 
