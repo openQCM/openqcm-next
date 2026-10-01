@@ -791,8 +791,9 @@ fundamental is found, so an open or a short produces no file at all. ⚠️ `Cal
 The detector emits `|Δφ|` only, and its output carries a **global per-overtone offset**:
 `r(f) = |φ_true(f)| − δ`. Two consequences that cost this session two wrong diagnoses:
 
-- Where the true phase crosses zero (air, low damping) the **reading goes negative**, down to
-  −14°. That is impossible for a magnitude detector, and it is not a local overshoot: it is
+- Where the true phase crosses zero (air, low damping) the **reading goes negative** — down to
+  −6.9° on board 1920 in air on 2026-09-11 (`research/air-ipa-water-1920-2026-09-11/handoff-tables.md`,
+  Table 1a). That is impossible for a magnitude detector, and it is not a local overshoot: it is
   `min(r) = −δ`, the *signature* of the offset.
 - The original `_phase_signed` estimated δ as `−min(r)` and flipped the sign after the minimum.
   That is a crude but broadly **correct** estimator when a true crossing exists, and its
@@ -803,12 +804,11 @@ The detector emits `|Δφ|` only, and its output carries a **global per-overtone
 ⚠️ **Two changes made on 2026-07-28 were wrong and were reverted** — recorded here so nobody
 repeats them:
 1. *"G from the folded phase, because G is even in φ."* True and beside the point: G is even in
-   the **sign**, but the **offset** still has to be removed. Dropping the shift took the circle
-   residual from 1.6–3.1 % to 4.1–14.6 %.
+   the **sign**, but the **offset** still has to be removed.
 2. *"Local fold-overshoot repair: excise the sub-zero core, bridge with PCHIP."* Treated the
    symptom of a global offset as a local defect, and by shipping a **raw** G with a **repaired**
-   B it produced a hybrid locus nobody had validated — 10–18 % residual, worse than doing
-   nothing. `_phase_repair` and the `PHASE_REPAIR_*` constants are gone.
+   B it produced a hybrid locus nobody had validated, worse than doing nothing. `_phase_repair`
+   and the `PHASE_REPAIR_*` constants are gone.
 
 ⚠️ **A third change, on the same day, was also wrong and is reverted** — this one lasted longer
 because it produced a *better-looking* number.
@@ -818,53 +818,60 @@ does guarantee the locus is a circle, so the idea is sound. The implementation i
 
 - **The objective is computed on the point CLOUD, and the sign flip happens INSIDE it.** So the
   search can buy roundness by pushing δ until the flip lands on the *antipode* of the circle.
-  That is exactly what it did — it returned δ up to 12° beyond `−min(r)`.
-- **The consequence is a broken trajectory.** With the corrected phase sitting at +12° where it
-  should be 0, the flip makes **B jump by up to 77 % of its own range** at the flip point. In air
-  the jump is a chord *along* the circle, so the cloud stays round while B(f) is discontinuous.
-  In water the flip fires with no fold at all and the locus **breaks into two disconnected arcs**;
-  the fitted circle then comes out four times too large.
-- **The rms was fooling me both ways.** It said the water fragmentation was an *improvement*
-  (11.1 % against 19.8 %) because a circle through two disconnected arcs can have a small radial
-  residual and no physical meaning. A continuous trajectory is not negotiable; roundness is a
-  diagnostic, not an objective.
+  On the 45 sweeps of 2026-09-11 it returns δ **3.7–20.5° above `−min(r)`** wherever its search
+  is accepted (all five overtones in air, the fundamentals in water and isopropanol; on air n = 5
+  it lands within 0.4° of the fold). On the damped overtones its own guards reject it.
+- **The consequence is a broken trajectory.** With the corrected phase sitting well above 0 where it
+  should be 0, the flip makes **B jump by 25–63 % of its range** inside the ±3Γ window, against at
+  most 3.8 % for the fold rule on all 45 sweeps. In air the jump is a chord *along* the circle, so
+  the cloud stays round while B(f) is discontinuous.
+- **The rms flatters it.** Where it is accepted its circle residual is *lower* than the fold's
+  (1.1–3.0 % against 2.7–6.5 %) while B is discontinuous: a round set of points that is not a
+  continuous trajectory. A continuous trajectory is not negotiable; roundness is a diagnostic, not
+  an objective.
 - **δ is not free to begin with.** If a fold exists, the argument of the absolute value is zero
   there, so `min(r) = −δ` *exactly*. It is measured, not fitted.
 
 **What the published path does now** (`_phase_offset_fold`, and `--offset fold` offline):
 δ = `−min(r)` when a fold exists, and **no offset and no flip** when it does not — the original
-`_phase_signed` behaviour, plus the independently verified attenuator constant. Measured across
-11 datasets:
+`_phase_signed` behaviour, plus the independently verified attenuator constant. Measured on the 45
+sweeps of 2026-09-11 (board 1920, air / water / isopropanol, three replicas each;
+`research/air-ipa-water-1920-2026-09-11/handoff-tables.md`, Tables 1b and 2, raw samples through
+`fit_admittance.py`):
 
-| | continuity: max step of B between adjacent samples, % of B range | circle residual, air | circle residual, water |
-|---|---|---|---|
-| δ from the circle fit | **20–86 %** | 0.8–2.5 % | 3.1–11.1 % (meaningless) |
-| **δ from the fold** | **0.5–7.5 %** | 1.2–7.9 % | 3.8–19.8 % |
+| | largest step of B between adjacent samples, % of B range (±3Γ) | circle residual, air | circle residual, water | circle residual, isopropanol |
+|---|---|---|---|---|
+| δ from the roundness fit | **0.8–63.2 %** | 1.1–1.4 % | 1.6–6.8 % | 1.0–5.2 % |
+| **δ from the fold** | **0.4–3.8 %** | 1.2–6.5 % | 3.6–6.8 % | 1.0–5.3 % |
 
-An **independent** check, which does not involve circularity at all: the disagreement between the
-two estimators of Γ (FIT 1 circle vs FIT 2 Lorentzian, which share nothing). Median over 55
-overtones: **3.78 %** with δ from the fold against **5.03 %** from the circle fit, and on the
-fundamentals the circle fit is catastrophic (setK n=1: 0.37 % against 37.6 %).
+The two rules coincide on every damped overtone (water and isopropanol, n ≥ 3), where the roundness
+search is rejected and applies nothing. An **independent** check, which does not involve circularity
+at all: the split between the two estimators of Γ (FIT 1 circle vs FIT 2 Lorentzian, which share
+nothing). Median on the fundamentals: **2.54 %** with δ from the fold against **8.30 %** from the
+roundness fit; on n ≥ 3 the two are equal (8.36 %).
 
 **What this leaves open, and it is the real question.** With δ pinned by the fold, the locus is
-still **1.2–7.9 %** out of round in air. That residual is systematic and reproducible, not noise,
-and a two-parameter reading model explains it: `r(f) = |φ(f) + φ_b| − δ`, with a board phase φ_b
-*inside* the absolute value. Fitting the forward model to both channels gives φ_b = −12…−20°,
-reproducible to **0.2–0.4°** across two acquisitions 83 minutes apart, and improves both channel
-residuals 4–5×. But applying φ_b as a rotation *after* unfolding restores continuity without
-recovering roundness (4.3 % against 4.5 %) — so φ_b as measured is not yet the whole story.
+still **1.2–6.5 %** out of round in air. A two-parameter reading model, `r(f) = |φ(f) + φ_b| − δ`,
+with a board phase φ_b *inside* the absolute value, fitted with a BVD forward model to both
+detector channels (same page, Table 7), gives **φ_b = −7.6° on the fundamental to −22.1° on the
+7th** (−20.4° on the 9th), the same to **0.4°** across three replicas 4–25 minutes apart, and lowers
+the residual 1.4–5.5× on V_MAG and 1.8–6.0× on V_PHS in air. φ_b is identifiable only where the
+phase crosses zero — in air and on the two liquid fundamentals; on the damped overtones it and δ
+enter only as a difference (ρ = 1.000). The model still leaves 1.3–1.9° rms on V_PHS in air, and
+whether φ_b applied as a correction recovers roundness has not been measured on these data.
 
 **Standing limitations of the measurement design:**
-- ⚠️ **Standing hardware limitation.** `R17 = 52.3 Ω` against a liquid load of 0.8–3.4 kΩ puts
-  the whole sweep at **−23 to −36 dB** of divider ratio, against the AD8302's specified ±30 dB,
-  with a resonance contrast of only 2–12 dB. Past ~1 half-bandwidth the deviation from a circle
-  becomes systematic and **neither a magnitude-only nor a phase-only error explains it** — both
-  channels degrade together down there. This is why the panel fits the core and not the wings.
+- ⚠️ **Standing hardware limitation.** `R17 = 52.3 Ω` against a liquid load of 0.7–4.4 kΩ (R1 of
+  FIT 1, water and isopropanol, 2026-09-11) puts the whole sweep at **−22.2 to −36.6 dB** of divider
+  ratio, against the AD8302's specified ±30 dB, with a resonance contrast of only 1.6–14.3 dB
+  (`research/air-ipa-water-1920-2026-09-11/handoff-tables.md`, Table 5; in air the contrast is
+  16–32 dB). This is why the panel fits the core and not the wings.
   A larger R17 would recentre the ratio; it also changes loading and calibration, so it is a
   measurement-design decision.
 - ⚠️ **Sweep window sized for air.** `LEFT = 12000 / RIGHT = 6000 Hz` around the peak. In
-  isopropanol Γ reaches 2.5 kHz, so ±3Γ no longer fits above resonance on the 7th and 9th, and
-  the "off-resonance" baseline (mean of the first 100 samples) is taken on the resonance skirt.
+  isopropanol the half width reaches 2.7 kHz on the 9th, so ±3Γ no longer fits above resonance on
+  the 7th and 9th (2.5 and 2.2 Γ; water n = 9: 2.9 Γ), and the "off-resonance" baseline (mean of the
+  first 100 samples) is taken on the resonance skirt (same page, Table 6).
 
 **Roadmap** (each needs a plan + approval):
 1. Make the measurement **selectable** (classic vs conductance) instead of hard-wired.
@@ -875,11 +882,12 @@ recovering roundness (4.3 % against 4.5 %) — so φ_b as measured is not yet th
 4. Widen the sweep window for liquid work, and revisit `SG_WINDOW_SIZE_G` for the low overtones
    in air (both move Γ, hence D).
 5. **How to apply a saturation mask without throwing away the band.** Implemented
-   and measured on 2026-07-28, then **disabled** by decision: at a −28 dB floor it
-   drops 35–63 % of the band in water and 20 % on the 9th overtone in air. It does
-   fix the shape where the shape is broken (water 3rd overtone: circle residual
-   18.1 % → 4.7 %, and the two Γ estimators from −5.5 % to −0.6 % apart), but the
-   cost is not acceptable as a default. Directions: (a) **weight** samples by their
+   on 2026-07-28, then **disabled** by decision. Measured on 2026-09-11
+   (`research/air-ipa-water-1920-2026-09-11/handoff-tables.md`, Table 4): at a −28 dB floor it removes 37–58 % of the ±3Γ window in water and 32–76 % in
+   isopropanol on n = 1–7, and 12–13 % on the 9th overtone in air. It does make the circle rounder
+   where it removes samples (water n = 3: 17.8 % → 6.1 %; isopropanol n = 3: 15.0 % → 1.0 %), but
+   the split between the two Γ estimators rises on 7 of those 9 rows, and the cost is not
+   acceptable as a default. Directions: (a) **weight** samples by their
    expected error rather than dropping them; (b) mask **only the circle fit**,
    leaving the Lorentzian the tails that pin its background; (c) set the floor from
    the measured noise on the ratio instead of a fixed number; (d) the real fix is
@@ -887,31 +895,34 @@ recovering roundness (4.3 % against 4.5 %) — so φ_b as measured is not yet th
    reference would put the sweep back inside the detector's window.
    `Constants.IMPEDANCE_PANEL_MASK_SATURATED` turns it back on for experiments.
 6. **The liquid baseline is taken ON the resonance — biases the published Γ.**
-   The sweep window is fixed at −12 kHz/+6 kHz (sized for air) while in water
-   Γ_FWHM is 1.9–5.0 kHz, so `G − average(G[:100])` subtracts 13 % of the peak on
-   the 3rd overtone and **66 % on the 9th**. The circle fit does not care
-   (translation-invariant) but `_half_bandwidth_G_exact` does: measured against the
-   Lorentzian, Γ is low by −2.5 % to **−13.9 %**, growing with overtone. Fix by
+   The sweep window is fixed at −12 kHz/+6 kHz (sized for air) while in liquid the
+   half width is 0.9–2.7 kHz, so `G − average(G[:100])` subtracts 11–18 % of the
+   peak on the 3rd overtone in water and **67 % on the 9th** (74 % in isopropanol).
+   The circle fit does not care (translation-invariant) but `_half_bandwidth_G_exact`
+   does: against a Lorentzian with a free background the half-height Γ is −2 to −4 %
+   in water on n = 3–9 and **−3 to −16 %** in isopropanol, growing with overtone
+   (2026-09-11, `handoff-tables.md` Table 6). Fix by
    taking the width from a Lorentzian with a free background, or by scaling the
    sweep window with the measured Γ. Changes published values, so it needs a
    decision.
-7. **Decide on averaging δ across sweeps** (see the identifiability note above): removes the
-   residual jitter from D and R_m on overtones with a shallow residual valley, at the cost of
-   cross-sweep state and a small shift in published values. Needs two consecutive datalog CSVs
+7. **Decide on averaging δ across sweeps**: would remove any residual jitter of δ from D and R_m,
+   at the cost of cross-sweep state and a small shift in published values. On 2026-09-11 δ from
+   the fold is the same to 0.2° across the three replicas of each phase (`handoff-tables.md`
+   Table 1a), so the benefit may be small. Needs two consecutive datalog CSVs
    from one run to size the benefit against the intrinsic scatter.
 8. **Port FIT 1 (Taubin circle + arc-based Γ, saturation/core-masked) into the
-   pipeline** for Γ and R_m: on deep fold-overshoot boards (body 3) the literal
-   half-height/G_max readings measure the artifact, and the circle fit on the
-   flanks is the only unbiased estimator (~ms per overtone per sweep). The
-   offline reference is `sweep_data/fit_admittance.py`.
+   pipeline** for Γ and R_m (~ms per overtone per sweep). The offline reference is
+   `sweep_data/fit_admittance.py`.
 9. **Fit tooling** (`sweep_data/fit_admittance.py`, offline; the same module is
    imported by the live window at Tools > *Impedance Fit*): FIT 1 = BVD
    circle with rotation + weighted arc regression, FIT 2 = Levenberg–Marquardt Lorentzian on
-   G. In clean air the two agree to 1.4–5.4 ppm on f_s and 2.5–6.4 % on Γ, both with sub-Hz
-   covariance on f_s. Note their premise that all 18 001 points can be used does **not** hold
+   G. On 2026-09-11 in air the two agree to 1.2–2.6 ppm on f_s and within 2.5 % on Γ on n = 1–7
+   (FIT 1 13 % low on n = 9), both with sub-Hz σ on f_s; in liquid the f_s split is 3–18 ppm, 92 ppm
+   on the isopropanol fundamental (`handoff-tables.md` Table 3). Note their premise that all
+   18 001 points can be used does **not** hold
    on this hardware: past a few half-widths the locus has collapsed onto the offset point and
-   the samples sit deepest in the AD8302's dynamic-range corner — without band restriction the
-   9th overtone's Γ is wrong by 3–5×.
+   the samples sit deepest in the AD8302's dynamic-range corner — without band restriction FIT 1
+   puts the 9th overtone's Γ in air at 4.2× FIT 2's.
 
 ## 5. Planned technical tasks (on `main`)
 
@@ -921,7 +932,7 @@ Done (raw-data robustness — see CHANGELOG):
   (per overtone) **and temperature**, in **both** processors (`Multiscan.py` multi-overtone,
   `Serial.py` single-overtone). Added `Constants.trim_mean_proportiontocut`. The replaced
   SG (window=3, order=1) was a linear 3-point moving average with no outlier rejection.
-  - **Still pending — Stage C**: the datalog-decimation average in `core/worker.py:767-769`.
+  - **Still pending — Stage C**: the datalog-decimation average in `core/worker.py` (still `np.average`).
     There, average over `get_partial()` (NaN-safe) and note that `trim_mean(0.10)` degenerates
     to the plain mean for buffers < 10 samples (choose proportion or estimator accordingly).
 
