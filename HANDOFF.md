@@ -657,7 +657,7 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   note that `ParserProcess` holds queues only and the `Worker` runs in the GUI process.
 - **Hardware references in the repo** (2026-09-29): `docs/schematic/openQCM_NEXT_A4.pdf` (one sheet, readable;
   netlist identical to the original `openQCM_NEXT-MAIN_schematic.PDF`, see `LEGGIMI.md`) and
-  `docs/datasheet/` (AD8302 rev. B, MTD415T, Teensy 4.0). ⚠️ Read them before stating a component value, a
+  `docs/datasheet/` (AD8302 rev. B, AD9851, AD5251/AD5252 — since 2026-10-01 —, MTD415T, Teensy 4.0). ⚠️ Read them before stating a component value, a
   pin or a detector law: on 2026-09-29 two documents of this branch carried the AD8302 magnitude ratio
   inverted, and the circuit was first drawn without C11/C19/R12.
 

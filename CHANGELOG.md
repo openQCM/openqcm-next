@@ -5,6 +5,11 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Docs — two more datasheets: AD9851 and AD5251/AD5252 (2026-10-01)
+
+`64de645`: `docs/datasheet/AD9851.pdf` (the DDS) and `docs/datasheet/ad5251_5252.pdf` (the digital
+potentiometer), beside the AD8302, MTD415T and Teensy 4.0 references; the README's Repository Structure lists them.
+
 ### Docs — the README's Architecture section drawn, and corrected against the code (2026-09-30)
 
 The ASCII sketch becomes `docs/figures/software_architecture.svg`: instrument, acquisition process
