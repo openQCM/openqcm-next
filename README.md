@@ -433,7 +433,7 @@ openqcm-next/
 │   ├── impedance-analysis/                    # ALGORITHM.md, plans, method notes, reference sweep, figures
 │   ├── figures/                               # architecture diagrams
 │   ├── schematic/                             # openQCM NEXT schematic (original and A4)
-│   └── datasheet/                             # AD8302, MTD415T, Teensy 4.0
+│   └── datasheet/                             # AD8302, AD9851, AD5251/AD5252, MTD415T, Teensy 4.0
 ├── research/                                  # measurement campaigns and analyses (air, water, isopropanol)
 ├── CHANGELOG.md · HANDOFF.md                  # history and developer notes
 └── README.md
