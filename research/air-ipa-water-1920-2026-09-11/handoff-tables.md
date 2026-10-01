@@ -273,4 +273,4 @@ minutes apart), and model B lowers the V_MAG residual 1.4–5.5× and the V_PHS 
 
 ## Status
 
-Numbers as measured, 2026-10-01. `HANDOFF.md` is unchanged until Marco has read this page.
+Numbers as measured, 2026-10-01. Read by Marco the same day; `HANDOFF.md` §4 cites these tables since then.

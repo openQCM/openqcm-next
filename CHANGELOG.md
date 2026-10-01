@@ -5,16 +5,24 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Docs — HANDOFF §4 cites the tables of 2026-09-11 instead of the July campaign (2026-10-01)
+
+`1b653e9`, after Marco read `handoff-tables.md`: the phase-offset section (δ from the fold against the roundness fit,
+the Γ split, the board phase φ_b), the standing limitations (divider ratio, sweep window) and roadmap items 5–9
+(saturation mask, liquid baseline, δ averaging, FIT 1, fit tooling) now carry the numbers of the nine dumps of
+2026-09-11 and cite the page. Removed, because one board and one sensor cannot give them: the body and module swap
+("body 3"), φ_b applied as a rotation after unfolding, and the residuals of the two reverted morning changes of
+2026-07-28. The lessons stay; only numbers without data behind them go.
+
 ### Research — the HANDOFF §4 tables re-derived on the dumps of 2026-09-11 (2026-10-01)
 
 `d5102de`: `research/air-ipa-water-1920-2026-09-11/handoff-tables.md`, seven tables from the nine dumps in the repo
-(board 1920; air, water, isopropanol), one script each, `fit_admittance.py` unchanged as the tool. They replace,
-once Marco has read them, the July 2026 numbers in HANDOFF §4 whose raw data were never kept: δ from the fold against
+(board 1920; air, water, isopropanol), one script each, `fit_admittance.py` unchanged as the tool. They replace the July 2026 numbers in HANDOFF §4 whose raw data were never kept: δ from the fold against
 the roundness fit (largest B step ≤ 3.8 % against 25–63 % where the roundness search is accepted), FIT 1 against
 FIT 2 (1.2–2.6 ppm on f_s in air), the −28 dB mask (37–58 % of the window removed in water, 32–76 % in isopropanol),
 the divider ratio in liquid (−36.6 to −22.2 dB), the chain's half width against a Lorentzian in liquid (−2 to −16 %),
 and a board phase φ_b = −7.6 … −22.1° in air, identifiable only where the phase crosses zero. The body and module
-swap cannot be re-derived from one board and one sensor. HANDOFF is not changed yet.
+swap cannot be re-derived from one board and one sensor.
 
 ### Carried from `main` — `Constants.environment` = 8, the production value (2026-10-01)
 
