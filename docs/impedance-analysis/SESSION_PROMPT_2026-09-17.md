@@ -32,7 +32,7 @@ stato attuale. Leggi nell'ordine:
    discende.
 
 **Non fidarti della memoria che hai del codice: leggi il file prima di toccarlo.** I test si lanciano con
-`cd software && PYTHONPATH=. python -m unittest discover tests` (62 al 2026-09-17, uno saltato offscreen).
+`cd software && PYTHONPATH=. python -m unittest discover tests` (69 al 2026-10-01, uno saltato offscreen).
 
 Quando hai letto, **riportami in breve lo stato** (dieci righe bastano: che cosa pubblica il processo, che
 cosa mostrano pannello e finestre, che cosa è aperto) **e poi fermati**: decido io che cosa fare e su cosa

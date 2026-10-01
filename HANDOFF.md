@@ -2,7 +2,7 @@
 
 > Technical starting point to continue development of the software and of the
 > `impedance-analysis` branch. Working language: Italian in chat, English in the repo.
-> Last updated: 2026-09-17.
+> Last updated: 2026-10-01.
 >
 > Starting a new session: paste [`docs/SESSION_PROMPT.md`](docs/SESSION_PROMPT.md)
 > as the first message. It is a shortcut into this file, not a replacement for it. On this branch the
@@ -114,7 +114,7 @@ without checking the tables first.
 | `4265f75` | Tools menu: kept `Conductance Data` and `Impedance Fit (live)`, added `Raw Data View` first as on `main`. |
 | `0ce8a69` | the sweep dump. This branch writes a **second** series, `g<n>.txt` with the divider's raw `V_MAG`/`V_PHS`, which the shared module could not name. Rather than fork `sweepDump.py`, the `prefix` parameter was added on `main` first (`0b6c6c3`) and `sweepDump.py` taken in its final form here, so **`0b6c6c3` is already carried inside this commit** and `git cherry-pick`ing it separately reports nothing to do. Both writes now sit inside the one `if SweepDump.is_enabled():` guard. |
 | `b6061b0` | `core/averaging.py`. Kept this branch's scipy interpolate imports and dropped `from scipy.stats import trim_mean`, which had no other user here. `environment` was left at 10 at this point and lowered separately by `92ce817` below. |
-| `92ce817` | `Constants.environment` 10 → 3, development only. ⚠️ This commit **predates** `b6061b0`, so it carries the superseded banner — the one blaming the buffer length for the lost outlier rejection, which `b6061b0` had already made false. Resolved by taking `main`'s current text instead of the commit's own, so the block is byte-identical on both branches and both say the true thing: the reason to restore 10 is purely metrological. **Restore `environment = 10` before any production build, here as well as on `main`.** |
+| `92ce817` | `Constants.environment` 10 → 3, development only. ⚠️ This commit **predates** `b6061b0`, so it carries the superseded banner — the one blaming the buffer length for the lost outlier rejection, which `b6061b0` had already made false. Resolved by taking `main`'s current text instead of the commit's own, so the block is byte-identical on both branches and both say the true thing: the reason to restore 10 is purely metrological. ~~Restore `environment = 10` before any production build~~ — superseded on 2026-10-01: the production value is **8** (Marco), set on `main` by `3b78344` and cherry-picked here. |
 | `f1b82c9` | The serial link-lost diagnosis and the firmware updater. **Code auto-merged; only `HANDOFF.md` conflicted, in three hunks.** The date line and the firmware-updater bullet took `main`'s text — the branch's copy still said *ship the `0.1.5a` image (POT 240)*, which is false on both branches now. The third hunk is the interesting one: this branch's §6 lags `main`'s by several sections that were never ported (skip-worktree, mixed line endings, headless GUI testing), so taking the incoming side would have smuggled all of them in under a code commit. Kept this branch's §6 and grafted **only** the new bullet, the one about a `QMessageBox` title being discarded on macOS. ⚠️ The conflict existed at all because `f1b82c9` is not single-topic — code, documentation and four firmware images in one commit, exactly what the corollary above warns against. |
 | `3f7b2ac` | The single-mode axis origin. **Code auto-merged; only `HANDOFF.md` conflicted, and the branch's side of the hunk was empty.** The commit rewrites `main`'s §3 section on the real-time time axis, and this branch has never had that section — its §3 is the slim one, deferring shared documentation to `main`. Git could not find the context and offered to insert **390 lines** of `main`'s §3 wholesale: Raw Data View, Peak Data View, the palettes, the lot. Kept this branch's side, i.e. changed nothing here. The CHANGELOG entry travelled on its own and carries the reasoning. |
 
@@ -234,8 +234,9 @@ What is specific to this branch:
 - ✅ **The impedance branch is aligned with `main`** (merge of 2026-07-27, from `main` at 52a42a9).
   It now carries the full `main` line — `run.py`, serial connection Steps 1–2,
   requirements/environment, GUI redesign, trimmed-mean averaging, responsive calibration
-  cancellation, firmware 0.1.5a — on top of the conductance feature. Repeat with `git merge main`
-  **from** the impedance branch; git only replays what is new since this merge.
+  cancellation, firmware 0.1.5a — on top of the conductance feature. Since 2026-07-28 `main`'s
+  changes reach this branch by **cherry-pick**, never `git merge main` — see "Working with `main`"
+  at the top of this file.
   The two branches stay separate until a merge `impedance-analysis → main` is decided.
 
 ## 3. Current state on `main`
@@ -515,7 +516,7 @@ Teensy 4.0 die temperature). The DDS/ADC sweep engine and the host wire format a
 accepted as no-ops. **Do not build features on this variant.** It exists for a prototype board and
 will be deleted once that board is retired — but it is **kept in step with production while that
 board is in use**: a change to the host/firmware protocol goes into both sketches, as the `'S'`
-`'S'` and `'Q'` commands did on 2026-08-31. Production firmware is
+and `'Q'` commands did on 2026-08-31. Production firmware is
 `firmware/openQCM_Next_py_0.1.5c_teensy/`.
 
 ## 4. `impedance-analysis` branch (0.1.6G) — detail
@@ -531,9 +532,10 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   **published** resonance frequency / dissipation and for the live panel, so the two can
   never disagree. The RAW absolute `V_MAG` chain (`Vmag_raw_result_fit`) feeds the inversion;
   the baseline-corrected one is only kept for the classic amplitude path.
-- `software/openQCM/core/lorentzian.py` — **the published estimator** (2026-09-16): the phase-shifted
-  Lorentzian on G, its gate and `publish()`; called from `Multiscan._publish_resonance()`. Tests in
-  `software/tests/` (`cd software && PYTHONPATH=. python -m unittest discover tests`, 62 tests).
+- `software/openQCM/core/lorentzian.py` — **the experimental estimator** (2026-09-16, opt-in per run; the
+  standard is `argmax` of G): the phase-shifted Lorentzian on G, its gate and `publish()`; called from
+  `Multiscan._publish_resonance()`. Tests in `software/tests/`
+  (`cd software && PYTHONPATH=. python -m unittest discover tests`, 69 tests).
 - `software/openQCM/ui/mainWindow.py` + `ui/mainWindow_ui.py` — the **live impedance panel**
   (right-hand dock): `_build_impedance_panel`, `_update_impedance_panel`: G(f) over B(f) over the
   admittance locus B vs G (`pltG`, `pltSus`, `pltLocus`) in one vertical splitter, every pane collapsible
@@ -678,11 +680,10 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   `run()` that writes `g<n>.txt`. The previous hardcoded `0.600` undid exactly 20 dB and
   underestimated `M` by 4.02 %, i.e. R_m by up to 22 % at the fundamental. Verified by a synthetic
   THRU: M reads 52.301 Ω against a true 52.30 (was 50.199).
-- ✅ **Phase-channel offset measured, not guessed** (`_phase_offset_deg`). The AD8302 phase output
-  reads `r(f) = |φ_true(f)| − δ`, δ ≈ 7…17° per overtone. δ is estimated at runtime by requiring
-  the admittance locus to be a circle (closed-form Taubin, ~3 ms/overtone), with guards that
-  reject an unidentifiable estimate. See the dedicated section below — this replaced two wrong
-  attempts and is the single most consequential correction of the 2026-07-28 session.
+- ✅ **Phase-channel offset measured, not guessed** (`_phase_offset_fold`). The AD8302 phase output
+  reads `r(f) = |φ_true(f)| − δ`. δ is taken from the fold vertex, `δ = −min(r)`, when a fold exists,
+  and there is **no offset and no flip** when it does not. The estimate by circularity of the locus
+  (Taubin) tried on 2026-07-28 was wrong and is reverted — see the dedicated section below.
 - ✅ **Live impedance panel**: G(f) over B(f) over the admittance locus, all overtones, matching colours,
   three collapsible panes in one splitter (locus restored 2026-09-16 evening; its circle comes from
   `ui/admittanceCircle.py`, shared with the fit window). ✅ **Tools > Impedance Fit (live)**
@@ -700,8 +701,10 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   while `δ` runs −0.90…+6.67°. `_phase_fold_decision()` tests whether `V_PHS` reaches 0°, normalised
   by the sweep's own excursion. ⚠️ On an in-specification board the old threshold and the new
   criterion agree on all five overtones — the change removes a latent fragility, it does not move a
-  decision that was right. ⚠️ The damped-load branch is **unvalidated**;
-  `Constants.PHASE_FOLD_BY_PEAK_DEPTH = False` restores the threshold.
+  decision that was right. The damped-load ("no fold") branch was exercised on 2026-09-11 in water and
+  isopropanol (`research/air-ipa-water-1920-2026-09-11/raw-sweeps.md`): on n ≥ 3 the phase minimum is
+  smooth, not a fold, as the BVD model with the fitted R1, C0 predicts; the 3rd overtone in water sits
+  on the 0.88 threshold. `Constants.PHASE_FOLD_BY_PEAK_DEPTH = False` restores the threshold.
   ⚠️ **Check the clock before filing any sweep as evidence**: the DDS is specified to 125 MHz of
   system clock at 3.3 V (180 MHz needs 5 V), and the 6× multiplier does not get around it — at 3.3 V
   REFCLK tops out at 20.83 MHz, the same 125 MHz. Above that the part is outside its guaranteed
@@ -715,13 +718,12 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   **D / Γ selector** (2026-09-02) and N-SCALE follows it: frequency ÷n always, Γ ÷n, **D never** —
   `D_n = 2Γ_n/(n f₀)` is already overtone-normalised. Display only; the log stays D. See
   `ALGORITHM.md` §9 and `research/qcm_overtone_normalization_note.md`.
-- ✅ Validated in **air and isopropanol**, on **three central bodies and three sensor modules**.
-  In air `f_r` agrees with the offline Lorentzian fit to **0.007–0.32 ppm**; circle residual
-  **0.75–2.1 %** of the radius.
-- The method is **always on, not selectable** (hard-wired in `elaborate_multi`).
+- The conductance method is **always on**: the choice classic vs conductance is not selectable
+  (hard-wired in `elaborate_multi`). The **estimator** is, per run, since 2026-09-16 (`argmax`
+  standard, phase-shifted Lorentzian experimental).
 - `elaborate_conductance_multi()` is **dead code** (UNUSED).
-- The DEBUG state is gone (2026-07-27 merge): `environment` back to `10`,
-  `plot_autoscale_yaxis` dropped for main's `Constants.plot_force_yrange`.
+- The DEBUG state is gone (2026-07-27 merge): `plot_autoscale_yaxis` dropped for main's
+  `Constants.plot_force_yrange`. `environment` is the production **8** since 2026-10-01.
 
 > 📌 **The step-by-step algorithm — every constant, every guard, a worked numerical example and
 > the traps — is in [`docs/impedance-analysis/ALGORITHM.md`](docs/impedance-analysis/ALGORITHM.md).
@@ -731,7 +733,7 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
 
 Three full-band sweeps (1–51 MHz, 500 Hz step, 100 001 points) with known terminations in place of
 the sensor, on a **125 MHz** board. Raw files, README written for a reader with no context, and the
-first analysis: `research/osl-125MHz-2026-09-03/` — ⚠️ **untracked, 29 MB, and the only copy.**
+first analysis: `research/osl-125MHz-2026-09-03/` — versioned since `96a193e` (2026-09-07).
 
 **What the two resistive standards proved.** A short and a 50 Ω resistor have a true phase of
 exactly 0° at every frequency, so every degree measured on them is the instrument. Fitting
@@ -849,32 +851,9 @@ and a two-parameter reading model explains it: `r(f) = |φ(f) + φ_b| − δ`, w
 *inside* the absolute value. Fitting the forward model to both channels gives φ_b = −12…−20°,
 reproducible to **0.2–0.4°** across two acquisitions 83 minutes apart, and improves both channel
 residuals 4–5×. But applying φ_b as a rotation *after* unfolding restores continuity without
-recovering roundness (4.3 % against 4.5 %) — so φ_b as measured is not yet the whole story. See
-the 2026-07-28 investigation report for the full evidence and the three options on the table.
+recovering roundness (4.3 % against 4.5 %) — so φ_b as measured is not yet the whole story.
 
-**What the offline campaign established** (2026-07-27; datasets at
-`~/claude_code/openqcm-next-impedance-datasets/2026-07-27/`, five configurations A–E):
-- **The loci are circles.** 0.5–2 % rms of the fitted radius on the flanks in air.
-- **A radial bulge at f_r** survives every hardware configuration: +5 % to +34 % of the radius,
-  explained by a **2–6 mV** error in the V_MAG channel (no phase error reproduces it), well
-  inside the AD8302's own magnitude accuracy. Near resonance `R_q = M·cosφ − R17` is a
-  difference of close numbers, so `dR_m/R_m ≈ 2 % per mV` — **the circle diameter is a more
-  robust R_m than the peak of G(f)**.
-- **Circle centres sit low in B** (`B_c/r` = −15 % to −28 %) in every air configuration — the
-  phase/reactive systematic that still needs reference-load de-embedding. In liquid the large
-  ωC0 offset makes this ratio meaningless as a metric.
-- ✅ **The 5° unfold threshold is validated across the air→liquid transition.** In isopropanol
-  the fundamental sits at min|φ| = 2.04°, the critical intermediate case, and the rule
-  correctly unfolds it (rms 0.52 % vs 33.4 % if left folded); the 3rd–9th (12.1°–43.8°) are
-  correctly left alone. Right call on all five, in both regimes.
-- **Savitzky–Golay bias**: with a 1 Hz sweep step, `SG_WINDOW_SIZE_G = 51` is wider than the
-  FWHM of the fundamental and 3rd overtone **in air**, inflating Γ by +9 % and +16 %. `f_r` is
-  unaffected (≤ 4 Hz). Irrelevant in liquid, where Γ is kilohertz.
-- **Hardware diagnosis** (swap experiment): excess motional resistance follows the **sensor
-  module**, not the central body (module swap → R_m ×3.4–11.2; body swap → ×0.94–1.39, with
-  L_m = R_m/(4πΓ) invariant). Cleaning the crystal recovered R_m by 3.7–8.1× on the overtones
-  (7th and 9th back to reference within 8 %); the **fundamental stays ~2.8× the reference**.
-  Frequencies rose (Δf/n = 142…97 Hz ⇒ ~1.6–2.5 µg/cm² of a soft, non-rigid deposit).
+**Standing limitations of the measurement design:**
 - ⚠️ **Standing hardware limitation.** `R17 = 52.3 Ω` against a liquid load of 0.8–3.4 kΩ puts
   the whole sweep at **−23 to −36 dB** of divider ratio, against the AD8302's specified ±30 dB,
   with a resonance contrast of only 2–12 dB. Past ~1 half-bandwidth the deviation from a circle
@@ -891,9 +870,7 @@ the 2026-07-28 investigation report for the full evidence and the three options 
 2. Remove the dead `elaborate_conductance_multi()`.
 3. **Reference-load / RLC-standard calibration** for metrological use — characterise δ per
    frequency on the bench instead of estimating it per sweep, which would turn the runtime
-   estimate into a *check* rather than a correction. Note the "2–6 mV V_MAG systematic at
-   resonance" of the 2026-07-27 analysis is now understood to be this same phase offset seen
-   through the then-current pipeline.
+   estimate into a *check* rather than a correction.
 4. Widen the sweep window for liquid work, and revisit `SG_WINDOW_SIZE_G` for the low overtones
    in air (both move Γ, hence D).
 5. **How to apply a saturation mask without throwing away the band.** Implemented
@@ -1144,11 +1121,12 @@ Quick wins:
   ⚠️ **Corrected 2026-09-01**: this line used to say the `0.1.5c` image was *already built*. It was
   not — and **no `-TEST` variant had ever been built either**; only `0.1.5a` and `0.1.5b` non-TEST
   carried a `.hex`. Both `0.1.5c` images have now been built (`teensy:avr 1.58.1`, FLASH 55 120 B
-  and 45 500 B) and live beside their sketches. What is still open is the swap inside
-  `firmware_update/`, and the question underneath it: the loader is opened with **no file**, so the
+  and 45 500 B) and live beside their sketches. What was still open at that point was the swap
+  inside `firmware_update/` — done the same day, as the top of this bullet says — and the question
+  underneath it: the loader is opened with **no file**, so the
   operator picks the image by hand out of a folder whose only `.hex` is the wrong version and, on a
   prototype, the wrong variant. The software already knows which it wants — it has just read the
-  reported version, `-TEST` suffix included — and `open -a Teensy.app <hex>` would hand it over.
+  reported version, `-TEST` suffix included — and `open -a Teensy.app <hex>` hands it over, which is what `_firmware_image()` now does.
 
 Backend backlog ported from the more mature **openQCM Q-1** sibling codebase (its CHANGELOG is the
 roadmap). ⚠️ Each Q-1-inspired change needs a **detailed plan + explicit approval before coding**
@@ -1165,10 +1143,11 @@ roadmap). ⚠️ Each Q-1-inspired change needs a **detailed plan + explicit app
 - **Windows serial anti-jitter**: add `sleep(0.001)` inside the `inWaiting()` read loop
   (`Serial.py:826`, currently a tight busy-wait) to reduce Windows scheduler jitter.
 - **Minor / defensive**: `FileManager.create_dir(None)` raises `TypeError`; `file_exists(None)`
-  returns `None`. `Constants.environment = 50` for production (currently `10`, development).
+  returns `None`. (`Constants.environment` is now the production 8.)
 
-Later (GUI / firmware / packaging — deferred): UI (System Log tab, measurement cursors, light
-theme, overtone quick-select); packaging (`common/resources.py` + hardcoded-icon fix, PyInstaller);
+Later (GUI / firmware / packaging — deferred). Already done in the GUI redesign: the System Log tab,
+the light theme, the overtone quick-select; measurement cursors exist in the Datalog View only.
+Still deferred: packaging (`common/resources.py` + hardcoded-icon fix, PyInstaller);
 cross-platform validation; merge the impedance feature once stable (make the conductance method
 selectable).
 

@@ -117,7 +117,7 @@ cycle); the write is gated on `self._overtone_number == 0`, a value that comes f
 the status message) and is consumed **after** queue5 in the drain (`consume_queue5` then `consume_queue6`, then F
 and D). So within one drain every pending temperature message is judged against a stale overtone number: if it is
 0, each one writes a row, at the same `time_current` and with the same F/D store — runs of 2–5 identical rows with
-identical `Relative_time` (measured: the time step before a duplicate is 0.00 s, 96 of 486 rows); if it is not 0,
+identical `Relative_time` (measured: the time step before a duplicate is at most 0.021 s, 95 of 486 rows); if it is not 0,
 the cycle writes nothing — the 19.5 s gaps at the 95th percentile of the row spacing. The number of rows per cycle
 is a race between the GUI timer and the process, not a rule. Same code, same order on `main`
 (`core/worker.py` 357–360, 705, 881). Lever G is a fix on `main`, cherry-picked: one row per cycle, keyed on the

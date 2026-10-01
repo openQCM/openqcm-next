@@ -497,9 +497,8 @@ and the raw sweep format it consumes is described in `software/docs/DATA_FORMAT_
 
 Selected planned work (non-exhaustive):
 
-- GUI polish (the redesign and the scientific menu are done): harmonise the remaining status
-  colors toward the blue/brown palette, a dedicated **Advanced Temperature Control (PID)** window,
-  and a few minor layout refinements.
+- GUI polish (the redesign, the scientific menu and the **PID Control** window are done): harmonise
+  the remaining status colors toward the blue/brown palette, and a few minor layout refinements.
 - Port selected backend improvements from the mature **openQCM Q-1** codebase: **disconnected-sensor
   detection**, **tracking safety** (auto-disable/resume), and peak-detection validations.
 - Retire the superseded firmware folders (`0.1.5a`, `0.1.5b`) once no board runs them; `0.1.5c` is

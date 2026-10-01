@@ -12,7 +12,7 @@ order does not matter).*
 `data/`, the analysis scripts in `scripts/` (`report_driver.py` drives the official pipeline's functions,
 which it loads from a Python-3.9-compatible copy of `generate_test_report.py` — the skill asset plus
 `from __future__ import annotations`; `kanazawa_gordon.py` builds the comparison from `summary.json`).
-Sensor batch and holder were not recorded: Marco to add.*
+The board identification number and the liquids are the conditions of record (Marco, 2026-10-01).*
 
 ## Method, and where it departs from the standard report
 

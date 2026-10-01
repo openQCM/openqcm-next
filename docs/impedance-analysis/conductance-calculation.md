@@ -1,6 +1,6 @@
 # Exact Conductance Calculation for QCM Impedance Analysis
 
-> ## VALIDATION STATUS — VALIDATED in air and in liquid; PUBLISHED path (2026-07-28)
+> ## STATUS — PUBLISHED path (since 2026-07-27); liquid results in `research/` (2026-09)
 >
 > This document is the source of the "exact" formula, implemented twice: offline in
 > `sweep_data/plot_conductance.py` (the reference) and live in
@@ -8,7 +8,7 @@
 > offset taken from the fold via `_phase_offset_fold`), where it feeds both the
 > published measurement and the impedance panel.
 >
-> **History of the validation:**
+> **History:**
 > - *2026-07-21*: synthetic Butterworth–Van Dyke self-consistency check passed
 >   (G_max error ~0.002 % vs ~87 % for the approximate formula) — algebra correct,
 >   model/constants still unproven. First on-device air tests showed **negative
@@ -30,30 +30,19 @@
 >   offset in the ADC→V conversion. ⚠️ That offset was **0.600 V and is wrong** —
 >   the attenuation is 20.3564 dB, not 20 dB. Corrected on 2026-07-28, see below.
 >
-> **Quantitative air validation (5 MHz crystal, on-device, 2026-07-23):**
-> physically consistent across all overtones — `R_m` = 10.6/12.1/40.5/76.5/132.6 Ω
-> (F0→9th), `D` = 3–10 ppm, and the admittance-circle fit diameter matches
-> `G_max` within **±5 %** (circle rms 1–6 %).
+> ⚠️ The on-device validation runs of July 2026 (air, 2026-07-23; isopropanol, 2026-07-27) have no raw
+> data behind them and are no longer cited (2026-10-01). The measurement campaigns of record are
+> `research/air-ipa-water-1920-2026-09-10/` and `research/air-ipa-water-1920-2026-09-11/` (board 1920,
+> air, water, isopropanol, against Kanazawa–Gordon).
 >
-> **Update — 2026-07-27: also validated in liquid, and now the PUBLISHED path.**
+> **Update — 2026-07-27: the PUBLISHED path.**
 >
-> - **Isopropanol run.** `D` = 387/194/146/124/113 ppm across the overtones; the
->   fundamental matches the Kanazawa–Gordon prediction for isopropanol (~400 ppm).
-> - **The conditional unfold threshold (5°) behaves correctly across the air→liquid
->   transition.** In isopropanol the fundamental sits at min|φ| = 2.04°, the critical
->   intermediate case, and the rule handles it (circle rms 0.52 % vs 33.4 % if left
->   folded); the 3rd–9th (12.1°–43.8°) are correctly left alone. ⚠️ *Reinterpreted
->   2026-07-28*: that "unfold" was really a crude estimate of the phase offset δ
->   (`δ ≈ −min(r)`), and the threshold was the guard for when that estimate is
->   invalid — in liquid there is no zero crossing. Both are now superseded by
->   measuring δ directly; see below.
 > - **The live pipeline now uses this formula.** `elaborate_multi()` computes the
 >   exact spectra once and reads the logged resonance frequency and half-bandwidth
 >   off them, via `parameters_finder_impedance_exact()`. The old approximate
 >   `parameters_finder_impedance()` is kept but no longer called. The half-bandwidth
 >   is measured **two-sided** and interpolated sub-sample
->   (`_half_bandwidth_G_exact`). Measured effect: `f_r` moves ≤ 1.6 ppm, while `D`
->   drops 2–4× in air (to a textbook ~5 ppm on the overtones) and 15–20 % in liquid.
+>   (`_half_bandwidth_G_exact`).
 >
 > **Update — 2026-07-28: two measurement bugs upstream of this formula.**
 >
@@ -88,9 +77,6 @@
 > reference impedances / RLC standards** vs a calibrated impedance analyzer, which
 > is the only way to tell whether the two-parameter model is *right* or merely
 > *better*.
-> *Note*: the "**2–6 mV** V_MAG error at resonance producing a radial bulge",
-> reported on 2026-07-27, is now understood to be this same phase offset seen
-> through the then-current pipeline — not a magnitude-channel defect.
 >
 > **Dynamic-range caveat, important for liquid work.** `R17 = 52.3 Ω` against a
 > liquid load of 0.8–3.4 kΩ puts the entire sweep at **−23 to −36 dB** of divider

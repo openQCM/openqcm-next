@@ -1,8 +1,12 @@
 # Plan — the phase-shifted Lorentzian as the published estimator, B(f) in the main panel, a live fit window that shows only what is published
 
 *Written 2026-09-16 on Marco's four goals for the `impedance-analysis` branch. Analysis first, then the design,
-the subtasks and the decisions that are his. Nothing here is implemented yet; each subtask is one commit,
-executed after his ok, one at a time.*
+the subtasks and the decisions that are his. Each subtask is one commit, executed after his ok, one at a time.*
+
+> **Status, 2026-10-01:** T1–T6 are implemented; **T7, the bench run, is open and is Marco's**. Two decisions
+> reshaped the plan after it was written: D2 dropped the third datalog `_multi_fit.csv`, and D8 (the prudent
+> setting) keeps the maximum of G as the **standard** estimator and makes the fit an **experimental** per-run
+> mode with its own datalog `_multi_lorentzian.csv`. Read §§0–2 and §5 with those two in mind.
 
 ## 0. The goals and the rule
 
@@ -59,7 +63,8 @@ crossing is missing. Unaffected in structure by this plan; see 2.5 for the one a
 rides as the third element of the F/D messages (`worker.py:536–541, 583–588`) and is written beside the
 published one (996–1002, 1043–1049).
 
-**Tests** — no versioned test suite (`grep def test_` finds nothing outside `sweep_data/`); verification on
+**Tests** — at the time of writing, no versioned test suite (`grep def test_` found nothing outside
+`sweep_data/`; since T1 there is `software/tests/`, 69 tests on 2026-10-01); verification on
 this repo is static checks plus headless scripts run ad hoc (HANDOFF §6). The estimator module below is the
 first piece that can carry a versioned headless test without Qt.
 
@@ -202,7 +207,7 @@ Ten lines; the view still computes nothing.
 ### 2.6 Documents
 
 `ALGORITHM.md` gets a section "the published estimator" (model, seeds, window, gate, fallback, what is
-logged where); `software/docs/DATA_FORMAT_sweep_data.md` or a sibling gets the `_multi_fit.csv` columns;
+logged where); ~~`software/docs/DATA_FORMAT_sweep_data.md` or a sibling gets the `_multi_fit.csv` columns~~ (no such file, D2);
 `datalog-quantities-2026-09-10.md` gets a dated note that the Frequency column changed estimator on the
 date of the merge of T2; HANDOFF §4, CHANGELOG, `SESSION_PROMPT_liquid_frequency_excess.md`.
 
@@ -216,7 +221,7 @@ date of the merge of T2; HANDOFF §4, CHANGELOG, `SESSION_PROMPT_liquid_frequenc
 | T4 ✅ | the live fit window rebuilt | the window builds and paints headless from a fake worker holding one dump's shipped arrays and fit fields (QWidget is fine offscreen); the curve drawn equals `rotated_lorentzian` of the shipped parameters to 10⁻⁹; real-platform look by Marco |
 | T5 ✅ | Impedance Data View band from the published source | headless as today's view is checked |
 | T6 ✅ | docs: ALGORITHM §7.1, datalog note, HANDOFF §4, CHANGELOG, session prompt (no data-format change: no new file, D2) | — |
-| T7 **open — Marco's** | bench: air, then one liquid, standard run and experimental run | `_multi.csv` frequency equals `_multi_fit.csv`'s fit when source = 1; fallback count 0 or each case explained; the live window's curve on top of the measured G; the offline `psl_lib` on the same day's dumps agrees to the Hz |
+| T7 **open — Marco's** | bench: air, then one liquid, standard run and experimental run | in the experimental run, `_multi_lorentzian.csv` frequency equals the fit's f_res shown by the live window when the source is the fit (there is no `_multi_fit.csv`, D2); fallback count 0 or each case explained; the live window's curve on top of the measured G; the offline `psl_lib` on the same day's dumps agrees to the Hz |
 
 Estimated size: T1 ~250 lines with tests, T2 ~150 lines across four files, T3 ~60 lines removed and ~40 added,
 T4 a ~300-line file replacing a 531-line one, T5 ~20 lines, T6 docs.
@@ -241,7 +246,8 @@ T4 a ~300-line file replacing a 531-line one, T5 ~20 lines, T6 docs.
 
 - `Frequency_n` moves by +2…+47 Hz in air and +170…+700 Hz in liquid relative to today's estimator;
   `Dissipation_n` by −7…+8 % (Γ_fit against Γ half height). A datalog before and one after this change are
-  not comparable without saying which estimator produced them — the `_multi_fit.csv` file carries both.
+  not comparable without saying which estimator produced them — which is why, after D2 and D8, an
+  experimental run writes `_multi_lorentzian.csv` and a standard run keeps `_multi.csv`.
 - The fit is more stable than the maximum where the fold decision is borderline: on water n = 3, the sweep
   whose fold flipped moved argmax by 92 Hz across the three replicas and f_res by 32 Hz.
 - The fundamental keeps its dissipation excess (+29–37 % against the theory) under either estimator.
