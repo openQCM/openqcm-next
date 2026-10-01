@@ -5,6 +5,21 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Fixed — a quieter console (2026-10-01)
+
+`e6056cd`, from Marco's todo list ("il terminale è troppo verboso"). The `DEBUG: sweep parameters` print of every
+warm-up sweep is gone. A standard run no longer prints a `Resonance (overtone n): STANDARD estimator …` line per
+overtone; an experimental run still reports which estimator published (first sweep of each overtone, every change
+of source) but through `add_message()` only — the extra `print()` wrote every such line twice on the console. The
+per-overtone `Phase (overtone n): fold, delta …` diagnostic prints only with the new development switch
+`Constants.LOG_PHASE_DIAGNOSTICS` (default False), and its circle residual is no longer computed otherwise. Tests:
+the standard mode is silent, and with a parser the line reaches the System Log once and the console never — 70
+tests. HANDOFF §4 has a "Console" bullet.
+
+### Carried from `main` — `research/notes/` removed (2026-10-01)
+
+`4009d36`, cherry-picked clean as `dd4c9cf`: the v0.1.6 notes and diagram on the `parser6` / `queue6` path, obsolete.
+
 ### Docs — SESSION_PROMPT: the July provenance item closed (2026-10-01)
 
 `docs/SESSION_PROMPT.md`: the item "provenance of the July air/isopropanol datasets" is closed — HANDOFF §4 and

@@ -64,7 +64,7 @@ rides as the third element of the F/D messages (`worker.py:536–541, 583–588`
 published one (996–1002, 1043–1049).
 
 **Tests** — at the time of writing, no versioned test suite (`grep def test_` found nothing outside
-`sweep_data/`; since T1 there is `software/tests/`, 69 tests on 2026-10-01); verification on
+`sweep_data/`; since T1 there is `software/tests/`, 70 tests on 2026-10-01); verification on
 this repo is static checks plus headless scripts run ad hoc (HANDOFF §6). The estimator module below is the
 first piece that can carry a versioned headless test without Qt.
 

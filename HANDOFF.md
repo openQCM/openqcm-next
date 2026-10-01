@@ -92,6 +92,7 @@ Add a line here whenever you decide to skip one, so the next person can tell "ch
 | `a9aa77f`, `70c7420` | `docs/datasheet/` brought to `main` from this branch (2026-10-01), plus `main`'s own README, CHANGELOG and HANDOFF lines for it. The folder originates here and is byte-identical on both branches, so there is nothing to carry; the README hunk would only conflict with this branch's Repository Structure. New datasheets are added here first, then copied to `main`. |
 | `e6e2610`, `87ceb9e`, `7924526` | `main`'s own documentation corrections of 2026-10-01 (its HANDOFF, README, SESSION_PROMPT, CLEANUP_PLAN, CHANGELOG). This branch got the same corrections in its own words in `199cf46` and `73d314f`; only the code commit `3b78344` travelled (as `f9fff51`). |
 | `e90bff9`, `a150094` | `main`'s own HANDOFF §4 summary, SESSION_PROMPT and CHANGELOG lines on this branch's measurements of record (2026-10-01). This branch says the same in its own HANDOFF, ALGORITHM and SESSION_PROMPT. |
+| `728a55b` | `main`'s README and CHANGELOG lines for the removal of `research/notes/` (the removal itself, `4009d36`, travelled). This branch's README never listed the folder. |
 
 ⚠️ **`git cherry` also keeps showing `+` for a commit that was ported but needed conflict
 resolution**, because it compares patch-ids and the resolved patch is not the original one. On
@@ -537,7 +538,7 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
 - `software/openQCM/core/lorentzian.py` — **the experimental estimator** (2026-09-16, opt-in per run; the
   standard is `argmax` of G): the phase-shifted Lorentzian on G, its gate and `publish()`; called from
   `Multiscan._publish_resonance()`. Tests in `software/tests/`
-  (`cd software && PYTHONPATH=. python -m unittest discover tests`, 69 tests).
+  (`cd software && PYTHONPATH=. python -m unittest discover tests`, 70 tests).
 - `software/openQCM/ui/mainWindow.py` + `ui/mainWindow_ui.py` — the **live impedance panel**
   (right-hand dock): `_build_impedance_panel`, `_update_impedance_panel`: G(f) over B(f) over the
   admittance locus B vs G (`pltG`, `pltSus`, `pltLocus`) in one vertical splitter, every pane collapsible
@@ -548,6 +549,11 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   `get_fr_G_buffer`, NOT on `peaks_mag`, which is the calibration centre of the sweep and sat ~900 Hz off at
   the bench — anchoring there gave a circle twice the fit window's). The locus had gone on 2026-09-16
   morning and returned that evening (Marco). Plus **Tools → Conductance Data** (`actionConductance_Data`).
+- **Console** (2026-10-01, Marco: "il terminale è troppo verboso"): a standard run prints no
+  per-overtone line. An experimental run reports which estimator published — at the first sweep of
+  each overtone and at every change of source — through `add_message()` only, i.e. once, on the
+  console and in the System Log. The per-overtone `Phase (overtone n): fold, delta …` diagnostic
+  (with its circle residual and B jump) prints only with `Constants.LOG_PHASE_DIAGNOSTICS = True`.
 - Data path `Multiscan → Parser.add_GB_multi → Worker.consume_queue_GB_multi → GUI`, one
   overtone per message, `f_r` and Γ travelling with each spectrum.
 - **Comparison datalog** (`817f847`, `Constants.DATALOG_AMPLITUDE_TOO`, test tool): beside `<ts>_multi.csv`
