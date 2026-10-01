@@ -562,14 +562,15 @@ class MultiscanProcess(multiprocessing.Process):
             else:
                 fallen += 1
             self._psl_counts[overtone_number] = (used, fallen)
+        # VER 0.1.6G the source line is for an EXPERIMENTAL run only: there it says
+        # which estimator published (the fit or the fallback), at the first sweep
+        # of each overtone and at every change -- a fallback is never silent. A
+        # standard run has nothing to report (Marco, 2026-10-01: the terminal was
+        # too verbose).
         key = (mode, published.source)
-        if self._psl_source.get(overtone_number) != key:
+        if mode == "lorentzian" and self._psl_source.get(overtone_number) != key:
             self._psl_source[overtone_number] = key
-            if mode != "lorentzian":
-                line = ("Resonance (overtone %d): STANDARD estimator -- maximum of G %.1f Hz, "
-                        "half-height Gamma %.1f Hz (experimental fit off)"
-                        % (overtone_number, f_argmax, gamma_hh))
-            elif published.source == lorentzian.SOURCE_FIT:
+            if published.source == lorentzian.SOURCE_FIT:
                 line = ("Resonance (overtone %d): EXPERIMENTAL, published by the phase-shifted "
                         "Lorentzian fit -- f_res %.1f Hz, Gamma %.1f Hz, phi %+.1f deg, "
                         "rms %.2f %% of range, %d points, %.1f ms"
@@ -584,12 +585,15 @@ class MultiscanProcess(multiprocessing.Process):
                         "of G %.1f Hz and half-height width %.1f Hz -- %s%s"
                         % (overtone_number, f_argmax, gamma_hh, published.reason,
                            detail))
-            print(line)
+            # ⚠️ One path only. The GUI prints what add_message() queues, so a
+            # print() here as well wrote every line twice on the console.
             if getattr(self, "_parser6", None) is not None:
                 try:
                     self._parser6.add_message(line)
                 except Exception:
-                    pass
+                    print(line)
+            else:
+                print(line)
         return published, fit
 
     def psl_counts(self, overtone_number):
@@ -1073,6 +1077,8 @@ class MultiscanProcess(multiprocessing.Process):
         # Constants.PHASE_OFFSET_LOG_DEG. It is useful diagnostics - it
         # characterises the board's phase channel - but it is recomputed on every
         # sweep and the vertex of the V moves a little with noise.
+        # VER 0.1.6G development only since 2026-10-01: off unless
+        # Constants.LOG_PHASE_DIAGNOSTICS is set (the terminal was too verbose).
         if not hasattr(self, "_phase_offset_logged"):
             self._phase_offset_logged = {}
         _prev = self._phase_offset_logged.get(overtone_number)
@@ -1084,7 +1090,8 @@ class MultiscanProcess(multiprocessing.Process):
         # rounded to a tenth made the 9th overtone reprint on every sweep,
         # which is how a log stops being read.
         _key = (bool(has_fold), float(phase_offset))
-        if (_prev is None or _prev[0] != _key[0]
+        if Constants.LOG_PHASE_DIAGNOSTICS and (
+                _prev is None or _prev[0] != _key[0]
                 or abs(_key[1] - _prev[1]) > Constants.PHASE_OFFSET_LOG_DEG):
             self._phase_offset_logged[overtone_number] = _key
             state = ("fold, delta %+.2f deg" % phase_offset if has_fold
@@ -1833,8 +1840,6 @@ class MultiscanProcess(multiprocessing.Process):
                         # Get array sweep paramaters from frequency peaks file 
                         (startF, stopF, stepF, readF, 
                          sg_window_size, spline_factor, spline_points) = self.get_frequencies(samples)
-                        
-                        print("DEBUG: sweep parameters ", startF, stopF, stepF) 
                     
                     else:
                         # Get array sweep paramaters from the real time frequency peaks file 

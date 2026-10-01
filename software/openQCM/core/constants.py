@@ -461,6 +461,12 @@ class Constants:
     # whose residual floor is higher. A 1 deg threshold therefore reported
     # ordinary estimation noise as drift and flooded the console.
     PHASE_OFFSET_LOG_DEG = 3.0
+    # DEVELOPMENT ONLY. True prints the per-overtone "Phase (overtone n): fold,
+    # delta ..." line on the console (first sweep, every change of fold decision,
+    # every drift past PHASE_OFFSET_LOG_DEG), with the circle residual and the B
+    # jump computed for it. Off by default since 2026-10-01 (Marco: the terminal
+    # was too verbose).
+    LOG_PHASE_DIAGNOSTICS = False
 
     # VER 0.1.6G live admittance-fit window (Tools > Impedance Fit).
     # Refresh period: the fits only re-run when a sweep actually completed, so

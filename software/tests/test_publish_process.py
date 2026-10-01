@@ -86,11 +86,25 @@ class PublishResonanceTests(unittest.TestCase):
         pub, fit, text = self._run(1, f, g, 24971380.0, 1580.0)
         self.assertIsNone(fit)
         self.assertEqual((pub.fres, pub.gamma, pub.source), (24971380.0, 1580.0, L.SOURCE_FALLBACK))
-        self.assertIn("STANDARD estimator", text)
-        self.assertNotIn("FALLBACK", text)
+        self.assertEqual(text, "")                                 # a standard run logs nothing (2026-10-01)
         self.assertEqual(self.proc.psl_counts(1), (0, 0))          # nothing to count: no fit ran
         _, _, text2 = self._run(1, f, g, 24971380.0, 1580.0)
         self.assertEqual(text2, "")
+
+    def test_with_a_parser_the_line_goes_to_the_system_log_once_and_not_to_the_console(self):
+        # The GUI prints what add_message() queues; a print() as well wrote every line
+        # twice on the console (todo of 2026-10-01).
+        class _Parser:
+            def __init__(self):
+                self.lines = []
+            def add_message(self, text):
+                self.lines.append(text)
+        self.proc._parser6 = _Parser()
+        f, g = _synthetic(24971700.0, 1600.0, -24.0, 0.5e-3, 0.3e-3)
+        _, _, text = self._run(2, f, g, float(f[np.argmax(g)]), 1580.0)
+        self.assertEqual(text, "")
+        self.assertEqual(len(self.proc._parser6.lines), 1)
+        self.assertIn("published by the phase-shifted Lorentzian fit", self.proc._parser6.lines[0])
 
     def test_the_default_mode_is_the_standard(self):
         proc = MultiscanProcess(None)                              # no set_estimator()
