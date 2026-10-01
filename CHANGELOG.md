@@ -5,6 +5,15 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Docs — ALGORITHM.md cites the tables of 2026-09-11 instead of the July campaign (2026-10-01)
+
+`9af0186`: the same replacement as in HANDOFF, in `ALGORITHM.md` §4.2 (φ_b; the negative minimum of the reading,
+−6.9° in air), §4.4 (flipping on a damped load: B steps of 28–84 % in water and 43–89 % in isopropanol, from
+`fold-hypothesis.md`; the roundness fit: δ 3.7–20.5° above the fold, B steps of 25–63 %), §9 open defects (liquid
+baseline −2 to −16 %, φ_b −7.6…−22.1°, divider ratio −22.2 to −36.6 dB, the mask removing 32–76 % of the window in
+liquid) and §12 (FIT 1 and FIT 2 within 1.2–2.6 ppm in air). φ_b applied as a rotation after unfolding is no
+longer claimed.
+
 ### Docs — HANDOFF §4 cites the tables of 2026-09-11 instead of the July campaign (2026-10-01)
 
 `1b653e9`, after Marco read `handoff-tables.md`: the phase-offset section (δ from the fold against the roundness fit,
