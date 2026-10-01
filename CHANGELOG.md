@@ -5,6 +5,26 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — `Constants.environment` = 8, the production value (2026-10-01)
+
+`3b78344`, cherry-picked clean as `f9fff51`: the averaging buffer and the warm-up go from the development value
+3 to **8**, the production value fixed by Marco (not 10, as the documents had said). If the warm-up proves too
+long it may be lowered again; the cost is purely metrological. 69 tests pass after the cherry-pick.
+
+### Docs — stale statements corrected; the July validation no longer cited (2026-10-01)
+
+`199cf46`. `ALGORITHM.md` names the maximum of G as the **standard** estimator and keeps the phase-shifted
+Lorentzian as a short §7.1 on the **experimental** option, with pointers to the plan, the validation page and the
+tests; its §0 table logs D, the no-fold branch is recorded as exercised on 2026-09-11, the locus as drawn again.
+The on-device validation of July 2026 (air, isopropanol; raw data never kept, cited path that does not exist) is
+removed from HANDOFF §4, `conductance-calculation.md` and the `ALGORITHM.md` paragraph that reconciled against
+it. HANDOFF: cherry-pick in place of `git merge main` in §2, δ from the fold (not Taubin), the estimator
+selectable per run, `environment` 8, the OSL folder versioned, 69 tests. `PLAN_psl_live_estimator.md` gets a
+status line and a T7 criterion that no longer names the dropped `_multi_fit.csv`. The README roadmap drops the
+PID window (it exists); the 2026-09-10 research page records board and liquids as its conditions. The duplicate
+rows of 2026-09-11 are **95**, not 96, recounted on the datalog (here, in `PLAN_signal_chain_noise.md` and in the
+entry of 2026-09-17 below).
+
 ### Docs — two more datasheets: AD9851 and AD5251/AD5252 (2026-10-01)
 
 `64de645`: `docs/datasheet/AD9851.pdf` (the DDS) and `docs/datasheet/ad5251_5252.pdf` (the digital
@@ -61,7 +81,8 @@ under it says cherry-pick, not merge.
 `ef8491c` (main `2da0705`) and `22089e6` (main `ab33541`), plus the branch-only follow-up: the multiscan row was
 written from the temperature handler when the **status** queue's overtone number read 0 — another queue,
 consumed later — so one GUI drain wrote 0, 1 or up to 5 identical rows per cycle. Measured on this branch's
-datalog of 2026-09-11: 96 duplicate rows in 486 with identical `Relative_time`, and 19 s gaps. The temperature
+datalog of 2026-09-11: 95 duplicate rows in 486, each within 0.021 s of the row before it (corrected 2026-10-01: this
+entry said 96), and 19 s gaps. The temperature
 message is now the datalog clock: `[time, T, overtone, is_last_of_cycle, F[], D[]]`, posted after that overtone's
 F and D; the worker drains F and D before it and writes one row per cycle, from the message's own copies of F and
 D (a backlog no longer shifts a row onto the next cycle's values). On this branch the message also carries
