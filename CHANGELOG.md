@@ -5,6 +5,12 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Docs — SESSION_PROMPT: the July provenance item closed (2026-10-01)
+
+`docs/SESSION_PROMPT.md`: the item "provenance of the July air/isopropanol datasets" is closed — HANDOFF §4 and
+`ALGORITHM.md` cite the tables of 2026-09-11 (`handoff-tables.md`), the CHANGELOG stays as history. `main`'s
+companion commits `e90bff9`, `a150094` are listed as not ported in HANDOFF.
+
 ### Docs — ALGORITHM.md cites the tables of 2026-09-11 instead of the July campaign (2026-10-01)
 
 `9af0186`: the same replacement as in HANDOFF, in `ALGORITHM.md` §4.2 (φ_b; the negative minimum of the reading,
