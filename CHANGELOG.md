@@ -5,6 +5,17 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Research — the HANDOFF §4 tables re-derived on the dumps of 2026-09-11 (2026-10-01)
+
+`d5102de`: `research/air-ipa-water-1920-2026-09-11/handoff-tables.md`, seven tables from the nine dumps in the repo
+(board 1920; air, water, isopropanol), one script each, `fit_admittance.py` unchanged as the tool. They replace,
+once Marco has read them, the July 2026 numbers in HANDOFF §4 whose raw data were never kept: δ from the fold against
+the roundness fit (largest B step ≤ 3.8 % against 25–63 % where the roundness search is accepted), FIT 1 against
+FIT 2 (1.2–2.6 ppm on f_s in air), the −28 dB mask (37–58 % of the window removed in water, 32–76 % in isopropanol),
+the divider ratio in liquid (−36.6 to −22.2 dB), the chain's half width against a Lorentzian in liquid (−2 to −16 %),
+and a board phase φ_b = −7.6 … −22.1° in air, identifiable only where the phase crosses zero. The body and module
+swap cannot be re-derived from one board and one sensor. HANDOFF is not changed yet.
+
 ### Carried from `main` — `Constants.environment` = 8, the production value (2026-10-01)
 
 `3b78344`, cherry-picked clean as `f9fff51`: the averaging buffer and the warm-up go from the development value
