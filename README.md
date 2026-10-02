@@ -87,8 +87,10 @@ Here $V_{CP} = 0.9\ \text{V}$ is the centre point, and $\phi_{meas}$ is the phas
 two inputs. The phase output gives only its **absolute value**.
 
 The two outputs reach the 12-bit ADC of the Teensy 4.0 (3.3 V) through two non-inverting stages: ×2 on
-V_MAG (pin A9) and ×1.5 on V_PHS (pin A3). The software converts the counts back to the detector's
-voltages and removes the attenuator from V_MAG:
+V_MAG (pin A9) and ×1.5 on V_PHS (pin A3). The firmware averages 500 readings per channel at each
+frequency point (since `0.1.5d` the two sums restart from zero at every point; up to `0.1.5c` each
+point carried 1/500 of the previous one, +0.2 % on the counts). The software converts the counts back
+to the detector's voltages and removes the attenuator from V_MAG:
 
 $$
 V_{MAG} = \frac{3.3}{4096}\,\frac{N_{MAG}}{2} - 0.6\log_{10}K,
@@ -296,7 +298,7 @@ A legacy `FindPeak` routine remains available as a fallback.
 
 ### Hardware Integration
 
-- **Teensy 4.0** microcontroller firmware (see [`firmware/`](firmware/)); USB-CDC serial link at 115200 baud, 8N1
+- **Teensy 4.0** microcontroller firmware (see [`firmware/`](firmware/)), current version **`0.1.5d`**; USB-CDC serial link at 115200 baud, 8N1
 - Frequency sweep command protocol (`start;stop;step`) with a magnitude/phase ADC data stream, and
   single-letter commands beside it: `F` firmware version, `S` machine identification number,
   `Q` end the sweep in progress, plus the TEC set
@@ -421,14 +423,14 @@ openqcm-next/
 │   │   │   └── plot_conductance.py · fit_admittance.py · plot_sweep_spline.py
 │   │   ├── util/                              # serial line reader, matplotlib-in-Qt helper
 │   │   ├── res/ · icon/                       # icons and images
-│   │   ├── firmware_update/                   # Teensy loaders (macOS, Windows) and firmware images
+│   │   ├── firmware_update/                   # Teensy loaders (macOS, Windows) and the 0.1.5d images
 │   │   ├── config.txt                         # sweep / sampling parameters (per machine)
 │   │   ├── PeakFrequencies.txt · PeakFrequenciesRT.txt   # detected peaks (runtime, versioned)
 │   │   └── Calibration_5MHz.txt · Calibration_10MHz.txt  # peak-detection sweeps (runtime)
 │   ├── tests/                                 # unittest suite (PYTHONPATH=. python -m unittest discover tests)
 │   ├── *.ino.hex                              # older firmware release images
 │   └── docs/                                  # sweep file format, license (GPL)
-├── firmware/                                  # Teensy 4.0 sketches: 0.1.5a/b/c, -TEST variants, serial-number writer
+├── firmware/                                  # Teensy 4.0 sketches: 0.1.5a/b/c/d, -TEST variants, serial-number writer
 ├── docs/
 │   ├── impedance-analysis/                    # ALGORITHM.md, plans, method notes, reference sweep, figures
 │   ├── figures/                               # architecture diagrams
@@ -501,7 +503,7 @@ Selected planned work (non-exhaustive):
   the remaining status colors toward the blue/brown palette, and a few minor layout refinements.
 - Port selected backend improvements from the mature **openQCM Q-1** codebase: **disconnected-sensor
   detection**, **tracking safety** (auto-disable/resume), and peak-detection validations.
-- Retire the superseded firmware folders (`0.1.5a`, `0.1.5b`) once no board runs them; `0.1.5c` is
+- Retire the superseded firmware folders (`0.1.5a`, `0.1.5b`, `0.1.5c`) once no board runs them; `0.1.5d` is
   the current pair, and the no-TEC `-TEST` variant is kept while the prototype board is in use.
 - Merge the `impedance-analysis` feature once stabilized (make the conductance method selectable
   rather than hardwired). The exact complex-impedance formula is **done** and is the published path

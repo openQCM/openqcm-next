@@ -1,5 +1,9 @@
 # The HANDOFF §4 tables on the dumps of 2026-09-11: the numbers as they come out
 
+> ⚠️ *Note of 2026-10-02: acquired with firmware 0.1.5c or earlier, whose sweep average carried 1/500 of the
+> previous point into each point (+0.2 % on the ADC counts of both channels; fixed in 0.1.5d). The numbers
+> on this page contain it. `HANDOFF.md` §3, "Firmware 0.1.5d".*
+
 *Board 1920 (125 MHz clock, in specification), 5 MHz sensor, TEC at 25 °C, air → water → isopropanol. Nine dumps
 (`data/sweep_dumps_2026-09-11.npz`, three per phase: air 12:25 / 12:46 / 12:50, water 12:57 / 13:08 / 13:15,
 isopropanol 13:20 / 13:24 / 13:30), 45 sweeps over overtones 1–9. Written 2026-10-01 on Marco's request: the

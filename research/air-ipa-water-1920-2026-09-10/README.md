@@ -1,5 +1,9 @@
 # Air → isopropanol → water on board 1920, 2026-09-10: the two datalogs against Kanazawa–Gordon
 
+> ⚠️ *Note of 2026-10-02: acquired with firmware 0.1.5c or earlier, whose sweep average carried 1/500 of the
+> previous point into each point (+0.2 % on the ADC counts of both channels; fixed in 0.1.5d). The numbers
+> on this page contain it. `HANDOFF.md` §3, "Firmware 0.1.5d".*
+
 *Run `2026-09-10_17-10-06`, multiscan, 25 °C, impedance-analysis worktree with `DATALOG_AMPLITUDE_TOO`:
 `_multi.csv` (this branch: f = max of the exact conductance G, D = 2Γ/f in ppm) and
 `_multi_amplitude.csv` (main's quantities: f = max of the fitted amplitude, "Dissipation" = width at

@@ -1,5 +1,9 @@
 # Air sweeps — 125 MHz board, 2026-09-03
 
+> ⚠️ *Note of 2026-10-02: acquired with firmware 0.1.5c or earlier, whose sweep average carried 1/500 of the
+> previous point into each point (+0.2 % on the ADC counts of both channels; fixed in 0.1.5d). The numbers
+> on this page contain it. `HANDOFF.md` §3, "Firmware 0.1.5d".*
+
 Five raw sweeps in the `g<n>.txt` format (frequency [Hz], `V_MAG` [V], `V_PHS` [V]; see
 `software/docs/DATA_FORMAT_sweep_data.md`), one per overtone, 18001 samples each, taken **in air**
 with the DDS system clock at **125 MHz**.

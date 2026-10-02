@@ -1,5 +1,9 @@
 # Air → water → isopropanol on board 1920, 2026-09-11: the impedance datalog as acquired
 
+> ⚠️ *Note of 2026-10-02: acquired with firmware 0.1.5c or earlier, whose sweep average carried 1/500 of the
+> previous point into each point (+0.2 % on the ADC counts of both channels; fixed in 0.1.5d). The numbers
+> on this page contain it. `HANDOFF.md` §3, "Firmware 0.1.5d".*
+
 *Run `2026-09-11_12-14-42`, multiscan, impedance-analysis worktree, `OPENQCM_SWEEP_DUMP=1` and
 `DATALOG_AMPLITUDE_TOO`. This document reads the **impedance datalog** `_multi.csv` (f = sample where the
 exact conductance G is maximum; D = 2Γ/f in ppm, Γ the half width at half height of G) and puts it against

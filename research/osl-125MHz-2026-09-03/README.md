@@ -1,5 +1,9 @@
 # Open / Short / 50 Ω characterisation — 125 MHz board, 2026-09-03
 
+> ⚠️ *Note of 2026-10-02: acquired with firmware 0.1.5c or earlier, whose sweep average carried 1/500 of the
+> previous point into each point (+0.2 % on the ADC counts of both channels; fixed in 0.1.5d). The numbers
+> on this page contain it. `HANDOFF.md` §3, "Firmware 0.1.5d".*
+
 Three full-band sweeps of the openQCM NEXT front end with **known terminations in place of the
 sensor**, acquired through the Peak Detection path (1–51 MHz) on a board whose DDS system clock is
 125 MHz.

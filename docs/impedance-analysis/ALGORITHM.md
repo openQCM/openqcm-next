@@ -97,6 +97,13 @@ The AD8302 puts out two DC voltages:
 `elaborate_multi()` receives the **raw ADC counts** of both channels (`Xm`, `Xp`) and converts them
 four times, for four different purposes. Two matter here.
 
+⚠️ **The counts themselves were 0.2 % high up to firmware 0.1.5c.** Each point is the mean of 500
+readings, and the firmware never reset the two sums between points: printed `v_i = m_i + v_(i−1)/500`.
+Fixed in `0.1.5d` (2026-10-02). From the conversions below, on the range of the 2026-09-11 sweeps:
+V_MAG 0.8–2.8 mV high, hence `M` 0.3–1.1 % low; the phase reading 0.18–0.37° low — not measured, and
+not negligible for §5, where `R_q = M·cos φ − R17` is a difference of close numbers. Every dataset
+acquired before 0.1.5d carries it (`HANDOFF.md` §3, "Firmware 0.1.5d").
+
 ### 2.1 `V_MAG` — `_Vmag_bit_mag()`, `Multiscan.py:697`
 
 ```python
