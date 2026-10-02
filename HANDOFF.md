@@ -95,6 +95,7 @@ Add a line here whenever you decide to skip one, so the next person can tell "ch
 | `728a55b` | `main`'s README and CHANGELOG lines for the removal of `research/notes/` (the removal itself, `4009d36`, travelled). This branch's README never listed the folder. |
 | `6d3436d` | `main`'s HANDOFF §4 summary updated with this branch's test count and console note. |
 | `f586317` | `main`'s CHANGELOG line for the sweep-file format correction (the correction itself, `f00d660`, travelled). |
+| `c2b735c`, `3def0af`, `2444c03` | `main`'s own HANDOFF, README, SESSION_PROMPT, data-format and CHANGELOG lines for firmware 0.1.5d (2026-10-02). The code (`712d3af`, `5a98912`) travelled; this branch documents the same in its own words in `9fdf22b`, the data-format note included. |
 
 ⚠️ **`git cherry` also keeps showing `+` for a commit that was ported but needed conflict
 resolution**, because it compares patch-ids and the resolved patch is not the original one. On

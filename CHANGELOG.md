@@ -5,6 +5,27 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — firmware 0.1.5d: the sweep-average sums are reset at every frequency point (2026-10-02)
+
+`712d3af` and `5a98912`, cherry-picked clean as `6a5d4b6` and `3e6398c`. Up to `0.1.5c` (and the `-TEST`
+variants) the sums of the 500 ADC readings of each point were never reset, so each point carried 1/500 of the
+previous one: **+0.2 %** on the counts of both channels, the first point of a sweep carrying the last of the
+previous sweep. `firmware/openQCM_Next_py_0.1.5d_teensy/` and `..._0.1.5d_TEST_teensy/` zero both sums before
+each point (same averaging, wire format and commands; FLASH code 55 120 B and 45 564 B); `Constants.FW_VERSION`
+is `0.1.5d` and `firmware_update/` ships the two 0.1.5d images. 70 tests pass after the cherry-pick.
+
+### Docs — firmware 0.1.5d, and what it means for this branch's data (2026-10-02)
+
+`9fdf22b`. HANDOFF §3 has a "Firmware 0.1.5d" section; §4 states that **every dataset in `research/` was
+acquired with 0.1.5c or earlier** and carries the bias, and the five campaign pages (`air-ipa-water-1920-2026-09-10`,
+`-09-11` and its `handoff-tables.md`, `board-125MHz-air-2026-09-03`, `osl-125MHz-2026-09-03`) get a dated note.
+From the conversions on the range of the 2026-09-11 sweeps — derived, not measured — V_MAG reads 0.8–2.8 mV
+high, so the divider magnitude M is 0.3–1.1 % low, and the phase reading 0.18–0.37° low: not negligible for
+the exact inversion, where `R_q = M·cos φ − R17` is a difference of close numbers. Within a sweep it can be
+undone offline, `m_i = v_i − v_(i−1)/500`. Also `ALGORITHM.md` §2, the ADC stage of `PLAN_signal_chain_noise.md`,
+`software/docs/DATA_FORMAT_sweep_data.md`, README (current firmware, the per-point average in the method
+section, roadmap) and SESSION_PROMPT.
+
 ### Carried from `main` — the sweep-file format: column 3 peaks at resonance (2026-10-02)
 
 `f00d660`, cherry-picked clean as `e1d06f7`: `software/docs/DATA_FORMAT_sweep_data.md` said column 3 of `<n>.txt` dips at
