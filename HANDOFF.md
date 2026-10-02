@@ -94,6 +94,7 @@ Add a line here whenever you decide to skip one, so the next person can tell "ch
 | `e90bff9`, `a150094` | `main`'s own HANDOFF §4 summary, SESSION_PROMPT and CHANGELOG lines on this branch's measurements of record (2026-10-01). This branch says the same in its own HANDOFF, ALGORITHM and SESSION_PROMPT. |
 | `728a55b` | `main`'s README and CHANGELOG lines for the removal of `research/notes/` (the removal itself, `4009d36`, travelled). This branch's README never listed the folder. |
 | `6d3436d` | `main`'s HANDOFF §4 summary updated with this branch's test count and console note. |
+| `f586317` | `main`'s CHANGELOG line for the sweep-file format correction (the correction itself, `f00d660`, travelled). |
 
 ⚠️ **`git cherry` also keeps showing `+` for a commit that was ported but needed conflict
 resolution**, because it compares patch-ids and the resolved patch is not the original one. On

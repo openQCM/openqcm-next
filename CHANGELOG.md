@@ -5,6 +5,12 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — the sweep-file format: column 3 peaks at resonance (2026-10-02)
+
+`f00d660`, cherry-picked clean as `e1d06f7`: `software/docs/DATA_FORMAT_sweep_data.md` said column 3 of `<n>.txt` dips at
+resonance; it peaks (`90 − |Δφ|`, measured on the 15 sweeps of 2026-09-11). The `g<n>.txt` section of this branch's
+copy is untouched.
+
 ### Fixed — a quieter console (2026-10-01)
 
 `e6056cd`, from Marco's todo list ("il terminale è troppo verboso"). The `DEBUG: sweep parameters` print of every
