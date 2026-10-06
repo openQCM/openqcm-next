@@ -1,0 +1,13 @@
+# Remaining experiments before submission
+
+(Expanded from `running_list.md` §H. Each item states what it settles.)
+
+1. **Reference impedance analyser on the same crystal, same day, air and water, thru configuration.** Settles the absolute accuracy of f_res, Γ and R_m of the method (only shifts against theory were tested here), and gives the reference's own φ (expected ≈ 0) to confirm that the −8…−27° is the instrument's.
+2. **Second board × second sensor (2×2), air and water, overtones 1–9.** Settles whether φ(n) is a board constant (the 2026-07-28 frozen sweep on an unrecorded board gives φ = +2.2° at the water fundamental against −5.0° here) and whether the fundamental's bandwidth excess follows the sensor.
+3. **Liquid temperature measured at the interface** (thermistor in the cell), or a water–glycerol series at controlled temperature. Settles the ±2–3 % of the Kanazawa–Gordon prediction that the unmeasured liquid temperature leaves open, and tests the √(ρη) law over a range rather than at two points.
+4. **Bench calibration of the phase channel**: a known phase ramp through 0° (to measure δ and the fold rounding directly) and an RLC standard in the operating impedance range (0.5–5 kΩ) to measure φ_b(f). Settles the physical origin of φ (board, cable, AD8302 non-linearity near 0°).
+5. **Long plateau (≥ 1 h) in water with the phase-shifted estimator running live beside the conductance maximum.** Settles drift, noise and the fallback rate under the acceptance gate (0/45 offline here), and the two-state behaviour of the 3rd overtone.
+6. **Larger or switchable divider resistor (e.g. 500 Ω–1 kΩ for liquids).** Settles whether the 5–18 % out-of-roundness of the locus and the residual frequency excess come from operating the AD8302 at −22…−37 dB.
+7. **Sweep window scaled with Γ (e.g. ±6 Γ on each side).** Removes the clipping of the ±3 Γ fit window for n ≥ 5 in isopropanol and the baseline-on-skirt bias of the half-height width.
+8. **Re-acquisition of the air/water/isopropanol set with firmware 0.1.5d.** Removes the firmware carry-over caveat from the dataset of record (shown here to be negligible, ≤ 2 Hz, except on the one threshold sweep).
+9. **A third liquid (e.g. 20–40 % glycerol) and a viscoelastic film** to test the estimator where |Δf|/ΔΓ ≠ 1 is expected.

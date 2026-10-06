@@ -1,0 +1,37 @@
+# `paper/` — manuscript project: QCM frequency and dissipation from DDS excitation, gain–phase detection and complex-admittance reconstruction
+
+Work of 2026-10-06 on the `impedance-analysis` branch (analysis of commit `37fce4b`). Nothing under `research/` or `software/` was modified; every number here is regenerated from the raw data in `research/` by the scripts in `analysis/`.
+
+| what | where |
+|---|---|
+| **Manuscript** (full scientific draft, 8 sections, Markdown with pandoc citations) | `manuscript/manuscript.md` |
+| **arXiv-ready LaTeX source** (generated from the Markdown; not compiled here — no TeX in the environment) | `arxiv/main.tex`, `arxiv/references.bib`, `arxiv/figures/` |
+| **Publication figures** (PNG 300 dpi + PDF) and their provenance | `figures/`, `analysis/results/figure_provenance.md` |
+| **Numerical results and uncertainties** (per sweep, per phase, shifts, slopes, gate statistics; as-is and firmware-corrected) | `analysis/results/tables_asis.md`, `tables_fwfix.md`, `*.csv`, `*.json` |
+| **Datalog analysis** (impedance chain vs production magnitude chain, two runs) | `analysis/results/datalogs.md` |
+| **Bias theory, rotation angle, board delay** | `analysis/results/bias_theory.md` |
+| **Forward model (falsification tests)** | `analysis/results/forward_model.md` |
+| **Complete derivation of the measurement equations** | `notes/derivations.md` |
+| **Running list**: verified facts, doc/code discrepancies, hypotheses, open questions, assumptions, limitations, reviewer objections, remaining experiments | `notes/running_list.md` |
+| **Literature review, comparison table, novelty assessment, BibTeX** | `literature/` |
+| **Journal shortlist and submission notes** | `notes/journals_and_submission.md` |
+| **Remaining experiments** | `notes/remaining_experiments.md` |
+
+## Reproducing everything
+
+```bash
+pip install numpy scipy matplotlib pandas        # numpy 2.x works for paper/analysis (the instrument code itself needs numpy ≤ 1.23)
+cd paper/analysis
+python run_estimators.py      # 45 sweeps × 7 estimators, as-is and firmware-corrected  → results/sweeps_*.csv
+python run_shifts.py          # phases, shifts, Kanazawa–Gordon, √n slopes, gate stats  → results/tables_*.md, summary_*.json
+python run_datalogs.py        # the two datalogs, impedance vs magnitude chain          → results/datalogs.md
+python run_bias_theory.py     # closed forms vs data, φ analysis, OSL delay             → results/bias_theory.md
+python run_forward_model.py   # synthetic truth through the front end                   → results/forward_model.md
+python make_figures.py        # figures → ../figures, provenance → results/figure_provenance.md
+```
+
+`qcmchain.py` is an independent re-implementation of the chain written from the equations (it shares only the smoothing definition with the instrument); it reproduces `software/tests/data/psl_expected_2026-09-11.json` to all printed digits.
+
+## Main findings in one paragraph
+
+On overtones 3–9 in water and isopropanol the air-to-liquid frequency shifts deviate from Kanazawa–Gordon by +52…+92 % with the magnitude channel alone, +20…+30 % with the maximum of the reconstructed conductance and −1.4…+8.2 % with the phase-shifted Lorentzian; the bandwidth shifts are within ±7.4 % with the half-height width and −3.9…+9.3 % with the fit, so the fit's gain is on frequency. The 20–30 % excess is the closed-form bias Γ·tan(φ/2) of the conductance maximum for a resonance rotated by φ = −8…−27°, an instrument constant equal to the board phase. A forward model shows the rotation correction is exact only when R_m ≫ R17 (liquid). The fundamental is off by +29…+37 % in bandwidth with every estimator. Documented discrepancies with the repository: ALGORITHM.md §11 is computed on raw samples (not the smoothed chain); the "within 8 %" claim holds for frequency, not for bandwidth (already within ±7 % before the fit); the instrument's smoothing widens Γ by +10 % at the air fundamental.
