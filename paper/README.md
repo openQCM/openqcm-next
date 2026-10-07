@@ -1,6 +1,6 @@
 # `paper/` — manuscript project: QCM frequency and dissipation from DDS excitation, gain–phase detection and complex-admittance reconstruction
 
-Work of 2026-10-06 on the `impedance-analysis` branch (analysis of commit `37fce4b`). Nothing under `research/` or `software/` was modified; every number here is regenerated from the raw data in `research/` by the scripts in `analysis/`.
+Work of 2026-10-06/07 on the `impedance-analysis` branch (analysis of commit `37fce4b`, second dataset added 2026-10-07). Nothing pre-existing under `research/` or `software/` was modified; the one addition is the new folder `research/glucose-2024-05-29/` (raw sweeps of a second instrument, 2024-05-29, with its datalog and provenance README), of which `paper/data/glucose-2024-05-29/` is an identical copy kept with the paper (the loader falls back to it). Every number here is regenerated from the raw data in `research/` by the scripts in `analysis/`.
 
 | what | where |
 |---|---|
@@ -11,6 +11,8 @@ Work of 2026-10-06 on the `impedance-analysis` branch (analysis of commit `37fce
 | **Datalog analysis** (impedance chain vs production magnitude chain, two runs) | `analysis/results/datalogs.md` |
 | **Bias theory, rotation angle, board delay** | `analysis/results/bias_theory.md` |
 | **Forward model (falsification tests)** | `analysis/results/forward_model.md` |
+| **Second instrument, 2024-05-29 (water, glucose 5/7.5/10 % w/v): estimators, shifts, concentration slopes, 5 %-plateau residual and drift checks, clipped-window check, φ decomposition** | `analysis/results/glucose_tables_asis.md`, `glucose_tables_fwfix.md`, `glucose_*.csv/json` |
+| **Raw data of the second instrument (copy)** | `data/glucose-2024-05-29/` |
 | **Complete derivation of the measurement equations** | `notes/derivations.md` |
 | **Running list**: verified facts, doc/code discrepancies, hypotheses, open questions, assumptions, limitations, reviewer objections, remaining experiments | `notes/running_list.md` |
 | **Literature review, comparison table, novelty assessment, BibTeX** | `literature/` |
@@ -27,6 +29,7 @@ python run_shifts.py          # phases, shifts, Kanazawa–Gordon, √n slopes, 
 python run_datalogs.py        # the two datalogs, impedance vs magnitude chain          → results/datalogs.md
 python run_bias_theory.py     # closed forms vs data, φ analysis, OSL delay             → results/bias_theory.md
 python run_forward_model.py   # synthetic truth through the front end                   → results/forward_model.md
+python run_glucose.py         # 2024-05-29 set, 75 sweeps × 7 estimators, as-is and fwfix  → results/glucose_*
 python make_figures.py        # figures → ../figures, provenance → results/figure_provenance.md
 ```
 
@@ -34,4 +37,4 @@ python make_figures.py        # figures → ../figures, provenance → results/f
 
 ## Main findings in one paragraph
 
-On overtones 3–9 in water and isopropanol the air-to-liquid frequency shifts deviate from Kanazawa–Gordon by +52…+92 % with the magnitude channel alone, +20…+30 % with the maximum of the reconstructed conductance and −1.4…+8.2 % with the phase-shifted Lorentzian; the bandwidth shifts are within ±7.4 % with the half-height width and −3.9…+9.3 % with the fit, so the fit's gain is on frequency. The 20–30 % excess is the closed-form bias Γ·tan(φ/2) of the conductance maximum for a resonance rotated by φ = −8…−27°, an instrument constant equal to the board phase. A forward model shows the rotation correction is exact only when R_m ≫ R17 (liquid). The fundamental is off by +29…+37 % in bandwidth with every estimator. Documented discrepancies with the repository: ALGORITHM.md §11 is computed on raw samples (not the smoothed chain); the "within 8 %" claim holds for frequency, not for bandwidth (already within ±7 % before the fit); the instrument's smoothing widens Γ by +10 % at the air fundamental.
+On overtones 3–9 in water and isopropanol the air-to-liquid frequency shifts deviate from Kanazawa–Gordon by +52…+92 % with the magnitude channel alone, +20…+30 % with the maximum of the reconstructed conductance and −1.4…+8.2 % with the phase-shifted Lorentzian; the bandwidth shifts are within ±7.4 % with the half-height width and −3.9…+9.3 % with the fit, so the fit's gain is on frequency. The 20–30 % excess is the closed-form bias Γ·tan(φ/2) of the conductance maximum for a resonance rotated by φ = −8…−27°, an instrument constant equal to the board phase. A forward model shows the rotation correction is exact only when R_m ≫ R17 (liquid). The fundamental is off by +29…+37 % in bandwidth with every estimator. On a second instrument and crystal (2024, water and glucose 5–10 % w/v) the ranking repeats on four liquids (Newtonian ratio 1.20–1.41 → 1.01–1.16; water Δf +20…+36 % → +6…+13 %), φ agrees within 1–3° on four overtones but is not monotonic in frequency, and the fundamental follows the theory. Documented discrepancies with the repository: ALGORITHM.md §11 is computed on raw samples (not the smoothed chain); the "within 8 %" claim holds for frequency, not for bandwidth (already within ±7 % before the fit); the instrument's smoothing widens Γ by +10 % at the air fundamental.
