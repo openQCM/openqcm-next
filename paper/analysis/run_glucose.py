@@ -96,7 +96,7 @@ def run(variant, d):
                 rel[liq] = float((a.df.iloc[0] / w.df.iloc[0]) ** 2) if len(a) and len(w) and w.df.iloc[0] else np.nan
                 rel[liq + "_G"] = float((a.dG.iloc[0] / w.dG.iloc[0]) ** 2) if len(a) and len(w) and w.dG.iloc[0] else np.nan
             conc_rows.append(dict(variant=variant, estimator=est, n=n, k_df=kf, b_df=bf, r2_df=r2f, k0_df=kf0, k_dG=kG, b_dG=bG, r2_dG=r2G, k0_dG=kG0,
-                                  k_dD=kD, b_dD=bD, r2_dD=r2D, k0_dD=kD0, resid5_df=yf[1] - (kf * x[1] + bf) if len(x) > 1 else np.nan,
+                                  k_dD=kD, b_dD=bD, r2_dD=r2D, k0_dD=kD0, resid5_df=yf[1] - (kf * x[1] + bf), resid5_dG=yG[1] - (kG * x[1] + bG), resid5_dD=yD[1] - (kD * x[1] + bD),
                                   rhoeta_rel_05=rel["gluc05"], rhoeta_rel_075=rel["gluc075"], rhoeta_rel_10=rel["gluc10"],
                                   rhoeta_relG_05=rel["gluc05_G"], rhoeta_relG_075=rel["gluc075_G"], rhoeta_relG_10=rel["gluc10_G"]))
     cc = pd.DataFrame(conc_rows); cc.to_csv(os.path.join(R, "glucose_conc_%s.csv" % variant), index=False)
@@ -119,6 +119,56 @@ def run(variant, d):
     gate = dict(n=int(len(p)), accepted=int(p.gate_ok.sum()), converged=int(p.converged.sum()), rms_air=[float(p[p.phase == "air"].rms_rel.min()), float(p[p.phase == "air"].rms_rel.max())],
                 rms_liquid=[float(p[p.phase != "air"].rms_rel.min()), float(p[p.phase != "air"].rms_rel.max())],
                 fold_by_phase={ph: [int(v) for v in s.sort_values(["n", "replica"]).fold.values] for ph, s in p.groupby("phase")})
+
+    # --- drift within each plateau (slope of f vs write time over the three replicas), time–concentration geometry
+    tt = d.copy(); tt["t_min"] = (pd.to_datetime(tt.mtime) - pd.to_datetime(tt.mtime).min()).dt.total_seconds() / 60.0
+    drift_rows = []
+    for est in ("argmax_hh", "psl"):
+        for ph in data.GLUC_PHASES:
+            for n in N.astype(int):
+                s = tt[(tt.estimator == est) & (tt.phase == ph) & (tt.n == n)].sort_values("t_min")
+                if len(s) < 3: continue
+                kf_, bf_, r2_, _ = lsq_line(s.t_min.values, s.fres.values); kG_, _, _, _ = lsq_line(s.t_min.values, s.gamma.values)
+                drift_rows.append(dict(variant=variant, estimator=est, phase=ph, n=n, span_min=float(s.t_min.max() - s.t_min.min()), drift_f_Hz_per_min=kf_, drift_G_Hz_per_min=kG_,
+                                       t_mean_min=float(s.t_min.mean())))
+    dr = pd.DataFrame(drift_rows); dr.to_csv(os.path.join(R, "glucose_drift_%s.csv" % variant), index=False)
+    # phase mean times vs concentration (liquids only): OLS t(c), residual of the 5 % phase
+    tm = {ph: float(tt[(tt.estimator == "psl") & (tt.phase == ph)].t_min.mean()) for ph in ("water", "gluc05", "gluc075", "gluc10")}
+    cx = np.array([0.0, 5.0, 7.5, 10.0]); ty = np.array([tm["water"], tm["gluc05"], tm["gluc075"], tm["gluc10"]])
+    kt, bt, _, _ = lsq_line(cx, ty); dt5 = float(ty[1] - (kt * 5.0 + bt))        # minutes; negative = the 5 % plateau is early
+    geom = dict(phase_mean_times_min=tm, t_slope_min_per_pct=kt, dt5_min=dt5)
+    # drift needed to explain the 5 % residual by a time-linear drift alone, per estimator and overtone
+    for est in ("argmax_hh", "psl"):
+        for n in N.astype(int):
+            i = cc[(cc.estimator == est) & (cc.n == n)].index
+            if len(i): cc.loc[i, "drift_needed_Hz_per_min"] = cc.loc[i, "resid5_df"] / dt5
+            glu = dr[(dr.estimator == est) & (dr.n == n) & (dr.phase != "air")]
+            if len(i): cc.loc[i, "drift_measured_max_abs"] = float(glu.drift_f_Hz_per_min.abs().max()) if len(glu) else np.nan
+    cc.to_csv(os.path.join(R, "glucose_conc_%s.csv" % variant), index=False)
+
+    # --- clipped fit window on n = 7, 9: refit the PSL with a symmetric window limited by the sweep's right edge, and
+    #     recompute the Gamma-based rho*eta ratio from those fits (both the liquid and the air reference refitted the same way)
+    clip_rows = []
+    fix = (variant == "fwfix")
+    for n in (7, 9):
+        refit = {}
+        for ph in data.GLUC_PHASES:
+            vals = []
+            for r in data.GLUC_REPLICAS:
+                f, vm, vp = dumps[("%s_%s" % (ph, r), n)]
+                c = q.chain(f, vm, vp, firmware_fix=fix); e = q.argmax_halfheight(c["f"], c["G"])
+                half = min(3.0 * e["gamma_hh"], float(c["f"][-1] - e["f_max"]), float(e["f_max"] - c["f"][0]))
+                mask = np.abs(c["f"] - e["f_max"]) <= half
+                p = q.fit_psl(c["f"], c["G"], e["f_max"], e["gamma_hh"], mask=mask)
+                vals.append((p["fres"], p["gamma"], half / e["gamma_hh"], (c["f"][-1] - e["f_max"]) / e["gamma_hh"]))
+            refit[ph] = np.array(vals).mean(axis=0)
+        for liq in ("gluc05", "gluc075", "gluc10"):
+            dG_l = refit[liq][1] - refit["air"][1]; dG_w = refit["water"][1] - refit["air"][1]; df_l = refit[liq][0] - refit["air"][0]; df_w = refit["water"][0] - refit["air"][0]
+            full = cc[(cc.estimator == "psl") & (cc.n == n)].iloc[0]
+            clip_rows.append(dict(variant=variant, n=n, liquid=liq, window_half_gamma=float(refit[liq][2]), right_edge_gamma=float(refit[liq][3]),
+                                  rhoeta_relG_full=float(full["rhoeta_relG_%s" % {"gluc05": "05", "gluc075": "075", "gluc10": "10"}[liq]]), rhoeta_relG_sym=(dG_l / dG_w) ** 2,
+                                  rhoeta_rel_full=float(full["rhoeta_rel_%s" % {"gluc05": "05", "gluc075": "075", "gluc10": "10"}[liq]]), rhoeta_rel_sym=(df_l / df_w) ** 2))
+    cl = pd.DataFrame(clip_rows); cl.to_csv(os.path.join(R, "glucose_clipwindow_%s.csv" % variant), index=False)
 
     # ------------------------------------------------------------- markdown
     L = ["# Glucose series 2024-05-29 (second instrument, second crystal) — variant `%s`\n" % variant,
@@ -159,14 +209,29 @@ def run(variant, d):
     L.append("\nρη/(ρη)_water, mean over n = 3–9 (from Δf): " + "; ".join(
         "%s: %.3f / %.3f / %.3f" % (est, cc[(cc.estimator == est) & (cc.n >= 3)].rhoeta_rel_05.mean(), cc[(cc.estimator == est) & (cc.n >= 3)].rhoeta_rel_075.mean(), cc[(cc.estimator == est) & (cc.n >= 3)].rhoeta_rel_10.mean())
         for est in ("argmax_hh", "psl")) + "\n")
-    L.append("## φ = φ₀ − 360·f·τ per phase\n")
+    L.append("## The 5 % plateau against the concentration line (OLS with intercept), all overtones\n")
+    L.append("| estimator | n | residual Δf [Hz] | residual ΔΓ [Hz] | residual ΔD [10⁻⁶] | drift needed [Hz/min] | max \\|drift\\| measured in the liquid plateaus [Hz/min] |\n|---|---|---|---|---|---|---|")
+    for _, r in cc[cc.estimator.isin(["argmax_hh", "psl"])].iterrows():
+        L.append("| %s | %d | %+.0f | %+.0f | %+.1f | %+.1f | %.2f |" % (r.estimator, r.n, r.resid5_df, r.resid5_dG, r.resid5_dD, r.drift_needed_Hz_per_min, r.drift_measured_max_abs))
+    L.append("\nPhase mean write times [min from the first sweep]: %s; OLS time–concentration slope %.2f min per %%; the 5 %% plateau is %+.1f min off the time–concentration line, so a time-linear drift d maps into a 5 %%-point residual of d × (%.1f min).\n" % (
+        ", ".join("%s %.1f" % kv for kv in geom["phase_mean_times_min"].items()), geom["t_slope_min_per_pct"], geom["dt5_min"], geom["dt5_min"]))
+    L.append("## Drift within the plateaus (slope of f over the three replicas, PSL) [Hz/min]\n")
+    L.append("| phase | span [min] | n = 1 | 3 | 5 | 7 | 9 |\n|---|---|---|---|---|---|---|")
+    for ph in data.GLUC_PHASES:
+        s = dr[(dr.estimator == "psl") & (dr.phase == ph)].set_index("n")
+        L.append("| %s | %.1f | %s |" % (ph, s.span_min.iloc[0], " | ".join("%+.2f" % s.loc[n, "drift_f_Hz_per_min"] for n in N.astype(int))))
+    L.append("\n## ρη/(ρη)_water from ΔΓ on n = 7, 9: full ±3Γ window (clipped by the sweep edge) against a symmetric window limited by the edge\n")
+    L.append("| n | solution | right edge [Γ_hh] | symmetric half-window [Γ_hh] | from ΔΓ, full | from ΔΓ, symmetric | from Δf, full | from Δf, symmetric |\n|---|---|---|---|---|---|---|---|")
+    for _, r in cl.iterrows():
+        L.append("| %d | %s | %.2f | %.2f | %.3f | %.3f | %.3f | %.3f |" % (r.n, r.liquid, r.right_edge_gamma, r.window_half_gamma, r.rhoeta_relG_full, r.rhoeta_relG_sym, r.rhoeta_rel_full, r.rhoeta_rel_sym))
+    L.append("\n## φ = φ₀ − 360·f·τ per phase\n")
     L.append("| phase | fit | φ₀ [°] | τ [ns] | rms [°] | φ(n=1…9) [°] |\n|---|---|---|---|---|---|")
     for _, r in pf.iterrows():
         L.append("| %s | %s | %.1f | %.2f | %.1f | %s |" % (r.phase, r.fit, r.phi0_deg, r.tau_ns, r.rms_deg, " / ".join("%.1f" % r["phi_n%d" % n] for n in N.astype(int))))
     L.append("\n## Eq. 8 on the 75 sweeps: measured − predicted = %+.0f ± %.0f Hz, max |.| = %.0f Hz (%.3f Γ)\n" % (eq8["mean"], eq8["sd"], eq8["maxabs"], eq8["maxabs_over_gamma"]))
     L.append("## Gate and fold\n```\n%s\n```" % json.dumps(gate, indent=1))
     open(os.path.join(R, "glucose_tables_%s.md" % variant), "w").write("\n".join(L) + "\n")
-    json.dump(dict(f0=f0, eq8=eq8, gate=gate, shifts=sh.to_dict(orient="records"), conc=cc.to_dict(orient="records"), phi=pf.to_dict(orient="records")),
+    json.dump(dict(f0=f0, eq8=eq8, gate=gate, geometry=geom, shifts=sh.to_dict(orient="records"), conc=cc.to_dict(orient="records"), phi=pf.to_dict(orient="records"), drift=dr.to_dict(orient="records"), clipwindow=cl.to_dict(orient="records")),
               open(os.path.join(R, "glucose_summary_%s.json" % variant), "w"), indent=1, default=float)
     print("\n".join(L))
 

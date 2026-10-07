@@ -126,6 +126,44 @@ f0 (air, PSL) = 5000107 Hz. Kanazawa–Gordon for water only (25 °C, ρ = 997.0
 
 ρη/(ρη)_water, mean over n = 3–9 (from Δf): argmax_hh: 1.089 / 1.171 / 1.257; psl: 1.094 / 1.171 / 1.256
 
+## The 5 % plateau against the concentration line (OLS with intercept), all overtones
+
+| estimator | n | residual Δf [Hz] | residual ΔΓ [Hz] | residual ΔD [10⁻⁶] | drift needed [Hz/min] | max \|drift\| measured in the liquid plateaus [Hz/min] |
+|---|---|---|---|---|---|---|
+| argmax_hh | 1 | +11 | -12 | -4.7 | -2.7 | 0.54 |
+| argmax_hh | 3 | +26 | -11 | -1.4 | -6.2 | 0.56 |
+| argmax_hh | 5 | +15 | -11 | -0.9 | -3.5 | 0.72 |
+| argmax_hh | 7 | +21 | -10 | -0.6 | -4.8 | 1.90 |
+| argmax_hh | 9 | +21 | -2 | -0.1 | -4.9 | 3.14 |
+| psl | 1 | +12 | -13 | -5.0 | -2.8 | 0.17 |
+| psl | 3 | +18 | -14 | -1.8 | -4.3 | 0.43 |
+| psl | 5 | +10 | -13 | -1.0 | -2.3 | 0.64 |
+| psl | 7 | +16 | -14 | -0.8 | -3.7 | 0.74 |
+| psl | 9 | +15 | -9 | -0.4 | -3.5 | 1.02 |
+
+Phase mean write times [min from the first sweep]: water 19.9, gluc05 34.5, gluc075 48.1, gluc10 63.3; OLS time–concentration slope 4.27 min per %; the 5 % plateau is -4.3 min off the time–concentration line, so a time-linear drift d maps into a 5 %-point residual of d × (-4.3 min).
+
+## Drift within the plateaus (slope of f over the three replicas, PSL) [Hz/min]
+
+| phase | span [min] | n = 1 | 3 | 5 | 7 | 9 |
+|---|---|---|---|---|---|---|
+| air | 7.5 | +0.07 | +0.13 | +0.19 | +0.48 | +0.59 |
+| water | 12.8 | -0.17 | -0.43 | -0.64 | -0.74 | -1.02 |
+| gluc05 | 11.4 | -0.03 | +0.04 | +0.10 | +0.13 | -0.03 |
+| gluc075 | 9.4 | +0.02 | +0.08 | +0.09 | +0.13 | -0.08 |
+| gluc10 | 10.1 | -0.00 | +0.04 | +0.23 | +0.13 | +0.37 |
+
+## ρη/(ρη)_water from ΔΓ on n = 7, 9: full ±3Γ window (clipped by the sweep edge) against a symmetric window limited by the edge
+
+| n | solution | right edge [Γ_hh] | symmetric half-window [Γ_hh] | from ΔΓ, full | from ΔΓ, symmetric | from Δf, full | from Δf, symmetric |
+|---|---|---|---|---|---|---|---|
+| 7 | gluc05 | 3.12 | 3.00 | 1.145 | 1.145 | 1.102 | 1.102 |
+| 7 | gluc075 | 3.02 | 3.00 | 1.248 | 1.248 | 1.181 | 1.181 |
+| 7 | gluc10 | 2.92 | 2.92 | 1.358 | 1.357 | 1.268 | 1.267 |
+| 9 | gluc05 | 2.62 | 2.62 | 1.183 | 1.175 | 1.119 | 1.112 |
+| 9 | gluc075 | 2.54 | 2.54 | 1.295 | 1.281 | 1.200 | 1.190 |
+| 9 | gluc10 | 2.45 | 2.45 | 1.418 | 1.395 | 1.296 | 1.281 |
+
 ## φ = φ₀ − 360·f·τ per phase
 
 | phase | fit | φ₀ [°] | τ [ns] | rms [°] | φ(n=1…9) [°] |
