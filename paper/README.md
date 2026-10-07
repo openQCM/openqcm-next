@@ -1,6 +1,6 @@
 # `paper/` — manuscript project: QCM frequency and dissipation from DDS excitation, gain–phase detection and complex-admittance reconstruction
 
-Work of 2026-10-06/07 on the `impedance-analysis` branch (analysis of commit `37fce4b`, second dataset added 2026-10-07). Nothing pre-existing under `research/` or `software/` was modified; the one addition is the new folder `research/glucose-2024-05-29/` (raw sweeps of a second instrument, 2024-05-29, with its datalog and provenance README). Every number here is regenerated from the raw data in `research/` by the scripts in `analysis/`.
+Work of 2026-10-06/07 on the `impedance-analysis` branch (analysis of commit `37fce4b`, second dataset added 2026-10-07). Nothing pre-existing under `research/` or `software/` was modified; the one addition is the new folder `research/glucose-2024-05-29/` (raw sweeps of a second instrument, 2024-05-29, with its datalog and provenance README), of which `paper/data/glucose-2024-05-29/` is an identical copy kept with the paper (the loader falls back to it). Every number here is regenerated from the raw data in `research/` by the scripts in `analysis/`.
 
 | what | where |
 |---|---|
@@ -11,7 +11,8 @@ Work of 2026-10-06/07 on the `impedance-analysis` branch (analysis of commit `37
 | **Datalog analysis** (impedance chain vs production magnitude chain, two runs) | `analysis/results/datalogs.md` |
 | **Bias theory, rotation angle, board delay** | `analysis/results/bias_theory.md` |
 | **Forward model (falsification tests)** | `analysis/results/forward_model.md` |
-| **Second instrument, 2024-05-29 (water, glucose 5/7.5/10 % w/v): estimators, shifts, concentration slopes, φ decomposition** | `analysis/results/glucose_tables_asis.md`, `glucose_tables_fwfix.md`, `glucose_*.csv/json` |
+| **Second instrument, 2024-05-29 (water, glucose 5/7.5/10 % w/v): estimators, shifts, concentration slopes, 5 %-plateau residual and drift checks, clipped-window check, φ decomposition** | `analysis/results/glucose_tables_asis.md`, `glucose_tables_fwfix.md`, `glucose_*.csv/json` |
+| **Raw data of the second instrument (copy)** | `data/glucose-2024-05-29/` |
 | **Complete derivation of the measurement equations** | `notes/derivations.md` |
 | **Running list**: verified facts, doc/code discrepancies, hypotheses, open questions, assumptions, limitations, reviewer objections, remaining experiments | `notes/running_list.md` |
 | **Literature review, comparison table, novelty assessment, BibTeX** | `literature/` |

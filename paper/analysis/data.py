@@ -66,7 +66,10 @@ def osl():
 
 # ----------------------------------------------------------- glucose 2024-05-29
 GLUC = os.path.join(ROOT, "research", "glucose-2024-05-29")
+GLUC_COPY = os.path.join(ROOT, "paper", "data", "glucose-2024-05-29")     # identical copy kept with the paper
 GLUC_NPZ = os.path.join(GLUC, "data", "sweep_raw_2024-05-29.npz")
+if not os.path.exists(GLUC_NPZ):
+    GLUC_NPZ = os.path.join(GLUC_COPY, "data", "sweep_raw_2024-05-29.npz")
 GLUC_PHASES = ("air", "water", "gluc05", "gluc075", "gluc10")
 GLUC_CONC = {"air": None, "water": 0.0, "gluc05": 5.0, "gluc075": 7.5, "gluc10": 10.0}   # % w/v
 GLUC_REPLICAS = ("00", "01", "02")
