@@ -60,7 +60,7 @@
 
 ## D. Open questions
 
-- (2024 set) Which board and sensor? How were the 7.5 and 10 % w/v solutions obtained (the 5 % is a commercial infusion solution)? Was the 5 % point's departure from the line (n = 1, 3) a baseline drift or a real non-linearity (no return to water between concentrations)? Why does the ΔΓ-based ρη ratio grow with n faster than the Δf-based one?
+- (2024 set) Which board and sensor? (The three glucose solutions are pharmaceutical glucose for infusion, prepared in the same way; the 5 % is Galenica Senese AIC 029863065.) Was the 5 % point's departure from the line (n = 1, 3) a baseline drift or a real non-linearity (no return to water between concentrations)? Why does the ΔΓ-based ρη ratio grow with n faster than the Δf-based one?
 - Is φ(n) of the 2024 board (non-monotonic, φ(3) ≈ φ(5) in air) reproducible on that board on another day, and what in its RF path makes n = 5 anomalous?
 
 - Is φ the same on a second board and with a second sensor? (one board, one sensor here; the 2026-09-03 air set is probably the same board but this is not recorded; the 2026-07-28 frozen water sweep gives φ = +2.2°, opposite sign, board not recorded.)

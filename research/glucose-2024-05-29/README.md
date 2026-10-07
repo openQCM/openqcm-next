@@ -15,7 +15,7 @@
 | replicas | three raw sweep sets per phase, overtones 1, 3, 5, 7, 9; −12 kHz/+6 kHz at 1 Hz, 18 001 points; 75 sweeps |
 | sensor temperature | 24.95–25.02 °C in the datalog (Peltier set-point 25 °C) |
 | liquid temperature | **not measured** |
-| glucose | the 5 % w/v solution is a commercial glucose solution for infusion (Galenica Senese s.r.l., Italy, AIC 029863065): 55 g/L pharmaceutical-grade D-glucose monohydrate (= 50 g/L anhydrous glucose) in water for injections, theoretical osmolarity 277 mOsm/L, pH 3.5–6.5, sterile, pyrogen-free (endotoxins < 0.25 EU/mL), terminally sterilised by moist heat (Eur. Ph.). **How the 7.5 % and 10 % w/v solutions were obtained is not recorded** (Marco, 2026-10-07). |
+| glucose | the 5 % w/v solution is a commercial glucose solution for infusion (Galenica Senese s.r.l., Italy, AIC 029863065): 55 g/L pharmaceutical-grade D-glucose monohydrate (= 50 g/L anhydrous glucose) in water for injections, theoretical osmolarity 277 mOsm/L, pH 3.5–6.5, sterile, pyrogen-free (endotoxins < 0.25 EU/mL), terminally sterilised by moist heat (Eur. Ph.). The 7.5 % and 10 % w/v solutions were prepared in the same way (Marco, 2026-10-07). |
 | open/short/50 Ω sweeps of this board | none |
 
 ## Files
