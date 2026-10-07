@@ -170,6 +170,67 @@ def run(variant, d):
                                   rhoeta_rel_full=float(full["rhoeta_rel_%s" % {"gluc05": "05", "gluc075": "075", "gluc10": "10"}[liq]]), rhoeta_rel_sym=(df_l / df_w) ** 2))
     cl = pd.DataFrame(clip_rows); cl.to_csv(os.path.join(R, "glucose_clipwindow_%s.csv" % variant), index=False)
 
+    # --- claim checks for the second campaign: (i) KG structure without liquid constants: collapse of -df_n/sqrt(n) and
+    #     dGamma_n/sqrt(n) over n = 3-9 (coefficient of variation) per solution and estimator; (ii) resolvability of the
+    #     concentration steps: step between consecutive solutions in units of the replica scatter, and 3*sd/slope
+    coll_rows = []
+    for est in EST:
+        for liq in ("water", "gluc05", "gluc075", "gluc10"):
+            s = sh[(sh.ref == "air") & (sh.liquid == liq) & (sh.estimator == est) & (sh.n >= 3)]
+            if s.df.isna().any() or s.dG.isna().any() or len(s) < 4: continue
+            yf = -s.df.values / np.sqrt(s.n.values); yG = s.dG.values / np.sqrt(s.n.values)
+            coll_rows.append(dict(variant=variant, estimator=est, liquid=liq, cv_df_sqrtn=float(yf.std(ddof=1) / yf.mean()), cv_dG_sqrtn=float(yG.std(ddof=1) / yG.mean()),
+                                  range_df_sqrtn=float(np.ptp(yf) / yf.mean()), range_dG_sqrtn=float(np.ptp(yG) / yG.mean())))
+    co = pd.DataFrame(coll_rows); co.to_csv(os.path.join(R, "glucose_collapse_%s.csv" % variant), index=False)
+    res_rows = []
+    steps = (("water", "gluc05", 5.0), ("gluc05", "gluc075", 2.5), ("gluc075", "gluc10", 2.5))
+    for est in ("argmax_hh", "psl"):
+        for n in N.astype(int):
+            gi = g[(g.estimator == est) & (g.n == n)].set_index("phase")
+            row = dict(variant=variant, estimator=est, n=n)
+            for a, b, dc in steps:
+                dfs = gi.loc[b, "fres"] - gi.loc[a, "fres"]; dGs = gi.loc[b, "gamma"] - gi.loc[a, "gamma"]
+                sdf = np.hypot(gi.loc[a, "fres_sd"], gi.loc[b, "fres_sd"]); sdG = np.hypot(gi.loc[a, "gamma_sd"], gi.loc[b, "gamma_sd"])
+                row["step_%s_%s_df" % (a, b)] = dfs; row["step_%s_%s_df_sigma" % (a, b)] = abs(dfs) / sdf if sdf > 0 else np.inf
+                row["step_%s_%s_dG" % (a, b)] = dGs; row["step_%s_%s_dG_sigma" % (a, b)] = abs(dGs) / sdG if sdG > 0 else np.inf
+            c = cc[(cc.estimator == est) & (cc.n == n)].iloc[0]
+            sd_liq_f = float(g[(g.estimator == est) & (g.n == n) & (g.phase != "air")].fres_sd.median()); sd_liq_G = float(g[(g.estimator == est) & (g.n == n) & (g.phase != "air")].gamma_sd.median())
+            row.update(sd_liq_f=sd_liq_f, sd_liq_G=sd_liq_G, lod3_f_pct=3 * sd_liq_f / abs(c.k_df), lod3_G_pct=3 * sd_liq_G / abs(c.k_dG),
+                       resid5_in_pct_f=abs(c.resid5_df / c.k_df), resid5_in_pct_G=abs(c.resid5_dG / c.k_dG))
+            res_rows.append(row)
+    rs = pd.DataFrame(res_rows); rs.to_csv(os.path.join(R, "glucose_resolution_%s.csv" % variant), index=False)
+
+    # --- the production amplitude datalog of the same session (software 0.1.5, main's estimator), plateaus by the step
+    #     times of the fundamental: last PLATEAU_MIN minutes of each phase, duplicate rows dropped
+    dl = pd.read_csv(os.path.join(data.GLUC, "data", "2024-May-29_14-21-38_multi_.csv")) if os.path.exists(os.path.join(data.GLUC, "data", "2024-May-29_14-21-38_multi_.csv")) else pd.read_csv(os.path.join(data.GLUC_COPY, "data", "2024-May-29_14-21-38_multi_.csv"))
+    dl["t"] = pd.to_datetime(dl.Date + " " + dl.Time, format="%Y-%m-%d %H:%M:%S")
+    cols = [c for c in dl.columns if c.startswith(("Frequency", "Dissipation"))]
+    dup = (dl[cols].shift(1) == dl[cols]).all(axis=1); dl = dl[~dup]
+    f1 = dl.Frequency_0.values; jumps = np.where(np.abs(np.diff(f1)) > 8)[0]
+    bounds = [dl.t.iloc[0]] + [dl.t.iloc[j + 1] for j in jumps if j + 1 < len(dl)]
+    # keep the first jump of each pour (jumps closer than 60 s belong to the same pour)
+    starts = [bounds[0]]
+    for b in bounds[1:]:
+        if (b - starts[-1]).total_seconds() > 60: starts.append(b)
+    ends = starts[1:] + [dl.t.iloc[-1] + pd.Timedelta(seconds=1)]
+    PLATEAU_MIN = 8.0
+    amp = {}
+    for ph, t0, t1 in zip(data.GLUC_PHASES, starts, ends):
+        sel = (dl.t >= t1 - pd.Timedelta(minutes=PLATEAU_MIN)) & (dl.t < t1) & (dl.t >= t0)
+        F = np.column_stack([dl["Frequency_%d" % k][sel] for k in range(5)]).astype(float); W = np.column_stack([dl["Dissipation_%d" % k][sel] for k in range(5)]).astype(float) * 1e6
+        amp[ph] = dict(n=int(sel.sum()), t0=str(dl.t[sel].min().time()), t1=str(dl.t[sel].max().time()), f=F.mean(0), f_sd=F.std(0, ddof=1), w03=W.mean(0), w03_sd=W.std(0, ddof=1))
+    dl_rows = []
+    for liq in ("water", "gluc05", "gluc075", "gluc10"):
+        for i, n in enumerate(N.astype(int)):
+            dfm = amp[liq]["f"][i] - amp["air"]["f"][i]
+            row = dict(variant=variant, liquid=liq, n=n, df_mag=dfm, df_mag_sd=float(np.hypot(amp[liq]["f_sd"][i], amp["air"]["f_sd"][i])), dw03=amp[liq]["w03"][i] - amp["air"]["w03"][i],
+                       df_mag_vs_water=amp[liq]["f"][i] - amp["water"]["f"][i])
+            if liq == "water": row["eps_f_mag"] = dfm / kg_w[i] - 1.0
+            dl_rows.append(row)
+    dlr = pd.DataFrame(dl_rows); dlr.to_csv(os.path.join(R, "glucose_datalog_%s.csv" % variant), index=False)
+    datalog_info = dict(rows=int(len(dl)), duplicates_dropped=int(dup.sum()), plateau_min=PLATEAU_MIN, phases={ph: dict(n=amp[ph]["n"], window=[amp[ph]["t0"], amp[ph]["t1"]]) for ph in amp},
+                        air_w03_Hz=amp["air"]["w03"].tolist())
+
     # ------------------------------------------------------------- markdown
     L = ["# Glucose series 2024-05-29 (second instrument, second crystal) — variant `%s`\n" % variant,
          "f0 (air, PSL) = %.0f Hz. Kanazawa–Gordon for water only (25 °C, ρ = 997.05 kg/m³, η = 0.890 mPa s). Glucose: no tabulated ρη used; ρη/(ρη)_water = (Δf/Δf_water)² from the air-referenced shifts.\n" % f0]
@@ -224,6 +285,25 @@ def run(variant, d):
     L.append("| n | solution | right edge [Γ_hh] | symmetric half-window [Γ_hh] | from ΔΓ, full | from ΔΓ, symmetric | from Δf, full | from Δf, symmetric |\n|---|---|---|---|---|---|---|---|")
     for _, r in cl.iterrows():
         L.append("| %d | %s | %.2f | %.2f | %.3f | %.3f | %.3f | %.3f |" % (r.n, r.liquid, r.right_edge_gamma, r.window_half_gamma, r.rhoeta_relG_full, r.rhoeta_relG_sym, r.rhoeta_rel_full, r.rhoeta_rel_sym))
+    L.append("\n## Kanazawa–Gordon structure without liquid constants: spread of −Δf_n/√n and ΔΓ_n/√n over n = 3–9 (coefficient of variation, %)\n")
+    L.append("| estimator | water Δf / ΔΓ | glucose 5 % | glucose 7.5 % | glucose 10 % |\n|---|---|---|---|---|")
+    for est in EST:
+        cells = []
+        for liq in ("water", "gluc05", "gluc075", "gluc10"):
+            s = co[(co.estimator == est) & (co.liquid == liq)]
+            cells.append("%.1f / %.1f" % (100 * s.cv_df_sqrtn.iloc[0], 100 * s.cv_dG_sqrtn.iloc[0]) if len(s) else "—")
+        L.append("| %s | %s |" % (est, " | ".join(cells)))
+    L.append("\n## Resolvability of the concentration steps (PSL and A): step / replica scatter, and 3·sd/slope\n")
+    L.append("| estimator | n | water→5 %: Δf [Hz] (σ) | ΔΓ [Hz] (σ) | 5→7.5 %: Δf (σ) | ΔΓ (σ) | 7.5→10 %: Δf (σ) | ΔΓ (σ) | 3·sd/slope on f [% w/v] | on Γ [% w/v] | 5 % residual in % w/v (f / Γ) |\n|---|---|---|---|---|---|---|---|---|---|---|")
+    for _, r in rs.iterrows():
+        L.append("| %s | %d | %+.0f (%.0f) | %+.0f (%.0f) | %+.0f (%.0f) | %+.0f (%.0f) | %+.0f (%.0f) | %+.0f (%.0f) | %.2f | %.2f | %.1f / %.1f |" % (
+            r.estimator, r.n, r.step_water_gluc05_df, r.step_water_gluc05_df_sigma, r.step_water_gluc05_dG, r.step_water_gluc05_dG_sigma,
+            r.step_gluc05_gluc075_df, r.step_gluc05_gluc075_df_sigma, r.step_gluc05_gluc075_dG, r.step_gluc05_gluc075_dG_sigma,
+            r.step_gluc075_gluc10_df, r.step_gluc075_gluc10_df_sigma, r.step_gluc075_gluc10_dG, r.step_gluc075_gluc10_dG_sigma, r.lod3_f_pct, r.lod3_G_pct, r.resid5_in_pct_f, r.resid5_in_pct_G))
+    L.append("\n## The production amplitude datalog of the same session (software 0.1.5): plateaus = last %.0f min of each phase, %d rows, %d duplicates dropped\n" % (PLATEAU_MIN, datalog_info["rows"], datalog_info["duplicates_dropped"]))
+    L.append("| solution | n | Δf (magnitude max) [Hz] | Δf/Δf_KG (water) | Δw(−0.3 dB) [Hz] | Δf vs water [Hz] |\n|---|---|---|---|---|---|")
+    for _, r in dlr.iterrows():
+        L.append("| %s | %d | %.0f ± %.0f | %s | %.0f | %+.0f |" % (r.liquid, r.n, r.df_mag, r.df_mag_sd, ("%.3f" % (r.eps_f_mag + 1)) if r.liquid == "water" else "—", r.dw03, r.df_mag_vs_water))
     L.append("\n## φ = φ₀ − 360·f·τ per phase\n")
     L.append("| phase | fit | φ₀ [°] | τ [ns] | rms [°] | φ(n=1…9) [°] |\n|---|---|---|---|---|---|")
     for _, r in pf.iterrows():
@@ -231,7 +311,7 @@ def run(variant, d):
     L.append("\n## Eq. 8 on the 75 sweeps: measured − predicted = %+.0f ± %.0f Hz, max |.| = %.0f Hz (%.3f Γ)\n" % (eq8["mean"], eq8["sd"], eq8["maxabs"], eq8["maxabs_over_gamma"]))
     L.append("## Gate and fold\n```\n%s\n```" % json.dumps(gate, indent=1))
     open(os.path.join(R, "glucose_tables_%s.md" % variant), "w").write("\n".join(L) + "\n")
-    json.dump(dict(f0=f0, eq8=eq8, gate=gate, geometry=geom, shifts=sh.to_dict(orient="records"), conc=cc.to_dict(orient="records"), phi=pf.to_dict(orient="records"), drift=dr.to_dict(orient="records"), clipwindow=cl.to_dict(orient="records")),
+    json.dump(dict(f0=f0, eq8=eq8, gate=gate, geometry=geom, shifts=sh.to_dict(orient="records"), conc=cc.to_dict(orient="records"), phi=pf.to_dict(orient="records"), drift=dr.to_dict(orient="records"), clipwindow=cl.to_dict(orient="records"), collapse=co.to_dict(orient="records"), resolution=rs.to_dict(orient="records"), datalog=dict(info=datalog_info, rows=dlr.to_dict(orient="records"))),
               open(os.path.join(R, "glucose_summary_%s.json" % variant), "w"), indent=1, default=float)
     print("\n".join(L))
 
