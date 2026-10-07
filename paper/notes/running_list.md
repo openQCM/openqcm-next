@@ -34,6 +34,10 @@
 25. **φ₀ − 360fτ**: 2024 air φ₀ = −8.2°, τ = 1.31 ns (rms 2.6°; n = 3–9 only: −14.0°, 0.85 ns); 2026-09-11 air −7.0°, 1.28 ns (rms 1.2°; n ≥ 3: −9.4°, 1.09 ns); 2026-09-03 air −7.9°, 1.40 ns. An approximation (rms 1–5°), parameters sensitive to n = 1.
 26. **The fundamental follows the theory on the second crystal**: ΔΓ₁/ΔΓ_KG = 1.04 (argmax) / 1.07 (PSL), ρ_N = 1.04 / 1.01, although its air dissipation is higher (44–46 ppm, Γ = 110–115 Hz) than the 2026 crystal's (26 ppm). The 2026 fundamental excess is therefore not a property of the method nor of the air damping as such.
 27. **Concentration series** (PSL, OLS with intercept vs water): Δf slopes −7.1, −13.8, −17.8, −24.7, −30.4 Hz/% w/v; ΔΓ +9.2, +13.1, +16.6, +28.0, +37.8 Hz/%; ΔD 3.68, 1.75, 1.33, 1.60, 1.68 ppm/%; R² 0.91–0.94 on n = 1, 3 (5 % point 12–18 Hz below the line, replica scatter 0.3–3 Hz), 0.986–0.990 on n ≥ 5. ρη/(ρη)_water from Δf, mean n = 3–9: 1.094, 1.171, 1.256 (PSL) and 1.089, 1.171, 1.257 (argmax) — the two estimators agree on the ratio to 0.5 %. From ΔΓ: 1.08–1.18, 1.15–1.30, 1.22–1.42, growing with n (unexplained).
+27b. **Checks requested on §6.6 (2026-10-07, regenerated with `qcmchain.py`, fwfix; `results/glucose_conc_fwfix.csv`, `glucose_drift_fwfix.csv`, `glucose_clipwindow_fwfix.csv`):**
+    - the 5 % plateau is less loaded than the OLS line on every overtone: Δf residual +12, +18, +10, +16, +15 Hz (PSL; A: +11, +26, +15, +21, +21), ΔΓ −13, −14, −13, −14, −9 Hz (PSL) — ≈ constant in Hz, not ∝ √n, so not a ρη error;
+    - drift inside the plateaus (slope of f over the three replicas, PSL): glucose ≤ 0.4 Hz/min (−0.08…+0.37), water −0.17…−1.02 Hz/min (n = 1…9), air +0.07…+0.59; the 5 % plateau is −4.3 min off the time–concentration line (plateau mean times 19.9, 34.5, 48.1, 63.3 min; 4.27 min per %), so a time-linear drift gives ≤ ~4 Hz at 5 %; drift needed to explain the residual: −2.3…−4.3 Hz/min (PSL), −2.7…−6.2 (A), i.e. 5–15× the measured one;
+    - ρη from ΔΓ at 10 %: n = 3: 1.245 (Δf 1.224), n = 5: 1.225 (1.237), n = 7: 1.358 (1.268), n = 9: 1.418 (1.296); n = 1: 1.279 (1.210). Not monotonic; n = 5 agrees; at n = 9 the discrepancy is with P only (A: 1.307). Symmetric window limited by the sweep edge (2.45–2.62 Γ at n = 9; 2.92–3.12 at n = 7): n = 9 1.418 → 1.395 (≈ a fifth of the gap), n = 7 unchanged. Roughness term ∝ ρn (Daikhin–Urbakh) cited as an untestable hypothesis.
 28. **Repeatability 2024**: PSL sd ≤ 3 Hz air, ≤ 8 Hz liquid; argmax ≤ 36 Hz (water n = 9). Datalog: 541 rows, 75 duplicates, 14:22–16:01; replica write times are consistent with the datalog phases under a UTC+2 reading.
 
 ## B. Documentation / code discrepancies found
@@ -56,7 +60,7 @@
 
 ## D. Open questions
 
-- (2024 set) Which board and sensor? Glucose preparation and purity? Was the 5 % point's departure from the line (n = 1, 3) a baseline drift or a real non-linearity (no return to water between concentrations)? Why does the ΔΓ-based ρη ratio grow with n faster than the Δf-based one?
+- (2024 set) Which board and sensor? How were the 7.5 and 10 % w/v solutions obtained (the 5 % is a commercial infusion solution)? Was the 5 % point's departure from the line (n = 1, 3) a baseline drift or a real non-linearity (no return to water between concentrations)? Why does the ΔΓ-based ρη ratio grow with n faster than the Δf-based one?
 - Is φ(n) of the 2024 board (non-monotonic, φ(3) ≈ φ(5) in air) reproducible on that board on another day, and what in its RF path makes n = 5 anomalous?
 
 - Is φ the same on a second board and with a second sensor? (one board, one sensor here; the 2026-09-03 air set is probably the same board but this is not recorded; the 2026-07-28 frozen water sweep gives φ = +2.2°, opposite sign, board not recorded.)

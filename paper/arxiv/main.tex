@@ -418,10 +418,13 @@ solutions of 5, 7.5 and 10 \% w/v poured in sequence, three raw sweep
 sets per phase on overtones 1--9 (75 sweeps), same window and step. The
 board and its DDS clock, the sensor and the liquid temperature were not
 recorded (sensor temperature 24.95--25.02 °C in the datalog); no
-open/short/load sweep of that board exists; the preparation method and
-the purity of the glucose are to be confirmed by the operator
-{[}placeholder: supplier, grade, weighing, water{]}. The raw files of
-that software hold the two channels as instrument units --- column 2 is
+open/short/load sweep of that board exists; the 5 \% w/v solution was a
+commercial glucose solution for infusion (Galenica Senese s.r.l., Italy,
+AIC 029863065; 55 g L\(^{-1}\) pharmaceutical-grade D-glucose
+monohydrate, i.e.~50 g L\(^{-1}\) anhydrous glucose, in water for
+injections; sterile and pyrogen-free), and how the 7.5 and 10 \% w/v
+concentrations were obtained is not recorded. The raw files of that
+software hold the two channels as instrument units --- column 2 is
 \((V_\mathrm{MAG,uncomp.} - 0.9\ \mathrm{V})/0.030\), column 3 is
 \(90^\circ - |\Delta\phi|\) --- and were converted to volts with the
 attenuator removed (\(V_\mathrm{MAG} = 0.9 + 0.030\,c_2 - 0.6107\) V,
@@ -891,13 +894,26 @@ per \% w/v in \(\Delta D_n\) for \(n = 1 \ldots 9\) (phase-shifted
 Lorentzian, ordinary least squares with intercept); the maximum of \(G\)
 gives the same bandwidth slopes within 1 Hz per \% and frequency slopes
 1--30 \% steeper on \(n \ge 3\), because its bias grows with the width.
-On \(n = 1\) and 3 the 5 \% point lies 12--18 Hz below the line (\(R^2\)
-= 0.91 and 0.94, against 0.986--0.990 on \(n \ge 5\)); the replica
-scatter there is 0.3--3 Hz, so the departure is systematic, and it is of
-the size of the 10--20 Hz drift of the air baseline during an hour on
-the first instrument, which this experiment, with no return to water
-between concentrations, cannot separate from a real non-linearity. The
-square of the air-referenced frequency shift relative to water,
+The 5 \% plateau is less loaded than the line through the four
+concentrations on \emph{every} overtone: its residual is \(+10\) to
+\(+18\) Hz in \(\Delta f\) (fit; \(+11\) to \(+26\) Hz with the maximum
+of \(G\)) and \(-9\) to \(-14\) Hz in \(\Delta\Gamma\), roughly constant
+in hertz from \(n = 1\) to 9, so it does not scale as \(\sqrt n\) and is
+not an error of \(\rho\eta\); it lowers \(R^2\) to 0.91 and 0.94 on
+\(n = 1\) and 3, where the slopes are smallest, and leaves 0.986--0.990
+on \(n \ge 5\). The replica scatter inside the plateaus is 0.3--3 Hz. A
+drift of the baseline cannot explain it: the slope of \(f_\mathrm{res}\)
+over the three replicas is at most 0.4 Hz min\(^{-1}\) inside the
+glucose plateaus and \(-0.2\) to \(-1.0\) Hz min\(^{-1}\) in water
+(growing with \(n\), confirmed by the datalog), the 5 \% plateau sits
+4.3 min off the line of plateau times against concentration, so a
+time-linear drift maps into a 5 \%-point residual of at most ≈4 Hz, and
+explaining the residual by drift alone would require \(-2\) to \(-6\) Hz
+min\(^{-1}\), five to fifteen times what is measured. Drift explains at
+most ≈4 Hz; the rest is unresolved, and without a return to water
+between concentrations the experiment cannot tell a property of the
+first solution from a step of the instrument. The square of the
+air-referenced frequency shift relative to water,
 \((\Delta f/\Delta f_\mathrm{water})^2 = \rho\eta/(\rho\eta)_\mathrm{water}\)
 for a Newtonian liquid, averaged over \(n = 3\)--9, is 1.094, 1.171 and
 1.256 at 5, 7.5 and 10 \% w/v with the phase-shifted Lorentzian and
@@ -905,12 +921,24 @@ for a Newtonian liquid, averaged over \(n = 3\)--9, is 1.094, 1.171 and
 agree on the ratio to 0.5 \% although they disagree on each shift by
 20--30 \%, because the rotation bias is a nearly constant fraction of
 the shift at a given overtone and cancels in the quotient. The same
-ratio from the bandwidth is 1.08--1.18, 1.15--1.30 and 1.22--1.42,
-growing with the overtone faster than the frequency-based one, a
-difference the Newtonian model does not predict and that the data of one
-day on one instrument, with the liquid temperature unmeasured, cannot
-resolve. No tabulated density or viscosity of the glucose solutions is
-used here.
+ratio from the bandwidth,
+\((\Delta\Gamma/\Delta\Gamma_\mathrm{water})^2\), agrees with the
+frequency-based one on \(n = 3\) and 5 (within 0.02) and departs from it
+on \(n = 7\) and 9, and partly on \(n = 1\): at 10 \% w/v it is 1.36
+(\(n = 7\)) and 1.42 (\(n = 9\)) against 1.27 and 1.30 from the
+frequency; the departure is not monotonic in \(n\), and on \(n = 9\) it
+appears with the fit (1.42) but not with the half-height width (1.31).
+The \(\pm3\Gamma\) fit window is clipped by the sweep edge on those
+overtones (2.5--2.6 Γ available on the right on \(n = 9\), 2.9--3.1 Γ on
+\(n = 7\)); refitting with a symmetric window limited by the edge moves
+the \(n = 9\) ratio from 1.418 to 1.395, about a fifth of the gap, and
+changes nothing on \(n = 7\). The remainder is unexplained; a
+surface-roughness term, which in the Daikhin--Urbakh description adds to
+\(\Delta f\) a contribution proportional to \(\rho n\) without a
+counterpart in \(\Delta\Gamma\) \citep{DaikhinUrbakh1996}, would act in
+this direction and grow with the overtone, but cannot be tested on these
+data. No tabulated density or viscosity of the glucose solutions is used
+here.
 
 \begin{figure}
 \centering
