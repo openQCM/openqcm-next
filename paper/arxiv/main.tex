@@ -20,9 +20,11 @@
 \usepackage{booktabs,longtable,array,calc}
 \usepackage[margin=2.5cm]{geometry}
 \usepackage[numbers,sort&compress]{natbib}
+\usepackage{xcolor}
 \usepackage{hyperref}
 \hypersetup{colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black}
 \providecommand{\real}[1]{#1}
+\setlength{\tabcolsep}{3.5pt}
 \providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
 \setlength{\emergencystretch}{3em}
 \title{QCM frequency and dissipation estimation using DDS excitation, gain--phase detection and complex-admittance reconstruction}
@@ -193,7 +195,7 @@ sweep takes about 1.8 s per overtone.
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{figures/fig01_measurement_circuit.pdf}
-\caption{Fig. 1. Measurement circuit: the quartz sensor in a divider
+\caption{Measurement circuit: the quartz sensor in a divider
 with \(R_{17}\), read by the AD8302 gain/phase detector; drawn after the
 openQCM NEXT schematic (repository figure).}
 \end{figure}
@@ -287,7 +289,7 @@ Section 6.8.
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{figures/fig02_raw_sweeps.pdf}
-\caption{Fig. 2. Raw detector voltages for the fundamental and the 5th
+\caption{Raw detector voltages for the fundamental and the 5th
 overtone in air and for the 5th overtone in water (board 1920,
 2026-09-11). Right axis: the unsigned phase reading
 \(|\Delta\phi| = (1.8\ \mathrm{V} - V_\mathrm{PHS})/10\ \mathrm{mV}\).
@@ -310,7 +312,7 @@ for the three cases of Fig. 2.
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{figures/fig03_G_B_locus.pdf}
-\caption{Fig. 3. Reconstructed conductance and susceptance (top) and
+\caption{Reconstructed conductance and susceptance (top) and
 admittance locus (bottom) on \(\pm4\Gamma\) around the resonance for the
 sweeps of Fig. 2. Dotted: the maximum of \(G\); dashed/marker:
 \(f_\mathrm{res}\) from the phase-shifted Lorentzian. The maximum of
@@ -509,15 +511,15 @@ Newtonian ratio \(\rho_N = |\Delta f|/\Delta\Gamma\), whose prediction
 (unity) does not depend on \(\rho\eta\) or on temperature.
 
 \textbf{Reproducibility.} Raw sweeps
-(\texttt{research/air-ipa-water-1920-2026-09-11/data/sweep\_dumps\_2026-09-11.npz},
-\texttt{research/glucose-2024-05-29/data/sweep\_raw\_2024-05-29.npz}),
-datalogs, the analysis package (\texttt{paper/analysis/}:
-\texttt{qcmchain.py}, \texttt{run\_estimators.py},
-\texttt{run\_shifts.py}, \texttt{run\_datalogs.py},
-\texttt{run\_bias\_theory.py}, \texttt{run\_forward\_model.py},
-\texttt{run\_glucose.py}, \texttt{make\_figures.py}) and all result
+(\path{research/air-ipa-water-1920-2026-09-11/data/sweep_dumps_2026-09-11.npz},
+\path{research/glucose-2024-05-29/data/sweep_raw_2024-05-29.npz}),
+datalogs, the analysis package (\path{paper/analysis/}:
+\path{qcmchain.py}, \path{run_estimators.py},
+\path{run_shifts.py}, \path{run_datalogs.py},
+\path{run_bias_theory.py}, \path{run_forward_model.py},
+\path{run_glucose.py}, \path{make_figures.py}) and all result
 tables are in the repository; every figure lists its source and
-parameters in \texttt{results/figure\_provenance.md}.
+parameters in \path{results/figure_provenance.md}.
 
 \hypertarget{results-first-campaign-board-1920-water-and-isopropanol}{%
 \section{Results --- first campaign: board 1920, water and
@@ -562,7 +564,7 @@ it in air and 80--700 Hz above it in liquid.
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{figures/fig04_fits_residuals.pdf}
-\caption{Fig. 4. Conductance (dots) with the phase-shifted Lorentzian
+\caption{Conductance (dots) with the phase-shifted Lorentzian
 (solid) and the symmetric Lorentzian with linear background (dashed;
 drawn without its linear term) on \(\pm3\Gamma_\mathrm{hh}\); below, the
 residuals in percent of the range of \(G\). Dotted vertical line:
@@ -590,7 +592,7 @@ the two biases are of opposite sign and the second dominates in liquid.
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{figures/fig05_argmax_bias.pdf}
-\caption{Fig. 5. Left: measured \(f_{G\max} - f_\mathrm{res}\) against
+\caption{Left: measured \(f_{G\max} - f_\mathrm{res}\) against
 \(\Gamma\tan(\varphi/2)\) from the fit, 45 sweeps of 2026 (filled) and
 75 sweeps of the second instrument (open squares); the line is the
 identity. Right: residual of the closed form in units of \(\Gamma\).}
@@ -633,7 +635,7 @@ MHz and 12--18° at 45 MHz, whereas \(\varphi\) grows roughly as
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{figures/fig06_phi_vs_frequency.pdf}
-\caption{Fig. 6. Rotation angle \(\varphi\) of the phase-shifted
+\caption{Rotation angle \(\varphi\) of the phase-shifted
 Lorentzian against frequency: three replicas per load on 2026-09-11; air
 sweeps of 2026-09-03; the board phase \(\phi_b\) of the repository's
 two-channel forward model (crosses); the second instrument of 2024 in
@@ -656,6 +658,7 @@ Fig. 8 the error metrics per estimator.
 per load and overtone (mean ± sd of three sweeps): A = maximum of \(G\)
 + half height; P = phase-shifted Lorentzian (\(\varphi\) in degrees).
 
+\begingroup\footnotesize
 \begin{longtable}[]{@{}
   >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.1111}}
   >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.1111}}
@@ -721,6 +724,7 @@ isopropanol & 7 & 34 954 645 ± 5 & 34 955 093 ± 0.3 & 2383 ± 2 & 2570 ±
 isopropanol & 9 & 44 939 783 ± 1 & 44 940 476 ± 12 & 2710 ± 3 & 2925 ±
 12 & 120.6 & 130.2 & −27.2 \\
 \end{longtable}
+\endgroup
 
 \textbf{Table 2.} Air-to-liquid shifts on overtones 3--9 against
 Kanazawa--Gordon at 25 °C, range over \(n\) and both liquids.
@@ -729,6 +733,7 @@ Kanazawa--Gordon at 25 °C, range over \(n\) and both liquids.
 \(\rho_N = |\Delta f|/\Delta\Gamma\). The magnitude estimator's ``Γ'' is
 half its −3 dB width, undefined on \(n \ge 5\) in liquid.
 
+\begingroup\footnotesize
 \begin{longtable}[]{@{}
   >{\raggedright\arraybackslash}p{(\columnwidth - 10\tabcolsep) * \real{0.1667}}
   >{\raggedright\arraybackslash}p{(\columnwidth - 10\tabcolsep) * \real{0.1667}}
@@ -769,11 +774,12 @@ estimator
 (P) phase-shifted Lorentzian & −1.4 \ldots{} +8.2 & −3.9 \ldots{} +9.3 &
 0.98 \ldots{} 1.08 & 8.2 & 9.3 \\
 \end{longtable}
+\endgroup
 
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{figures/fig07_shifts_vs_KG.pdf}
-\caption{Fig. 7. Overtone-normalised shifts \(-\Delta f_n/n\) (top) and
+\caption{Overtone-normalised shifts \(-\Delta f_n/n\) (top) and
 \(\Delta\Gamma_n/n\) (bottom) against the overtone order for the maximum
 of \(G\), the symmetric Lorentzian with linear background and the
 phase-shifted Lorentzian, with the Kanazawa--Gordon prediction at 25 °C.
@@ -801,7 +807,7 @@ estimators is the slope of the frequency line.
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{figures/fig08_estimator_errors.pdf}
-\caption{Fig. 8. The three error metrics on overtones 3--9 (circles
+\caption{The three error metrics on overtones 3--9 (circles
 water, squares isopropanol) for six estimators.}
 \end{figure}
 
@@ -877,7 +883,7 @@ is negligible in liquid.
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{figures/fig10_forward_model.pdf}
-\caption{Fig. 10. Forward model. Left: error of three estimators against
+\caption{Forward model. Left: error of three estimators against
 \(R_1/R_{17}\) for a board phase of −20° on the transfer function (Γ = 1
 kHz). Right: error in units of Γ against the board phase for four
 measured-like cases; solid: phase-shifted fit; dotted: maximum of
@@ -913,7 +919,7 @@ do not use \(B\) and carry only the 50 Hz state change.
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{figures/fig09_repeatability.pdf}
-\caption{Fig. 9. Standard deviation over the three plateau sweeps of
+\caption{Standard deviation over the three plateau sweeps of
 \(f_\mathrm{res}\) (left) and \(\Gamma\) (right) per estimator, overtone
 and load.}
 \end{figure}
@@ -941,7 +947,7 @@ within the plateau drift.
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{figures/fig11_datalog_run.pdf}
-\caption{Fig. 11. The run of 2026-09-11 as logged by the instrument
+\caption{The run of 2026-09-11 as logged by the instrument
 (maximum of \(G\), half-height \(\Gamma\)): overtone-normalised
 frequency relative to the air value and dissipation factor against time;
 shaded: air, water, isopropanol.}
@@ -1026,6 +1032,7 @@ on overtones 3--9, range over \(n\). Water against Kanazawa--Gordon at
 25 °C; the Newtonian ratio for all four liquids. A = maximum of \(G\) +
 half height; P = phase-shifted Lorentzian.
 
+\begingroup\footnotesize
 \begin{longtable}[]{@{}
   >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}
   >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}
@@ -1053,11 +1060,12 @@ water, \(\Delta\Gamma/\Delta\Gamma_\mathrm{KG}\) & 0.96 \ldots{} 1.00 &
 fundamental: \(\Delta\Gamma_1/\Delta\Gamma_\mathrm{KG}\), \(\rho_N\)
 (water) & 1.04, 1.04 & 1.07, 1.01 \\
 \end{longtable}
+\endgroup
 
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{figures/fig12_glucose_shifts_vs_n.pdf}
-\caption{Fig. 12. Second instrument: overtone-normalised shifts from
+\caption{Second instrument: overtone-normalised shifts from
 air, \(-\Delta f_n/n\), \(\Delta\Gamma_n/n\) and \(\Delta D_n\), for
 water and the three glucose solutions, with the maximum of \(G\) (open
 triangles) and the phase-shifted Lorentzian (filled circles) and the
@@ -1067,7 +1075,7 @@ Kanazawa--Gordon prediction for water.}
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{figures/fig13_newtonian_ratio_two_instruments.pdf}
-\caption{Fig. 13. The Newtonian ratio on overtones 3--9 per estimator on
+\caption{The Newtonian ratio on overtones 3--9 per estimator on
 the two instruments: board 1920 (water, isopropanol) and the instrument
 of 2024 (water and glucose 5, 7.5, 10 \% w/v).}
 \end{figure}
@@ -1118,7 +1126,7 @@ theory is common to both boards.
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{figures/fig15_sqrt_n_collapse.pdf}
-\caption{Fig. 15. Overtone-normalised shifts \(-\Delta f_n/\sqrt n\)
+\caption{Overtone-normalised shifts \(-\Delta f_n/\sqrt n\)
 (coloured) and \(\Delta\Gamma_n/\sqrt n\) (grey) against the overtone
 order for the two campaigns, with the maximum of \(G\) (open triangles)
 and the phase-shifted Lorentzian (filled circles); a Newtonian liquid
@@ -1208,7 +1216,7 @@ above the noise and not explained by drift (above).
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{figures/fig14_glucose_concentration.pdf}
-\caption{Fig. 14. Second instrument: shifts relative to water of the
+\caption{Second instrument: shifts relative to water of the
 fitted resonance frequency, half-bandwidth and dissipation against
 glucose concentration, one line per overtone (ordinary least squares
 with intercept), and the ratio \(\rho\eta/(\rho\eta)_\mathrm{water}\)
