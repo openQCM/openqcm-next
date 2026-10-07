@@ -19,7 +19,52 @@
 \begin{document}
 \maketitle
 \begin{abstract}
-Impedance analysis gives the resonance frequency and the half-bandwidth of a quartz crystal microbalance (QCM) directly from the conductance spectrum, but the vector network analysers that produce it are costly and bulky. We describe and test a measurement method in which a direct digital synthesiser sweeps a quartz sensor placed in a resistive voltage divider, an AD8302 gain/phase detector returns the magnitude and the \emph{unsigned} phase of the divider transfer function, and the complex admittance of the sensor is reconstructed by exact inversion of the divider. The detector's phase ambiguity is resolved where the phase crosses zero and left unsigned where it does not, which the conductance tolerates because it is even in the sign of the phase. The resonance frequency $f_\mathrm{res}$ and the half-bandwidth $\Gamma$ are then estimated either from the maximum and the half-height width of the conductance or by fitting the phase-shifted Lorentzian of Johannsmann et al. We derive in closed form the bias of the simpler estimators for a rotated resonance ($f_{G\max} - f_\mathrm{res} = \Gamma\tan(\varphi/2)$; half-height width $\Gamma\sqrt{1+2\tan^2(\varphi/2)}$) and verify it on 45 sweeps. On one instrument the rotation angle is $\varphi = -8^\circ$ to $-27^\circ$ from the fundamental (5~MHz) to the 9th overtone, stable to $0.3^\circ$ between sweeps and to $0.2$--$1.5^\circ$ between air and liquid on overtones 3--9, and coincides with the board phase obtained from an independent two-channel forward model: it is an instrument property. Against the Kanazawa--Gordon prediction for water and isopropanol at 25~$^\circ$C, the air-to-liquid frequency shifts on overtones 3--9 deviate by $+52$ to $+92\,\%$ with the magnitude channel alone, by $+20$ to $+30\,\%$ with the maximum of the reconstructed conductance and by $-1.4$ to $+8.2\,\%$ with the phase-shifted Lorentzian, while the bandwidth shifts are within $\pm7.4\,\%$ with the half-height width and within $-3.9$ to $+9.3\,\%$ with the fit. The Newtonian ratio $|\Delta f|/\Delta\Gamma$ is 0.98--1.08 with the fit against 1.17--1.34 with the conductance maximum. The fundamental deviates by $+29$ to $+37\,\%$ in bandwidth with every estimator and is attributed to the sensor mounting. A forward model with a board phase acting on the measured transfer function shows that the rotated-Lorentzian correction is exact only when the motional resistance is large compared with the divider resistor, which holds in liquid, and quantifies the residual. All raw data and analysis scripts are released.
+Impedance analysis gives the resonance frequency and the half-bandwidth
+of a quartz crystal microbalance (QCM) directly from the conductance
+spectrum, but the vector network analysers that produce it are costly
+and bulky. We describe and test a measurement method in which a direct
+digital synthesiser sweeps a quartz sensor placed in a resistive voltage
+divider, an AD8302 gain/phase detector returns the magnitude and the
+\emph{unsigned} phase of the divider transfer function, and the complex
+admittance of the sensor is reconstructed by exact inversion of the
+divider. The detector's phase ambiguity is resolved where the phase
+crosses zero and left unsigned where it does not, which the conductance
+tolerates because it is even in the sign of the phase. The resonance
+frequency \(f_\mathrm{res}\) and the half-bandwidth \(\Gamma\) are then
+estimated either from the maximum and the half-height width of the
+conductance or by fitting the phase-shifted Lorentzian of Johannsmann et
+al.~We derive in closed form the bias of the simpler estimators for a
+rotated resonance
+(\(f_{G\max} - f_\mathrm{res} = \Gamma\tan(\varphi/2)\); half-height
+width \(\Gamma\sqrt{1+2\tan^2(\varphi/2)}\)) and verify it on 45 sweeps.
+On one instrument the rotation angle is \(\varphi = -8^\circ\) to
+\(-27^\circ\) from the fundamental (5 MHz) to the 9th overtone, stable
+to \(0.3^\circ\) between sweeps and to \(0.2\)--\(1.5^\circ\) between
+air and liquid on overtones 3--9, and coincides with the board phase
+obtained from an independent two-channel forward model: it is an
+instrument property. Against the Kanazawa--Gordon prediction for water
+and isopropanol at 25 °C, the air-to-liquid frequency shifts on
+overtones 3--9 deviate by +52 to +92 \% with the magnitude channel
+alone, by +20 to +30 \% with the maximum of the reconstructed
+conductance and by −1.4 to +8.2 \% with the phase-shifted Lorentzian,
+while the bandwidth shifts are within ±7.4 \% with the half-height width
+and within −3.9 to +9.3 \% with the fit. The Newtonian ratio
+\(|\Delta f|/\Delta\Gamma\) is 0.98--1.08 with the fit against
+1.17--1.34 with the conductance maximum. The fundamental deviates by +29
+to +37 \% in bandwidth with every estimator and is attributed to the
+sensor mounting. On a second instrument and crystal, measured in 2024 in
+air, water and glucose solutions (5, 7.5 and 10 \% w/v), the same
+estimators give a Newtonian ratio of 1.20--1.41 (conductance maximum)
+against 1.01--1.16 (fit) on overtones 3--9 in all four liquids, a water
+frequency shift of +20 to +36 \% against +6 to +13 \% over the theory, a
+rotation angle that agrees with the first instrument within 1--3° on
+four of five overtones but is not monotonic in frequency, and a
+fundamental that follows the theory (bandwidth +4 to +7 \%). A forward
+model with a board phase acting on the measured transfer function shows
+that the rotated-Lorentzian correction is exact only when the motional
+resistance is large compared with the divider resistor, which holds in
+liquid, and quantifies the residual. All raw data and analysis scripts
+are released.
 \end{abstract}
 \noindent\textbf{Keywords:} quartz crystal microbalance; QCM-D; impedance analysis; AD8302; gain--phase detector; direct digital synthesis; phase-shifted Lorentzian; Kanazawa--Gordon; open-source instrumentation.
 
@@ -185,7 +230,7 @@ as \((k-1)(1 + R_{17}/R_m)\), i.e.~amplified 2.5× in air
 (\(R_m \approx 36\ \Omega\) at the fundamental) and not at all in liquid
 (\(R_m \approx 1\ \mathrm{k}\Omega\)). The frequency and bandwidth
 estimates of Section 4, which depend on the \emph{shape} of \(G(f)\),
-are much less sensitive to the magnitude scale (Section 6.7).
+are much less sensitive to the magnitude scale (Section 6.8).
 
 \hypertarget{the-phase-reading-fold-offset-sign}{%
 \subsection{The phase reading: fold, offset,
@@ -215,7 +260,7 @@ baseline (depth \(\ge 0.88\)) and from the position of that peak
 relative to the conductance maximum (within \(5\Gamma\)); the decision
 is latched over two sweeps. This rule is an implementation detail
 calibrated on this board, and we report its one observed fragility in
-Section 6.8.
+Section 6.9.
 
 \begin{figure}
 \centering
@@ -237,7 +282,7 @@ where a fold identifies it. Evenness in the sign does not extend to the
 offset: \(G(\phi + \delta) \ne G(\phi)\), and an uncorrected \(\delta\)
 of a few degrees distorts the peak shape --- it is one of the two
 quantities that the rotation angle of Section 4.2 absorbs on damped
-loads (Section 6.6). Figure 3 shows \(G\), \(B\) and the locus \(B(G)\)
+loads (Section 6.7). Figure 3 shows \(G\), \(B\) and the locus \(B(G)\)
 for the three cases of Fig. 2.
 
 \begin{figure}
@@ -356,14 +401,41 @@ run on the same board and sensor (2026-09-10, air → isopropanol → water,
 sweeps of 2026-09-03 (same board class, 125 MHz clock) a second day for
 the rotation angle.
 
+\textbf{Second dataset (2024-05-29).} A second openQCM NEXT, with a
+second 5 MHz sensor, was measured two years earlier with the production
+software and firmware 0.1.5: air, deionised water, then glucose
+solutions of 5, 7.5 and 10 \% w/v poured in sequence, three raw sweep
+sets per phase on overtones 1--9 (75 sweeps), same window and step. The
+board and its DDS clock, the sensor and the liquid temperature were not
+recorded (sensor temperature 24.95--25.02 °C in the datalog); no
+open/short/load sweep of that board exists; the preparation method and
+the purity of the glucose are to be confirmed by the operator
+{[}placeholder: supplier, grade, weighing, water{]}. The raw files of
+that software hold the two channels as instrument units --- column 2 is
+\((V_\mathrm{MAG,uncomp.} - 0.9\ \mathrm{V})/0.030\), column 3 is
+\(90^\circ - |\Delta\phi|\) --- and were converted to volts with the
+attenuator removed (\(V_\mathrm{MAG} = 0.9 + 0.030\,c_2 - 0.6107\) V,
+\(V_\mathrm{PHS} = 0.9 + 0.010\,c_3\) V). The software of 2024 also
+wrote a second family of files that carry the same two channels with the
+wrong attenuator constant (0.600 V); they were verified to be identical
+to the converted raw files to \(2\times10^{-16}\) and excluded. The
+firmware of 2024 has the same sweep-average carry-over as 0.1.5c
+(below). The dataset is archived with its datalog in
+\texttt{research/glucose-2024-05-29/}. Glucose is a liquid for which we
+use no tabulated \(\rho\eta\): only the Newtonian ratio and the ratio
+\(\rho\eta/(\rho\eta)_\mathrm{water} = (\Delta f/\Delta f_\mathrm{water})^2\)
+from the air-referenced shifts are compared.
+
 \textbf{Firmware correction.} Firmware versions up to 0.1.5c did not
 reset the per-point sums, so each printed point carried 1/500 of the
 previous one (+0.2 \% on the counts). The recursion is exact and was
 undone offline (\(m_i = v_i - v_{i-1}/500\)); every result was computed
 with and without the correction. It changes \(f_\mathrm{res}\) and
-\(\Gamma\) by ≤2 Hz on 44 of 45 sweeps and the error summaries by ≤2
-percentage points; the exception is discussed in Section 6.8.
-Uncorrected values are reported unless stated.
+\(\Gamma\) by ≤2 Hz on 44 of 45 sweeps of 2026 and the error summaries
+by ≤2 percentage points; the exception is discussed in Section 6.9. On
+the 75 sweeps of 2024 it changes \(f_\mathrm{res}\) by ≤4 Hz, \(\Gamma\)
+by ≤1 Hz and \(\varphi\) by ≤0.2°. Uncorrected values are reported
+unless stated.
 
 \textbf{Processing.} All estimators run on the same smoothed \(G(f)\)
 (Section 2). Estimators: (M) magnitude only --- maximum of the divider
@@ -393,14 +465,15 @@ Newtonian ratio \(\rho_N = |\Delta f|/\Delta\Gamma\), whose prediction
 (unity) does not depend on \(\rho\eta\) or on temperature.
 
 \textbf{Reproducibility.} Raw sweeps
-(\texttt{research/air-ipa-water-1920-2026-09-11/data/sweep\_dumps\_2026-09-11.npz}),
+(\texttt{research/air-ipa-water-1920-2026-09-11/data/sweep\_dumps\_2026-09-11.npz},
+\texttt{research/glucose-2024-05-29/data/sweep\_raw\_2024-05-29.npz}),
 datalogs, the analysis package (\texttt{paper/analysis/}:
 \texttt{qcmchain.py}, \texttt{run\_estimators.py},
 \texttt{run\_shifts.py}, \texttt{run\_datalogs.py},
 \texttt{run\_bias\_theory.py}, \texttt{run\_forward\_model.py},
-\texttt{make\_figures.py}) and all result tables are in the repository;
-every figure lists its source and parameters in
-\texttt{results/figure\_provenance.md}.
+\texttt{run\_glucose.py}, \texttt{make\_figures.py}) and all result
+tables are in the repository; every figure lists its source and
+parameters in \texttt{results/figure\_provenance.md}.
 
 \hypertarget{results}{%
 \section{Results}\label{results}}
@@ -461,18 +534,23 @@ and \(\varphi\): the difference is +1 ± 28 Hz (sd), at most 77 Hz,
 i.e.~0.016 Γ on average and 0.12 Γ at worst; the largest residuals (−40
 to −45 Hz) are the liquid fundamentals, where the fold plateau sits
 under the peak. The offset is 2--47 Hz in air (0.03--0.25 Γ) and 80--700
-Hz in liquid (0.09--0.25 Γ). The half-height width is 0.3--8 \%
-\emph{above} the fitted \(\Gamma\) in air, as Eq. (9) predicts (0.5--5.5
-\%), and 1--8 \% \emph{below} it in liquid, where the baseline taken on
-the first 100 samples sits on the skirt of the broadened peak (13--74 \%
-of the peak height on \(n \ge 3\)) and raises the half level; the two
-biases are of opposite sign and the second dominates in liquid.
+Hz in liquid (0.09--0.25 Γ). On the 75 sweeps of the second instrument
+(open squares in Fig. 5) the difference is +21 ± 28 Hz, at most 80 Hz
+(0.096 Γ), with the same sign pattern: positive on the narrow air peaks,
+where the fold plateau sits under the maximum, and within ±0.04 Γ in
+liquid. The half-height width is 0.3--8 \% \emph{above} the fitted
+\(\Gamma\) in air, as Eq. (9) predicts (0.5--5.5 \%), and 1--8 \%
+\emph{below} it in liquid, where the baseline taken on the first 100
+samples sits on the skirt of the broadened peak (13--74 \% of the peak
+height on \(n \ge 3\)) and raises the half level; the two biases are of
+opposite sign and the second dominates in liquid.
 
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{figures/fig05_argmax_bias.pdf}
 \caption{Fig. 5. Left: measured \(f_{G\max} - f_\mathrm{res}\) against
-\(\Gamma\tan(\varphi/2)\) from the fit, 45 sweeps; the line is the
+\(\Gamma\tan(\varphi/2)\) from the fit, 45 sweeps of 2026 (filled) and
+75 sweeps of the second instrument (open squares); the line is the
 identity. Right: residual of the closed form in units of \(\Gamma\).}
 \end{figure}
 
@@ -488,7 +566,7 @@ is \(-5.0, -13.6/-14.3, -24.0/-24.7, -22.5/-21.4, -27.9/-27.2^\circ\):
 equal to the air value within 0.2--1.5° on \(n = 3, 7, 9\), 3--4° more
 negative on \(n = 5\) and 3° less negative on \(n = 1\). One water sweep
 (\(n = 3\), replica 3) gives −17.9° instead of −13.6°; it is the sweep
-whose fold decision sits on the threshold (Section 6.8). Five air sweeps
+whose fold decision sits on the threshold (Section 6.9). Five air sweeps
 of 2026-09-03 on a 125 MHz board give
 \(-7.8, -17.5, -22.6, -25.7, -28.9^\circ\). The angle therefore depends
 on the overtone and on the board, not on the load, to within a few
@@ -502,7 +580,7 @@ divider and the detector laws to \(V_\mathrm{MAG}\) and
 modulus of Eq. (6), gives
 \(\phi_b = -7.6, -13.8, -19.9, -22.1, -20.4^\circ\) in air: equal to
 \(\varphi\) within 0.3--0.8° on \(n = 1\)--7 (crosses in Fig. 6).
-Second, the forward model of Section 6.7 returns
+Second, the forward model of Section 6.8 returns
 \(\varphi_\mathrm{fit} = \phi_b\) to 0.5° when a board phase is imposed
 on the transfer function. The angle is not a pure propagation delay: the
 short and 50 Ω standards measured on the same front end give a phase
@@ -510,14 +588,48 @@ slope of 0.27--0.40° MHz\(^{-1}\) (0.74--1.10 ns), i.e.~1.4--2.0° at 5
 MHz and 12--18° at 45 MHz, whereas \(\varphi\) grows roughly as
 \(f^{0.55}\) (dotted and dashed lines in Fig. 6).
 
+On the second instrument (2024, Fig. 6, open diamonds) the angle in air
+is \(-7.3, -19.7, -19.5, -25.3, -27.9^\circ\) on \(n = 1 \ldots 9\) (sd
+over three replicas ≤ 0.13°) and in the four liquids \(+0.7\) to
+\(+1.2^\circ\), \(-18.8\) to \(-20.8^\circ\), \(-14.3\) to
+\(-14.6^\circ\), \(-27.5\) to \(-28.7^\circ\), \(-30.4\) to
+\(-31.9^\circ\) (sd ≤ 0.07°). Three facts follow. The two instruments
+agree within 1--3° on \(n = 1, 5, 7, 9\) in air, but differ by 5° on
+\(n = 3\), where the second instrument reads \(-19.7^\circ\) against
+\(-14.5^\circ\): on that board \(\varphi(3) \approx \varphi(5)\) in air
+and \(\varphi(5)\) is \emph{smaller} in magnitude than \(\varphi(3)\) in
+liquid, so the angle is not a monotonic function of frequency. The angle
+is independent of the glucose concentration within 2° on every overtone,
+which confirms it as an instrument property rather than a property of
+the load, and its sign on the fundamental in liquid is opposite between
+the instruments (\(+1^\circ\) against \(-5^\circ\)), with the first
+instrument reading \(-8^\circ\) in air on the same overtone. A
+least-squares decomposition into a constant and a delay,
+\(\varphi = \varphi_0 - 360^\circ f\tau\), gives
+\(\varphi_0 = -8.2^\circ\), \(\tau = 1.31\) ns (rms 2.6°) for the second
+instrument in air and \(\varphi_0 = -7.0^\circ\), \(\tau = 1.28\) ns
+(rms 1.2°) for board 1920 in air (\(-7.9^\circ\), 1.40 ns on
+2026-09-03), i.e.~the same two parameters on both boards within the
+scatter; in the liquids of 2024 the fundamental at \(+1^\circ\) pulls
+\(\varphi_0\) to 0 to \(-1^\circ\) (rms 4.6--5.4°) and on \(n = 3\)--9
+alone \(\varphi_0 = -7.4\) to \(-11.0^\circ\). This decomposition is an
+approximation --- the rms is 1--5° and both parameters move when
+\(n = 1\) is excluded --- and it is reported to make the comparison
+between instruments explicit; the resistive standards of board 1920 had
+given only the delays above and intercepts of \(-0.1^\circ\) and
+\(-3.5^\circ\), and the \(f^{0.55}\) growth, not a constant offset.
+
 \begin{figure}
 \centering
 \includegraphics[width=\linewidth]{figures/fig06_phi_vs_frequency.pdf}
 \caption{Fig. 6. Rotation angle \(\varphi\) of the phase-shifted
 Lorentzian against frequency: three replicas per load on 2026-09-11; air
 sweeps of 2026-09-03; the board phase \(\phi_b\) of the repository's
-two-channel forward model (crosses); the phase of a pure delay for the
-two delays measured on the resistive standards.}
+two-channel forward model (crosses); the second instrument of 2024 in
+air and in the four liquids (open diamonds); the phase of a pure delay
+for the two delays measured on the resistive standards, and the
+least-squares lines \(\varphi_0 - 360^\circ f\tau\) for the two
+instruments in air.}
 \end{figure}
 
 \hypertarget{air-to-liquid-shifts-against-kanazawagordon}{%
@@ -682,6 +794,124 @@ estimators is the slope of the frequency line.
 water, squares isopropanol) for six estimators.}
 \end{figure}
 
+On the second instrument and crystal the ranking repeats, on four
+liquids (Table 3, Fig. 12, Fig. 13). Against air, the Newtonian ratio on
+overtones 3--9 is 1.20--1.41 with the maximum of \(G\) and 1.01--1.16
+with the phase-shifted Lorentzian in water and in the three glucose
+solutions alike (the midpoint gives 1.31--1.68, the symmetric Lorentzian
+with linear background 1.17--1.47, the circle 0.90--1.16). For water
+against Kanazawa--Gordon, \(\Delta f/\Delta f_\mathrm{KG}\) is
+1.20--1.36 with the maximum of \(G\) and 1.06--1.13 with the fit, while
+\(\Delta\Gamma/\Delta\Gamma_\mathrm{KG}\) is 0.96--1.00 and 0.96--1.05
+respectively: as on board 1920, the fit changes the frequency and leaves
+the bandwidth. The residual pattern over the overtones is not random:
+with the fit the Newtonian ratio is 1.15, 1.01, 1.16, 1.12 on
+\(n = 3, 5, 7, 9\) in water and the same to ±0.02 in the three glucose
+solutions, i.e.~a zig-zag that is identical in four liquids and
+therefore instrumental; it coincides with the anomaly of \(\varphi\) on
+the same board (\(|\varphi|\) smallest on \(n = 5\), where the ratio is
+closest to one), which suggests that the residual error after the
+rotation correction tracks what the single-angle model does not capture
+of this board's phase response. The residual frequency excess of water
+(+6 to +13 \%) is in the range of the first instrument's (+2 to +8 \%)
+within the unmeasured liquid temperature.
+
+\textbf{Table 3.} Second instrument (2024-05-29): air-to-liquid shifts
+on overtones 3--9, range over \(n\). Water against Kanazawa--Gordon at
+25 °C; the Newtonian ratio for all four liquids. A = maximum of \(G\) +
+half height; P = phase-shifted Lorentzian.
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+quantity
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+A
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+P
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+water, \(\Delta f/\Delta f_\mathrm{KG}\) & 1.20 \ldots{} 1.36 & 1.06
+\ldots{} 1.13 \\
+water, \(\Delta\Gamma/\Delta\Gamma_\mathrm{KG}\) & 0.96 \ldots{} 1.00 &
+0.96 \ldots{} 1.05 \\
+\(\rho_N = |\Delta f|/\Delta\Gamma\), water & 1.20 \ldots{} 1.41 & 1.01
+\ldots{} 1.16 \\
+\(\rho_N\), glucose 5 / 7.5 / 10 \% & 1.21 \ldots{} 1.40 & 1.02 \ldots{}
+1.14 \\
+fundamental: \(\Delta\Gamma_1/\Delta\Gamma_\mathrm{KG}\), \(\rho_N\)
+(water) & 1.04, 1.04 & 1.07, 1.01 \\
+\end{longtable}
+
+\begin{figure}
+\centering
+\includegraphics[width=\linewidth]{figures/fig12_glucose_shifts_vs_n.pdf}
+\caption{Fig. 12. Second instrument: overtone-normalised shifts from
+air, \(-\Delta f_n/n\), \(\Delta\Gamma_n/n\) and \(\Delta D_n\), for
+water and the three glucose solutions, with the maximum of \(G\) (open
+triangles) and the phase-shifted Lorentzian (filled circles) and the
+Kanazawa--Gordon prediction for water.}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\linewidth]{figures/fig13_newtonian_ratio_two_instruments.pdf}
+\caption{Fig. 13. The Newtonian ratio on overtones 3--9 per estimator on
+the two instruments: board 1920 (water, isopropanol) and the instrument
+of 2024 (water and glucose 5, 7.5, 10 \% w/v).}
+\end{figure}
+
+\hypertarget{concentration-series}{%
+\subsection{Concentration series}\label{concentration-series}}
+
+Relative to water, the glucose solutions shift the fitted resonance by
+\(-17\) to \(-72\) Hz (fundamental) and \(-128\) to \(-307\) Hz (9th
+overtone) at 10 \% w/v and broaden it by \(+94\) to \(+379\) Hz (Fig.
+14). A straight line through the four concentrations (0, 5, 7.5, 10 \%
+w/v) has slopes of \(-7.1, -13.8, -17.8, -24.7, -30.4\) Hz per \% w/v in
+\(\Delta f_n\), \(+9.2, +13.1, +16.6, +28.0, +37.8\) Hz per \% w/v in
+\(\Delta\Gamma_n\) and \(3.68, 1.75, 1.33, 1.60, 1.68 \times 10^{-6}\)
+per \% w/v in \(\Delta D_n\) for \(n = 1 \ldots 9\) (phase-shifted
+Lorentzian, ordinary least squares with intercept); the maximum of \(G\)
+gives the same bandwidth slopes within 1 Hz per \% and frequency slopes
+1--30 \% steeper on \(n \ge 3\), because its bias grows with the width.
+On \(n = 1\) and 3 the 5 \% point lies 12--18 Hz below the line (\(R^2\)
+= 0.91 and 0.94, against 0.986--0.990 on \(n \ge 5\)); the replica
+scatter there is 0.3--3 Hz, so the departure is systematic, and it is of
+the size of the 10--20 Hz drift of the air baseline during an hour on
+the first instrument, which this experiment, with no return to water
+between concentrations, cannot separate from a real non-linearity. The
+square of the air-referenced frequency shift relative to water,
+\((\Delta f/\Delta f_\mathrm{water})^2 = \rho\eta/(\rho\eta)_\mathrm{water}\)
+for a Newtonian liquid, averaged over \(n = 3\)--9, is 1.094, 1.171 and
+1.256 at 5, 7.5 and 10 \% w/v with the phase-shifted Lorentzian and
+1.089, 1.171 and 1.257 with the maximum of \(G\): the two estimators
+agree on the ratio to 0.5 \% although they disagree on each shift by
+20--30 \%, because the rotation bias is a nearly constant fraction of
+the shift at a given overtone and cancels in the quotient. The same
+ratio from the bandwidth is 1.08--1.18, 1.15--1.30 and 1.22--1.42,
+growing with the overtone faster than the frequency-based one, a
+difference the Newtonian model does not predict and that the data of one
+day on one instrument, with the liquid temperature unmeasured, cannot
+resolve. No tabulated density or viscosity of the glucose solutions is
+used here.
+
+\begin{figure}
+\centering
+\includegraphics[width=\linewidth]{figures/fig14_glucose_concentration.pdf}
+\caption{Fig. 14. Second instrument: shifts relative to water of the
+fitted resonance frequency, half-bandwidth and dissipation against
+glucose concentration, one line per overtone (ordinary least squares
+with intercept), and the ratio \(\rho\eta/(\rho\eta)_\mathrm{water}\)
+from the air-referenced frequency shifts with the two estimators.}
+\end{figure}
+
 \hypertarget{what-reconstruction-buys-and-what-the-rotation-buys}{%
 \subsection{What reconstruction buys and what the rotation
 buys}\label{what-reconstruction-buys-and-what-the-rotation-buys}}
@@ -693,13 +923,13 @@ produces a bandwidth with a physical definition: the magnitude curve's
 −3 dB width is undefined inside the sweep window for \(n \ge 5\) in
 liquid and its −0.3 dB width (the production software's ``dissipation'')
 grows to 3.7--6.4 kHz at \(n\) = 9, ten times the theory's
-\(\Delta\Gamma\), with no counterpart in it (Section 6.9). The
+\(\Delta\Gamma\), with no counterpart in it (Section 6.10). The
 half-height width of \(G\) is within ±7.4 \% of Kanazawa--Gordon on
 overtones 3--9. Going from the maximum of \(G\) to the phase-shifted fit
 (A → P) removes the remaining +20\ldots+30 \% on frequency, which Eq.
 (8) attributes to the rotation, and leaves the bandwidth essentially
 unchanged (−3.9\ldots+9.3 \%, the +9.3 \% being the two-state water
-sweep of Section 6.8; the fitted \(\Gamma\) is 2--8 \% above the
+sweep of Section 6.9; the fitted \(\Gamma\) is 2--8 \% above the
 half-height width in liquid, which corrects the baseline bias of Section
 6.3). The improvement produced by the rotated Lorentzian is therefore a
 \emph{frequency} improvement; the bandwidth was already right after
@@ -771,21 +1001,25 @@ air baseline was still drifting at −0.3 to −2 Hz/min) and 0.3--29 Hz in
 liquid for both estimators, and that of \(\Gamma\) is ≤2.6 Hz in air and
 ≤13 Hz in liquid (Fig. 9). The phase-shifted fit is at least as
 repeatable as the maximum of \(G\) and better on \(n \ge 5\) in
-isopropanol (0.3--12 Hz against 0.6--10 Hz on \(f\)). The fit's
-covariance gives 0.1--0.8 Hz on \(f_\mathrm{res}\), an order of
-magnitude below the replica scatter, because the residual is structured;
-the replica scatter is the number to quote. One sweep is anomalous:
-water, \(n\) = 3, replica 3, whose phase peak grazes zero (fold depth
-0.880 against a threshold of 0.88); the instrument's datalog shows the
-logged pair alternating between two states 105 Hz apart from 13:12
-onwards, the fitted \(\varphi\) is 4.3° off its replicas, and the 0.2 \%
-firmware correction flips its fold decision and moves its
-\(f_\mathrm{res}\) by 37 Hz (phase-shifted) and 111 Hz (maximum of
-\(G\)). On the other 44 sweeps the correction changes \(f_\mathrm{res}\)
-by ≤2.2 Hz and \(\Gamma\) by ≤1.7 Hz. The repository's BVD circle
-estimator returns a scatter of 309 Hz on that overtone, because the sign
-of \(B\) depends on the same decision; the conductance-only estimators
-do not use \(B\) and carry only the 50 Hz state change.
+isopropanol (0.3--12 Hz against 0.6--10 Hz on \(f\)). On the second
+instrument the three replicas, taken 3--10 min apart on a quieter
+baseline, scatter by ≤3 Hz in air and ≤8 Hz in liquid for the fit, and
+≤36 Hz for the maximum of \(G\) (water, \(n\) = 9, a flat peak on a 1 Hz
+grid); all 75 fits converged and passed the gate. The fit's covariance
+gives 0.1--0.8 Hz on \(f_\mathrm{res}\), an order of magnitude below the
+replica scatter, because the residual is structured; the replica scatter
+is the number to quote. One sweep is anomalous: water, \(n\) = 3,
+replica 3, whose phase peak grazes zero (fold depth 0.880 against a
+threshold of 0.88); the instrument's datalog shows the logged pair
+alternating between two states 105 Hz apart from 13:12 onwards, the
+fitted \(\varphi\) is 4.3° off its replicas, and the 0.2 \% firmware
+correction flips its fold decision and moves its \(f_\mathrm{res}\) by
+37 Hz (phase-shifted) and 111 Hz (maximum of \(G\)). On the other 44
+sweeps the correction changes \(f_\mathrm{res}\) by ≤2.2 Hz and
+\(\Gamma\) by ≤1.7 Hz. The repository's BVD circle estimator returns a
+scatter of 309 Hz on that overtone, because the sign of \(B\) depends on
+the same decision; the conductance-only estimators do not use \(B\) and
+carry only the 50 Hz state change.
 
 \begin{figure}
 \centering
@@ -832,10 +1066,18 @@ The fundamental does not follow the theory with any estimator:
 \(\rho_N\) = 0.76--0.89, while \(\epsilon_f\) is +2 to +4 \% with the
 phase-shifted fit. Its dissipation in air is 26 × 10⁻⁶ (2026-09-11) and
 19.6 × 10⁻⁶ (2026-09-10) against 8--10 and 5--6 × 10⁻⁶ on the overtones,
-and the smoothing bias of Section 6.7 accounts for only a tenth of the
+and the smoothing bias of Section 6.8 accounts for only a tenth of the
 air value. The excess is in the bandwidth and is present before the
 liquid is added: we attribute it to the sensor and its mounting rather
-than to the method (Section 7).
+than to the method (Section 7). The second instrument and crystal do not
+show it: there \(\Delta\Gamma_1/\Delta\Gamma_\mathrm{KG}\) = 1.04
+(maximum of \(G\)) and 1.07 (fit) and the Newtonian ratio on the
+fundamental is 1.04 and 1.01, while the air dissipation of that
+crystal's fundamental is even higher (44--46 × 10⁻⁶, \(\Gamma\) =
+110--115 Hz). The fundamental excess of 2026 therefore follows the first
+sensor or board, not the method and not the air damping as such; the
+two-board, two-sensor cross test of the remaining experiments is what
+separates sensor from board.
 
 \hypertarget{discussion}{%
 \section{Discussion}\label{discussion}}
@@ -887,6 +1129,23 @@ on the threshold. The acceptance gate never fired on 45 sweeps; its
 parameters were set at ten times the observed spread and are
 instrument-specific.
 
+\textbf{A second instrument.} The 2024 set tests the method where it was
+not tuned: another board, another crystal, the production software of
+the time, four liquids. The ranking of the estimators and the size of
+the correction repeat (Newtonian ratio 1.20--1.41 → 1.01--1.16; water
+frequency shift +20\ldots+36 \% → +6\ldots+13 \%), the bandwidth is
+again right before the fit, and the closed form of the bias holds (+21 ±
+28 Hz on 75 sweeps). Two things do not repeat: the rotation angle
+differs by 5° on the 3rd overtone and is not monotonic in frequency on
+that board, so \(\varphi(n)\) must be measured per instrument and cannot
+be written as a universal function; and the fundamental follows the
+theory there, which places the +29\ldots+37 \% excess of 2026 on the
+first sensor or board. The residual zig-zag over the overtones,
+identical in four liquids, says that a single angle per overtone leaves
+a few percent of instrument response uncorrected, consistent with the
+Möbius residual and with whatever in the board's phase makes
+\(\varphi(5)\) anomalous.
+
 \textbf{Highly damped loads.} Three things degrade together as damping
 grows: the contrast of the divider ratio falls to 1.6 dB, the sweep
 window sized for air clips the fit window, and the half-height baseline
@@ -914,15 +1173,17 @@ the residual phase of the chain to first order. The fold treatment is
 specific to detectors that return an unsigned phase.
 
 \textbf{Limitations.} One board, one sensor, one day for the main
-dataset, three sweeps per plateau; liquid temperature not measured; no
-reference impedance analyser on the same crystal; the fundamental
-unexplained; the sweep window fixed; the dataset carries a corrected
-firmware bias; the circle estimator is the repository's and is unstable
-on one sweep. The remaining experiments are listed in the Supplementary
-notes (\texttt{running\_list.md}, Section H): a reference-analyser
-measurement of the same crystal, a second board and sensor, a measured
-liquid temperature or a glycerol series, bench calibration of \(\delta\)
-and \(\phi_b\), a long plateau with the fit running live, a larger
+dataset, three sweeps per plateau; a second board and sensor only in a
+2024 dataset whose board, sensor and glucose preparation are not
+recorded; liquid temperature not measured in either; no reference
+impedance analyser on the same crystal; the fundamental unexplained; the
+sweep window fixed; the dataset carries a corrected firmware bias; the
+circle estimator is the repository's and is unstable on one sweep. The
+remaining experiments are listed in the Supplementary notes
+(\texttt{running\_list.md}, Section H): a reference-analyser measurement
+of the same crystal, a second board and sensor, a measured liquid
+temperature or a glycerol series, bench calibration of \(\delta\) and
+\(\phi_b\), a long plateau with the fit running live, a larger
 \(R_{17}\), a Γ-scaled window and re-acquisition with the corrected
 firmware.
 
@@ -949,17 +1210,23 @@ for this front end only when the motional resistance is large compared
 with the divider resistor, which holds in liquid; in air it removes half
 to two thirds of a bias that is itself small. The fundamental deviates
 by +29 to +37 \% in bandwidth with every estimator and is attributed to
-the sensor mounting. These numbers are from one board and one sensor and
-are limited by the unmeasured liquid temperature; the raw data and the
-analysis are released so that they can be extended.
+the sensor mounting; on a second instrument and crystal (2024, water and
+glucose 5--10 \% w/v) it follows the theory, while the estimator ranking
+repeats (Newtonian ratio 1.20--1.41 against 1.01--1.16 on four liquids)
+and the rotation angle agrees within 1--3° on four overtones but is not
+monotonic in frequency. These numbers are from two boards and two
+sensors on two days and are limited by the unmeasured liquid
+temperature; the raw data and the analysis are released so that they can
+be extended.
 
 \hypertarget{data-and-code-availability}{%
 \section{Data and code availability}\label{data-and-code-availability}}
 
 Raw sweeps, datalogs, calibration sweeps and all analysis scripts are in
 the \texttt{impedance-analysis} branch of the openQCM NEXT repository
-(\texttt{research/}, \texttt{paper/analysis/}); the instrument software
-and firmware are in the same repository.
+(\texttt{research/}, \texttt{paper/analysis/}), including the 2024-05-29
+glucose set (\texttt{research/glucose-2024-05-29/}); the instrument
+software and firmware are in the same repository.
 
 \bibliographystyle{unsrtnat}
 \bibliography{references}

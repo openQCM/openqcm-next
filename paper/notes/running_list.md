@@ -25,6 +25,17 @@
 19. **Fold δ bias (new)**: smoothing rounds the V of the fold; the recovered δ is 1.0–2.3° more negative than the true offset on synthetic air-like data. No effect on f_res, Γ when a fold exists.
 20. **Forward model limit (new)**: with a board phase on ∠H the exact inversion is a Möbius map, not a rotation; the PSL residual bias is ≈ −0.34 Γ (R17/R1) at φ_b = −20°: −12 Hz at R1 = 1.6 kΩ, −344 Hz at R1 = R17 (Γ = 1 kHz). For the real air cases −12…−39 Hz; liquid −7…−59 Hz (≤ 2 % of Γ) against −133…−743 Hz for argmax.
 
+## A2. Verified facts from the second dataset (2024-05-29, second instrument and crystal; `results/glucose_*`)
+
+21. **Cross-check.** The paper's independent chain reproduces the reference analysis of that dataset (instrument code, decimated PSL, firmware-corrected) on every quantity listed in the integration prompt: φ in air −7.3, −19.8, −19.5, −25.4, −28.1°; fold on all overtones in air and on n = 1, 3 in liquid, none on n = 5–9; 75/75 fits through the gate; Newtonian ratio 1.20–1.41 (argmax) / 1.01–1.16 (PSL); water Δf/Δf_KG 1.20–1.36 / 1.06–1.13, ΔΓ/ΔΓ_KG 0.96–1.05; eq. 8 +20 ± 28 Hz, max 0.095 Γ; concentration slopes to 0.1 Hz/%; ρη relative 1.094/1.171/1.256; φ₀ = −8.2°, τ = 1.31 ns, rms 2.6°. No discrepancy to explain. As-is vs firmware-corrected: f ≤ 4 Hz, Γ ≤ 1 Hz, φ ≤ 0.2°.
+22. **Estimator ranking repeats** on four liquids (water, glucose 5/7.5/10 % w/v): argmax Newtonian ratio 1.20–1.41, PSL 1.01–1.16; midpoint 1.31–1.68; symmetric + linear 1.17–1.47; circle 0.90–1.16. Bandwidth right before the fit (ΔΓ/ΔΓ_KG 0.96–1.00 argmax).
+23. **Residual zig-zag over n is instrumental**: PSL ρ_N = 1.15, 1.01, 1.16, 1.12 on n = 3, 5, 7, 9 in water and the same ±0.02 in the three glucose solutions; coincides with the φ anomaly of that board (|φ(5)| = 14.4° < |φ(3)| = 19–21° in liquid).
+24. **φ on the second board**: air −7.3, −19.7, −19.5, −25.3, −27.9°; liquid +0.7…+1.2, −18.8…−20.8, −14.3…−14.6, −27.5…−28.7, −30.4…−31.9°; sd ≤ 0.13° (air n = 1) and ≤ 0.07° (liquid); independent of concentration within 2°. Agrees with board 1920 within 1–3° on n = 1, 5, 7, 9; differs by 5° on n = 3; **not monotonic in frequency**; sign on the liquid fundamental opposite (+1° vs −5°).
+25. **φ₀ − 360fτ**: 2024 air φ₀ = −8.2°, τ = 1.31 ns (rms 2.6°; n = 3–9 only: −14.0°, 0.85 ns); 2026-09-11 air −7.0°, 1.28 ns (rms 1.2°; n ≥ 3: −9.4°, 1.09 ns); 2026-09-03 air −7.9°, 1.40 ns. An approximation (rms 1–5°), parameters sensitive to n = 1.
+26. **The fundamental follows the theory on the second crystal**: ΔΓ₁/ΔΓ_KG = 1.04 (argmax) / 1.07 (PSL), ρ_N = 1.04 / 1.01, although its air dissipation is higher (44–46 ppm, Γ = 110–115 Hz) than the 2026 crystal's (26 ppm). The 2026 fundamental excess is therefore not a property of the method nor of the air damping as such.
+27. **Concentration series** (PSL, OLS with intercept vs water): Δf slopes −7.1, −13.8, −17.8, −24.7, −30.4 Hz/% w/v; ΔΓ +9.2, +13.1, +16.6, +28.0, +37.8 Hz/%; ΔD 3.68, 1.75, 1.33, 1.60, 1.68 ppm/%; R² 0.91–0.94 on n = 1, 3 (5 % point 12–18 Hz below the line, replica scatter 0.3–3 Hz), 0.986–0.990 on n ≥ 5. ρη/(ρη)_water from Δf, mean n = 3–9: 1.094, 1.171, 1.256 (PSL) and 1.089, 1.171, 1.257 (argmax) — the two estimators agree on the ratio to 0.5 %. From ΔΓ: 1.08–1.18, 1.15–1.30, 1.22–1.42, growing with n (unexplained).
+28. **Repeatability 2024**: PSL sd ≤ 3 Hz air, ≤ 8 Hz liquid; argmax ≤ 36 Hz (water n = 9). Datalog: 541 rows, 75 duplicates, 14:22–16:01; replica write times are consistent with the datalog phases under a UTC+2 reading.
+
 ## B. Documentation / code discrepancies found
 
 - **ALGORITHM.md §11 worked example uses raw samples, not the smoothed chain.** Its numbers (V_MAG 0.194775 V, r = 3.0015°, min r = 1.2597°, M = 783.2069 Ω, f = 4 998 012 Hz, hw = 953.124 Hz) are reproduced exactly from the raw file; the current chain (SG 51/3 + spline) on the same file gives V_MAG 0.194387 V, min r 1.388°, f_Gmax 4 998 002 Hz, Γ_hh 955.05 Hz, G_max 1.3653 mS. The example is a valid check of the inversion but not of the published numbers; it should say so.
@@ -40,9 +51,13 @@
 - H1. φ is dominantly an uncorrected phase error of the detector chain (board + cable + AD8302 phase-channel offset), not a property of the sensor: supported by (A9), (A10), the forward model (φ_fit = φ_b) and the OSL standards (non-zero phase on resistive loads).
 - H2. The excess dissipation of the fundamental (D_air = 20–26 ppm; ΔΓ +29–37 % over KG) is a property of this crystal/holder (mounting losses that the liquid adds to), not of the method; no estimator moves it; it also has the largest smoothing bias (+10 %), which does not explain a 30 % excess in the *shift*.
 - H3. The 5–18 % out-of-roundness of the admittance locus in liquid comes from the AD8302 operating at −22 to −37 dB divider ratio (near its specified limit) plus the Möbius distortion of a phase error; a larger R17 (or switchable) would test it.
+- H5. The residual overtone zig-zag of the Newtonian ratio after the PSL (2024: 1.15/1.01/1.16/1.12; 2026: 0.99/1.04/1.08/1.03 water) is the part of the board's phase response that a single angle per overtone does not capture (Möbius residual + φ non-ideality), not a sample property: it is identical across four liquids.
 - H4. Water n = 3's two-state behaviour (±50 Hz, fold decision at threshold) is a detector artefact (the phase peak grazing zero) and not a sample effect.
 
 ## D. Open questions
+
+- (2024 set) Which board and sensor? Glucose preparation and purity? Was the 5 % point's departure from the line (n = 1, 3) a baseline drift or a real non-linearity (no return to water between concentrations)? Why does the ΔΓ-based ρη ratio grow with n faster than the Δf-based one?
+- Is φ(n) of the 2024 board (non-monotonic, φ(3) ≈ φ(5) in air) reproducible on that board on another day, and what in its RF path makes n = 5 anomalous?
 
 - Is φ the same on a second board and with a second sensor? (one board, one sensor here; the 2026-09-03 air set is probably the same board but this is not recorded; the 2026-07-28 frozen water sweep gives φ = +2.2°, opposite sign, board not recorded.)
 - What is the liquid temperature at the interface? (TEC at 25.00 °C on the crystal; liquid poured at room temperature; ±2 K = ±2–3 % on KG.)
@@ -59,6 +74,8 @@
 - The "magnitude-only" estimator from the sweeps uses the uncompensated local baseline (no calibration polynomial, unavailable for these sweeps); the production datalog provides the actual production estimator at the same instants.
 
 ## F. Limitations
+
+- (2024 set) one instrument, one crystal, one day; board, sensor, DDS clock and glucose preparation not recorded; no OSL sweeps of that board; liquid temperature not measured; production software 0.1.5 wrote the raw files (format verified).
 
 - One board (1920), one 5 MHz AT-cut sensor, one day for the main dataset; three sweeps per plateau.
 - Liquid temperature not measured.
