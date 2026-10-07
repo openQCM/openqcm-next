@@ -15,3 +15,4 @@
 | fig12_glucose_shifts_vs_n | results/glucose_shifts_asis.csv (ref = air) | paper/analysis/make_figures.py | mean of 3 replicas; KG for water only |
 | fig13_newtonian_ratio_two_instruments | results/shifts_asis.csv; results/glucose_shifts_asis.csv (ref = air) | paper/analysis/make_figures.py | overtones 3–9; magnitude estimator where its −3 dB width exists |
 | fig14_glucose_concentration | results/glucose_shifts_asis.csv (ref = water, air); results/glucose_conc_asis.csv | paper/analysis/make_figures.py | phase-shifted Lorentzian; lines = OLS with intercept on 0, 5, 7.5, 10 % w/v; ρη relative from the air-referenced Δf |
+| fig15_sqrt_n_collapse | results/shifts_asis.csv; results/glucose_shifts_asis.csv (ref = air) | paper/analysis/make_figures.py | −Δf_n/√n and ΔΓ_n/√n per overtone; a Newtonian liquid gives one horizontal line for both |

@@ -323,10 +323,31 @@ def fig_gluc_conc():
     save(fig, "fig14_glucose_concentration", "results/glucose_shifts_asis.csv (ref = water, air); results/glucose_conc_asis.csv", "phase-shifted Lorentzian; lines = OLS with intercept on 0, 5, 7.5, 10 % w/v; ρη relative from the air-referenced Δf")
 
 
+def fig_collapse():
+    """Kanazawa–Gordon structure without liquid constants: −Δf_n/√n and ΔΓ_n/√n should be the same for every overtone."""
+    fig, ax = plt.subplots(2, 2, figsize=(7.2, 5.0), sharex=True)
+    panels = ((SH[SH.liquid == "water"], "campaign 1, board 1920: water", PH["water"]), (SH[SH.liquid == "ipa"], "campaign 1: isopropanol", PH["ipa"]),
+              (GSH[(GSH.ref == "air") & (GSH.liquid == "water")], "campaign 2, 2nd instrument: water", C[1]), (GSH[(GSH.ref == "air") & (GSH.liquid == "gluc10")], "campaign 2: glucose 10 % w/v", C[6]))
+    for k, (dfx, title, col) in enumerate(panels):
+        a = ax[k // 2, k % 2]
+        for est, mk, mfc, lab in (("argmax_hh", "v", "none", "max G + half height"), ("psl", "o", None, "phase-shifted Lorentzian")):
+            s = dfx[dfx.estimator == est].sort_values("n")
+            a.plot(s.n - 0.08, -s.df / np.sqrt(s.n), mk, color=col, mfc=mfc if mfc else col, ms=5, mew=0.9, label="−Δf/√n, " + lab)
+            a.plot(s.n + 0.08, s.dG / np.sqrt(s.n), mk, color=TXT2, mfc=mfc if mfc else TXT2, ms=5, mew=0.9, label="ΔΓ/√n, " + lab)
+        s0 = dfx[dfx.estimator == "psl"].sort_values("n")
+        if "df_KG" in s0 and s0.df_KG.notna().any():
+            a.axhline(float((-s0.df_KG / np.sqrt(s0.n)).iloc[0]), color=TXT2, lw=1.0, ls="--", label="Kanazawa–Gordon (water, 25 °C)")
+        a.set_title(title); a.set_xticks([1, 3, 5, 7, 9])
+    ax[0, 0].set_ylabel("shift / √n [Hz]"); ax[1, 0].set_ylabel("shift / √n [Hz]"); ax[1, 0].set_xlabel("overtone order n"); ax[1, 1].set_xlabel("overtone order n")
+    ax[0, 0].legend(fontsize=6, loc="upper right")
+    fig.tight_layout()
+    save(fig, "fig15_sqrt_n_collapse", "results/shifts_asis.csv; results/glucose_shifts_asis.csv (ref = air)", "−Δf_n/√n and ΔΓ_n/√n per overtone; a Newtonian liquid gives one horizontal line for both")
+
+
 if __name__ == "__main__":
     fig_raw(); fig_GB(); fig_fits(); fig_bias(); fig_phi(); fig_shifts(); fig_estimators(); fig_repeat(); fig_forward(); fig_datalog()
     if GL:
-        fig_gluc_shifts(); fig_gluc_ratio(); fig_gluc_conc()
+        fig_gluc_shifts(); fig_gluc_ratio(); fig_gluc_conc(); fig_collapse()
     L = ["# Figure provenance\n", "| figure | source dataset | script | parameters |", "|---|---|---|---|"]
     for p in PROV:
         L.append("| %s | %s | %s | %s |" % (p["figure"], p["source"], p["script"], p["params"]))
