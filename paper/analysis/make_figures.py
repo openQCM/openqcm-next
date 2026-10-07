@@ -40,6 +40,13 @@ SW = pd.read_csv(os.path.join(R, "sweeps_asis.csv"))
 SH = pd.read_csv(os.path.join(R, "shifts_asis.csv"))
 FM = pd.read_csv(os.path.join(R, "forward_model.csv"))
 BT = json.load(open(os.path.join(R, "bias_theory.json")))
+GL = os.path.exists(os.path.join(R, "glucose_sweeps_asis.csv"))
+if GL:
+    GSW = pd.read_csv(os.path.join(R, "glucose_sweeps_asis.csv")); GSH = pd.read_csv(os.path.join(R, "glucose_shifts_asis.csv"))
+    GCC = pd.read_csv(os.path.join(R, "glucose_conc_asis.csv")); GPH = pd.read_csv(os.path.join(R, "glucose_phi_asis.csv"))
+    GPHS = pd.read_csv(os.path.join(R, "glucose_phases_asis.csv"))
+GLC = {"water": C[1], "gluc05": C[3], "gluc075": C[4], "gluc10": C[6]}
+GLL = {"air": "air (2024)", "water": "water (2024)", "gluc05": "glucose 5 %", "gluc075": "glucose 7.5 %", "gluc10": "glucose 10 %"}
 
 
 def chain_of(s, n):
@@ -118,6 +125,10 @@ def fig_bias():
         s = p[p.phase == ph]
         ax[0].plot(s.bias_pred, s.bias_meas, "o", ms=4, color=PH[ph], label=PHL[ph], mec="white", mew=0.5)
         ax[1].plot(s.gamma, (s.bias_meas - s.bias_pred) / s.gamma, "o", ms=4, color=PH[ph], mec="white", mew=0.5)
+    if GL:
+        gp = GSW[GSW.estimator == "psl"]
+        ax[0].plot(gp.bias_pred, gp.bias_meas, "s", ms=3.5, mfc="none", color=TXT, label="2024 set (75 sweeps, 2nd instrument)", mew=0.6)
+        ax[1].plot(gp.gamma, (gp.bias_meas - gp.bias_pred) / gp.gamma, "s", ms=3.5, mfc="none", color=TXT, mew=0.6)
     lim = [-760, 60]; ax[0].plot(lim, lim, color=TXT2, lw=0.8); ax[0].set_xlim(lim); ax[0].set_ylim(lim)
     ax[0].set_xlabel("predicted Γ·tan(φ/2) [Hz]"); ax[0].set_ylabel("measured f_Gmax − f_res [Hz]"); ax[0].legend(fontsize=7); ax[0].set_title("Bias of the conductance maximum, 45 sweeps")
     ax[1].axhline(0, color=TXT2, lw=0.8); ax[1].set_xscale("log"); ax[1].set_xlabel("Γ (PSL) [Hz]"); ax[1].set_ylabel("(measured − predicted) / Γ"); ax[1].set_title("Residual of the closed form")
@@ -140,10 +151,19 @@ def fig_phi():
     ax.plot([fm[n] for n in phib], [phib[n] for n in phib], "x", ms=6, color=TXT, label="φ_b, two-channel BVD forward model (repo Table 7)")
     f = np.linspace(3, 48, 50)
     for tau, ls in ((0.74, ":"), (1.10, "--")):
-        ax.plot(f, -360 * f * 1e6 * tau * 1e-9, color=TXT2, lw=0.8, ls=ls, label="pure delay τ = %.2f ns" % tau)
+        ax.plot(f, -360 * f * 1e6 * tau * 1e-9, color=TXT2, lw=0.8, ls=ls, label="pure delay τ = %.2f ns (standards)" % tau)
+    if GL:
+        gp = GSW[GSW.estimator == "psl"]
+        ax.plot(gp[gp.phase == "air"].fres / 1e6, gp[gp.phase == "air"].phi_deg, "D", ms=4, mfc="none", color=C[0], mew=0.8, label="air, 2024 (2nd instrument)")
+        gl = gp[gp.phase != "air"]; ax.plot(gl.fres / 1e6, gl.phi_deg, "D", ms=4, mfc="none", color=C[1], mew=0.8, label="water + glucose, 2024")
+        r24 = GPH[(GPH.phase == "air") & (GPH.fit == "n=1-9")].iloc[0]
+        ax.plot(f, r24.phi0_deg - 360 * f * 1e6 * r24.tau_ns * 1e-9, color=C[0], lw=0.8, ls="-.", label="2024 air: φ₀ = %.1f°, τ = %.2f ns" % (r24.phi0_deg, r24.tau_ns))
+        a26 = p[p.phase == "air"].groupby("n").agg(f=("fres", "mean"), phi=("phi_deg", "mean"))
+        x = -360.0 * a26.f.values * 1e-9; A = np.column_stack([x, np.ones_like(x)]); sol, *_ = np.linalg.lstsq(A, a26.phi.values, rcond=None)
+        ax.plot(f, sol[1] - 360 * f * 1e6 * sol[0] * 1e-9, color=C[0], lw=0.8, ls="-", alpha=0.6, label="2026 air: φ₀ = %.1f°, τ = %.2f ns" % (sol[1], sol[0]))
     ax.set_xlabel("frequency [MHz]"); ax.set_ylabel("rotation angle φ [°]"); ax.legend(fontsize=6.3, loc="lower left"); ax.set_ylim(-48, 3)
     fig.tight_layout()
-    save(fig, "fig06_phi_vs_frequency", "results/sweeps_asis.csv; results/bias_theory.json (air_0903, osl); handoff-tables.md Table 7", "PSL φ per sweep; delay lines 360·f·τ with τ from the short/50 Ω standards")
+    save(fig, "fig06_phi_vs_frequency", "results/sweeps_asis.csv; results/bias_theory.json (air_0903, osl); handoff-tables.md Table 7" + ("; results/glucose_sweeps_asis.csv, glucose_phi_asis.csv" if GL else ""), "PSL φ per sweep; delay lines 360·f·τ with τ from the short/50 Ω standards; φ₀ − 360·f·τ least-squares lines on n = 1–9 for the two instruments")
 
 
 # ------------------------------------------------------- Fig 7: shifts vs KG
@@ -242,8 +262,71 @@ def fig_datalog():
     save(fig, "fig11_datalog_run", "research/air-ipa-water-1920-2026-09-11/data/2026-09-11_12-14-42_multi.csv", "as logged; f_air = mean of the last 20 rows before 30 min")
 
 
+# --------------------------------------------- Figs 12–14: the 2024 glucose series (second instrument)
+def fig_gluc_shifts():
+    liqs = ("water", "gluc05", "gluc075", "gluc10")
+    fig, ax = plt.subplots(1, 3, figsize=(7.2, 3.1))
+    s0 = GSH[(GSH.ref == "air") & (GSH.liquid == "water") & (GSH.estimator == "psl")].sort_values("n")
+    ax[0].plot(s0.n, -s0.df_KG / s0.n, color=TXT2, lw=1.2, label="Kanazawa–Gordon, water 25 °C"); ax[1].plot(s0.n, -s0.df_KG / s0.n, color=TXT2, lw=1.2)
+    ax[2].plot(s0.n, s0.dD_KG_ppm, color=TXT2, lw=1.2)
+    for liq in liqs:
+        for est, mk, mfc in (("argmax_hh", "v", "none"), ("psl", "o", None)):
+            s = GSH[(GSH.ref == "air") & (GSH.liquid == liq) & (GSH.estimator == est)].sort_values("n")
+            kw = dict(ms=4.5, color=GLC[liq], mfc=mfc if mfc else GLC[liq], mew=0.8, lw=0)
+            ax[0].plot(s.n + (-0.1 if est == "argmax_hh" else 0.1), -s.df_over_n, mk, **kw)
+            ax[1].plot(s.n + (-0.1 if est == "argmax_hh" else 0.1), s.dG_over_n, mk, **kw)
+            ax[2].plot(s.n + (-0.1 if est == "argmax_hh" else 0.1), s.dD_ppm, mk, **kw)
+    for liq in liqs: ax[0].plot([], [], "s", color=GLC[liq], label=GLL[liq])
+    ax[0].plot([], [], "v", mfc="none", color=TXT, label="max G + half height"); ax[0].plot([], [], "o", color=TXT, label="phase-shifted Lorentzian")
+    ax[0].set_ylabel("−Δf_n / n [Hz]"); ax[1].set_ylabel("ΔΓ_n / n [Hz]"); ax[2].set_ylabel("ΔD_n [10⁻⁶]")
+    for a in ax: a.set_xticks([1, 3, 5, 7, 9]); a.set_xlabel("overtone order n")
+    ax[0].legend(fontsize=5.8, loc="upper right"); ax[0].set_title("2024 set: shifts from air", loc="left")
+    fig.tight_layout()
+    save(fig, "fig12_glucose_shifts_vs_n", "results/glucose_shifts_asis.csv (ref = air)", "mean of 3 replicas; KG for water only")
+
+
+def fig_gluc_ratio():
+    ests = ["mag_argmax", "argmax_hh", "midpoint", "sym_lin", "circle", "psl"]
+    fig, ax = plt.subplots(1, 2, figsize=(7.2, 3.1), sharey=True)
+    for k, (dfx, title) in enumerate(((SH, "2026 set, board 1920 (water ○, isopropanol □)"), (GSH[GSH.ref == "air"], "2024 set, 2nd instrument (water ○, glucose 5/7.5/10 % □ ◇ △)"))):
+        a = ax[k]; a.axhline(1, color=TXT2, lw=0.8)
+        for i, est in enumerate(ests):
+            liqs = (("water", "o"), ("ipa", "s")) if k == 0 else (("water", "o"), ("gluc05", "s"), ("gluc075", "D"), ("gluc10", "^"))
+            for j, (liq, mk) in enumerate(liqs):
+                s = dfx[(dfx.liquid == liq) & (dfx.estimator == est) & (dfx.n >= 3)]
+                a.plot(np.full(len(s), i) + (j - (len(liqs) - 1) / 2) * 0.16, s.rho, mk, ms=3.6, color=EST_C[est], mec="white", mew=0.4)
+        a.set_xticks(range(len(ests))); a.set_xticklabels([EST_L[e].replace(" + ", "\n+ ").replace("phase-shifted ", "phase-shifted\n") for e in ests], rotation=60, ha="right", fontsize=6.3)
+        a.set_title(title, fontsize=7.5); a.set_ylim(0.3, 1.7)
+    ax[0].set_ylabel("|Δf| / ΔΓ (Newtonian: 1), n = 3–9")
+    fig.tight_layout()
+    save(fig, "fig13_newtonian_ratio_two_instruments", "results/shifts_asis.csv; results/glucose_shifts_asis.csv (ref = air)", "overtones 3–9; magnitude estimator where its −3 dB width exists")
+
+
+def fig_gluc_conc():
+    fig, ax = plt.subplots(1, 4, figsize=(7.4, 2.9))
+    conc = {"water": 0.0, "gluc05": 5.0, "gluc075": 7.5, "gluc10": 10.0}
+    for k, n in enumerate((1, 3, 5, 7, 9)):
+        for j, (col, lab) in enumerate((("df", "Δf vs water [Hz]"), ("dG", "ΔΓ vs water [Hz]"), ("dD_ppm", "ΔD vs water [10⁻⁶]"))):
+            s = GSH[(GSH.ref == "water") & (GSH.estimator == "psl") & (GSH.n == n)].sort_values("conc")
+            x = np.concatenate([[0.0], s.conc.values]); y = np.concatenate([[0.0], s[col].values])
+            r = GCC[(GCC.estimator == "psl") & (GCC.n == n)].iloc[0]; kk, bb = {"df": (r.k_df, r.b_df), "dG": (r.k_dG, r.b_dG), "dD_ppm": (r.k_dD, r.b_dD)}[col]
+            ax[j].plot(x, y, "o", ms=4, color=C[k], label="n = %d" % n, mec="white", mew=0.4); xx = np.array([0, 10.5]); ax[j].plot(xx, kk * xx + bb, color=C[k], lw=0.8)
+            ax[j].set_xlabel("glucose [% w/v]"); ax[j].set_ylabel(lab)
+        r = GCC[(GCC.estimator == "psl") & (GCC.n == n)].iloc[0]
+        ax[3].plot([5, 7.5, 10], [r.rhoeta_rel_05, r.rhoeta_rel_075, r.rhoeta_rel_10], "o-", ms=4, color=C[k], lw=0.8, mec="white", mew=0.4)
+        r2 = GCC[(GCC.estimator == "argmax_hh") & (GCC.n == n)].iloc[0]
+        ax[3].plot([5, 7.5, 10], [r2.rhoeta_rel_05, r2.rhoeta_rel_075, r2.rhoeta_rel_10], "v", ms=3.5, mfc="none", color=C[k], mew=0.7)
+    ax[3].set_xlabel("glucose [% w/v]"); ax[3].set_ylabel("ρη / (ρη)_water = (Δf/Δf_water)²"); ax[3].plot([], [], "v", mfc="none", color=TXT, label="max G"); ax[3].plot([], [], "o", color=TXT, label="PSL")
+    ax[3].legend(fontsize=6, loc="upper left")
+    h, l = ax[0].get_legend_handles_labels(); fig.legend(h, l, fontsize=6.5, ncol=5, loc="upper center", bbox_to_anchor=(0.5, 1.02))
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    save(fig, "fig14_glucose_concentration", "results/glucose_shifts_asis.csv (ref = water, air); results/glucose_conc_asis.csv", "phase-shifted Lorentzian; lines = OLS with intercept on 0, 5, 7.5, 10 % w/v; ρη relative from the air-referenced Δf")
+
+
 if __name__ == "__main__":
     fig_raw(); fig_GB(); fig_fits(); fig_bias(); fig_phi(); fig_shifts(); fig_estimators(); fig_repeat(); fig_forward(); fig_datalog()
+    if GL:
+        fig_gluc_shifts(); fig_gluc_ratio(); fig_gluc_conc()
     L = ["# Figure provenance\n", "| figure | source dataset | script | parameters |", "|---|---|---|---|"]
     for p in PROV:
         L.append("| %s | %s | %s | %s |" % (p["figure"], p["source"], p["script"], p["params"]))
