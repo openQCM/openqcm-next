@@ -116,6 +116,22 @@ Rotation widens the half-height width by √(1+2tan²(φ/2)) (+0.5 % at φ = −
 Frozen water reference sweep of 2026-07-28 (fundamental, docs/impedance-analysis/reference-sweep/g1.txt): f_Gmax = 4998002 Hz, Γ_hh = 955.1 Hz, PSL f_res − f_Gmax = +21.2 Hz, Γ = 979.5 Hz, φ = 2.2°, rms 1.46 % (2026-09-11 water n = 1: φ = -5.0°). ⚠️ The board of that sweep is not recorded.
 
 
+## φ = φ₀ − 360·f·τ fitted to the mean φ per overtone (board 1920 and the 2026-09-03 air set)
+
+| set | fit | φ₀ [°] | τ [ns] | rms [°] |
+|---|---|---|---|---|
+| 2026-09-11 air | n=1-9 | -7.0 | 1.28 | 1.2 |
+| 2026-09-11 air | n=3-9 | -9.4 | 1.09 | 0.8 |
+| 2026-09-11 water | n=1-9 | -5.6 | 1.48 | 3.0 |
+| 2026-09-11 water | n=3-9 | -11.2 | 1.03 | 2.1 |
+| 2026-09-11 ipa | n=1-9 | -5.6 | 1.44 | 3.4 |
+| 2026-09-11 ipa | n=3-9 | -11.2 | 0.99 | 2.8 |
+| 2026-09-03 air | n=1-9 | -7.9 | 1.40 | 1.9 |
+| 2026-09-03 air | n=3-9 | -12.5 | 1.04 | 0.5 |
+
+A constant plus a delay is an approximation (rms 1–3° here) and both parameters move when n = 1 is excluded; it is reported for comparison with the 2024 set, not as a model of φ.
+
+
 ## Board phase from the resistive standards (open/short/50 Ω sweeps of 2026-09-03, 1–51 MHz)
 
 | standard | fit range | slope [°/MHz] | delay τ [ns] | intercept [°] | rms [°] | |Δφ| at 5 / 15 / 25 / 35 / 45 MHz [°] | M at 5 / 25 / 45 MHz [Ω] (ideal 52.3 / 102.3) |

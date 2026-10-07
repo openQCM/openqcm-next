@@ -101,6 +101,19 @@ def phi_analysis(p):
     return out, air03, ref
 
 
+def phi0_tau(p):
+    """phi = phi0 - 360 f tau fitted to the mean phi per overtone (2026-09-11 per phase; 2026-09-03 air), all n and n >= 3."""
+    rows = []
+    sets = {ph: p[p.phase == ph].groupby("n").agg(f=("fres", "mean"), phi=("phi_deg", "mean")).reset_index() for ph in ("air", "water", "ipa")}
+    a03 = BT_AIR03 = None
+    for name, m in list(sets.items()):
+        for label, sel in (("n=1-9", m.n >= 1), ("n=3-9", m.n >= 3)):
+            x = -360.0 * m.f[sel].values * 1e-9; y = m.phi[sel].values
+            A = np.column_stack([x, np.ones_like(x)]); sol, *_ = np.linalg.lstsq(A, y, rcond=None)
+            rows.append(dict(set="2026-09-11 " + name, fit=label, phi0_deg=float(sol[1]), tau_ns=float(sol[0]), rms_deg=float(np.sqrt(np.mean((A @ sol - y) ** 2)))))
+    return rows
+
+
 def osl_delay():
     """Phase of the short and 50 Ω standards against frequency: a resistive load has
     zero true phase, so the reading is the instrument. Fit |Δφ| = a + 360 f τ on 3–50 MHz."""
@@ -124,7 +137,17 @@ if __name__ == "__main__":
     t = check_closed_forms()
     p, stats = check_on_data()
     phis, air03, ref = phi_analysis(p)
+    pt = phi0_tau(p)
+    m = pd.DataFrame([dict(f=air03[n]["fres"], phi=air03[n]["phi"], n=n) for n in air03])
+    for label, sel in (("n=1-9", m.n >= 1), ("n=3-9", m.n >= 3)):
+        x = -360.0 * m.f[sel].values * 1e-9; y = m.phi[sel].values; A = np.column_stack([x, np.ones_like(x)]); sol, *_ = np.linalg.lstsq(A, y, rcond=None)
+        pt.append(dict(set="2026-09-03 air", fit=label, phi0_deg=float(sol[1]), tau_ns=float(sol[0]), rms_deg=float(np.sqrt(np.mean((A @ sol - y) ** 2)))))
+    L.append("\n## φ = φ₀ − 360·f·τ fitted to the mean φ per overtone (board 1920 and the 2026-09-03 air set)\n")
+    L.append("| set | fit | φ₀ [°] | τ [ns] | rms [°] |\n|---|---|---|---|---|")
+    for r in pt:
+        L.append("| %s | %s | %.1f | %.2f | %.1f |" % (r["set"], r["fit"], r["phi0_deg"], r["tau_ns"], r["rms_deg"]))
+    L.append("\nA constant plus a delay is an approximation (rms 1–3° here) and both parameters move when n = 1 is excluded; it is reported for comparison with the 2024 set, not as a model of φ.\n")
     osl = osl_delay()
     open(os.path.join(R, "bias_theory.md"), "w").write("\n".join(L) + "\n")
-    json.dump(dict(bias_stats=stats, phi=phis, air_0903=air03, reference_0728=ref, osl=osl), open(os.path.join(R, "bias_theory.json"), "w"), indent=1, default=float)
+    json.dump(dict(bias_stats=stats, phi=phis, air_0903=air03, reference_0728=ref, osl=osl, phi0_tau=pt), open(os.path.join(R, "bias_theory.json"), "w"), indent=1, default=float)
     print("\n".join(L))

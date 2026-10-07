@@ -130,7 +130,7 @@ def fig_bias():
         ax[0].plot(gp.bias_pred, gp.bias_meas, "s", ms=3.5, mfc="none", color=TXT, label="2024 set (75 sweeps, 2nd instrument)", mew=0.6)
         ax[1].plot(gp.gamma, (gp.bias_meas - gp.bias_pred) / gp.gamma, "s", ms=3.5, mfc="none", color=TXT, mew=0.6)
     lim = [-760, 60]; ax[0].plot(lim, lim, color=TXT2, lw=0.8); ax[0].set_xlim(lim); ax[0].set_ylim(lim)
-    ax[0].set_xlabel("predicted Γ·tan(φ/2) [Hz]"); ax[0].set_ylabel("measured f_Gmax − f_res [Hz]"); ax[0].legend(fontsize=7); ax[0].set_title("Bias of the conductance maximum, 45 sweeps")
+    ax[0].set_xlabel("predicted Γ·tan(φ/2) [Hz]"); ax[0].set_ylabel("measured f_Gmax − f_res [Hz]"); ax[0].legend(fontsize=7); ax[0].set_title("Bias of the conductance maximum, 45 + 75 sweeps")
     ax[1].axhline(0, color=TXT2, lw=0.8); ax[1].set_xscale("log"); ax[1].set_xlabel("Γ (PSL) [Hz]"); ax[1].set_ylabel("(measured − predicted) / Γ"); ax[1].set_title("Residual of the closed form")
     fig.tight_layout()
     save(fig, "fig05_argmax_bias", "results/sweeps_asis.csv (psl rows)", "bias_meas = f_Gmax − f_res(PSL); bias_pred = Γ_PSL tan(φ_PSL/2)")
@@ -280,7 +280,7 @@ def fig_gluc_shifts():
     ax[0].plot([], [], "v", mfc="none", color=TXT, label="max G + half height"); ax[0].plot([], [], "o", color=TXT, label="phase-shifted Lorentzian")
     ax[0].set_ylabel("−Δf_n / n [Hz]"); ax[1].set_ylabel("ΔΓ_n / n [Hz]"); ax[2].set_ylabel("ΔD_n [10⁻⁶]")
     for a in ax: a.set_xticks([1, 3, 5, 7, 9]); a.set_xlabel("overtone order n")
-    ax[0].legend(fontsize=5.8, loc="upper right"); ax[0].set_title("2024 set: shifts from air", loc="left")
+    ax[2].legend(*ax[0].get_legend_handles_labels(), fontsize=5.8, loc="upper right"); ax[0].set_title("2024 set: shifts from air", loc="left")
     fig.tight_layout()
     save(fig, "fig12_glucose_shifts_vs_n", "results/glucose_shifts_asis.csv (ref = air)", "mean of 3 replicas; KG for water only")
 
