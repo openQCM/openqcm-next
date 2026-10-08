@@ -5,6 +5,14 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `main`
 
+### Docs — SESSION_PROMPT: manuscript v0.2 state, TeX tooling (2026-10-08)
+
+`docs/SESSION_PROMPT.md` (one file on both branches) gains a "Paper — manoscritto v0.2" inventory entry — where the
+revision lives on `impedance-analysis` (`research/paper/`, commit `c316228`), the three decisions of record of
+2026-10-08 (no dedicated air → water dataset; glucose ρη relative only; liquid constants at 25 °C), what changed in the
+conclusions, the missing full datalog of 2024-05-29 — and an environment note on TinyTeX (user-level TeX Live 2026)
+and PyMuPDF. Cherry-picked onto `impedance-analysis`.
+
 ### Fixed — firmware 0.1.5d: the sweep-average sums are reset at every frequency point (2026-10-02)
 
 `712d3af`, `5a98912`. In `0.1.5a`, `0.1.5b` and `0.1.5c` (and the `-TEST` variants) `value` and `value2`, the
