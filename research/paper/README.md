@@ -1,6 +1,6 @@
-# `paper/` — manuscript project: QCM frequency and dissipation from DDS excitation, gain–phase detection and complex-admittance reconstruction
+# `research/paper/` — manuscript project: QCM frequency and dissipation from DDS excitation, gain–phase detection and complex-admittance reconstruction
 
-Work of 2026-10-06/07 on the `impedance-analysis` branch (analysis of commit `37fce4b`, second dataset added 2026-10-07). Nothing pre-existing under `research/` or `software/` was modified; the one addition is the new folder `research/glucose-2024-05-29/` (raw sweeps of a second instrument, 2024-05-29, with its datalog and provenance README), of which `paper/data/glucose-2024-05-29/` is an identical copy kept with the paper (the loader falls back to it). Every number here is regenerated from the raw data in `research/` by the scripts in `analysis/`.
+Work of 2026-10-06/07 on the `impedance-analysis` branch (analysis of commit `37fce4b`, second dataset added 2026-10-07). Nothing pre-existing under `research/` or `software/` was modified; the one addition is the new folder `research/glucose-2024-05-29/` (raw sweeps of a second instrument, 2024-05-29, with its datalog and provenance README), of which `research/paper/data/glucose-2024-05-29/` is an identical copy kept with the paper (the loader falls back to it). Every number here is regenerated from the raw data in `research/` by the scripts in `analysis/`.
 
 | what | where |
 |---|---|
@@ -22,8 +22,8 @@ Work of 2026-10-06/07 on the `impedance-analysis` branch (analysis of commit `37
 ## Reproducing everything
 
 ```bash
-pip install numpy scipy matplotlib pandas        # numpy 2.x works for paper/analysis (the instrument code itself needs numpy ≤ 1.23)
-cd paper/analysis
+pip install numpy scipy matplotlib pandas        # numpy 2.x works for research/paper/analysis (the instrument code itself needs numpy ≤ 1.23)
+cd research/paper/analysis
 python run_estimators.py      # 45 sweeps × 7 estimators, as-is and firmware-corrected  → results/sweeps_*.csv
 python run_shifts.py          # phases, shifts, Kanazawa–Gordon, √n slopes, gate stats  → results/tables_*.md, summary_*.json
 python run_datalogs.py        # the two datalogs, impedance vs magnitude chain          → results/datalogs.md

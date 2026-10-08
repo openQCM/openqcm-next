@@ -4,7 +4,7 @@ run_bias_theory.py — closed-form biases of the simple estimators for a rotated
 Lorentzian, checked on the 45 sweeps; the rotation angle φ across overtones,
 loads, replicas and days; the board delay from the open/short/load sweeps.
 
-Closed forms (derived in paper/notes/derivations.md), Δ = f_res − f:
+Closed forms (derived in research/paper/notes/derivations.md), Δ = f_res − f:
   G(Δ) = A (Γ cos φ − Δ sin φ)/(Δ² + Γ²) + G_off
   maximum at Δ = −Γ tan(φ/2)   →  f_Gmax = f_res + Γ tan(φ/2)
   G_peak − G_off = (A/Γ) cos²(φ/2);  minimum G_min − G_off = −(A/Γ) sin²(φ/2)

@@ -334,7 +334,7 @@ def magnitude_estimator(freq, V_MAG, threshold_db=0.3):
 # ------------------------------------------------------------- Kanazawa–Gordon
 RHO_Q, MU_Q = 2648.0, 2.947e10          # AT-cut quartz density [kg/m3] and shear modulus [Pa]
 Z_Q = math.sqrt(RHO_Q * MU_Q)            # 8.84e6 kg m^-2 s^-1
-# liquid properties at 25 °C (literature; see paper/notes/derivations.md for sources)
+# liquid properties at 25 °C (literature; see research/paper/notes/derivations.md for sources)
 LIQUIDS = {
     "water": dict(rho=997.05, eta=0.890e-3),
     "ipa":   dict(rho=781.0,  eta=2.038e-3),

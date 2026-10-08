@@ -1,6 +1,6 @@
 # Derivations of the measurement equations
 
-*Companion to the manuscript. Every equation here was re-derived independently of the repository documentation and checked numerically with `paper/analysis/qcmchain.py` (the §11 reference sweep and the 45 sweeps of 2026-09-11; see `paper/notes/running_list.md` for the checks and for the one discrepancy found).*
+*Companion to the manuscript. Every equation here was re-derived independently of the repository documentation and checked numerically with `research/paper/analysis/qcmchain.py` (the §11 reference sweep and the 45 sweeps of 2026-09-11; see `research/paper/notes/running_list.md` for the checks and for the one discrepancy found).*
 
 Notation: $j$ imaginary unit, $f$ excitation frequency, $\omega = 2\pi f$. $Z_q = R_q + jX_q$ quartz impedance, $Y_q = 1/Z_q = G + jB$. $R_{17} = 52.3\ \Omega$. $\Delta = f_\mathrm{res} - f$. $\Gamma$ = half bandwidth at half height (HWHM). $D = 2\Gamma/f_\mathrm{res}$.
 

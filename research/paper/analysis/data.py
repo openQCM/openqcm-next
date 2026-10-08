@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
+ROOT = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
 D0911 = os.path.join(ROOT, "research", "air-ipa-water-1920-2026-09-11")
 D0910 = os.path.join(ROOT, "research", "air-ipa-water-1920-2026-09-10")
 D0903 = os.path.join(ROOT, "research", "board-125MHz-air-2026-09-03")
@@ -66,7 +66,7 @@ def osl():
 
 # ----------------------------------------------------------- glucose 2024-05-29
 GLUC = os.path.join(ROOT, "research", "glucose-2024-05-29")
-GLUC_COPY = os.path.join(ROOT, "paper", "data", "glucose-2024-05-29")     # identical copy kept with the paper
+GLUC_COPY = os.path.join(ROOT, "research", "paper", "data", "glucose-2024-05-29")     # identical copy kept with the paper
 GLUC_NPZ = os.path.join(GLUC, "data", "sweep_raw_2024-05-29.npz")
 if not os.path.exists(GLUC_NPZ):
     GLUC_NPZ = os.path.join(GLUC_COPY, "data", "sweep_raw_2024-05-29.npz")

@@ -1,12 +1,12 @@
 # Running list — verified facts, hypotheses, open questions, assumptions, limitations, reviewer objections
 
-*Kept during the analysis (2026-10-06). Numbers refer to `paper/analysis/results/*.md` unless stated. "Repo" = the `impedance-analysis` branch documentation and code as of commit 37fce4b.*
+*Kept during the analysis (2026-10-06). Numbers refer to `research/paper/analysis/results/*.md` unless stated. "Repo" = the `impedance-analysis` branch documentation and code as of commit 37fce4b.*
 
 ## A. Verified facts (reproduced independently in this work)
 
 1. **Constants.** R17 = 52.3 Ω; AD8302 30 mV/dB (600 mV/decade), 10 mV/°, centre 0.900 V, 1.8 V at 0° (data sheet Rev. B eqs. 8a, 9; `docs/datasheet/ad8302.pdf`). INPB attenuator (47.0 + 4.99)/4.99 = 10.4188 → 20.356 dB → 0.610692 V at 30 mV/dB. ADC 3.3 V / 4096; op-amp gains 2 (magnitude) and 1.5 (phase). All as in `core/constants.py` and `processors/Multiscan.py`.
 2. **Inversion.** M = R17·10^((V_CP − V_MAG)/0.6), R_q = M cos φ − R17, X_q = −M sin φ, G = R_q/(R_q²+X_q²), B = −X_q/(R_q²+X_q²): re-derived from H = R17/(Z_q+R17) and the detector laws (`notes/derivations.md` §3), numerically identical to the repository's closed form.
-3. **Independent re-implementation reproduces the instrument.** `paper/analysis/qcmchain.py` (written from the equations, sharing only the smoothing definition) reproduces `software/tests/data/psl_expected_2026-09-11.json` (f_Gmax, Γ_hh, PSL f_res, Γ, φ, rms) to all printed digits on every sweep checked.
+3. **Independent re-implementation reproduces the instrument.** `research/paper/analysis/qcmchain.py` (written from the equations, sharing only the smoothing definition) reproduces `software/tests/data/psl_expected_2026-09-11.json` (f_Gmax, Γ_hh, PSL f_res, Γ, φ, rms) to all printed digits on every sweep checked.
 4. **Argmax bias.** f_Gmax − f_res = Γ tan(φ/2) for the rotated Lorentzian (derivation §7); on the 45 sweeps measured − predicted = +1 ± 28 Hz (sd), max 77 Hz, mean +0.016 Γ.
 5. **Half-height width of a rotated Lorentzian** = Γ √(1 + 2 tan²(φ/2)); midpoint bias = 2Γ tan(φ/2) (new closed forms, verified numerically to the 1 Hz grid).
 6. **Estimator errors on overtones 3–9, both liquids, air→liquid shifts vs Kanazawa–Gordon at 25 °C** (`results/tables_asis.md`): magnitude maximum eps_f = +52…+92 %; max G + half height eps_f = +19.5…+29.5 %, eps_Γ = −7.4…+6.3 %; symmetric Lorentzian + linear background eps_f = +24.5…+34.4 %, eps_Γ = −3.0…+11.3 %; phase-shifted Lorentzian eps_f = −1.4…+8.2 %, eps_Γ = −3.9…+9.3 %, |Δf|/ΔΓ = 0.98–1.08; BVD circle eps_f = −2.5…+37.9 % (unstable on water n = 3).

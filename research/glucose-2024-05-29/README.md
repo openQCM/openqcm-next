@@ -1,8 +1,8 @@
 # Air → water → glucose 5 / 7.5 / 10 % w/v, 2024-05-29: raw sweeps of a second instrument
 
-*Added 2026-10-07 for the paper (`paper/`), from the archive Marco supplied on that date (`glucose_2024-05-29_part1.zip`,
+*Added 2026-10-07 for the paper (`research/paper/`), from the archive Marco supplied on that date (`glucose_2024-05-29_part1.zip`,
 `_part2.zip`, with `MANIFEST_glucose_2024-05-29.txt`). Nothing else under `research/` was touched. An identical copy lives in
-`paper/data/glucose-2024-05-29/`; the loader reads this folder first and the copy if it is missing.*
+`research/paper/data/glucose-2024-05-29/`; the loader reads this folder first and the copy if it is missing.*
 
 ## Acquisition (conditions of record)
 
@@ -23,7 +23,7 @@
 - `data/sweep_raw_2024-05-29.npz` — the 75 `<n>.txt` sweeps exactly as written by software 0.1.5 (18 001 × 3, byte-exact
   round trip with `np.savetxt(fmt='%.18e')` checked when packing), key `<phase>_<rr>/<n>`, phase in `air water gluc05 gluc075
   gluc10`, rr in `00 01 02`, n in `1 3 5 7 9`; `<phase>_<rr>/<n>/mtime` is the file's write time. Pack/unpack:
-  `python paper/analysis/pack_glucose.py pack|unpack …`.
+  `python research/paper/analysis/pack_glucose.py pack|unpack …`.
 - `data/2024-May-29_14-21-38_multi_.csv` — the session's datalog, **production amplitude method of `main` 0.1.5** (f = maximum
   of the fitted magnitude; "Dissipation" = full width 0.3 dB below the maximum, in MHz). 541 rows, 14:22:29–16:00:57, 9 s
   spacing, 75 rows exact duplicates of the previous one.
@@ -32,7 +32,7 @@
 
 **`<n>.txt` format** (software 0.1.5, `software/docs/DATA_FORMAT_sweep_data.md`): column 1 frequency [Hz]; column 2
 `(counts·3.3/4096/2 − 0.9)/0.03`, i.e. the magnitude channel in dB **with the INPB attenuator not undone**; column 3
-`(counts·3.3/4096/1.5 − 0.9)/0.01 = 90 − |Δφ|`. The paper's loader (`paper/analysis/data.py`, `glucose_0529()`) converts
+`(counts·3.3/4096/1.5 − 0.9)/0.01 = 90 − |Δφ|`. The paper's loader (`research/paper/analysis/data.py`, `glucose_0529()`) converts
 with `V_MAG = 0.9 + 0.03·col2 − 0.610692` and `V_PHS = 0.9 + 0.01·col3`; the firmware carry-over is undone on the quantities
 proportional to the counts (`qcmchain.undo_firmware_carry`).
 
@@ -65,5 +65,5 @@ Write times are those of the last file of each replica set (`1.txt` … `9.txt` 
 
 ## Analysis
 
-`paper/analysis/run_glucose.py` (all estimators of the paper, as-is and firmware-corrected), results in
-`paper/analysis/results/glucose_*`; figures 5, 6, 12–14 of the paper.
+`research/paper/analysis/run_glucose.py` (all estimators of the paper, as-is and firmware-corrected), results in
+`research/paper/analysis/results/glucose_*`; figures 5, 6, 12–14 of the paper.

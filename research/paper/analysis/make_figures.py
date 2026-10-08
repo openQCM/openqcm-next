@@ -31,7 +31,7 @@ def save(fig, name, source, params):
     for ext in ("png", "pdf"):
         fig.savefig(os.path.join(FIG, "%s.%s" % (name, ext)), bbox_inches="tight")
     plt.close(fig)
-    PROV.append(dict(figure=name, source=source, script="paper/analysis/make_figures.py", params=params))
+    PROV.append(dict(figure=name, source=source, script="research/paper/analysis/make_figures.py", params=params))
     print("wrote", name)
 
 

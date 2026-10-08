@@ -107,7 +107,7 @@ Two measurement campaigns are reported. The first, on which the method was devel
 
 **Theory.** Kanazawa–Gordon in the small-load form normalised to the fundamental $f_F$ [@KanazawaGordon1985AC; @Johannsmann2021]: $\Delta f_n = -\sqrt{n}\,f_F^{3/2}\sqrt{\rho\eta/(\pi\rho_q\mu_q)}$, $\Delta\Gamma_n = -\Delta f_n$, with $\rho_q = 2648$ kg m$^{-3}$, $\mu_q = 2.947\times10^{10}$ Pa, $f_F = 5\,004\,596$ Hz (air), water $\rho = 997.05$ kg m$^{-3}$, $\eta = 0.890$ mPa s and isopropanol $\rho = 781.0$ kg m$^{-3}$, $\eta = 2.038$ mPa s at 25 °C, giving 673.6 $\sqrt n$ Hz and 901.5 $\sqrt n$ Hz. Error metrics: $\epsilon_f = \Delta f/\Delta f_\mathrm{KG} - 1$, $\epsilon_\Gamma = \Delta\Gamma/\Delta\Gamma_\mathrm{KG} - 1$ and the Newtonian ratio $\rho_N = |\Delta f|/\Delta\Gamma$, whose prediction (unity) does not depend on $\rho\eta$ or on temperature.
 
-**Reproducibility.** Raw sweeps (`research/air-ipa-water-1920-2026-09-11/data/sweep_dumps_2026-09-11.npz`, `research/glucose-2024-05-29/data/sweep_raw_2024-05-29.npz`), datalogs, the analysis package (`paper/analysis/`: `qcmchain.py`, `run_estimators.py`, `run_shifts.py`, `run_datalogs.py`, `run_bias_theory.py`, `run_forward_model.py`, `run_glucose.py`, `make_figures.py`) and all result tables are in the repository; every figure lists its source and parameters in `results/figure_provenance.md`.
+**Reproducibility.** Raw sweeps (`research/air-ipa-water-1920-2026-09-11/data/sweep_dumps_2026-09-11.npz`, `research/glucose-2024-05-29/data/sweep_raw_2024-05-29.npz`), datalogs, the analysis package (`research/paper/analysis/`: `qcmchain.py`, `run_estimators.py`, `run_shifts.py`, `run_datalogs.py`, `run_bias_theory.py`, `run_forward_model.py`, `run_glucose.py`, `make_figures.py`) and all result tables are in the repository; every figure lists its source and parameters in `results/figure_provenance.md`.
 
 # 6. Results — first campaign: board 1920, water and isopropanol
 
@@ -279,6 +279,6 @@ On a DDS-swept quartz sensor read by an AD8302 gain/phase detector in a 52.3 Ω 
 
 # Data and code availability
 
-Raw sweeps, datalogs, calibration sweeps and all analysis scripts are in the `impedance-analysis` branch of the openQCM NEXT repository (`research/`, `paper/analysis/`), including the 2024-05-29 glucose set (`research/glucose-2024-05-29/`); the instrument software and firmware are in the same repository.
+Raw sweeps, datalogs, calibration sweeps and all analysis scripts are in the `impedance-analysis` branch of the openQCM NEXT repository (`research/`, `research/paper/analysis/`), including the 2024-05-29 glucose set (`research/glucose-2024-05-29/`); the instrument software and firmware are in the same repository.
 
 # References
