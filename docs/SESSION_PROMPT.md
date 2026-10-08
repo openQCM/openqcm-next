@@ -10,7 +10,7 @@ The two previous copies drifted apart and started contradicting each other.
 Keep it short and keep it true. It is a shortcut, not the source: HANDOFF.md and
 the `## [Unreleased]` entries in CHANGELOG.md are.
 
-Last aligned: 2026-10-02.
+Last aligned: 2026-10-08.
 -->
 
 # openQCM NEXT — prompt per iniziare una nuova sessione
@@ -107,6 +107,11 @@ reale.
 `arduino-cli` non è sul PATH ma è dentro `Arduino IDE.app` con il core Teensy:
 gli sketch del firmware si compilano headless.
 
+TeX: niente pdflatex di sistema, niente pandoc né poppler. C'è **TinyTeX** (TeX Live 2026,
+installato il 2026-10-08 senza password admin): `export PATH="$HOME/Library/TinyTeX/bin/universal-darwin:$PATH"`
+e poi `pdflatex`/`bibtex`/`tlmgr`. Per guardare le pagine di un PDF usa PyMuPDF (`import fitz`).
+⚠️ `brew install tectonic` non ha bottle per questo Mac e compila per un'ora dai sorgenti: non usarlo.
+
 ## I file di dati grezzi
 
 Specifica completa: **`software/docs/DATA_FORMAT_sweep_data.md`** — leggila prima
@@ -184,6 +189,30 @@ attivo solo con `OPENQCM_SWEEP_DUMP=1`, **sovrascritto a ogni sweep**):
 - `plot_color_multi_g`: palette esadecimale dei grafici di conduttanza, copia di una
   lista blu più vecchia, mai allineata alle due rampe.
 - Copia benigna di `savitzky_golay` in `sweep_data/plot_conductance.py`.
+
+### Paper — manoscritto v0.2 (2026-10-08, solo sul ramo `impedance-analysis`)
+
+- `research/paper/`: manoscritto v0.2 (`manuscript/manuscript.md`), Supporting Information,
+  change log v0.1 → v0.2, figure in `figures_v2/`, PDF arXiv compilati (`arxiv/main.pdf` 19 pp.,
+  `arxiv/si.pdf` 34 pp.), pipeline `analysis/run_v2.py` → `make_figures_v2.py` → `make_si.py` →
+  `md2tex.py`. **Parti da `research/paper/README.md`.** Commit `c316228`.
+- Decisioni di record (Marco, 2026-10-08): **non esiste un dataset dedicato aria → acqua** (DS-1);
+  l'Esperimento 1 usa il passo aria → acqua di DS-2 (2026-09-11) e di DS-3 (2024-05-29). Per il
+  glucosio **solo ρη relativo all'acqua**, niente valori tabulati. Costanti dei liquidi a 25 °C con il
+  caveat ±2 K (temperatura del liquido mai misurata).
+- Cosa è cambiato nelle conclusioni rispetto alla v0.1: il claim "8 %" del repository vale per la
+  **frequenza su board 1920** (|ε_f| ≤ 8.2 % su n = 3–9), **non** sul secondo strumento (+6…+13 %),
+  e **non è un miglioramento per la banda** (già entro il 7 % con la mezza altezza); φ è strumentale
+  al primo ordine ma cambia di 3–8° fra aria e liquido alla fondamentale e di 4–5° su n = 5, e fra
+  schede fino a 5°: va misurato per strumento e per overtone.
+- ⚠️ Il datalog completo del 2024-05-29 (`2024-May-29_14-21-38_multi_.csv`) è gitignored e **non c'è
+  più** nel worktree: resta solo l'estratto 15:00–16:01, senza la fase in aria. Se l'archivio del
+  2026-10-07 esiste ancora, va rimesso in `research/glucose-2024-05-29/data/`.
+- Prima della sottomissione: lista autori e affiliazioni; voci ancora (U) nel changelog di
+  `literature/literature_review.md`; esperimenti rimanenti in `notes/remaining_experiments.md`
+  (= SI S11), per primi analizzatore di riferimento e acquisizione aria → acqua dedicata.
+- Le verifiche indipendenti (derivazione SLA → KG, controllo di ogni numero del testo, pass di
+  letteratura) sono in `notes/` e `literature/`; non rifarle, leggile.
 
 ### GUI
 
