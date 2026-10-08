@@ -5,6 +5,12 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — SESSION_PROMPT: manuscript v0.2 state, TeX tooling (2026-10-08)
+
+`docs/SESSION_PROMPT.md` cherry-picked from `main`: the "Paper — manoscritto v0.2" inventory entry (where the
+revision lives, the three decisions of record of 2026-10-08, what changed in the conclusions, the missing full datalog
+of 2024-05-29) and the environment note on TinyTeX and PyMuPDF.
+
 ### Research — manuscript v0.2: theory SLA → KG, three experiments with the KG-1/2/3 tests, Supporting Information, compiled arXiv PDFs (2026-10-08)
 
 `research/paper/` revised after the revision prompt of 2026-10-08. Main text rewritten (`manuscript/manuscript.md`;
