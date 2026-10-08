@@ -116,3 +116,33 @@
 6. A larger (or switchable) R17 to move the liquid operating point into the AD8302's linear range; repeat the roundness and φ tests.
 7. Sweep window scaled with Γ in liquid (removes the clipping and the baseline-on-skirt bias of the half-height width).
 8. Firmware 0.1.5d re-acquisition of the air/water/isopropanol set (removes the carry-over caveat from the dataset of record).
+
+---
+
+## v0.2 revision (2026-10-08) — additions and corrections
+
+*Numbers from `analysis/results/v2/asis/` (regenerated from the raw sweeps on 2026-10-08; per-sweep tables reproduce the 2026-10-07 ones to ≤0.07 Hz / ≤0.5 Hz / ≤0.05°).*
+
+### A3. Verified facts added in v0.2
+
+29. **KG-1 as ΔΓ/(−Δf)** (inverse of the ρ_N of §A): A 0.76–0.85 (DS-2), 0.71–0.83 (DS-3); P 0.92–1.01 (DS-2), 0.86–0.99 (DS-3), overtones 3–9, all liquids. The overtone pattern of r_n after P is identical across the liquids of each dataset (DS-3: 0.87–0.88, 0.98–0.99, 0.86–0.89, 0.90–0.94 on n = 3, 5, 7, 9 in four liquids).
+30. **KG-2 as a log–log slope (n = 3–9; KG −0.5)**: Δf: A −0.54 (DS-2 water), −0.50 (DS-2 ipa), −0.41 (DS-3, all liquids); P −0.58, −0.56, −0.49…−0.52. ΔΓ: A −0.62, −0.59, −0.47…−0.50; P −0.62, −0.54, −0.45…−0.52. The fit improves KG-2 on the second instrument only; on board 1920 the bandwidth slope is −0.62 with both estimators (ΔΓ_n/n in water from +9 % above KG at n = 3 to −4 % at n = 9).
+31. **KG-3 with two liquids (DS-2, P)**: measured ratio of the shifts ipa/water 1.29–1.35 (Δf) and 1.29–1.41 (ΔΓ) on n = 3–9 against √(ρη) ratio 1.339; absolute level +2…+8 % (f) for both liquids.
+32. **The '8 %' claim per overtone**: P |ε_f| ≤ 8.2 % on every overtone 3–9 of DS-2 (water 8.2, 7.0, 4.8, 1.4; ipa 7.9, 2.7, 4.8, 1.0); on DS-3 only n = 5 (6.1 %), n = 3, 7, 9 at 13.1, 11.0, 10.1 %. Bandwidth within 8 % with A already (max 7.4 % DS-2, 4.5 % DS-3); with P 9.3 % on the two-state sweep.
+33. **Bias law on 120 sweeps**: DS-2 +1 ± 28 Hz (max 77), DS-3 +21 ± 28 Hz (max 80); mean +0.02 Γ, max 0.12 Γ (air peaks, +0.06…+0.11 Γ). Sign as the convention requires on every liquid sweep. Γ_hh/Γ_P: air 1.03–1.09 (predicted 1.02–1.06), liquid 0.93–0.99 (baseline on the skirt).
+34. **Exp. 1 reproducibility DS-2 vs DS-3 (P, water, n = 3–9)**: Δf_n/n DS-3/DS-2 − 1 = +4.4, −0.9, +5.8, +11.6 %; ΔΓ_n/n −10.2, +2.0, −1.3, +2.5 %; fundamental ΔΓ −17.6 % (the DS-2 excess). Live A of board 1920 on two days: ε_f +14…+29 % and +12…+30 %.
+35. **Glucose, relative √(ρη) from both channels (P, n = 3–9)**: 1.052, 1.091, 1.132 (sd over n 0.017–0.026); from Δf 1.046/1.082/1.121; from ΔΓ 1.059/1.101/1.145 (Δf- and ΔΓ-derived separate on n = 7, 9). Linear in concentration: 0.0131 per % w/v (0.0119 from Δf, 0.0144 from ΔΓ), 5 % point −0.008 (0.6 % w/v) below the line. Steps 0.052, 0.039, 0.041; σ_x = sd/slope 0.0004–0.0008 (f), 0.0001–0.0012 (Γ), every step ≥ 14 σ (f) and ≥ 15 σ (Γ); A ≥ 4 σ.
+36. **φ stability**: replica sd ≤ 0.25° (one exception 2.45°, the threshold sweep); across liquids ≤ 1.1° (DS-2), ≤ 2.0° (DS-3); across glucose concentrations ≤ 1.4°; air − liquid: n = 1 −3.0° (DS-2), −8.3° (DS-3, liquid value +0.7…+1.2°); n = 5 +3.7° (DS-2), −5.0° (DS-3); n = 7, 9 ≤ 3.1°; n = 3 ≤ 0.2°. Between boards (air) +0.7, −5.2, +1.1, −2.4, −1.1°; between days on the 1920 class +0.2, −3.0, −2.0, −2.8, −2.0°. Monotonic in n: air on board 1920 (both days) yes; liquids on either board no; air on DS-3 no (φ_3 ≈ φ_5).
+37. **Theory check** (`notes/theory_sla_to_kg_check.md`): SLA eq. (23) of Sensors 2021 with f_0 the fundamental, Newtonian result eq. (29) ∝ √n; derivation reproduces Eq. (4) with no sign/prefactor discrepancy; Z_q = 8.834·10⁶; water k = 673.6 Hz (NIST values), isopropanol 902.1 Hz (handbook ρ, η) / 910.0 Hz (Kerscher 2024); d ln√(ρη)/dT = −1.15 %/K (water), −1.60 %/K (isopropanol); the old document's water constants inflate KG by ×1.151.
+
+### B2. Corrections to v0.1
+
+- Isopropanol coefficient 901.5 → 902.1 Hz·√n (Z_q had been rounded); Z_q (acoustic) vs Z_el (electrical) now distinct symbols; liquid constants cited (NIST WebBook; Kerscher et al. 2024); ρ_N renamed r_n = ΔΓ/(−Δf).
+- v0.1's production-datalog numbers for the 2024 session (+17…+42 %) are not reproducible from the repository (full datalog gitignored and absent; only the 15:00–16:01 extract remains) and are no longer cited.
+
+### D2. Open questions added
+
+- Why φ at the fundamental differs between air and liquid by 3–8° (and changes sign on the second instrument) although a fold exists there and δ is corrected: the rounded fold under the peak (residual of the bias law −40…−45 Hz at the liquid fundamentals) is the candidate; not tested.
+- Why r_n after P is 0.86–0.90 on n = 3, 7, 9 of the second instrument and 0.98–0.99 on n = 5, identically in four liquids: the overtone pattern follows |φ_5| < |φ_3| on that board; a per-overtone residual of the single-angle model, or the AD8302 phase non-linearity near 0°, are candidates.
+
+### H2. Remaining experiments — see `notes/remaining_experiments.md` (updated 2026-10-08) and SI S11.

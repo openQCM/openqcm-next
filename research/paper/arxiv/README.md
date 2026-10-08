@@ -1,11 +1,12 @@
 # arXiv source
 
-`main.tex` was generated from `../manuscript/manuscript.md` with `pandoc -t latex --natbib` and wrapped in a standard `article` preamble; `references.bib` is a copy of `../literature/references.bib` (62 entries; entries with unverified DOIs carry a `note` field — check them before upload). Figures are the PDF versions of `../figures/`.
+`main.tex` (main text) and `si.tex` (Supporting Information) are generated from `../manuscript/manuscript.md` and `../manuscript/supporting_information.md` by `../analysis/md2tex.py` (no pandoc); `references.bib` is a copy of `../literature/references.bib`; `figures/` holds the PDF/PNG figures of `../figures_v2/` (main) and `figures/si/` those of the SI.
 
-Not compiled in the authoring environment (no TeX). Expected build:
+Build (done on 2026-10-08 with TeX Live 2026 via TinyTeX; `main.pdf` and `si.pdf` are the compiled outputs, `build/` the logs):
 
 ```
 pdflatex main && bibtex main && pdflatex main && pdflatex main
+pdflatex si   && bibtex si   && pdflatex si   && pdflatex si
 ```
 
-Suggested arXiv categories: `physics.ins-det` (primary), `eess.SP` (cross-list). Pandoc's `longtable` output for the two tables may need `\small` or a `tabular` rewrite for a single-column layout; equation `\tag` numbers are kept from the Markdown source.
+Suggested arXiv categories: `physics.ins-det` (primary), `eess.SP` (cross-list). The SI is a separate document; wide SI tables are set in landscape. Author list, affiliations and funding are placeholders.

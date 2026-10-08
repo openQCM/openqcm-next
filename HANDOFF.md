@@ -597,6 +597,10 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   or earlier, whose sweep average carried 1/500 of the previous point (+0.2 % on the counts; §3,
   "Firmware 0.1.5d"). The numbers in those pages, `handoff-tables.md` included, contain it; within a
   sweep it can be undone offline on the dumps.
+- **Manuscript v0.2** (2026-10-08): `research/paper/` — main text, SI, change log, compiled arXiv PDFs, the v2
+  analysis pipeline (`analysis/run_v2.py`, `make_figures_v2.py`, `make_si.py`, `md2tex.py`), the literature package
+  and the notes (theory check, number check, running list, remaining experiments). Start from
+  `research/paper/README.md`. The repository's "8 %" claim is now stated per overtone and dataset there.
 - **First liquid run with both datalogs** (air → isopropanol → water, board 1920, 2026-09-10):
   `research/air-ipa-water-1920-2026-09-10/` — README with the Kanazawa–Gordon comparison, the two
   raw CSVs, the scripts. ΔΓ from this branch's D is within ±8 percent of the theory on overtones 3–9;

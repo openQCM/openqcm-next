@@ -3,5 +3,11 @@ main.bbl
 main.blg
 main.log
 main.out
+si.aux
+si.bbl
+si.blg
+si.log
+si.out
+build/
 build*.log
 bib.log
