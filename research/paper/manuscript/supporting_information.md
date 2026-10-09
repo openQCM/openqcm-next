@@ -68,7 +68,7 @@ Firmware versions up to 0.1.5c did not reset the per-point sums, so each printed
 
 # S9. Glucose series: concentration lines, the 5 % offset, the fit window
 
-Relative to water, the fitted resonance moves by −72 Hz (fundamental) to −307 Hz (9th) at 10 % w/v (−17 to −128 Hz at 5 %) and broadens by +94 to +379 Hz at 10 %; lines through the four concentrations have slopes −7.1, −13.8, −17.8, −24.7, −30.4 Hz per % w/v in $\Delta f_n$ and +9.2, +13.1, +16.6, +28.0, +37.8 Hz per % in $\Delta\Gamma_n$ (Fig. S9). The 5 % plateau is less loaded than the line on every overtone: +10 to +18 Hz in Δf and −9 to −14 Hz in ΔΓ, constant in hertz over $n$ rather than ∝ √n, so not an error of ρη. Drift cannot explain it: the slope of $f_\mathrm{res}$ over the three replicas is ≤0.4 Hz/min inside the glucose plateaus and −0.2 to −1.0 Hz/min in water, the 5 % plateau is 4.3 min off the line of plateau times against concentration, so a time-linear drift maps into at most ≈4 Hz, and explaining the residual by drift alone would need −2 to −4 Hz/min, three to sixteen times what is measured (`results/glucose_tables_asis.md`). Without a return to water between concentrations the experiment cannot tell a property of the first solution from a step of the instrument. The ratio $\rho\eta/(\rho\eta)_w$ from the bandwidth exceeds that from the frequency on $n$ = 7 and 9 (1.36 and 1.42 against 1.27 and 1.30 at 10 %); the ±3Γ fit window is clipped by the sweep edge there (2.5–2.6 Γ on the right at $n$ = 9), and refitting with a symmetric window limited by the edge moves the $n$ = 9 ratio from 1.418 to 1.395, a fifth of the gap, and nothing at $n$ = 7; the rest is unexplained. A roughness term, which in the Daikhin–Urbakh description adds to Δf without a counterpart in ΔΓ [@DaikhinUrbakh1996; @DaikhinUrbakh1997], would act in the opposite direction and is not supported.
+Relative to water, the fitted resonance moves by −72 Hz (fundamental) to −307 Hz (9th) at 10 % w/v (−17 to −128 Hz at 5 %) and broadens by +94 to +379 Hz at 10 %; lines through the four concentrations have slopes −7.1, −13.8, −17.8, −24.7, −30.4 Hz per % w/v in $\Delta f_n$ and +9.2, +13.1, +16.6, +28.0, +37.8 Hz per % in $\Delta\Gamma_n$ (Fig. S9). The 5 % plateau is less loaded than the line on every overtone: +10 to +18 Hz in Δf and −9 to −14 Hz in ΔΓ, constant in hertz over $n$ rather than ∝ √n, so not an error of ρη. Drift cannot explain it: the slope of $f_\mathrm{res}$ over the three replicas is ≤0.4 Hz/min inside the glucose plateaus and −0.2 to −1.0 Hz/min in water, the 5 % plateau is 4.3 min off the line of plateau times against concentration, so a time-linear drift maps into at most ≈4 Hz, and explaining the residual by drift alone would need −2 to −4 Hz/min, three to sixteen times what is measured (`results/glucose_tables_asis.md`). Without a return to water between concentrations the experiment cannot tell a property of the first solution from a step of the instrument. Read through KG, the ratio $\rho\eta/(\rho\eta)_w$ from the bandwidth exceeds that from the frequency on $n$ = 7 and 9 (1.36 and 1.42 against 1.27 and 1.30 at 10 %, the squares of $R_{\Gamma,n}$ and $R_{f,n}$ of main-text Fig. 7c,d); the ±3Γ fit window is clipped by the sweep edge there (2.5–2.6 Γ on the right at $n$ = 9), and refitting with a symmetric window limited by the edge moves the $n$ = 9 ratio from 1.418 to 1.395, a fifth of the gap, and nothing at $n$ = 7; the rest is unexplained. A roughness term, which in the Daikhin–Urbakh description adds to Δf without a counterpart in ΔΓ [@DaikhinUrbakh1996; @DaikhinUrbakh1997], would act in the opposite direction and is not supported.
 
 ![Fig. S9. Shifts relative to water of the fitted resonance frequency, half-bandwidth and dissipation against glucose concentration, one line per overtone (least squares with intercept).](../figures_v2/si/figS_glucose_lines.png)
 
@@ -560,9 +560,9 @@ Relative to water, the fitted resonance moves by −72 Hz (fundamental) to −30
 | DS-3 | water | 0.7 / -18.8 / -14.4 / -28.7 / -31.9 | no | 4.4 |
 | air 2026-09-03 (board 1920 class) | air | -7.8 / -17.5 / -22.6 / -25.7 / -28.9 | yes | 0.0 |
 
-**Table S10.** Glucose: data-derived relative $\sqrt{\rho\eta}$, its dependence on concentration, steps between concentrations in units of the replica scatter, and the resolution.
+**Table S10.** Glucose: ratios to water and their KG reading, the dependence on concentration, steps between concentrations in units of the replica scatter, and the resolution. In (a), $x$ from Δf (from ΔΓ) at a single overtone is the measured ratio $R_{f,n} = \Delta f_{n,\mathrm{sol}}/\Delta f_{n,w}$ ($R_{\Gamma,n}$) of main-text Fig. 7c (d); it equals $\sqrt{\rho\eta}/\sqrt{\rho\eta}_w$ only within the KG interpretation (main text Eq. 4), so the means over $n$, the lines of (b) and the $\sigma_x$ of (c) are KG-based estimates from the same shifts, not measurements of the density–viscosity product. The step/σ counts in parentheses in (c) do not depend on the model.
 
-(a) relative √(ρη) from the data, x = √(ρη)/√(ρη)_water
+(a) ratios to water at the same overtone (x from Δf = R_f,n, x from ΔΓ = R_Γ,n) and, within KG, x = √(ρη)/√(ρη)_water
 
 | est. | liquid | % w/v | x from Δf, n = 1…9 | mean 3–9 ± sd_n | x from ΔΓ | mean ± sd_n | x from both | mean ± sd_n |
 |---|---|---|---|---|---|---|---|---|
@@ -575,7 +575,7 @@ Relative to water, the fitted resonance moves by −72 Hz (fundamental) to −30
 | P | glucose 7.5 % | 7.5 | 1.060 / 1.067 / 1.079 / 1.087 / 1.096 | 1.082 ± 0.012 | 1.081 / 1.076 / 1.072 / 1.117 / 1.138 | 1.101 ± 0.032 | 1.070 / 1.071 / 1.076 / 1.101 / 1.116 | 1.091 ± 0.021 |
 | P | glucose 10 % | 10.0 | 1.100 / 1.106 / 1.112 / 1.126 / 1.138 | 1.121 ± 0.014 | 1.131 / 1.116 / 1.107 / 1.165 / 1.191 | 1.145 ± 0.040 | 1.115 / 1.111 / 1.109 / 1.144 / 1.163 | 1.132 ± 0.026 |
 
-(b) x against concentration (least squares with intercept on 0, 5, 7.5, 10 % w/v)
+(b) KG-based x against concentration (least squares with intercept on 0, 5, 7.5, 10 % w/v)
 
 | est. | x_rel | slope [per % w/v] | intercept | residual of the 5 % point | rms |
 |---|---|---|---|---|---|
@@ -586,7 +586,7 @@ Relative to water, the fitted resonance moves by −72 Hz (fundamental) to −30
 | P | from ΔΓ, n = 3–9 | 0.01436 | 0.9954 | -0.0081 | 0.0056 |
 | P | from both, n = 3–9 | 0.01307 | 0.9952 | -0.0084 | 0.0058 |
 
-(c) steps and resolution; σ_x = replica sd / slope, slope = the water shift of the same overtone
+(c) steps and resolution; σ_x = replica sd / slope, slope = the water shift of the same overtone (KG sensitivity); the step/σ counts in parentheses do not depend on the model
 
 | est. | n | sd f [Hz] | sd Γ [Hz] | slope f [Hz per x] | slope Γ | σ_x from f | σ_x from Γ | water→5 %: Δx_f (σ) | Δx_Γ (σ) | 5→7.5 %: Δx_f (σ) | Δx_Γ (σ) | 7.5→10 %: Δx_f (σ) | Δx_Γ (σ) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|

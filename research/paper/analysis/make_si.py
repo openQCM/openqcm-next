@@ -109,7 +109,7 @@ def t_glucose():
                      "%.3f (%.0f)" % (r.step_gluc05_gluc075_dx_f, r.step_gluc05_gluc075_sigma_f), "%.3f (%.0f)" % (r.step_gluc05_gluc075_dx_G, r.step_gluc05_gluc075_sigma_G),
                      "%.3f (%.0f)" % (r.step_gluc075_gluc10_dx_f, r.step_gluc075_gluc10_sigma_f), "%.3f (%.0f)" % (r.step_gluc075_gluc10_dx_G, r.step_gluc075_gluc10_sigma_G)])
     t3 = table(["est.", "n", "sd f [Hz]", "sd Γ [Hz]", "slope f [Hz per x]", "slope Γ", "σ_x from f", "σ_x from Γ", "water→5 %: Δx_f (σ)", "Δx_Γ (σ)", "5→7.5 %: Δx_f (σ)", "Δx_Γ (σ)", "7.5→10 %: Δx_f (σ)", "Δx_Γ (σ)"], rows)
-    return "(a) relative √(ρη) from the data, x = √(ρη)/√(ρη)_water\n\n" + t1 + "\n\n(b) x against concentration (least squares with intercept on 0, 5, 7.5, 10 % w/v)\n\n" + t2 + "\n\n(c) steps and resolution; σ_x = replica sd / slope, slope = the water shift of the same overtone\n\n" + t3
+    return "(a) ratios to water at the same overtone (x from Δf = R_f,n, x from ΔΓ = R_Γ,n) and, within KG, x = √(ρη)/√(ρη)_water\n\n" + t1 + "\n\n(b) KG-based x against concentration (least squares with intercept on 0, 5, 7.5, 10 % w/v)\n\n" + t2 + "\n\n(c) steps and resolution; σ_x = replica sd / slope, slope = the water shift of the same overtone (KG sensitivity); the step/σ counts in parentheses do not depend on the model\n\n" + t3
 
 
 def t_datalog():

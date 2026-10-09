@@ -45,7 +45,22 @@ Revision carried out on the `impedance-analysis` branch following the revision p
 - `arxiv/main.tex` and `arxiv/si.tex` are generated from the Markdown by the new `analysis/md2tex.py` (pandoc is not available in the authoring environment); figures copied to `arxiv/figures/`. Compiled on 2026-10-08 with TeX Live 2026 (TinyTeX, user-level installation): `arxiv/main.pdf` (19 pages) and `arxiv/si.pdf` (34 pages, wide tables in landscape); no LaTeX errors, no undefined citations; logs in `arxiv/build/`.
 - The number check of the whole text (`notes/number_check_v0.2.md`: 206 statements confirmed, 34 discrepancies, all applied) and the literature verification pass (`literature/`) were run as separate passes after the draft; both are incorporated.
 
+## Revision of 2026-10-09 — Figs. 3, 4, 6, 7, 8 and Section 7.3
+
+Figures from the figure handoff of 2026-10-09 (reviewed previews, baseline commit 3a7602b), installed byte-identical (PNG regenerated in this repository under Python 3.9.12 / numpy 1.21.5 / pandas 1.4.2 / matplotlib 3.5.1 and compared; PDFs are the reviewed exports). Generator: new `analysis/make_figures_v2b.py`, called by `make_figures_v2.py`, which no longer draws these five; provenance in `results/v2/figure_provenance_v2.md`; the 40 ratios of Fig. 7 (c, d) in `results/v2/asis/glucose_ratios_to_water.csv`. No fit, no new estimate: the figures read the existing `results/v2/asis/` tables. The five figures are at 200 dpi (PNG), the others at 300.
+
+- Fig. 3: P only in both datasets (45 sweeps DS-2, 75 DS-3); the live datalog and the A triangles are gone; chronological lines per overtone; the software palettes (blue Δf, brown ΔΓ); band boundaries kept from v0.2 as a plotting convention.
+- Fig. 4: 2 × 2; signed Δf_n/n and ΔΓ_n/n on one axis per dataset; KG-1 below with a dashed unity line; larger symbols; error bars unchanged.
+- Fig. 6: KG-3 zoomed on the data, with an inset to the model origin (stated in the caption as the model limit, not a measurement). Panels (a, b) as in the first preview: no separate approval of this figure is recorded.
+- Fig. 7 (approved): (c, d) are now R_f,n = Δf_n,sol/Δf_n,water and R_Γ,n = ΔΓ_n,sol/ΔΓ_n,water at the same overtone against the nominal concentration, water at (0 %, 1) by definition; the inferred x_rel abscissa, the KG line through the water point, the least-squares line and the ±3σ band are gone. Reason: x_rel is computed from the same shifts through the KG interpretation, so plotting the shifts against it was an internal-consistency check, not an independent test of KG-3 for glucose.
+- Fig. 8: every symbol at the exact n (the historical cross and star included), no offsets. No separate approval of this figure is recorded.
+- Text: captions of Figs. 3, 4, 6, 7, 8 rewritten. Section 6 defines R_f,n, R_Γ,n and x_rel as a KG-based estimate. Section 7.3 split into the measured response (ratios, n = 3–9) and the KG reading (x_rel = 1.052, 1.091, 1.132, slope 0.0131 per % w/v, the 5 % offset — values unchanged, now referred to SI Table S10 and stated as not drawn in Fig. 7); the resolution paragraph separates the model-independent step/σ from the KG-based σ_x and states that σ_x is a noise figure, not a regression confidence. Section 7.4 *Linearity*, Discussion, Limitations, Abstract and Conclusion qualify every glucose ↔ √(ρη) equivalence as KG-based; water/isopropanol statements unchanged (tabulated constants). Data availability names `make_figures_v2b.py`.
+- SI aligned: Table S10 caption and sub-headings (`make_si.py`) state that $x$ from Δf (ΔΓ) at one overtone is the measured ratio R_f,n (R_Γ,n) of Fig. 7c (d), and that the means, the lines and σ_x are KG-based, while the step/σ counts are model-independent; S9 reads the ρη ratios of n = 7, 9 "through KG" (squares of R_Γ,n, R_f,n). Table values unchanged.
+- `arxiv/main.tex`, `main.pdf` (21 pages) and `si.tex`, `si.pdf` (34 pages) regenerated; no LaTeX errors, no undefined citations.
+
 ## Open items for the author
+
+- Figs. 6 and 8 are the first previews of the 2026-10-09 handoff; confirm or request changes.
 
 - The full datalog of the 2024-05-29 session (`2024-May-29_14-21-38_multi_.csv`, 541 rows) is gitignored and no longer present in the worktree; only the extract is. If the archive supplied on 2026-10-07 is still available, restoring the file allows the SI to show the production estimator of DS-3 as well.
 - Author list, affiliations, funding and conflict-of-interest statements.
