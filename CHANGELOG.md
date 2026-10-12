@@ -5,6 +5,15 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `main`
 
+### Docs — SESSION_PROMPT: manuscript figures 3, 4, 6–8 revised, the glucose KG reading (2026-10-12)
+
+`4cbc939`. `docs/SESSION_PROMPT.md` (one file on both branches) updates its "Paper — manoscritto v0.2" entry to the
+revision of 2026-10-09 on `impedance-analysis` (`e5c85e2`): Figs. 3, 4, 6–8 from the figure handoff, drawn by
+`analysis/make_figures_v2b.py`; Fig. 7c,d as glucose shifts divided by the water shift at the same overtone; every
+glucose ↔ √(ρη) equivalence stated as Kanazawa–Gordon-based; `main.pdf` now 21 pp.; open: Marco's approval of
+Figs. 6 and 8, the SI table numbering. The decision of record "glucose ρη relative only" is qualified accordingly.
+Cherry-picked onto `impedance-analysis`.
+
 ### Docs — SESSION_PROMPT: manuscript v0.2 state, TeX tooling (2026-10-08)
 
 `docs/SESSION_PROMPT.md` (one file on both branches) gains a "Paper — manoscritto v0.2" inventory entry — where the
