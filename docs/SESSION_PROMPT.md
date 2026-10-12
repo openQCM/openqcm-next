@@ -10,7 +10,7 @@ The two previous copies drifted apart and started contradicting each other.
 Keep it short and keep it true. It is a shortcut, not the source: HANDOFF.md and
 the `## [Unreleased]` entries in CHANGELOG.md are.
 
-Last aligned: 2026-10-08.
+Last aligned: 2026-10-12.
 -->
 
 # openQCM NEXT — prompt per iniziare una nuova sessione
@@ -190,15 +190,26 @@ attivo solo con `OPENQCM_SWEEP_DUMP=1`, **sovrascritto a ogni sweep**):
   lista blu più vecchia, mai allineata alle due rampe.
 - Copia benigna di `savitzky_golay` in `sweep_data/plot_conductance.py`.
 
-### Paper — manoscritto v0.2 (2026-10-08, solo sul ramo `impedance-analysis`)
+### Paper — manoscritto v0.2 (2026-10-08, figure riviste 2026-10-09; solo sul ramo `impedance-analysis`)
 
 - `research/paper/`: manoscritto v0.2 (`manuscript/manuscript.md`), Supporting Information,
-  change log v0.1 → v0.2, figure in `figures_v2/`, PDF arXiv compilati (`arxiv/main.pdf` 19 pp.,
-  `arxiv/si.pdf` 34 pp.), pipeline `analysis/run_v2.py` → `make_figures_v2.py` → `make_si.py` →
-  `md2tex.py`. **Parti da `research/paper/README.md`.** Commit `c316228`.
+  change log v0.1 → v0.2, figure in `figures_v2/`, PDF arXiv compilati (`arxiv/main.pdf` 21 pp.,
+  `arxiv/si.pdf` 34 pp.), pipeline `analysis/run_v2.py` → `make_figures_v2.py` (che chiama
+  `make_figures_v2b.py` per le Figg. 3, 4, 6–8) → `make_si.py` → `md2tex.py`.
+  **Parti da `research/paper/README.md`.** Commit `c316228` (v0.2), `e5c85e2` (revisione del 2026-10-09).
+- Revisione del 2026-10-09: le Figg. 3, 4, 6, 7, 8 sono quelle del pacchetto figure del 2026-10-09,
+  installate identiche byte per byte (il generatore le riproduce con Python 3.9.12 / matplotlib 3.5.1).
+  **Fig. 7c,d** ora mostra lo shift di ogni soluzione diviso per quello dell'acqua **alla stessa
+  armonica**, frequenza e banda separate, contro la concentrazione nominale; niente più x_rel in
+  ascissa, retta OLS né fascia ±3σ. Motivo: x_rel è calcolato dagli stessi shift tramite KG, quindi
+  era un controllo di coerenza interna, non un test indipendente di KG-3 per il glucosio. La §7.3
+  separa la risposta misurata dalla lettura KG; nel testo e nel SI ogni equivalenza glucosio ↔ √(ρη)
+  è dichiarata **basata sul modello**. Da fare: **approvazione di Marco per le Figg. 6 e 8** (sono le
+  prime anteprime); nel PDF del SI la Tabella S10 esce come "Table 11" (contatore di `md2tex.py`).
 - Decisioni di record (Marco, 2026-10-08): **non esiste un dataset dedicato aria → acqua** (DS-1);
   l'Esperimento 1 usa il passo aria → acqua di DS-2 (2026-09-11) e di DS-3 (2024-05-29). Per il
-  glucosio **solo ρη relativo all'acqua**, niente valori tabulati. Costanti dei liquidi a 25 °C con il
+  glucosio **solo ρη relativo all'acqua**, niente valori tabulati (dal 2026-10-09: stima basata su KG
+  ricavata dagli stessi shift, non una misura). Costanti dei liquidi a 25 °C con il
   caveat ±2 K (temperatura del liquido mai misurata).
 - Cosa è cambiato nelle conclusioni rispetto alla v0.1: il claim "8 %" del repository vale per la
   **frequenza su board 1920** (|ε_f| ≤ 8.2 % su n = 3–9), **non** sul secondo strumento (+6…+13 %),
