@@ -5,6 +5,23 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Research — manuscript v0.2: Figs. 3, 4, 6–8 revised; the glucose response separated from its Kanazawa–Gordon reading (2026-10-09)
+
+`e5c85e2`. Five figures of `research/paper/` replaced by the reviewed previews of the figure handoff of 2026-10-09,
+installed byte-identical (PNG regenerated here under Python 3.9.12 / matplotlib 3.5.1 and compared) and drawn by the
+new `analysis/make_figures_v2b.py`, which `make_figures_v2.py` now calls. Fig. 3: phase-shifted Lorentzian only, no
+live datalog; Fig. 4: 2 × 2, signed shifts, dashed KG-1 unity; Fig. 6: KG-3 zoomed with an inset to the model
+origin; Fig. 8: every symbol at the exact overtone. Fig. 7 (c, d), the substantive change: each glucose shift divided
+by the water shift at the same overtone, frequency and half-bandwidth separately, against nominal concentration —
+the old abscissa x_rel was computed from the same shifts through KG, so plotting the shifts against it was an
+internal-consistency check, not an independent KG-3 test for glucose; the OLS line and the ±3σ band are gone. Text
+aligned: §7.3 now separates the measured ratios (n = 3–9: 1.030–1.138 in frequency, 1.039–1.191 in bandwidth) from
+the KG reading (x_rel 1.052 / 1.091 / 1.132, slope 0.0131 per % w/v, values unchanged); the ≥14 σ steps are stated
+as model-independent, σ_x as a KG-based noise figure; Abstract, §6, §7.4, Discussion, Limitations, Conclusion and
+SI (Table S10, S9) qualify every glucose ↔ √(ρη) equivalence as KG-based. `main.pdf` (21 pp.) and `si.pdf`
+(34 pp.) recompiled. Open: Figs. 6 and 8 have no recorded approval; the SI PDF still numbers Table S10 as
+"Table 11" (`md2tex.py` uses the plain LaTeX counter; already so in the previous build).
+
 ### Carried from `main` — SESSION_PROMPT: manuscript v0.2 state, TeX tooling (2026-10-08)
 
 `docs/SESSION_PROMPT.md` cherry-picked from `main`: the "Paper — manoscritto v0.2" inventory entry (where the
