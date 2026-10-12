@@ -4,6 +4,8 @@ md2tex.py — converts the manuscript and the Supporting Information (the constr
 manuscript/*.md) to LaTeX for arXiv, without pandoc.
 
     python md2tex.py            → arxiv/main.tex, arxiv/si.tex, arxiv/figures/*.pdf|png, arxiv/references.bib
+                                  + arxiv/main_review.tex: the same main text with continuous line numbers
+                                  (lineno, numbers also on display equations), for annotating the PDF in review; not for submission.
 
 Supported: YAML front matter (title, date, abstract); # / ## headings; paragraphs; **bold**, *italic*; $...$ and $$...$$
 with \tag{n}; [@key; @key2] and [@key, Eq. 13] citations (natbib \citep); ![caption](path) figures (one per paragraph);
@@ -206,10 +208,16 @@ PREAMBLE = r"""\documentclass[11pt,a4paper]{article}
 """
 
 
-def write(md, tex, figprefix="figures/", si=False):
+REVIEW = "\\usepackage[displaymath,mathlines]{lineno}\n\\renewcommand\\linenumberfont{\\normalfont\\tiny\\sffamily\\color{gray}}\n"
+
+
+def write(md, tex, figprefix="figures/", si=False, review=False):
     meta, body = convert(md, figprefix, si)
     title = inline(meta.get("title", ""))
-    head = PREAMBLE % (os.path.basename(md), title, esc_text(meta.get("date", "")))
+    date = meta.get("date", "") + (" — review copy with line numbers" if review else "")
+    head = PREAMBLE % (os.path.basename(md), title, esc_text(date))
+    if review:
+        head = head.replace("\\usepackage{hyperref}\n", REVIEW + "\\usepackage{hyperref}\n").replace("\\begin{document}\n", "\\begin{document}\n\\linenumbers\n")
     if meta.get("abstract"):
         head += "\\begin{abstract}\n" + inline(meta["abstract"]) + "\n\\end{abstract}\n"
     tail = "\n\n\\bibliographystyle{unsrtnat}\n\\bibliography{references}\n\\end{document}\n"
@@ -227,4 +235,5 @@ if __name__ == "__main__":
         shutil.copy(f, os.path.join(AX, "figures", "si", os.path.basename(f)))
     shutil.copy(os.path.join(P, "literature", "references.bib"), os.path.join(AX, "references.bib"))
     write(os.path.join(MS, "manuscript.md"), os.path.join(AX, "main.tex"))
+    write(os.path.join(MS, "manuscript.md"), os.path.join(AX, "main_review.tex"), review=True)
     write(os.path.join(MS, "supporting_information.md"), os.path.join(AX, "si.tex"), si=True)

@@ -605,6 +605,8 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   shows the glucose shifts relative to water against concentration, and the glucose √(ρη) is stated everywhere as a
   Kanazawa–Gordon-based estimate, not a measurement. Pending: Marco's approval of Figs. 6 and 8
   (`manuscript/CHANGELOG_v0.2.md`, open items).
+  Manual review in progress (2026-10-12): Marco annotates `arxiv/main_review.pdf` (line-numbered) in Preview;
+  extract the annotations with PyMuPDF and apply them to `manuscript/manuscript.md`, then regenerate.
 - **First liquid run with both datalogs** (air → isopropanol → water, board 1920, 2026-09-10):
   `research/air-ipa-water-1920-2026-09-10/` — README with the Kanazawa–Gordon comparison, the two
   raw CSVs, the scripts. ΔΓ from this branch's D is within ±8 percent of the theory on overtones 3–9;

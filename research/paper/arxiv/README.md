@@ -9,4 +9,6 @@ pdflatex main && bibtex main && pdflatex main && pdflatex main
 pdflatex si   && bibtex si   && pdflatex si   && pdflatex si
 ```
 
+`main_review.tex` → `main_review.pdf` is the same main text with continuous line numbers (package `lineno`, installed in TinyTeX with `tlmgr install lineno` on 2026-10-12), for annotating in review (e.g. in macOS Preview); same build commands with `main_review`. Not for submission.
+
 Suggested arXiv categories: `physics.ins-det` (primary), `eess.SP` (cross-list). The SI is a separate document; wide SI tables are set in landscape. Author list, affiliations and funding are placeholders.

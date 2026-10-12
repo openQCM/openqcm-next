@@ -5,6 +5,15 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Research — manuscript review copy with line numbers (2026-10-12)
+
+`research/paper/analysis/md2tex.py` also writes `arxiv/main_review.tex`, the main text with continuous line numbers
+(`lineno` with `displaymath,mathlines`, so display equations are numbered too); compiled as `arxiv/main_review.pdf`
+(21 pp., same pagination as `main.pdf`) for Marco's manual review, annotated in macOS Preview — the annotations are
+standard PDF annotations, to be extracted with PyMuPDF and applied to `manuscript/manuscript.md`, the only source.
+Per-page restarting numbers (`pagewise`) were tried and dropped: the first line of some pages carried the previous
+page's count. `lineno` installed in TinyTeX (`tlmgr install lineno`). `main.tex`, `si.tex` and their PDFs unchanged.
+
 ### Carried from `main` — SESSION_PROMPT: manuscript figures 3, 4, 6–8 revised, the glucose KG reading (2026-10-12)
 
 `4cbc939` cherry-picked clean as `eded93c`: the "Paper — manoscritto v0.2" entry of `docs/SESSION_PROMPT.md` now
