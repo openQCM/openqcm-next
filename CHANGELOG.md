@@ -5,6 +5,13 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — SESSION_PROMPT: manuscript figures 3, 4, 6–8 revised, the glucose KG reading (2026-10-12)
+
+`4cbc939` cherry-picked clean as `eded93c`: the "Paper — manoscritto v0.2" entry of `docs/SESSION_PROMPT.md` now
+describes the revision of 2026-10-09 (`e5c85e2`; figure handoff, Fig. 7c,d as ratios to water, glucose √(ρη) as a
+KG-based estimate, open approval of Figs. 6 and 8) and qualifies the decision of record on the glucose ρη. Verified on
+the branch: the file is identical to `main`'s.
+
 ### Research — manuscript v0.2: Figs. 3, 4, 6–8 revised; the glucose response separated from its Kanazawa–Gordon reading (2026-10-09)
 
 `e5c85e2`. Five figures of `research/paper/` replaced by the reviewed previews of the figure handoff of 2026-10-09,
