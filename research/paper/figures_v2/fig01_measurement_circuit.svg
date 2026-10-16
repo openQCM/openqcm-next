@@ -1,6 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 540" width="1200" height="540" font-family="Helvetica, Arial, sans-serif">
   <title>openQCM NEXT impedance measurement: the quartz sensor in a divider with R17, read by the AD8302</title>
-  <!-- Drawn after docs/schematic/openQCM_NEXT_A4.pdf (rev. 3.0): blocks 03 (QCM drive), 04 (detection and outputs). -->
+  <!-- Drawn after docs/schematic/openQCM_NEXT_A4.pdf (rev. 3.0): blocks 03 (QCM drive), 04 (detection and outputs).
+       The 0 Ω links of the schematic (R37 in the drive, R38 and R12 in the return path) are drawn as wire (2026-10-16).
+       Source of Fig. 1; PNG and PDF exported with Inkscape (see analysis/make_figures_v2.py). -->
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
       <path d="M0,0 L10,5 L0,10 z" fill="#3a3a38"/>
@@ -19,8 +21,7 @@
     <!-- drive chain to QCM_IN -->
     <path d="M200,80 H225"/>
     <path d="M275,80 H300"/>
-    <path d="M308,80 H335"/>
-    <path d="M385,80 H480"/>
+    <path d="M308,80 H480"/>
     <!-- attenuator and INPB -->
     <path d="M540,80 H690"/>
     <path d="M640,80 V110"/>
@@ -39,9 +40,7 @@
   <!-- ============ the measuring divider, highlighted ============ -->
   <g fill="none" stroke="#2a78d6" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round">
     <path d="M420,80 V220"/>
-    <path d="M420,260 V400 H450"/>
-    <path d="M500,400 H540"/>
-    <path d="M590,400 H690"/>
+    <path d="M420,260 V400 H690"/>
     <path d="M640,400 V420"/>
     <path d="M640,476 V494"/>
   </g>
@@ -63,8 +62,6 @@
   <text x="250" y="62" font-size="12" fill="#0b0b0b" text-anchor="middle">R<tspan font-size="9" dy="3">7</tspan><tspan font-size="10.5" fill="#52514e" dx="3" dy="-3">50 Ω</tspan></text>
   <g stroke="#1f1f1e" stroke-width="2"><line x1="300" y1="66" x2="300" y2="94"/><line x1="308" y1="66" x2="308" y2="94"/></g>
   <text x="304" y="112" font-size="12" fill="#0b0b0b" text-anchor="middle">C<tspan font-size="9" dy="3">7</tspan><tspan font-size="10.5" fill="#52514e" dx="3" dy="-3">10 µF</tspan></text>
-  <rect x="335" y="72" width="50" height="16" fill="#ffffff" stroke="#1f1f1e" stroke-width="1.8"/>
-  <text x="360" y="62" font-size="12" fill="#0b0b0b" text-anchor="middle">R<tspan font-size="9" dy="3">37</tspan><tspan font-size="10.5" fill="#52514e" dx="3" dy="-3">0 Ω</tspan></text>
   <text x="420" y="62" font-size="12" fill="#0b0b0b" text-anchor="middle">QCM_IN</text>
   <text x="420" y="46" font-size="12" fill="#0b0b0b" text-anchor="middle" font-style="italic">V<tspan font-size="9" dy="3">in</tspan></text>
 
@@ -82,7 +79,7 @@
 
   <!-- the sensor, off board on J2 -->
   <rect x="352" y="146" width="136" height="194" rx="8" fill="none" stroke="#8a8984" stroke-width="1.2" stroke-dasharray="5 4"/>
-  <text x="356" y="138" font-size="10.5" fill="#8a8984">sensor, on connector J2</text>
+  <text x="344" y="160" font-size="10.5" fill="#8a8984" text-anchor="end">sensor, on connector J2</text>
   <g fill="#ffffff" stroke="#3a3a38" stroke-width="1.4">
     <circle cx="420" cy="170" r="4"/>
     <circle cx="420" cy="316" r="4"/>
@@ -98,11 +95,6 @@
   <text x="452" y="254" font-size="10.5" fill="#52514e">quartz</text>
   <text x="432" y="360" font-size="12" fill="#0b0b0b">QCM_OUT</text>
 
-  <!-- return path: R38, R12 -->
-  <rect x="450" y="392" width="50" height="16" fill="#ffffff" stroke="#1f1f1e" stroke-width="1.8"/>
-  <text x="475" y="384" font-size="12" fill="#0b0b0b" text-anchor="middle">R<tspan font-size="9" dy="3">38</tspan><tspan font-size="10.5" fill="#52514e" dx="3" dy="-3">0 Ω</tspan></text>
-  <rect x="540" y="392" width="50" height="16" fill="#ffffff" stroke="#1f1f1e" stroke-width="1.8"/>
-  <text x="565" y="384" font-size="12" fill="#0b0b0b" text-anchor="middle">R<tspan font-size="9" dy="3">12</tspan><tspan font-size="10.5" fill="#52514e" dx="3" dy="-3">0 Ω</tspan></text>
   <text x="620" y="422" font-size="12" fill="#0b0b0b" font-style="italic" text-anchor="end">V<tspan font-size="9" dy="3">A</tspan></text>
 
   <!-- R17: the measuring resistor -->

@@ -58,6 +58,18 @@ Figures from the figure handoff of 2026-10-09 (reviewed previews, baseline commi
 - SI aligned: Table S10 caption and sub-headings (`make_si.py`) state that $x$ from Δf (ΔΓ) at one overtone is the measured ratio R_f,n (R_Γ,n) of Fig. 7c (d), and that the means, the lines and σ_x are KG-based, while the step/σ counts are model-independent; S9 reads the ρη ratios of n = 7, 9 "through KG" (squares of R_Γ,n, R_f,n). Table values unchanged.
 - `arxiv/main.tex`, `main.pdf` (21 pages) and `si.tex`, `si.pdf` (34 pages) regenerated; no LaTeX errors, no undefined citations.
 
+## Manual review, round 1 (2026-10-16) — Marco's annotations on `arxiv/main_review.pdf`
+
+Source: `research/paper/main_review_edit.pdf` (13 annotations on pp. 1, 2, 3, 5, 7; the four text boxes on p. 3 are empty and were not acted on).
+
+- p. 1, l. 36 — "describe in more depth what a QCM does": new opening paragraph of the Introduction (AT-cut disc, thickness-shear mode, fundamental and odd overtones, Sauerbrey for rigid films, the damped shear wave of a liquid and the KG dependence on density × viscosity, viscoelastic layers, uses). Numbers added: 0.33 mm for 5 MHz, 0.24 µm penetration depth in water at 5 MHz (both computed from the standard constants).
+- p. 2, ll. 72–74 — "the KG derivation from the SLA is evident, not a result; say we identified three tests as verifiers": contribution (i) rewritten; the Abstract and the Conclusion no longer present the derivation as the paper's own ("derived here").
+- p. 5, Fig. 1 — "remove the 0 Ω resistors": R37, R38 and R12 drawn as wire; the label of the sensor box moved off the wire. `figures_v2/fig01_measurement_circuit.svg` is now the source (the v1 copy in `figures/` is no longer copied over it by `make_figures_v2.py`); PNG and a vector PDF exported with Inkscape 1.3.2, the PDF used by LaTeX.
+- p. 7, l. 207 — "remove the reference to board 1920 throughout the paper": main text, captions, Table 2 and SI text now say "first instrument" (DS-2) against "second instrument" (DS-3); Figs. 3 and 4 relabelled the same way (regenerated, otherwise unchanged); the dataset label "(board 1920 class)" of SI Table S9 rendered as "(same instrument class)". The repository path `research/air-ipa-water-1920-2026-09-11/` stays (Data availability, SI S3).
+- p. 7, ll. 207–209 — "delete": the 2026-09-10 replicate removed from Section 6, and with it the sentence of Section 7.1 that quoted the live estimator "on two consecutive days".
+- SI, on Marco's confirmation: the 2026-09-10 run removed there too — last sentence of S8, last column of Table S6 (caption now "datalog of 2026-09-11"), its ten rows of Table S11 (filtered in `make_si.py`; `results/v2/asis/datalog_shifts.csv` unchanged). The four empty text boxes on p. 3 were added by mistake.
+- `main.pdf`, `main_review.pdf` (20 pp.) and `si.pdf` recompiled; no LaTeX errors, no undefined citations.
+
 ## Open items for the author
 
 - Figs. 6 and 8 are the first previews of the 2026-10-09 handoff; confirm or request changes.

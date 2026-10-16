@@ -221,8 +221,7 @@ if __name__ == "__main__":
     for p in PROV:
         L.append("| %s | %s | %s | %s |" % (p["figure"], p["source"], p["script"], p["params"]))
     open(os.path.join(R, "v2", "figure_provenance_v2.md"), "w").write("\n".join(L) + "\n")
-    # the circuit figure of v1 is reused as Fig. 1
-    import shutil
-    for ext in ("png", "svg"):
-        src = os.path.join(HERE, "..", "figures", "fig01_measurement_circuit." + ext)
-        if os.path.exists(src): shutil.copy(src, os.path.join(FIG, "fig01_measurement_circuit." + ext))
+    # Fig. 1 is hand-drawn: ../figures_v2/fig01_measurement_circuit.svg is the source (since 2026-10-16; before, the v1
+    # copy in ../figures/ was copied here). PNG and PDF are exported with Inkscape, not by this script:
+    #   inkscape fig01_measurement_circuit.svg --export-type=pdf --export-filename=fig01_measurement_circuit.pdf
+    #   inkscape fig01_measurement_circuit.svg --export-type=png --export-dpi=200 --export-filename=fig01_measurement_circuit.png

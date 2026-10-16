@@ -74,7 +74,7 @@ Window $|f - f_{G\max}| \le 3\Gamma_\mathrm{hh}$ (clipped by the sweep edge on t
 
 A board phase does not multiply the admittance; it multiplies the measured transfer function, $H_\mathrm{meas} = He^{j\phi_b}$. Inverting exactly with that phase gives $Y' = 1/[(Z_\mathrm{el} + R_{17})e^{-j\phi_b} - R_{17}]$, a Möbius transformation of $Y_\mathrm{el} = 1/Z_\mathrm{el}$ that reduces to the rotation $Y_\mathrm{el}e^{j\phi_b}$ only when $|Z_\mathrm{el}| \gg R_{17}$. A Butterworth--Van Dyke crystal of known $f_s$, $\Gamma$, $R_1$, $C_0$ was sent through the divider and the detector laws with a board phase on $\angle H$, an offset $\delta$, the fold, the ADC quantisation and the firmware carry-over, and through the same chain and estimators (\texttt{run\_forward\_model.py}, \texttt{results/forward\_model.md}). Findings: (i) the fitted angle equals the imposed board phase to 0.7\textdegree{} on the liquid-like cases and to 1\textdegree{} on the air-like ones, except the one case where the offset triggers a spurious fold; (ii) with $\phi_b = 0$ both estimators recover $f_s$ to the grid; (iii) with $\phi_b = -8$ to $-25^\circ$ the maximum of $G$ is off by $-$91 to $-$743 Hz on liquid-like cases, the phase-shifted fit by $-$9 to $-$59 Hz ($\le$2 \% of $\Gamma$), the symmetric fit by $-$96 to $-$833 Hz; (iv) the residual of the phase-shifted fit scales as $\approx -0.34\,\Gamma\,(R_{17}/R_1)$ at $\phi_b = -20^\circ$: $-$344 Hz at $R_1 = R_{17}$ and $-$12 Hz at 1.6 k$\Omega$ for $\Gamma$ = 1 kHz, so for air-like cases ($\Gamma$ = 65--190 Hz, $R_1$ = 36--204 $\Omega$) $-$12 to $-$39 Hz, a third to a half of the argmax bias for $R_1/R_{17} \ge 1.8$ and three quarters or more at $R_1/R_{17}$ = 0.7; (v) with a fold, $\delta$ is removed and does not move $f_\mathrm{res}$ or $\Gamma$ ($\le$0.5 Hz for $\delta$ = $-$3\ldots{}+7\textdegree{}); (vi) without a fold, $\pm$5\textdegree{} of $\delta$ enters the fitted angle almost one to one and moves $f_\mathrm{res}$ by $\le$11 Hz (15 Hz where a spurious fold is declared) and $\Gamma$ by $\le$7 Hz; (vii) $\pm$5 \% on the magnitude slope moves $f_\mathrm{res}$ by $\le$17 Hz and $\Gamma$ by $\le$1 \%, but $R_m = 1/G_\mathrm{max}$ by 6--16 \%, and even with an ideal magnitude channel $R_m$ is 24--39 \% low in liquid; (viii) the firmware carry-over moves $f_\mathrm{res}$ by $\approx$2 Hz; (ix) the smoothing widens a 65 Hz half-bandwidth by 6.5 Hz (+10 \%) and a 190 Hz one by 3.5 Hz, negligible in liquid.
 
-The repository's two-channel forward model, which fits a BVD crystal through the divider and the detector laws to $V_\mathrm{MAG}$ and $V_\mathrm{PHS}$ jointly with a board phase inside the modulus, gives $\phi_b = -7.6, -13.8, -19.9, -22.1, -20.4^\circ$ in air on board 1920, equal to the P angle within 0.4--0.8\textdegree{} on $n = 1$--7. The short and 50 $\Omega$ standards measured on the same front end (1--51 MHz) give phase slopes of 0.27--0.40\textdegree{} MHz$^{-1}$ (0.74--1.10 ns), i.e. 1.4--2.0\textdegree{} at 5 MHz and 12--18\textdegree{} at 45 MHz, and read $M$ 4--16 \% low (8--14 \% at 5 MHz); the fitted angle grows roughly as $f^{0.55}$ (Fig. S11). A least-squares decomposition $\varphi = \varphi_0 - 360^\circ f\tau$ gives $\varphi_0 = -7.0^\circ$, $\tau$ = 1.28 ns (rms 1.2\textdegree{}) for board 1920 in air and $\varphi_0 = -8.2^\circ$, $\tau$ = 1.31 ns (rms 2.6\textdegree{}) for the second instrument, an approximation whose parameters move when $n = 1$ is excluded.
+The repository's two-channel forward model, which fits a BVD crystal through the divider and the detector laws to $V_\mathrm{MAG}$ and $V_\mathrm{PHS}$ jointly with a board phase inside the modulus, gives $\phi_b = -7.6, -13.8, -19.9, -22.1, -20.4^\circ$ in air on the first instrument (DS-2), equal to the P angle within 0.4--0.8\textdegree{} on $n = 1$--7. The short and 50 $\Omega$ standards measured on the same front end (1--51 MHz) give phase slopes of 0.27--0.40\textdegree{} MHz$^{-1}$ (0.74--1.10 ns), i.e. 1.4--2.0\textdegree{} at 5 MHz and 12--18\textdegree{} at 45 MHz, and read $M$ 4--16 \% low (8--14 \% at 5 MHz); the fitted angle grows roughly as $f^{0.55}$ (Fig. S11). A least-squares decomposition $\varphi = \varphi_0 - 360^\circ f\tau$ gives $\varphi_0 = -7.0^\circ$, $\tau$ = 1.28 ns (rms 1.2\textdegree{}) for the first instrument in air and $\varphi_0 = -8.2^\circ$, $\tau$ = 1.31 ns (rms 2.6\textdegree{}) for the second instrument, an approximation whose parameters move when $n = 1$ is excluded.
 
 \begin{figure}[htbp]\centering
 \includegraphics[width=\linewidth]{figures/si/fig10_forward_model.pdf}
@@ -92,7 +92,7 @@ Firmware versions up to 0.1.5c did not reset the per-point sums, so each printed
 
 \section{The raw-magnitude baseline and the production datalogs}
 
-\textbf{Magnitude-only estimator from the sweeps (M).} Maximum of the divider ratio in dB on the same grid and its $-$3 dB full width where it exists (Table S3 and Fig. S7): $\epsilon_f$ = +52\ldots{}+92 \% (DS-2) and +50\ldots{}+116 \% (DS-3) on $n$ = 3--9, growing with the overtone; the width is undefined inside the window for $n \ge 7$ in liquid and reaches 6 kHz at $n$ = 5. \textbf{Production datalog of board 1920} (same instants as the impedance datalog, Fig. S8): maximum of the baseline-corrected magnitude and its $-$0.3 dB width; on the last 10 min of each plateau of 2026-09-11 (95 of 486 rows were exact duplicates written in bursts and were dropped) $\epsilon_f$ = +51, +69, +76, +89 \% (water, $n$ = 3--9) and +57, +74, +85, +90 \% (isopropanol), against +23, +29, +22, +18 \% and +22, +27, +22, +22 \% for the live A estimator; the $-$0.3 dB width changes by 0.8--3.7 kHz (water) and 1.1--6.4 kHz (isopropanol) where the theory's $\Delta$$\Gamma$ is 1.2--2.7 kHz. The 2026-09-10 run (2.5 min plateaus, 36 of 175 rows duplicated) gives +51\ldots{}+98 \% and +22\ldots{}+30 \%. The live A estimator reproduces the offline analysis of the dumped sweeps within the plateau drift (Table S11).
+\textbf{Magnitude-only estimator from the sweeps (M).} Maximum of the divider ratio in dB on the same grid and its $-$3 dB full width where it exists (Table S3 and Fig. S7): $\epsilon_f$ = +52\ldots{}+92 \% (DS-2) and +50\ldots{}+116 \% (DS-3) on $n$ = 3--9, growing with the overtone; the width is undefined inside the window for $n \ge 7$ in liquid and reaches 6 kHz at $n$ = 5. \textbf{Production datalog of the first instrument} (same instants as the impedance datalog, Fig. S8): maximum of the baseline-corrected magnitude and its $-$0.3 dB width; on the last 10 min of each plateau of 2026-09-11 (95 of 486 rows were exact duplicates written in bursts and were dropped) $\epsilon_f$ = +51, +69, +76, +89 \% (water, $n$ = 3--9) and +57, +74, +85, +90 \% (isopropanol), against +23, +29, +22, +18 \% and +22, +27, +22, +22 \% for the live A estimator; the $-$0.3 dB width changes by 0.8--3.7 kHz (water) and 1.1--6.4 kHz (isopropanol) where the theory's $\Delta$$\Gamma$ is 1.2--2.7 kHz. The live A estimator reproduces the offline analysis of the dumped sweeps within the plateau drift (Table S11).
 
 \begin{figure}[htbp]\centering
 \includegraphics[width=\linewidth]{figures/si/figS_estimator_errors.pdf}
@@ -120,7 +120,7 @@ Relative to water, the fitted resonance moves by $-$72 Hz (fundamental) to $-$30
 
 \begin{figure}[htbp]\centering
 \includegraphics[width=\linewidth]{figures/si/figS_phi_vs_frequency.pdf}
-\caption{The rotation angle against frequency for air and water on both instruments, with the phase of a pure delay for the two delays measured on the resistive standards of board 1920.}
+\caption{The rotation angle against frequency for air and water on both instruments, with the phase of a pure delay for the two delays measured on the resistive standards of the first instrument.}
 \end{figure}
 
 \begin{figure}[htbp]\centering
@@ -459,15 +459,15 @@ DS-3 & water & P & n=3-9 & -0.515 & -0.517 & 740 & 666 & 673 & 2.6 & 3.8 \\
 \end{longtable}}\end{landscape}
 
 \begin{landscape}{\scriptsize\setlength{\tabcolsep}{2pt}
-\begin{longtable}{@{}lllllllllllllllllll@{}}
-\caption{Experiment 1 reproducibility: the air $\rightarrow$ water step of DS-2 and DS-3 (A and P) and the live A estimator of board 1920 on two days.}\\
+\begin{longtable}{@{}llllllllllllllllll@{}}
+\caption{Experiment 1 reproducibility: the air $\rightarrow$ water step of DS-2 and DS-3 (A and P) and the live A estimator of the first instrument (datalog of 2026-09-11).}\\
 \toprule
-n & $\Delta$f/n A DS-2 & DS-3 & $\Delta$f/n P DS-2 & DS-3 & $\Delta$$\Gamma$/n A DS-2 & DS-3 & $\Delta$$\Gamma$/n P DS-2 & DS-3 & $\epsilon$\_f P DS-2 [\%] & DS-3 & $\epsilon$\_$\Gamma$ P DS-2 [\%] & DS-3 & r P DS-2 & DS-3 & $\varphi$\_water DS-2 [\textdegree{}] & DS-3 & $\epsilon$\_f A live 09-11 [\%] & 09-10 \\\midrule\endhead
-1 & -772 & -729 & -687 & -723 & 872 & 701 & 869 & 716 & +2.0 & +7.5 & +29.0 & +6.5 & 1.26 & 0.99 & -5.0 & 0.7 & +14.2 & +12.1 \\
-3 & -484 & -489 & -421 & -439 & 413 & 373 & 425 & 382 & +8.2 & +13.1 & +9.3 & -1.7 & 1.01 & 0.87 & -15.0 & -18.8 & +23.1 & +30.4 \\
-5 & -390 & -362 & -322 & -319 & 295 & 300 & 309 & 315 & +7.0 & +6.1 & +2.5 & +4.6 & 0.96 & 0.99 & -24.0 & -14.4 & +29.3 & +30.2 \\
-7 & -312 & -342 & -267 & -282 & 238 & 243 & 246 & 243 & +4.8 & +11.0 & -3.3 & -4.4 & 0.92 & 0.86 & -22.5 & -28.7 & +21.7 & +25.1 \\
-9 & -268 & -306 & -221 & -247 & 211 & 218 & 216 & 221 & -1.4 & +10.1 & -3.9 & -1.4 & 0.97 & 0.90 & -27.9 & -31.9 & +17.5 & +26.1 \\
+n & $\Delta$f/n A DS-2 & DS-3 & $\Delta$f/n P DS-2 & DS-3 & $\Delta$$\Gamma$/n A DS-2 & DS-3 & $\Delta$$\Gamma$/n P DS-2 & DS-3 & $\epsilon$\_f P DS-2 [\%] & DS-3 & $\epsilon$\_$\Gamma$ P DS-2 [\%] & DS-3 & r P DS-2 & DS-3 & $\varphi$\_water DS-2 [\textdegree{}] & DS-3 & $\epsilon$\_f A live 09-11 [\%] \\\midrule\endhead
+1 & -772 & -729 & -687 & -723 & 872 & 701 & 869 & 716 & +2.0 & +7.5 & +29.0 & +6.5 & 1.26 & 0.99 & -5.0 & 0.7 & +14.2 \\
+3 & -484 & -489 & -421 & -439 & 413 & 373 & 425 & 382 & +8.2 & +13.1 & +9.3 & -1.7 & 1.01 & 0.87 & -15.0 & -18.8 & +23.1 \\
+5 & -390 & -362 & -322 & -319 & 295 & 300 & 309 & 315 & +7.0 & +6.1 & +2.5 & +4.6 & 0.96 & 0.99 & -24.0 & -14.4 & +29.3 \\
+7 & -312 & -342 & -267 & -282 & 238 & 243 & 246 & 243 & +4.8 & +11.0 & -3.3 & -4.4 & 0.92 & 0.86 & -22.5 & -28.7 & +21.7 \\
+9 & -268 & -306 & -221 & -247 & 211 & 218 & 216 & 221 & -1.4 & +10.1 & -3.9 & -1.4 & 0.97 & 0.90 & -27.9 & -31.9 & +17.5 \\
 \bottomrule
 \end{longtable}}\end{landscape}
 
@@ -589,11 +589,11 @@ DS-3 & water & 3 & 14.976 & -18.8 & 0.03 & -18.9 & -18.8 & 3 \\
 DS-3 & water & 5 & 24.954 & -14.4 & 0.02 & -14.5 & -14.4 & 3 \\
 DS-3 & water & 7 & 34.930 & -28.7 & 0.01 & -28.7 & -28.7 & 3 \\
 DS-3 & water & 9 & 44.908 & -31.9 & 0.03 & -32.0 & -31.9 & 3 \\
-air 2026-09-03 (board 1920 class) & air & 1 & 4.999 & -7.8 & --- & -7.8 & -7.8 & 1 \\
-air 2026-09-03 (board 1920 class) & air & 3 & 14.974 & -17.5 & --- & -17.5 & -17.5 & 1 \\
-air 2026-09-03 (board 1920 class) & air & 5 & 24.951 & -22.6 & --- & -22.6 & -22.6 & 1 \\
-air 2026-09-03 (board 1920 class) & air & 7 & 34.926 & -25.7 & --- & -25.7 & -25.7 & 1 \\
-air 2026-09-03 (board 1920 class) & air & 9 & 44.903 & -28.9 & --- & -28.9 & -28.9 & 1 \\
+air 2026-09-03 (same instrument class) & air & 1 & 4.999 & -7.8 & --- & -7.8 & -7.8 & 1 \\
+air 2026-09-03 (same instrument class) & air & 3 & 14.974 & -17.5 & --- & -17.5 & -17.5 & 1 \\
+air 2026-09-03 (same instrument class) & air & 5 & 24.951 & -22.6 & --- & -22.6 & -22.6 & 1 \\
+air 2026-09-03 (same instrument class) & air & 7 & 34.926 & -25.7 & --- & -25.7 & -25.7 & 1 \\
+air 2026-09-03 (same instrument class) & air & 9 & 44.903 & -28.9 & --- & -28.9 & -28.9 & 1 \\
 water 2026-07-28 (board not recorded) & water & 1 & 4.998 & 2.2 & --- & 2.2 & 2.2 & 1 \\
 \bottomrule
 \end{longtable}}\end{landscape}
@@ -621,7 +621,7 @@ DS-3 & 9 & -27.9 & -31.9 \ldots{} -30.4 & 1.5 & +3.1 & 4.0 & 0.07 \\
 
 \begin{table}[htbp]\centering\footnotesize
 \begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X}\toprule
-n & $\varphi$ air DS-2 (board 1920, 09-11) & air 2026-09-03 & $\varphi$ air DS-3 (2024) & 09-03 $-$ DS-2 & DS-3 $-$ DS-2 \\\midrule
+n & $\varphi$ air DS-2 (09-11) & air 2026-09-03 & $\varphi$ air DS-3 (2024) & 09-03 $-$ DS-2 & DS-3 $-$ DS-2 \\\midrule
 1 & -8.0 & -7.8 & -7.3 & +0.2 & +0.7 \\
 3 & -14.5 & -17.5 & -19.7 & -3.0 & -5.2 \\
 5 & -20.6 & -22.6 & -19.5 & -2.0 & +1.1 \\
@@ -643,7 +643,7 @@ DS-3 & glucose 5 \% & 0.9 / -19.5 / -14.4 / -28.1 / -31.0 & no & 5.0 \\
 DS-3 & glucose 7.5 \% & 1.1 / -20.2 / -14.5 / -27.8 / -30.7 & no & 5.6 \\
 DS-3 & glucose 10 \% & 1.2 / -20.8 / -14.6 / -27.5 / -30.4 & no & 6.2 \\
 DS-3 & water & 0.7 / -18.8 / -14.4 / -28.7 / -31.9 & no & 4.4 \\
-air 2026-09-03 (board 1920 class) & air & -7.8 / -17.5 / -22.6 / -25.7 / -28.9 & yes & 0.0 \\
+air 2026-09-03 (same instrument class) & air & -7.8 / -17.5 / -22.6 / -25.7 / -28.9 & yes & 0.0 \\
 \bottomrule
 \end{tabularx}\end{table}
 
@@ -700,7 +700,7 @@ P & 9 & 1.7 & 1.3 & 2223 & 1989 & 0.0008 & 0.0006 & 0.058 (17) & 0.088 (38) & 0.
 
 \begin{landscape}{\scriptsize\setlength{\tabcolsep}{2pt}
 \begin{longtable}{@{}llllllll@{}}
-\caption{Live datalogs of board 1920 (A as published by the instrument): plateau shifts against KG.}\\
+\caption{Live datalog of the first instrument, 2026-09-11 (A as published by the instrument): plateau shifts against KG.}\\
 \toprule
 run & liquid & n & $\Delta$f [Hz] & $\epsilon$\_f [\%] & $\Delta$$\Gamma$ [Hz] & $\epsilon$\_$\Gamma$ [\%] & r\_n \\\midrule\endhead
 DS-2 datalog 2026-09-11 & water & 1 & -769 $\pm$ 2 & +14.2 & 870 $\pm$ 1 & +29.2 & 1.13 \\
@@ -713,16 +713,6 @@ DS-2 datalog 2026-09-11 & isopropanol & 3 & -1904 $\pm$ 7 & +21.9 & 1592 $\pm$ 1
 DS-2 datalog 2026-09-11 & isopropanol & 5 & -2560 $\pm$ 4 & +26.9 & 1919 $\pm$ 3 & -4.9 & 0.75 \\
 DS-2 datalog 2026-09-11 & isopropanol & 7 & -2908 $\pm$ 6 & +21.8 & 2223 $\pm$ 2 & -6.9 & 0.76 \\
 DS-2 datalog 2026-09-11 & isopropanol & 9 & -3312 $\pm$ 8 & +22.4 & 2507 $\pm$ 3 & -7.4 & 0.76 \\
-datalog 2026-09-10 (air $\rightarrow$ ipa $\rightarrow$ water) & water & 1 & -755 $\pm$ 1 & +12.1 & 794 $\pm$ 0 & +17.9 & 1.05 \\
-datalog 2026-09-10 (air $\rightarrow$ ipa $\rightarrow$ water) & water & 3 & -1521 $\pm$ 1 & +30.4 & 1254 $\pm$ 0 & +7.4 & 0.82 \\
-datalog 2026-09-10 (air $\rightarrow$ ipa $\rightarrow$ water) & water & 5 & -1961 $\pm$ 2 & +30.2 & 1451 $\pm$ 0 & -3.7 & 0.74 \\
-datalog 2026-09-10 (air $\rightarrow$ ipa $\rightarrow$ water) & water & 7 & -2230 $\pm$ 3 & +25.1 & 1660 $\pm$ 1 & -6.8 & 0.74 \\
-datalog 2026-09-10 (air $\rightarrow$ ipa $\rightarrow$ water) & water & 9 & -2549 $\pm$ 5 & +26.1 & 1931 $\pm$ 5 & -4.4 & 0.76 \\
-datalog 2026-09-10 (air $\rightarrow$ ipa $\rightarrow$ water) & isopropanol & 1 & -1016 $\pm$ 29 & +12.6 & 1093 $\pm$ 47 & +21.2 & 1.08 \\
-datalog 2026-09-10 (air $\rightarrow$ ipa $\rightarrow$ water) & isopropanol & 3 & -1913 $\pm$ 8 & +22.4 & 1545 $\pm$ 4 & -1.1 & 0.81 \\
-datalog 2026-09-10 (air $\rightarrow$ ipa $\rightarrow$ water) & isopropanol & 5 & -2603 $\pm$ 14 & +29.0 & 1862 $\pm$ 9 & -7.7 & 0.72 \\
-datalog 2026-09-10 (air $\rightarrow$ ipa $\rightarrow$ water) & isopropanol & 7 & -2950 $\pm$ 18 & +23.6 & 2186 $\pm$ 6 & -8.4 & 0.74 \\
-datalog 2026-09-10 (air $\rightarrow$ ipa $\rightarrow$ water) & isopropanol & 9 & -3374 $\pm$ 47 & +24.7 & 2515 $\pm$ 23 & -7.1 & 0.75 \\
 \bottomrule
 \end{longtable}}\end{landscape}
 

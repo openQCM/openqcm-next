@@ -65,8 +65,8 @@ def t_rep():
     for _, x in r.iterrows():
         rows.append([str(int(x.n)), f(x.DS2_A_df_over_n, 0), f(x.DS3_A_df_over_n, 0), f(x.DS2_P_df_over_n, 0), f(x.DS3_P_df_over_n, 0), f(x.DS2_A_dG_over_n, 0), f(x.DS3_A_dG_over_n, 0), f(x.DS2_P_dG_over_n, 0), f(x.DS3_P_dG_over_n, 0),
                      f(100 * x.DS2_P_eps_f, 1, True), f(100 * x.DS3_P_eps_f, 1, True), f(100 * x.DS2_P_eps_G, 1, True), f(100 * x.DS3_P_eps_G, 1, True), f(x.DS2_P_r, 2), f(x.DS3_P_r, 2), f(x.DS2_P_phi_liq, 1), f(x.DS3_P_phi_liq, 1),
-                     f(100 * x.dl0911_A_eps_f, 1, True), f(100 * x.dl0910_A_eps_f, 1, True)])
-    return table(["n", "Δf/n A DS-2", "DS-3", "Δf/n P DS-2", "DS-3", "ΔΓ/n A DS-2", "DS-3", "ΔΓ/n P DS-2", "DS-3", "ε_f P DS-2 [%]", "DS-3", "ε_Γ P DS-2 [%]", "DS-3", "r P DS-2", "DS-3", "φ_water DS-2 [°]", "DS-3", "ε_f A live 09-11 [%]", "09-10"], rows)
+                     f(100 * x.dl0911_A_eps_f, 1, True)])
+    return table(["n", "Δf/n A DS-2", "DS-3", "Δf/n P DS-2", "DS-3", "ΔΓ/n A DS-2", "DS-3", "ΔΓ/n P DS-2", "DS-3", "ε_f P DS-2 [%]", "DS-3", "ε_Γ P DS-2 [%]", "DS-3", "r P DS-2", "DS-3", "φ_water DS-2 [°]", "DS-3", "ε_f A live 09-11 [%]"], rows)
 
 
 def t_claim():
@@ -90,7 +90,7 @@ def t_phi():
     rows = [[r.dataset, str(int(r.n)), f(r.phi_air, 1), "%.1f … %.1f" % (r.phi_liquid_min, r.phi_liquid_max), f(r.liquid_range, 1), f(r.air_minus_liquid_mean, 1, True), f(r.all_media_range, 1), f(r.replica_sd_max, 2)] for _, r in st.iterrows()]
     t2 = table(["dataset", "n", "φ air", "φ liquids (min … max)", "range over liquids", "air − mean(liquids)", "range over all media", "max replica sd"], rows)
     rows = [[str(int(r.n)), f(r.phi_air_DS2, 1), f(r.phi_air_0903, 1), f(r.phi_air_DS3, 1), f(r.d0903_minus_DS2, 1, True), f(r.DS3_minus_DS2, 1, True)] for _, r in bw.iterrows()]
-    t3 = table(["n", "φ air DS-2 (board 1920, 09-11)", "air 2026-09-03", "φ air DS-3 (2024)", "09-03 − DS-2", "DS-3 − DS-2"], rows)
+    t3 = table(["n", "φ air DS-2 (09-11)", "air 2026-09-03", "φ air DS-3 (2024)", "09-03 − DS-2", "DS-3 − DS-2"], rows)
     rows = [[r.dataset, LIQ.get(r.medium, r.medium), r.phi_1_to_9, "yes" if r.monotonic else "no", f(r.max_nonmonotonic_step, 1)] for _, r in mo.iterrows()]
     t4 = table(["dataset", "medium", "φ(n = 1 … 9) [°]", "monotonic in n", "largest step in the wrong direction [°]"], rows)
     return "(a) every dataset and medium\n\n" + t1 + "\n\n(b) stability per overtone\n\n" + t2 + "\n\n(c) between boards and days, air\n\n" + t3 + "\n\n(d) monotonicity\n\n" + t4
@@ -114,6 +114,7 @@ def t_glucose():
 
 def t_datalog():
     d = pd.read_csv(os.path.join(R, "datalog_shifts.csv")); rows = []
+    d = d[~d.dataset.str.contains("2026-09-10")]   # the 2026-09-10 replicate is not cited in the paper (review of 2026-10-16)
     for _, r in d.iterrows():
         rows.append([r.dataset, LIQ[r.liquid], str(int(r.n)), "%.0f ± %.0f" % (r.df, r.df_sd), f(100 * r.eps_f, 1, True), "%.0f ± %.0f" % (r.dG, r.dG_sd), f(100 * r.eps_G, 1, True), f(r.r_KG1, 2)])
     return table(["run", "liquid", "n", "Δf [Hz]", "ε_f [%]", "ΔΓ [Hz]", "ε_Γ [%]", "r_n"], rows)
@@ -129,5 +130,6 @@ if __name__ == "__main__":
         assert tag in s, tag
         s = s.replace(tag, fn())
     assert "{{TABLE:" not in s
+    s = s.replace("(board 1920 class)", "(same instrument class)")   # dataset label of results/v2/asis/phi_all.csv; the board number is not cited in the paper
     open(os.path.join(MS, "supporting_information.md"), "w").write(s)
     print("wrote supporting_information.md", len(s), "chars")

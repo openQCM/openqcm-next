@@ -5,6 +5,16 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Research — manuscript, manual review round 1: QCM introduction, Fig. 1 without the 0 Ω links, "board 1920" and the 2026-09-10 run removed (2026-10-16)
+
+Marco's annotations on `arxiv/main_review.pdf` applied (`research/paper/manuscript/CHANGELOG_v0.2.md`, "Manual review,
+round 1"): new opening paragraph on what a QCM is and does; contribution (i), Abstract and Conclusion no longer present
+the SLA → KG derivation as a result, only the three tests drawn from it; Fig. 1 without R37, R38, R12 (0 Ω), its SVG in
+`figures_v2/` now the source with a vector PDF exported by Inkscape; "board 1920" replaced by "first instrument" in the
+main text, captions, Table 2, SI and Figs. 3–4 (the repository path keeps the number); the 2026-09-10 replicate removed
+from the main text and from the SI (S8, Table S6 column, Table S11 rows, filtered in `make_si.py`; the result CSVs are
+unchanged). `main.pdf`, `main_review.pdf` (20 pp.) and `si.pdf` (34 pp.) recompiled.
+
 ### Research — manuscript review copy with line numbers (2026-10-12)
 
 `research/paper/analysis/md2tex.py` also writes `arxiv/main_review.tex`, the main text with continuous line numbers

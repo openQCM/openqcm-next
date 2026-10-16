@@ -156,7 +156,7 @@ def time_traces():
             axs[0,col].text((lo+hi)/2, .955, lab, transform=axs[0,col].get_xaxis_transform(),
                             ha='center', va='top', fontsize=9, color='#333333')
         for a in axs[:, col]: a.set_xlim(bands[0][0]-1, bands[-1][1]+1)
-    fig.text(.31, .893, '(a) DS-2 · board 1920', ha='center', fontweight='semibold', fontsize=12)
+    fig.text(.31, .893, '(a) DS-2 · first instrument', ha='center', fontweight='semibold', fontsize=12)
     fig.text(.785, .893, '(b) DS-3 · second instrument', ha='center', fontweight='semibold', fontsize=12)
     save(fig, 'fig03_T4_time_traces', 'PSL only; Δf_n/n and ΔΓ_n/n relative to the mean of the three air sweeps of the same dataset; DS-2 time origin = start of its datalog; lines join successive sweeps of one overtone (guide to the eye); shaded bands: plateau convention of v0.2 (DS-2 fixed at 37.25 / 61.05 min; DS-3 1.5 min before the first sweep of each phase), not a liquid-change time estimate; palettes plot_color_multi (Δf) and plot_color_multi_diss (ΔΓ) of the instrument software')
 
@@ -178,7 +178,7 @@ def water_comparison():
             for r in sel(ds,'water',est).itertuples():
                 for row,y,err,colors in [(0,r.df_over_n,r.df_sd/r.n,FC), (0,r.dG_over_n,r.dG_sd/r.n,GC), (1,r.r_KG1,r.r_KG1_sd,FC)]:
                     point(ax[row,col], r.n, y, colors[r.n], mk, filled, err, size)
-        ax[0,col].set_title(f'({chr(97+col)})  {ds}' + (' · board 1920' if col == 0 else ' · second instrument'), pad=14)
+        ax[0,col].set_title(f'({chr(97+col)})  {ds}' + (' · first instrument' if col == 0 else ' · second instrument'), pad=14)
         ax[1,col].set_xlabel('Overtone order $n$')
         for a in ax[:,col]: a.set_xticks(N); a.set_xlim(.5,9.5)
     for row,label in enumerate([r'$\Delta f_n/n,\ \Delta\Gamma_n/n$ [Hz]',r'KG-1: $\Delta\Gamma_n/(-\Delta f_n)$']): ax[row,0].set_ylabel(label)
