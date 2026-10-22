@@ -837,7 +837,7 @@ in `common/sweepDump.py` (`calibration_label()`, `save_calibration_sweep()`) plu
 in `processors/Calibration.py`. It writes `sweep_data/cal_<label>.txt` **before** the peak logic
 runs, which is the whole point — the ordinary `Calibration_5MHz.txt` is written only when a 4–6 MHz
 fundamental is found, so an open or a short produces no file at all. ⚠️ `Calibration.py` is a
-**CRLF file** (815 CRLF, 0 bare LF): edit it in binary or the diff becomes the whole file.
+**CRLF file** (825 CRLF, 0 bare LF): edit it in binary or the diff becomes the whole file.
 
 ### The phase-channel offset δ — what it is and how it was found
 
@@ -1237,8 +1237,9 @@ selectable).
     software/openQCM/sweep_data/9.txt
   ```
 
-- ⚠️ **Two CRLF files**: `processors/Calibration.py` (815 CRLF) and `common/fileStorage.py` (179 CRLF), no bare
-  LF (`main`'s HANDOFF lists five, the other three are not touched here). Edit them in binary: a text-mode
+- ⚠️ **Two CRLF files**: `processors/Calibration.py` (825 CRLF since `c70b93b`) and `common/fileStorage.py` (179 CRLF), no bare
+  LF (`main`'s HANDOFF lists three; `switcher`, the third, is not touched here, and `Sigma_Clip` and
+  `ReadLine` were removed as dead in `7d28821`). Edit them in binary: a text-mode
   read/write normalises to LF and the diff becomes the whole file — 2026-09-17, on both branches, caught by
   the 351-line stat before the push and rewritten. Count `\r\n` before committing.
 - **GUI can't be tested headless**: run static checks (`python -m py_compile ...` and

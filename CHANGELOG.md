@@ -5,6 +5,17 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — five dead modules removed (2026-10-22)
+
+`72062b6` cherry-picked clean as `7d28821` (item C1 of `main`'s `OPTIMIZATION_PLAN.md`, 849 lines):
+`processors/Sigma_Clip.py`, `Simulator.py`, `SocketClient.py` (with the `SocketProcess` import in `worker.py`,
+`Constants.simulator_default_speed` and the nested `Constants.SocketClient`), `util/ReadLine.py` and its two imports,
+`util/embedding_in_qt_sgskip.py`, `res/README.txt`. Nothing in this worktree — code, tests, `sweep_data/` or
+`research/` — referenced them (the MTD415T bench's own simulator is a different module). Verified here: the 70 tests
+pass, pyflakes 107 → 104, and the replay harness gives identical parser messages before and after (multiscan 604,
+G/B included; single 112). Also carried: `140f983` as `fd1c607`, the SESSION_PROMPT count of `Calibration.py`'s CRLF lines
+(825 since the read-loop change). README's Repository Structure and HANDOFF's CRLF notes follow.
+
 ### Carried from `main` — spawned children no longer import the GUI (2026-10-22)
 
 `26c178f` cherry-picked clean as `63df818` (item A3 of `main`'s `OPTIMIZATION_PLAN.md`): `run.py` and

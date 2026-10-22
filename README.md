@@ -406,8 +406,7 @@ openqcm-next/
 │   │   │   ├── Multiscan.py                   # multi-overtone acquisition, exact inversion to G(f), B(f)
 │   │   │   ├── Serial.py                      # single-overtone acquisition
 │   │   │   ├── Calibration.py                 # peak detection
-│   │   │   ├── Parser.py                      # holds the multiprocessing queues
-│   │   │   └── Sigma_Clip.py · Simulator.py · SocketClient.py
+│   │   │   └── Parser.py                      # holds the multiprocessing queues
 │   │   ├── common/
 │   │   │   ├── fileStorage.py                 # CSV datalog
 │   │   │   ├── tecStatus.py · tecReset.py · pidQuery.py   # TEC controller (MTD415T) over serial
@@ -421,7 +420,6 @@ openqcm-next/
 │   │   │   └── theme.py · widgets.py · plotMenu.py · popUp.py
 │   │   ├── sweep_data/                        # offline analysis scripts; sweep files are runtime
 │   │   │   └── plot_conductance.py · fit_admittance.py · plot_sweep_spline.py
-│   │   ├── util/                              # serial line reader, matplotlib-in-Qt helper
 │   │   ├── res/ · icon/                       # icons and images
 │   │   ├── firmware_update/                   # Teensy loaders (macOS, Windows) and the 0.1.5d images
 │   │   ├── config.txt                         # sweep / sampling parameters (per machine)
