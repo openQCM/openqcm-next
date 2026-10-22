@@ -5,6 +5,14 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — the ParserProcess is no longer started (2026-10-22)
+
+`4c9003e` cherry-picked clean as `1102568` (item A2 of `main`'s `OPTIMIZATION_PLAN.md`). `ParserProcess` has no
+`run()` and only holds the queues and the request Events, so `Worker.start()` no longer spawns it: on `main` an idle
+parser spawn measured 1.29–1.36 s of CPU and 94 MB per START. Verified here: the 70 tests pass; on the board this
+branch's Worker (15 queues) runs a multiscan with the acquisition as its only child, descriptors 103 while running and
+6 after `close()`, which still releases all 15 queues.
+
 ### Carried from `main` — the serial read loops stop spinning while the board is sweeping (2026-10-22)
 
 `438dfbf` cherry-picked clean as `c70b93b` (item A1 of `main`'s `OPTIMIZATION_PLAN.md`). The sweep read loops of

@@ -468,7 +468,8 @@ In detail:
   grid, the exact inversion to G(f) and B(f), and the estimator (f_res, Γ, D). Results go out through
   `parser.add_*()`, one message per overtone and then the temperature.
 - **Queues** — `ParserProcess` only holds the `multiprocessing.Queue` objects (frequency, dissipation, G/B
-  spectra, amplitude/phase, temperature, TEC/PID, status, System Log); its own `run()` does nothing.
+  spectra, amplitude/phase, temperature, TEC/PID, status, System Log); it has no `run()` of its own and is not
+  started as a process.
 - **Worker** — lives in the GUI process. It creates the queues, starts the acquisition process (handing it
   the estimator chosen before START), drains every queue into ring buffers, writes the datalog (one row
   per cycle, clocked by the temperature message) and sends TEC/PID commands to the board.
