@@ -3,7 +3,6 @@ from multiprocessing import Queue
 from openQCM.core.constants import Constants, SourceType
 from openQCM.processors.Parser import ParserProcess
 from openQCM.processors.Serial import SerialProcess
-from openQCM.processors.SocketClient import SocketProcess
 from openQCM.processors.Calibration import CalibrationProcess
 from openQCM.processors.Multiscan import MultiscanProcess
 from openQCM.common.fileStorage import FileStorage
