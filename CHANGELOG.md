@@ -5,6 +5,19 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `main`
 
+### Performance — the serial read loops stop spinning while the board is sweeping (2026-10-22)
+
+`438dfbf`, item A1 of the new `OPTIMIZATION_PLAN.md` (read-only audit of both worktrees, approved by Marco on
+2026-10-22). The sweep read loops of `SerialProcess`, `MultiscanProcess` and `CalibrationProcess` called
+`inWaiting()` and then `read(n)` with no wait; `read(0)` returns at once, so the loop turned ~350 000 times per
+sweep, and `'s' in buffer` rescanned the whole growing buffer (up to ~288 kB) on every turn. A turn with nothing
+waiting now sleeps 1 ms, and the end-of-sweep marker is looked for in the chunk just read — only the end line
+carries an `'s'`. Measured on the board (NEXT), process CPU over whole cycles: multiscan **78.7 % → 11.9 %** of a
+core (1.28 → 0.19 s per sweep, 8.13 s per cycle either way), single **73.6 % → 15.7 %** (1.40 → 0.29 s per
+sweep), no USB error flag. Replayed through a fake firmware on a pty with the 45 dumps of 2026-09-11: parser
+messages and runtime files identical in multiscan (544 messages), single (121) and peak detection (33).
+`Calibration.py` keeps its CRLF endings. Cherry-picked onto `impedance-analysis`.
+
 ### Docs — SESSION_PROMPT: manuscript figures 3, 4, 6–8 revised, the glucose KG reading (2026-10-12)
 
 `4cbc939`. `docs/SESSION_PROMPT.md` (one file on both branches) updates its "Paper — manoscritto v0.2" entry to the

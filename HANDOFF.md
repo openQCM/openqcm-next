@@ -2,7 +2,7 @@
 
 > Technical starting point to continue development of the software and of the
 > `impedance-analysis` branch. Working language: Italian in chat, English in the repo.
-> Last updated: 2026-10-02.
+> Last updated: 2026-10-22.
 >
 > Starting a new session: paste [`docs/SESSION_PROMPT.md`](docs/SESSION_PROMPT.md)
 > as the first message. It is a shortcut into this file, not a replacement for it.
@@ -1101,6 +1101,15 @@ Moving work between the branches: **cherry-pick**, as in §2 — never `git merg
 ## 5. Planned technical tasks (on `main`)
 
 
+> 📌 **Optimisation plan (2026-10-22)**: [`OPTIMIZATION_PLAN.md`](OPTIMIZATION_PLAN.md) — read-only audit of
+> both worktrees, approved by Marco, executed one item at a time: unused code, inefficiencies (each with a
+> number measured on real code or on the board) and structure, every item classified main / shared /
+> branch with its cherry-pick impact, plus what is deliberately *not* worth doing. It supersedes
+> `CLEANUP_PLAN.md` and the untracked `CODE_ANALYSIS.md` as input (both re-checked at HEAD there). Its
+> verification rests on a replay harness — the real process classes against a fake firmware on a pty,
+> fed with the 45 dumps of 2026-09-11 — because `main` has no test suite: equal parser messages and
+> runtime files before and after a change. Item status lives in that file.
+
 > 📌 **Source-code cleanup**: a full plan already exists in
 > [`CLEANUP_PLAN.md`](CLEANUP_PLAN.md) — produced by a read-only audit on
 > 2026-07-20 (baseline `main` @ `630e898`), executed only in part since (the dead Qt-Designer
@@ -1377,8 +1386,11 @@ roadmap). ⚠️ Each Q-1-inspired change needs a **detailed plan + explicit app
   (4-6 / 9-11 MHz), flag when all expected overtones are zero, auto-detect QCM type (5/10 MHz),
   tune the magnitude/phase cross-validation threshold. Two-phase detection already exists in
   `processors/Calibration.py` (`peak_detection_qcm_fundamental` / `..._overtones`).
-- **Windows serial anti-jitter**: add `sleep(0.001)` inside the `inWaiting()` read loop
-  (`Serial.py:826`, currently a tight busy-wait) to reduce Windows scheduler jitter.
+- ~~**Windows serial anti-jitter**~~ — done on 2026-10-22 (`438dfbf`, OPTIMIZATION_PLAN A1), and the reason
+  turned out to be larger than jitter: the read loops of all three processes spun at full speed for the
+  whole sweep (`read(0)` returns at once). Measured on the board: a multiscan process went from 78.7 % to
+  11.9 % of a core, 8.13 s per cycle either way. A turn with nothing waiting now sleeps 1 ms, and the
+  end-of-sweep `'s'` is looked for in the chunk just read, not in the whole buffer.
 - **Minor / defensive**: `FileManager.create_dir(None)` raises `TypeError`; `file_exists(None)`
   returns `None`. (`Constants.environment` is now the production 8, see §3.)
 
