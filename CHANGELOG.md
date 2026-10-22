@@ -5,6 +5,17 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `main`
 
+### Performance — the ParserProcess is no longer started (2026-10-22)
+
+`4c9003e`, item A2 of `OPTIMIZATION_PLAN.md`. `ParserProcess` has no `run()` of its own (both implementations are
+commented out), so `Worker.start()` spawned an interpreter that imported the application through `run.py` and
+exited at once with code 0 — not the `NotImplementedError` the untracked `CODE_ANALYSIS.md` assumed. The object only
+holds the queues and the request Events, and the acquisition process already received it unstarted. Measured: an
+idle parser spawn costs 1.29–1.36 s of CPU and 94 MB peak. On the board, a 25 s multiscan run: children's CPU
+**6.56–6.64 → 5.11–5.15 s per START**, descriptors while running 100 → 98, 6 after `close()` either way. Read PID
+during the acquisition still reaches the process through the parser's Event (answer in 2.7 s), and the System Log
+lines still arrive. Cherry-picked onto `impedance-analysis`.
+
 ### Performance — the serial read loops stop spinning while the board is sweeping (2026-10-22)
 
 `438dfbf`, item A1 of the new `OPTIMIZATION_PLAN.md` (read-only audit of both worktrees, approved by Marco on

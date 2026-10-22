@@ -407,7 +407,9 @@ just the peak. Three things since `3cefc79`:
   process is seen to have exited `multiprocessing` keeps its object in its children list — which
   holds the parser, which holds every queue, which holds the semaphores. Closing the queues alone left
   75 of 93 descriptors (bench: 97 before the second START instead of ~15); join + close +
-  `active_children()` + `gc.collect()` leaves the base.
+  `active_children()` + `gc.collect()` leaves the base. Since `4c9003e` (2026-10-22) the parser is
+  **never started** — it has no `run()` and only holds the queues and Events — so the only child is the
+  acquisition process; `close()` still walks both objects and copes with the unstarted one.
 - The System Log prints "open file descriptors: N of limit M" on every START and STOP. A leak is a
   slope there. **Bench, 2026-09-10, three cycles with every auxiliary window open during the run**:
   before START 16 / 24 / 24, after STOP 118 / 118 — a fixed 8 after the first cycle, no growth.
