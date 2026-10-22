@@ -588,16 +588,24 @@ class SerialProcess(multiprocessing.Process):
                             # READ SWEEP DATA AT SERIAL PORT
                             # -------------------------------------------------
                             while 1:
-                                 # append string read at serial port to buffer 
+                                 # append string read at serial port to buffer
                                  self.byte_at_port = self._serial.inWaiting()
-                                 buffer += self._serial.read(self.byte_at_port).decode(Constants.app_encoding)
-                                 
+                                 # Nothing waiting: yield for a millisecond. read(0)
+                                 # returns at once, so without this the loop turned
+                                 # ~350 000 times per sweep at 100 % of a core.
+                                 if self.byte_at_port == 0:
+                                     sleep(0.001)
+                                 chunk = self._serial.read(self.byte_at_port).decode(Constants.app_encoding)
+                                 buffer += chunk
+
                                  # DEBUG_0.1.1a
                                  # check the time elapsed in serial read loop
                                  _time_elapsed = time() - timeStart
-                                 
-                                 # check for EOM character 
-                                 if 's' in buffer:   
+
+                                 # check for EOM character: only the end-of-sweep
+                                 # line carries an 's', so the chunk just read is
+                                 # where it appears -- no need to rescan the buffer
+                                 if 's' in chunk:
                                      # VER 0.1.4
                                      # add a little delay at the end of the sweep 
                                      sleep(Constants.SLEEP_EOM_SINGLE)

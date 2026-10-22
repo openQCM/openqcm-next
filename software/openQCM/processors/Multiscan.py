@@ -642,7 +642,13 @@ class MultiscanProcess(multiprocessing.Process):
                                     
                                     # DEBUG_0.1.1a
                                     self.byte_at_port = self._serial.inWaiting()
-                                    buffer += self._serial.read(self.byte_at_port).decode(Constants.app_encoding)
+                                    # Nothing waiting: yield for a millisecond. read(0)
+                                    # returns at once, so without this the loop turned
+                                    # ~350 000 times per sweep at 100 % of a core.
+                                    if self.byte_at_port == 0:
+                                        sleep(0.001)
+                                    chunk = self._serial.read(self.byte_at_port).decode(Constants.app_encoding)
+                                    buffer += chunk
                                     
                                     # check the time elapsed in serial read loop
                                     _time_elapsed = time() - timeStart
@@ -656,8 +662,10 @@ class MultiscanProcess(multiprocessing.Process):
                                     # TODO use read line to decrease sampling time 
                                     # buffer += line.readline().decode() 
                                     
-                                    # check for EOM character 
-                                    if 's' in buffer:
+                                    # check for EOM character: only the end-of-sweep
+                                    # line carries an 's', so the chunk just read is
+                                    # where it appears -- no need to rescan the buffer
+                                    if 's' in chunk:
                                         # print (_time_elapsed)
 # =============================================================================
 #                                         # reset input output buffer

@@ -442,11 +442,21 @@ class CalibrationProcess(multiprocessing.Process):
                         # VER 0.1.6 poll self._exit so a Stop pressed mid-sweep
                         # breaks out promptly (responsive cancellation, Q-1 v3.0).
                         while not self._exit.is_set():
-                            buffer += self._serial.read(self._serial.inWaiting()).decode() #Constants.app_encoding
+                            waiting = self._serial.inWaiting()
+                            # Nothing waiting: yield for a millisecond. read(0)
+                            # returns at once, so without this the loop held a
+                            # core at 100 % for the whole of the peak detection.
+                            if waiting == 0:
+                                time.sleep(0.001)
+                                continue
+                            chunk = self._serial.read(waiting).decode() #Constants.app_encoding
+                            buffer += chunk
                             #len_buffer = len(buffer)
                             #bar.update(len_buffer)
                             # print(buffer)
-                            if 's' in buffer:
+                            # only the end-of-sweep line carries an 's': test the
+                            # chunk just read, not the whole growing buffer
+                            if 's' in chunk:
                                  break
                         # If cancelled before the end-of-message marker arrived,
                         # abandon this section and let the outer sweep loop exit.
