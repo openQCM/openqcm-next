@@ -5,6 +5,16 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — the serial read loops stop spinning while the board is sweeping (2026-10-22)
+
+`438dfbf` cherry-picked clean as `c70b93b` (item A1 of `main`'s `OPTIMIZATION_PLAN.md`). The sweep read loops of
+`SerialProcess`, `MultiscanProcess` and `CalibrationProcess` turned ~350 000 times per sweep (`read(0)` returns at
+once); a turn with nothing waiting now sleeps 1 ms and the end-of-sweep `'s'` is looked for in the chunk just
+read. On `main`, measured on the board: multiscan 78.7 % → 11.9 % of a core, 8.13 s per cycle either way.
+Verified here: the 70 tests pass, and this branch's processes replayed through a fake firmware on a pty with the
+45 dumps of 2026-09-11 publish identical parser messages before and after the pick — multiscan 604 messages,
+G/B included, single 112. `Calibration.py` still 825 CRLF, 0 bare LF.
+
 ### Research — manuscript, manual review round 1: QCM introduction, Fig. 1 without the 0 Ω links, "board 1920" and the 2026-09-10 run removed (2026-10-16)
 
 Marco's annotations on `arxiv/main_review.pdf` applied (`research/paper/manuscript/CHANGELOG_v0.2.md`, "Manual review,

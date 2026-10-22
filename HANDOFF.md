@@ -1205,8 +1205,9 @@ roadmap). ⚠️ Each Q-1-inspired change needs a **detailed plan + explicit app
   (4-6 / 9-11 MHz), flag when all expected overtones are zero, auto-detect QCM type (5/10 MHz),
   tune the magnitude/phase cross-validation threshold. Two-phase detection already exists in
   `processors/Calibration.py` (`peak_detection_qcm_fundamental` / `..._overtones`).
-- **Windows serial anti-jitter**: add `sleep(0.001)` inside the `inWaiting()` read loop
-  (`Serial.py:826`, currently a tight busy-wait) to reduce Windows scheduler jitter.
+- ~~**Windows serial anti-jitter**~~ — done on `main` on 2026-10-22 (`438dfbf`, carried here as `c70b93b`):
+  the read loops of all three processes spun for the whole sweep; a turn with nothing waiting now sleeps
+  1 ms. Measured on `main`'s board: multiscan 78.7 % → 11.9 % of a core, cycle length unchanged.
 - **Minor / defensive**: `FileManager.create_dir(None)` raises `TypeError`; `file_exists(None)`
   returns `None`. (`Constants.environment` is now the production 8.)
 
