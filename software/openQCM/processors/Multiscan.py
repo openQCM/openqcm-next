@@ -18,8 +18,6 @@ from openQCM.core.averaging import robust_mean
 
 from progressbar import Bar, Percentage, ProgressBar, RotatingMarker,Timer
 
-from openQCM.util.ReadLine import ReadLine as rl
-
 from time import sleep
 
 from numpy import loadtxt

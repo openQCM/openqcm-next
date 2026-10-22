@@ -614,7 +614,6 @@ class Constants:
     # VER 0.1.4
     # change / increased the process join timeout
     process_join_timeout_ms = 4000
-    simulator_default_speed = 0.1 # not used
     parser_timeout_ms = 0.005
     
     
@@ -806,13 +805,6 @@ class Constants:
     # because it is read in six places and the value is unchanged.
     trim_mean_proportiontocut = 0.10
     
-    ###################
-    class SocketClient: #unused
-        timeout = 0.01
-        host_default = "localhost"
-        port_default = [5555, 8080, 9090]
-        buffer_recv_size = 1024
-    ###################  
 
 
 

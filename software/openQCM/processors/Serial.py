@@ -15,7 +15,6 @@ from serial.tools import list_ports
 import numpy as np
 from numpy import loadtxt
 from openQCM.core.averaging import robust_mean
-from openQCM.util.ReadLine import ReadLine as rl
 from time import time as tm
 from progressbar import Bar, Percentage, ProgressBar, RotatingMarker,Timer
 from time import sleep
