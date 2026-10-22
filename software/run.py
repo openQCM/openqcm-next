@@ -19,8 +19,11 @@ For module execution:
     python -m openQCM
 """
 
-from openQCM.app import OPENQCM
-
 
 if __name__ == '__main__':
+    # Imported here, not at module level: every process the acquisition spawns
+    # re-runs this file as __mp_main__, and a top-level import made each of them
+    # load the whole GUI (mainWindow, pyqtgraph) for nothing -- measured, about
+    # 0.25 s of CPU and 27 MB per child per START.
+    from openQCM.app import OPENQCM
     OPENQCM().run()
