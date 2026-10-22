@@ -357,10 +357,15 @@ class Worker:
                 peaks_mag = data[:,0]
                 self._number_of_peaks = len(peaks_mag) - 1
             
-            # START PROCESSES ACQUISITION and PARSER 
+            # START THE ACQUISITION PROCESS
             # -----------------------------------------------------------------
+            # The parser is NOT started: ParserProcess has no run() of its own,
+            # it only holds the queues and the request Events, and the
+            # acquisition process already received it unstarted (pickled by the
+            # start() above). Starting it spawned an interpreter that imported
+            # the application and exited at once: 1.3 s of CPU and 94 MB per
+            # START, measured, for nothing.
             self._acquisition_process.start()
-            self._parser_process.start()
             
             # VER 0.1.2
             # format the log data file: one fresh timestamp per START press.
@@ -445,7 +450,7 @@ class Worker:
                 # wait for a while
                 sleep(1)
 
-        # TODO check if it is necessary to terminate parser
+        # the parser is never started (see start()); stop() only sets its Event
         self._parser_process.stop()
         
         print(TAG, 'Running processes stopped...')
