@@ -5,6 +5,16 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `main`
 
+### Performance — spawned children no longer import the GUI (2026-10-22)
+
+`26c178f`, item A3 of `OPTIMIZATION_PLAN.md`. `run.py` and `openQCM/__main__.py` imported `openQCM.app` at module
+level, and every process `multiprocessing` spawns re-runs the main module as `__mp_main__`: the acquisition child
+loaded the whole GUI (`app`, `mainWindow`) before unpickling itself. The import is now inside the `__main__` guard.
+Measured on a spawned child that loads the acquisition module as the real one does, six runs each: **1.32–1.37 s →
+1.06–1.09 s of CPU, 104 → 77 MB peak, 916 → 655 modules per START**. On a 20 s run on the board the 0.27 s sits
+inside the acquisition's own spread. `python run.py` and `python -m openQCM` both still reach the application.
+Cherry-picked onto `impedance-analysis`.
+
 ### Performance — the ParserProcess is no longer started (2026-10-22)
 
 `4c9003e`, item A2 of `OPTIMIZATION_PLAN.md`. `ParserProcess` has no `run()` of its own (both implementations are
