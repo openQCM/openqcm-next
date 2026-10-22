@@ -5,6 +5,19 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `main`
 
+### Removed — five dead modules and what only they used (2026-10-22)
+
+`72062b6`, item C1 of `OPTIMIZATION_PLAN.md`, 849 lines. Nothing imports or calls them in either worktree, its tests
+or research: `processors/Sigma_Clip.py` (vendored astropy, never imported, with an import that would not even
+resolve), `processors/Simulator.py` and `processors/SocketClient.py` (both call a `parser.add()` that does not exist)
+with the unused `SocketProcess` import in `worker.py`, `Constants.simulator_default_speed` and the nested
+`Constants.SocketClient`; `util/ReadLine.py`, imported by Serial and Multiscan and used only in comments;
+`util/embedding_in_qt_sgskip.py`, whose last import went in `b38664e`; `res/README.txt`, the pyuic5 recipe for the
+Designer files deleted in `d23333e`. Verified: pyflakes 83 → 80; the replay harness gives identical parser messages
+and runtime files in multiscan, single and peak detection; a multiscan Worker on the board runs and closes as
+before. README's Repository Structure and HANDOFF §6 (three CRLF files, not five) follow. Cherry-picked onto
+`impedance-analysis`.
+
 ### Performance — spawned children no longer import the GUI (2026-10-22)
 
 `26c178f`, item A3 of `OPTIMIZATION_PLAN.md`. `run.py` and `openQCM/__main__.py` imported `openQCM.app` at module

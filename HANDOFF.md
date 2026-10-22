@@ -1444,8 +1444,9 @@ selectable).
   known to git", and a merge complaining about local modifications to those same files — that is the
   `skip-worktree` bit: diagnose with `git ls-files -v | grep ^S`.
 
-- ⚠️ **Mixed line endings, and no `.gitattributes`.** 42 `.py` files are LF and five are CRLF
-  (`fileStorage`, `switcher`, `Sigma_Clip`, `ReadLine`, `Calibration`). Two consequences. **On
+- ⚠️ **Mixed line endings, and no `.gitattributes`.** 38 `.py` files are LF and three are CRLF
+  (`fileStorage`, `switcher`, `Calibration`; `Sigma_Clip` and `ReadLine`, the other two, were removed as dead in
+  `72062b6`). Two consequences. **On
   Windows**, set `git config --global core.autocrlf false` *before cloning*, or git rewrites every
   file at checkout and the clone looks entirely modified. **When editing with a script**, read and
   write in binary: `open(p).read()` uses universal newlines and `write()` emits `'\n'`, which
