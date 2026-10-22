@@ -5,6 +5,14 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — spawned children no longer import the GUI (2026-10-22)
+
+`26c178f` cherry-picked clean as `63df818` (item A3 of `main`'s `OPTIMIZATION_PLAN.md`): `run.py` and
+`openQCM/__main__.py` import `openQCM.app` inside the `__main__` guard, so the acquisition child, which re-runs the
+main module as `__mp_main__`, no longer loads the GUI. On `main`: 1.32–1.37 → 1.06–1.09 s of CPU and 104 → 77 MB per
+START. Verified here: the 70 tests pass; this branch's acquisition child starts in 1.09–1.14 s, 85 MB, with neither
+`openQCM.app` nor `mainWindow` loaded; `python run.py -h` still reaches the application.
+
 ### Carried from `main` — the ParserProcess is no longer started (2026-10-22)
 
 `4c9003e` cherry-picked clean as `1102568` (item A2 of `main`'s `OPTIMIZATION_PLAN.md`). `ParserProcess` has no
