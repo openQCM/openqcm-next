@@ -5,6 +5,20 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `main`
 
+### Removed — dead code from the Worker and its Serial targets (2026-10-23)
+
+`457af43`, item C4 of `OPTIMIZATION_PLAN.md`, 97 lines. In `core/worker.py`: `get_Temperature_set_Worker`, `my_stop`
+(it called a nonexistent `serial_close`), `serial_write`, `get_frequency_range_multi` (its two calls in `mainWindow.py`
+sit inside `'''` blocks; checked on the AST), `get_overtone`; `_queue_F_SWEEP_multi`, created and never used; the
+write-only attributes `_A_multi`, `_P_multi`, `_QCS_on`, `_readFREQ_array`, `_number_of_peaks`, `_t1_store`,
+`_t2_store`, `_data_current_tec`; the multiscan re-read of `PeakFrequencies.txt` in `start()`, which only fed
+`_number_of_peaks`. In `Serial.py`: `write` and `get_Temperature_set_Serial`, whose only callers those were. The
+`loadtxt` in `reset_buffers` stays as a bare call, commented: on a missing or one-row `PeakFrequencies.txt` it is what
+stops START early, in every mode. Verified: pyflakes 33 → 31; the replay harness gives identical parser messages and
+runtime files in multiscan, single and peak detection; a Worker opens **71 → 66 descriptors** (1 left after `close()`
+either way), and `reset_buffers` still raises `OSError` without the file. Not measured on the board, which was not
+attached. Cherry-picked onto `impedance-analysis` with two one-line conflicts in the queue and cycle declarations.
+
 ### Removed — dead code in Serial and Calibration (2026-10-23)
 
 `d869d88`, item C3 of `OPTIMIZATION_PLAN.md`, 86 lines. In `Serial.py`: the nested `waveletSmooth`, `_TempCtrl`,
