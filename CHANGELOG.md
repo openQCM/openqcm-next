@@ -5,6 +5,15 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — commented-out code from the files shared byte for byte (2026-10-23)
+
+`2d05562` cherry-picked clean as `c203e2d` (item C8 of `main`'s `OPTIMIZATION_PLAN.md`): 378 lines of commented-out
+code and their orphaned lead-ins, from the six files identical on both branches (`Serial.py`, `Calibration.py`,
+`plot_sweep_spline.py`, `popUp.py`, `fileStorage.py`, `app.py`), each file's AST unchanged. Verified here: the six files
+are byte-identical to `main`; the 70 tests pass (1 skipped); the replay harness gives identical parser messages before
+and after in multiscan (604, still equal to its baseline), single and peak detection. Also carried: `7168caf` as
+`a437d3f`, the SESSION_PROMPT CRLF counts (685 and 171); this HANDOFF's two CRLF notes follow.
+
 ### Carried from `main` — the constants nothing reads (2026-10-23)
 
 `2663d41` cherry-picked as `be635fd` (item C7 of `main`'s `OPTIMIZATION_PLAN.md`): nineteen `Constants` that nothing
