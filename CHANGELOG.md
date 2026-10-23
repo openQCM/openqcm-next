@@ -5,6 +5,22 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `main`
 
+### Removed — dead code from MainWindow and PopUp (2026-10-23)
+
+`9b7a3a8`, item C5 of `OPTIMIZATION_PLAN.md`, 202 lines, checked on the AST in both worktrees so that code inside `'''`
+blocks does not count as a caller. Methods never called: `setColumnCount`, `clear_all_plot`, `_set_grid`, `dummy`,
+`start_download` (its `connect()` sits in a `'''` block), `PopUp.question_QCM`. Attributes never read: `_my_serial`, the
+six frequency/dissipation ring buffers, `_arr`, `_plt1_line`, `_labelref1/2`, `_vector_reference_*`, `_QCS_installed`
+(no longer passed to the Worker, which ignores it since C4), `_ser_err_usb` (now `_` in the `get_ser_error()`
+unpacking). `_plt1`, always `None` because its `addPlot` is in a `'''` block, leaves the theme loop and `_apply_grid`.
+The per-tick labels nobody shows: 36 assignments of `label1/2/3` in `_update_plot`, plus the `d1`–`d3` formatting that
+fed them in single mode and the `vectortemp` read. Unused locals `byte_at_port`, `pre_stop_flag`, `labelweb3`.
+`firmware_version` stays (reading it from the web table can raise); hidden widgets are untouched. Verified: pyflakes
+31 → 24; a new GUI probe (the real `MainWindow` offscreen, the real Worker without child processes, fed the replay
+records through the real `ParserProcess`; START, reference set and clear, STOP; every tick's labels, progress bar and
+curve data hashed) gives identical records in single, multiscan and peak detection, and catches a one-character change
+in a status text. Cherry-picked onto `impedance-analysis` with two conflicts on lines only the branch has.
+
 ### Removed — dead code from the Worker and its Serial targets (2026-10-23)
 
 `457af43`, item C4 of `OPTIMIZATION_PLAN.md`, 97 lines. In `core/worker.py`: `get_Temperature_set_Worker`, `my_stop`
