@@ -5,6 +5,13 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — SESSION_PROMPT: B1 for the next session (2026-10-23)
+
+`3268e9e` cherry-picked clean as `8d2c16c`: the session prompt now carries the reminder that OPTIMIZATION_PLAN item
+B1 (redraw the time series only on new data) is postponed to a session of its own, with B0's measurement behind it, and
+that the bench NEXT was reflashed with the production `0.1.5d` on 2026-10-23. B1 touches `_update_plot`, which differs
+here: expect conflicts when it comes.
+
 ### Removed — the impedance code nothing calls (2026-10-23)
 
 `be89ac3`, item E2 of `main`'s `OPTIMIZATION_PLAN.md`, this branch only, 111 lines. Never called, checked on the AST
