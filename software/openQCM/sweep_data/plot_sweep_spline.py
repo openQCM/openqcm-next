@@ -15,9 +15,6 @@ filtered_mag = self.savitzky_golay(mag_beseline_corrected, window_size = SG_wind
 import numpy as np
 from numpy import loadtxt
 
-# =============================================================================
-# import matplotlib.pyplot as plt
-# =============================================================================
 
 # VER 0.1.6 use the correct Matplotlib backend for PyQt solved a visual bug of the main GUI 
 # Use the correct backend: Make sure you're using the right Matplotlib backend for PyQt. 
@@ -44,7 +41,6 @@ def foo():
 def load_frequencies_file():
     data  = loadtxt(Constants.cvs_peakfrequencies_path)
     peaks_mag = data[:,0]
-    #peaks_phase = data[:,1] #unused at the moment
     return peaks_mag
 
 # LOAD CALIBRATION FILE 
@@ -99,26 +95,12 @@ def baseline_coeffs():
 
 def script():
 
-    # DEFINITION 
-    # -------------------------------------------------------------------------
-    # SPLINE VARIABLE DEFINITION 
-    # spline facrtor 
-# =============================================================================
-#     Spline_factor = 0.1 
-#     # spline number of points 
-#     points = 500
-# =============================================================================
-    # -------------------------------------------------------------------------
     
     # INIT 
     # -------------------------------------------------------------------------
     # polynomial values for baseline correction for each overtones 
     polyfitted_list = [0,0,0,0,0]
     
-# =============================================================================
-#     # TEST 
-#     foo()
-# =============================================================================
     
 
     # get raw data sweep files
@@ -189,18 +171,6 @@ def script():
     amp_7_a_baseline = amp_7_a - polyfitted_list[3]
     amp_9_a_baseline = amp_9_a - polyfitted_list[4]
     
-# =============================================================================
-#     plt.plot(frq_1_a, amp_1_a_baseline)
-#     plt.show()
-#     plt.plot(frq_3_a, amp_3_a_baseline)
-#     plt.show()
-#     plt.plot(frq_5_a, amp_5_a_baseline)
-#     plt.show()
-#     plt.plot(frq_7_a, amp_7_a_baseline)
-#     plt.show()
-#     plt.plot(frq_9_a, amp_9_a_baseline)
-#     plt.show()
-# =============================================================================
     
     
     # SAVITZKY - GOLAY FILTER 
@@ -224,8 +194,6 @@ def script():
     
     # prototype: 
     # savitzky_golay(y, window_size, order, deriv=0, rate=1):  
-    # usage: 
-    # filtered_mag = self.savitzky_golay(mag_beseline_corrected, window_size = SG_window_size, order = Constants.SG_order)
     
     amp_1_a_filter = savitzky_golay(amp_1_a_baseline, window_size = sg_window_size[0], order = Constants.SG_order)
     amp_3_a_filter = savitzky_golay(amp_3_a_baseline, window_size = sg_window_size[1], order = Constants.SG_order)
@@ -233,27 +201,6 @@ def script():
     amp_7_a_filter = savitzky_golay(amp_7_a_baseline, window_size = sg_window_size[3], order = Constants.SG_order)
     amp_9_a_filter = savitzky_golay(amp_9_a_baseline, window_size = sg_window_size[4], order = Constants.SG_order)
     
-# =============================================================================
-#     plt.plot(frq_1_a, amp_1_a_baseline)
-#     plt.plot(frq_1_a, amp_1_a_filter)
-#     plt.show()
-#     
-#     plt.plot(frq_3_a, amp_3_a_baseline)
-#     plt.plot(frq_3_a, amp_3_a_filter)
-#     plt.show()
-#     
-#     plt.plot(frq_5_a, amp_5_a_baseline)
-#     plt.plot(frq_5_a, amp_5_a_filter)
-#     plt.show()
-#     
-#     plt.plot(frq_7_a, amp_7_a_baseline)
-#     plt.plot(frq_7_a, amp_7_a_filter)
-#     plt.show()
-#     
-#     plt.plot(frq_9_a, amp_9_a_baseline)
-#     plt.plot(frq_9_a, amp_9_a_filter)
-#     plt.show()
-# =============================================================================
 
     # SPLINE ROUTINE 
     # -------------------------------------------------------------------------
@@ -353,17 +300,12 @@ def script():
     (frq_1_a_right, frq_3_a_right, frq_5_a_right,
      frq_7_a_right, frq_9_a_right) = frq_a_right
 
-# =============================================================================
-#     print (frq_a_left)
-# =============================================================================
     
     #### PLOT MULTI
     # USING SUBPLOT MATPLOT LIB 
     # VER 0.1.6 modify the plot properties and restyle
     #  
     
-    # Use the dark background style
-    # plt.style.use('dark_background')
     
     plot_color_multi_norm = []
     const = 255
@@ -374,7 +316,6 @@ def script():
     fig, axs = plt.subplots(3, 2)
     fig.tight_layout()
     # set tite 
-    # fig.suptitle('Sweep Data Raw and Processed in Multiscan Mode', color='white', fontsize=12)
     # Cambia il titolo della figura
     fig.canvas.manager.set_window_title('Raw Data View Multiscan Mode')
     
@@ -398,66 +339,46 @@ def script():
 
     axs[0,0].plot(frq_1_a, amp_1_a_baseline, marker = 'o', markersize = 2, color = plot_color_multi_norm[0],  linewidth = 0)
     axs[0,0].plot(xx_1_a, amp_1_a_sp, 'r',  linewidth = 1)
-# =============================================================================
-#     axs[0,0].plot(frq_1_a_min, amp_a_sp_min[0], 'xr', markersize = 20)
-# =============================================================================
     axs[0,0].plot(frq_1_a_max, amp_a_sp_max[0], 'xr', markersize = 20)
     axs[0,0].plot(frq_1_a_left, amp_a_sp_left[0], 'xr', markersize = 20)
     axs[0,0].plot(frq_1_a_right, amp_a_sp_right[0], 'xr', markersize = 20)
-    # print (frq_1_a_left, amp_a_sp_left[0])
     axs[0,0].ticklabel_format(axis="x" ,useOffset=False, style='scientific', useMathText = True )
     axs[0,0].set( ylabel = "Amplitude (dB)", xlabel = "Frequency (Hz)", title = "Fundamental" )
 
    
     axs[0,1].plot(frq_3_a, amp_3_a_baseline, marker = 'o', markersize = 2, color = plot_color_multi_norm[1], linewidth = 0)
     axs[0,1].plot(xx_3_a, amp_3_a_sp, 'r',  linewidth = 1)
-# =============================================================================
-#     axs[0,1].plot(frq_3_a_min, amp_a_sp_min[1], 'xr', markersize = 20)
-# =============================================================================
     axs[0,1].plot(frq_3_a_max, amp_a_sp_max[1], 'xr', markersize = 20)
     axs[0,1].plot(frq_3_a_left, amp_a_sp_left[1], 'xr', markersize = 20)
     axs[0,1].plot(frq_3_a_right, amp_a_sp_right[1], 'xr', markersize = 20)
-    # print (frq_3_a_left, amp_a_sp_left[1])
     axs[0,1].ticklabel_format(axis="x" ,useOffset=False, style='scientific', useMathText = True )
     axs[0,1].set( ylabel = "Amplitude (dB)", xlabel = "Frequency (Hz)", title = "3-rd Overtone" )
 
     
     axs[1,0].plot(frq_5_a, amp_5_a_baseline, marker = 'o', markersize = 2, color = plot_color_multi_norm[2], linewidth = 0)
     axs[1,0].plot(xx_5_a, amp_5_a_sp, 'r',  linewidth = 1)
-# =============================================================================
-#     axs[1,0].plot(frq_5_a_min, amp_a_sp_min[2], 'xr', markersize = 20)
-# =============================================================================
     axs[1,0].plot(frq_5_a_max, amp_a_sp_max[2], 'xr', markersize = 20)
     axs[1,0].plot(frq_5_a_left, amp_a_sp_left[2], 'xr', markersize = 20)
     axs[1,0].plot(frq_5_a_right, amp_a_sp_right[2], 'xr', markersize = 20)
-    # print (frq_5_a_left, amp_a_sp_left[2])
     axs[1,0].ticklabel_format(axis="x" ,useOffset=False, style='scientific', useMathText = True )
     axs[1,0].set( ylabel = "Amplitude (dB)", xlabel = "Frequency (Hz)", title = "5-th Overtone" )
 
    
     axs[1,1].plot(frq_7_a, amp_7_a_baseline, marker = 'o', markersize = 2, color = plot_color_multi_norm[3], linewidth = 0)
     axs[1,1].plot(xx_7_a, amp_7_a_sp, 'r',  linewidth = 1)
-# =============================================================================
-#     axs[1,1].plot(frq_7_a_min, amp_a_sp_min[3], 'xr', markersize = 20)
-# =============================================================================
     axs[1,1].plot(frq_7_a_max, amp_a_sp_max[3], 'xr', markersize = 20)
     axs[1,1].plot(frq_7_a_left, amp_a_sp_left[3], 'xr', markersize = 20)
     axs[1,1].plot(frq_7_a_right, amp_a_sp_right[3], 'xr', markersize = 20)
-    # print (frq_7_a_left, amp_a_sp_left[3])
     axs[1,1].ticklabel_format(axis="x" ,useOffset=False, style='scientific', useMathText = True )
     axs[1,1].set( ylabel = "Amplitude (dB)", xlabel = "Frequency (Hz)", title = "7-th Overtone" )
 
     
     axs[2,0].plot(frq_9_a, amp_9_a_baseline, marker = 'o', markersize = 2, color = plot_color_multi_norm[4], linewidth = 0)
     axs[2,0].plot(xx_9_a, amp_9_a_sp, 'r',  linewidth = 1)
-# =============================================================================
-#     axs[2,0].plot(frq_9_a_min, amp_a_sp_min[4], 'xr', markersize = 20)
-# =============================================================================
     axs[2,0].plot(frq_9_a_max, amp_a_sp_max[4], 'xr', markersize = 20)
     
     axs[2,0].plot(frq_9_a_left, amp_a_sp_left[4], 'xr', markersize = 20)
     axs[2,0].plot(frq_9_a_right, amp_a_sp_right[4], 'xr', markersize = 20)
-    # print (frq_9_a_left, amp_a_sp_left[4])
     axs[2,0].ticklabel_format(axis="x" ,useOffset=False, style='scientific', useMathText = True )
 
     axs[2,0].set( ylabel = "Amplitude (dB)", xlabel = "Frequency (Hz)", title = "9-th Overtone" )
@@ -473,9 +394,6 @@ def script():
     # debug get the number of peaks 
     num_peaks = len(data)
     
-# =============================================================================
-#     print ("DEBUG len of peaks = ", num_peaks)
-# =============================================================================
     # turn off the axis 
     # Turn off unused axes
     for idx in range(len(data), 6):
@@ -483,22 +401,14 @@ def script():
         axs[i, j].set_visible(False)
     
     plt.tight_layout()
-    # plt.style.use('dark_background')
     plt.show()
 
 # VER 0.1.6 plot raw data view in single mode  
 # nn is the overtone number    
 def script_single(nn): 
-# =============================================================================
-#     print ("TODO plot raw data view in single mode")
-#     print ("the overtone number is = ", nn)
-# =============================================================================
     
     # get raw data sweep files
     fileName_n_a = "openQCM" + "/" + "sweep_data" + "/" + str( 2*nn + 1 ) + ".txt"
-# =============================================================================
-#     print ("the filename is : ", fileName_n_a)
-# =============================================================================
     
     # get all raw data from files
     dataAll_n_a = loadtxt(fileName_n_a)
@@ -539,8 +449,6 @@ def script_single(nn):
     
     # prototype: 
     # savitzky_golay(y, window_size, order, deriv=0, rate=1):  
-    # usage: 
-    # filtered_mag = self.savitzky_golay(mag_beseline_corrected, window_size = SG_window_size, order = Constants.SG_order)
     
     amp_n_a_filter = savitzky_golay(amp_n_a_baseline, window_size = sg_window_size[nn], order = Constants.SG_order)
     
@@ -573,9 +481,6 @@ def script_single(nn):
     amp_n_sp_min = amp_n_a_sp[np.argmin(amp_n_a_sp, axis = 0)]
     amp_n_sp_max = amp_n_a_sp[np.argmax(amp_n_a_sp, axis = 0)]
     
-# =============================================================================
-#     print (amp_n_sp_min, amp_n_sp_max)
-# =============================================================================
     
     # GET the two points that delimit the dissipation band, from the same
     # function the instrument measures with: core/resonance.py.
@@ -600,14 +505,11 @@ def script_single(nn):
     fig.patch.set_facecolor((25/255, 25/255, 25/255))
     
     # Adding the title here
-    # ax.set_title('Sweep Data: Raw & Processed in Single Mode', color='white', fontsize=12)    
     fig.canvas.manager.set_window_title('Raw Data in Single Mode')
 
     # Plotting data on the single axis (ax)
     ax.plot(frq_n_a, amp_n_a_baseline, marker='o', markersize=2, color=plot_color_multi_norm[0], linewidth=0)
     ax.plot(xx_n_a, amp_n_a_sp, 'r', linewidth=1)
-    # Commented out as in your original code:
-    # ax.plot(frq_n_a_min, amp_a_sp_min[0], 'xr', markersize=20)
     ax.plot(frq_n_a_max, amp_n_sp_max, 'xr', markersize=20)
     ax.plot(frq_n_a_left, amp_a_sp_left_n, 'xr', markersize=20)
     ax.plot(frq_n_a_right, amp_a_sp_right_n, 'xr', markersize=20)

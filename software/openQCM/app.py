@@ -73,9 +73,6 @@ class OPENQCM:
             print(TAG,"Application started")
             Log.i(TAG, "Application started")
             win = mainWindow.MainWindow(samples=self._args.get_user_samples())
-            #win.setWindowTitle("{} - {}".format(Constants.app_title, Constants.app_version))
-            #win.move(500, 20) #GUI position (x,y) on the screen 
-            #win.show()
             
             # set application icon (dock / taskbar + default for all windows).
             # Absolute, module-relative path (the old '\\icon\\favicon.ico' was

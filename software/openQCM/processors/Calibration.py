@@ -10,7 +10,6 @@ import numpy as np
 import scipy.signal
 
 # VER 0.1.6
-# from openQCM.ui.popUp import PopUp
 
 
 TAG = ""#"[Calibration]"
@@ -148,21 +147,11 @@ class CalibrationProcess(multiprocessing.Process):
         # cycle on overtones to get the frequency  
         for i in range (len(overtones_f)):
 
-# =============================================================================
-#             # get min frequency index 
-#             idx_min = np.where(freq_arr == (overtones_f[i] - freq_range_half))[0][0]
-#             # get max frequency index
-#             idx_max = np.where(freq_arr == (overtones_f[i] + freq_range_half))[0][0]
-# =============================================================================
  
             # get min and max frequency index
             idx_min = np.abs(freq_arr - (overtones_f[i] - freq_range_half)).argmin()
             idx_max = np.abs(freq_arr - (overtones_f[i] + freq_range_half)).argmin()
             
-# =============================================================================
-#             print ("Minimum frequency for overtone peak detection = ", freq_arr[idx_min])
-#             print ("Maximum frequency for overtone peak detection = ", freq_arr[idx_max])
-# =============================================================================
 
             # array subset 
             freq_arr_sub = freq_arr[ idx_min : idx_max : 1]
@@ -172,12 +161,6 @@ class CalibrationProcess(multiprocessing.Process):
             
             # OPTION 1 
             # -----------------------------------------------------------------
-# =============================================================================
-#             # get the index of maximum amplitude
-#             idx_mag_max = np.argmax(mag_arr_sub) 
-#             # get the frequency of maximum aplitude 
-#             frequency_overtones[i] = freq_arr_sub[idx_mag_max]
-# =============================================================================
             
             # OPTION 2
             # -----------------------------------------------------------------
@@ -260,8 +243,6 @@ class CalibrationProcess(multiprocessing.Process):
         # Instantiate a ParserProcess class for each communication channels
         self._parser1 = parser_process
         self._parser2 = parser_process
-        #self._parser3 = parser_process
-        #self._parser4 = parser_process
         self._parser5 = parser_process
         self._parser6 = parser_process
         self._serial = serial.Serial()
@@ -288,24 +269,8 @@ class CalibrationProcess(multiprocessing.Process):
         self._serial.writetimeout = writeTimeout
         self._QCStype = speed
         
-        # Variable to process the exception
-        #wrong = False
         
-         # VER 0.1.6_TEST delete 
-# =============================================================================
-#         # Checks QCStype to calibrate
-#         if self._QCStype == '@5MHz_QCM':
-#            self._QCStype_int = 0
-#         elif self._QCStype =='@10MHz_QCM':
-#            self._QCStype_int = 1
-#         
-# =============================================================================
         
-        #else: 
-        #   wrong = True
-        #   print(TAG, "Warning: wrong QCM Sensor selected, set default to @5MHz") 
-        #   self._QCStype_int = 0
-        #if not wrong:
         print(TAG, "Selected Quartz Crystal Sensor:",self._QCStype)
         return self._is_port_available(self._serial.port)
     
@@ -332,10 +297,6 @@ class CalibrationProcess(multiprocessing.Process):
         if self._is_port_available(self._serial.port):
             
             # Sets start, stop, step and range frequencies 
-            #startFreq = Constants.calibration_frequency_start
-            #stopFreq  = Constants.calibration_frequency_stop
-            #samples   = Constants.calibration_default_samples 
-            #fStep     = Constants.calibration_fStep
             readFREQ  = Constants.calibration_readFREQ
             # Gets the state of the serial port
             if not self._serial.isOpen():
@@ -395,19 +356,16 @@ class CalibrationProcess(multiprocessing.Process):
                         
                         # WRITES encoded command to the serial port
                         cmd = str(startFreq) + ';' + str(stopFreq) + ';' + str(int(fStep)) + '\n'
-                        #print(cmd)
                         self._serial.write(cmd.encode())
                         
                         # Initializes buffer and strs
                         buffer = ''
                         strs = ["" for x in range(samples + 2)]
                         
-                        # Initializes the progress bar
                         #################################################################################
                         # CHANGED v2.0
                         # INCREASED maxval=1000000 TO AVOID bar.update(len.buffer) BREAKS THE CALIBRATION  
                         #################################################################################
-                        # bar = ProgressBar(widgets=[TAG,' ', Bar(marker='>'),' ',Percentage(),' ', Timer()], maxval=830000).start()
                         # READS and decodes sweep from the serial port
                         # VER 0.1.6 poll self._exit so a Stop pressed mid-sweep
                         # breaks out promptly (responsive cancellation, Q-1 v3.0).
@@ -421,9 +379,6 @@ class CalibrationProcess(multiprocessing.Process):
                                 continue
                             chunk = self._serial.read(waiting).decode() #Constants.app_encoding
                             buffer += chunk
-                            #len_buffer = len(buffer)
-                            #bar.update(len_buffer)
-                            # print(buffer)
                             # only the end-of-sweep line carries an 's': test the
                             # chunk just read, not the whole growing buffer
                             if 's' in chunk:
@@ -437,8 +392,6 @@ class CalibrationProcess(multiprocessing.Process):
                         # CHANGED v2.0
                         # PRINT LEN BUFFER WHEN THE EOM is RECEIVED
                         #################################################################################    
-                        #print("len_buffer = " + str(len_buffer))
-                        # bar.finish()
                         
                         # from a full buffer to a list of string
                         data_raw = buffer.split('\n')
@@ -462,7 +415,6 @@ class CalibrationProcess(multiprocessing.Process):
                             data_ph=data_ph[1:]
                         temp1=np.append(temp1,data_mag)
                         temp2=np.append(temp2,data_ph)
-                        #print('len=',len(temp1),len(temp2))
                         #------------------------------
                         print(TAG,"signal section #{}/{} acquired successfully\n".format(k+1,Constants.calib_sections), end='\r') #10
                             
@@ -486,7 +438,6 @@ class CalibrationProcess(multiprocessing.Process):
                         print(TAG, "WARNING: generic error during signal acquisition")
                         print(TAG, "Please, repeat the calibration") 
                         self._flag = 1
-                        #Log.w(TAG, "Warning (ValueError): convert Raw to float failed") 
                         
                         #################################################################################
                         # CHANGED v2.0
@@ -504,12 +455,8 @@ class CalibrationProcess(multiprocessing.Process):
                     #--------------------------------
                     
                     
-# =============================================================================
-#                     self._parser6.add6([self._flag, self._flag2, self._flag2, k, None])
-# =============================================================================
                     # VER 0.1.4
                     # add None to the queue for the overtone number and TEC status variable 
-                    # self._parser6.add6([self._flag, self._flag2, self._flag2, k, None])
                     self._parser6.add6([self._flag, self._flag2, self._flag2, k, None, None])
                     
                     
@@ -545,19 +492,6 @@ class CalibrationProcess(multiprocessing.Process):
                 #### STORING DATA TO FILE
                 # CHECKS QCM Sensor type for saving calibration
                     
-                # VER 0.1.6_TEST delete the filename calibration selection 
-# =============================================================================
-#                 if self._QCStype_int == 0:
-#                     distance = Constants.dist5
-#                     path = Constants.cvs_peakfrequencies_path
-#                     path_calib = Constants.csv_calibration_path
-#                     filename_calib = Constants.csv_calibration_filename  #
-#                 elif self._QCStype_int == 1:
-#                     distance = Constants.dist10
-#                     path = Constants.cvs_peakfrequencies_path
-#                     path_calib = Constants.csv_calibration_path10
-#                     filename_calib = Constants.csv_calibration_filename10  #
-# =============================================================================
                 
                 # CHECKS the exceptions
                 if self._flag == 0:
@@ -579,11 +513,6 @@ class CalibrationProcess(multiprocessing.Process):
                    # CALLS baseline_correction method
                    print(TAG,"Baseline Correction Process Started")
                    
-# =============================================================================
-#                    print ("LEN FREQ", len(readFREQ))
-#                    print ("LEN MAG", len(temp1))
-#                    print ("LEN PH", len(temp2))
-# =============================================================================
                    
                    # baseline correction  
                    (data_mag_baseline, data_ph_baseline) = self.baseline_correction(readFREQ,temp1,temp2)
@@ -598,38 +527,22 @@ class CalibrationProcess(multiprocessing.Process):
                    
                    # VER 0.1.6 Peak detection get the QCM Fundamental frequency and overtones 
                    
-                   # print ("QCM FUNDAMENTAL FREQUENCY NO BASELINE CORRECTION ")
-                   # fundamental = self.peak_detection_qcm_fundamental(readFREQ, temp1, temp2)
-                   # print (fundamental)
                    
-                   # print ("QCM FUNDAMENTAL FREQUENCY OK BASELINE CORRECTION ")
                    
                    # get the QCM Fundamental frequency 
                    fundamental_baseline_corr = self.peak_detection_qcm_fundamental(readFREQ, data_mag_baseline, data_ph_baseline)
                    
-                   # print(fundamental_baseline_corr)
                    
                    
-                   # print ("QCM OVERTONES NO BASELINE CORRECTION ")
-                   # overtones = self.peak_detection_qcm_overtones(readFREQ, temp1, temp2, fundamental)
-                   # print (overtones)
                    
-                   # print ("QCM OVERTONES BASELINE CORRECTION ")
                    
                    # get the QCM overtones frequency 
                    overtones_baseline_corr = self.peak_detection_qcm_overtones(readFREQ, data_mag_baseline, data_ph_baseline, fundamental_baseline_corr)
-                   # print (overtones_baseline_corr)
                    
                    try:
                        
                        # VER 0.1.6 peak detection  
                        
-# =============================================================================
-#                        # VER 0.1.6 PEAK DETECTION DELETE self.FindPeak
-#                        # CALLS FindPeak method
-#                        # (max_freq_mag, max_value_mag, max_freq_phase, max_value_phase)= self.FindPeak(readFREQ, data_mag_baseline, data_ph_baseline, dist=distance)
-#                        (max_freq_mag, max_value_mag, max_freq_phase, max_value_phase)= self.FindPeak(readFREQ, temp1, temp2, dist=distance)
-# =============================================================================
                           
                        max_freq_mag =  np.zeros(len(overtones_baseline_corr) + 1) 
                        
@@ -641,15 +554,11 @@ class CalibrationProcess(multiprocessing.Process):
                        
                        print(TAG, "{} peaks were found at frequencies: {} Hz\n".format(len(max_freq_mag),max_freq_mag))
                        
-                       # print (max_freq_mag)
                        
-                       # print (max_freq_phase)
                          
                        # VER 0.1.6 PEAK DETECTION 
                      
-                       # if (len(max_freq_mag)==5 and (max_freq_mag[0]>4e+06 and max_freq_mag[0]<6e+06)) or (len(max_freq_mag)==3 and (max_freq_mag[0]>9e+06 and max_freq_mag[0]<11e+06)):
                        
-                       # if (self._QCStype_int == 0 and (max_freq_mag[0]>4e+06 and max_freq_mag[0]<6e+06)) or (self._QCStype_int == 1 and (max_freq_mag[0]>9e+06 and max_freq_mag[0]<11e+06)):
                        
                        # VER 0.1.6 Peak detection automatic finding the resonance frequency 
                        # 
@@ -671,13 +580,6 @@ class CalibrationProcess(multiprocessing.Process):
                           FileStorage.TXT_sweeps_save(filename_calib, Constants.csv_calibration_export_path, readFREQ, temp1, temp2)
                           print(TAG, "Peak frequencies for {} saved in: {}".format(self._QCStype,path_calib))
                           
-# =============================================================================
-#                        else:
-#                            #print('a',max_freq_mag, max_freq_phase)
-#                            print(TAG, "WARNING: unable to identify fundamental peak")
-#                            print(TAG, "Please, repeat the calibration!")
-#                            self._flag2 = 1
-# =============================================================================
                           
                        elif (max_freq_mag[0]>9e+06 and max_freq_mag[0]<11e+06): 
                           # set the global variable 
@@ -698,23 +600,19 @@ class CalibrationProcess(multiprocessing.Process):
                           
                           
                        else:
-                           #print('a',max_freq_mag, max_freq_phase)
                            print(TAG, "WARNING: unable to identify fundamental peak")
                            print(TAG, "Please, repeat the calibration!")
                            self._flag2 = 1
                              
                    except:
-                     #print('b',max_freq_mag, max_freq_phase)
                      print(TAG, "WARNING: unable to apply peak detection algorithm")
                      print(TAG, "Please, repeat the calibration!") 
                      self._flag2 = 1
                      
                 if self._flag == 0 and self._flag2 == 0:
                      print(TAG, 'Peak detection completed')
-                     #print(TAG, 'Please, now click STOP to terminate')
                 # ADDS error flags to internal queue
                 self._parser5.add5([self._flag,self._flag2])    
-                #self._parser6.add6([self._flag,self._flag2,self._flag2,len_buffer])
                 
                 #### CLOSES serial port
                 self._serial.close()
@@ -753,9 +651,6 @@ class CalibrationProcess(multiprocessing.Process):
                 if port[2].startswith("USB VID:PID=16C0:0483"):
                     found = True
                     port_connected.append(port[0])
-                #else:
-                #    Gets a list of the available serial ports.
-                #    found_ports.append(port[0])
             if found:
                found_ports = port_connected 
             return found_ports
@@ -788,6 +683,3 @@ class CalibrationProcess(multiprocessing.Process):
     
 
 
-# Instantiate the process and run the method 'run' of the class
-#a=CalibrationProcess(multiprocessing.Process)
-#a.run()
