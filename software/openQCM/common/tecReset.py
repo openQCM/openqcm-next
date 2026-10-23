@@ -8,7 +8,9 @@ sequence X0, pause, X1, pause, X0 -- the same one `mainWindow._TEC_Reset_button`
 has always sent from Standby, ending with the TEC not active.
 
 This module exists so that the acquisition process can run the very same
-sequence when it owns the port. Before it, a reset asked during a measurement
+sequence when it owns the port; since D2 (OPTIMIZATION_PLAN, 2026-10-23) the
+Standby path sends it from here too, through the GUI's `_serial_write`, so the
+two can no longer drift apart. Before it, a reset asked during a measurement
 went through the TEC flag in config.txt, which the process re-reads once per
 sweep: a 0 / 1 / 0 written over four seconds could reach the controller as a
 single X0, and nothing said which. Measured at the bench, 2026-09-09.
