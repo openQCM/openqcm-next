@@ -5,6 +5,21 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `main`
 
+### Removed — dead code from the shared part of Multiscan (2026-10-23)
+
+`6288b33`, item C6 of `OPTIMIZATION_PLAN.md`, 127 lines, checked on the AST in both worktrees and class by class
+(`Serial` has attributes of the same names). Methods never called: `get_Temperature_set_Serial` and `get_readFREQ`
+(dead since C4), `_TempCtrl`, `get_sweep_parameters`. In `baseline_coeffs`, the phase half (a degree-8 polyfit on
+100 001 points, ~13.5 ms per START) and the two corrected series nobody read, as `Serial` lost them in C3. Write-only
+attributes: `_overtone_number` and `_filtered_mag` (a zeros array per sweep) in `elaborate_multi`, `_dummy`,
+`Temperature_Pid_default` with its `loadtxt`, `_temperature_buffer_1..4`, `_just_another_counter`, `_flag_error`,
+`_boolean_buffer_length`, and the three ring buffers `_frequency_buffer`/`_dissipation_buffer`/`_temperature_buffer`
+rebuilt on every START; the local `frequencies_file_length`. Kept: `_frequency_buffer_*_a` and `_my_list_f_a`, which
+the branch reads, and `elaborate_multi`'s per-sweep series (item E1). Verified: pyflakes 24 → 23, none left in this
+file; the replay harness gives identical parser messages and runtime files in all three modes; the GUI probe in
+multiscan gives the same record. Cherry-picked onto `impedance-analysis` with two conflicts where the branch rewrote
+the same lines.
+
 ### Removed — dead code from MainWindow and PopUp (2026-10-23)
 
 `9b7a3a8`, item C5 of `OPTIMIZATION_PLAN.md`, 202 lines, checked on the AST in both worktrees so that code inside `'''`
