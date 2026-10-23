@@ -5,6 +5,20 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — dead code from the shared part of Multiscan (2026-10-23)
+
+`6288b33` cherry-picked as `667ab6f` (item C6 of `main`'s `OPTIMIZATION_PLAN.md`, 127 lines): the never-called
+`get_Temperature_set_Serial`, `get_readFREQ`, `_TempCtrl` and `get_sweep_parameters`; the phase half of
+`baseline_coeffs`; the write-only `_overtone_number`, `_filtered_mag`, `_dummy`, `Temperature_Pid_default`,
+`_temperature_buffer_1..4`, `_just_another_counter`, `_flag_error`, `_boolean_buffer_length` and the three per-START
+ring buffers. `_frequency_buffer_*_a` and `_my_list_f_a`, which this branch reads, stay. Two conflicts, both where this
+branch rewrote the lines, resolved by keeping its text: the reformatted amplitude fit in `baseline_coeffs` (only the
+phase half went), and the head of `elaborate_multi` (its commented `_Xm`/`_Xp` and `filtered_Vmag` stay; only
+`self._filtered_mag` went). Verified here: the 70 tests pass (1 skipped); pyflakes 50 → 49 (what remains in
+`Multiscan.py` is this branch's own, items E1/E2); the replay harness gives identical parser messages before and after
+in multiscan (604, still equal to its baseline), single (121) and peak detection (33); the GUI probe in multiscan gives
+the same record (91 ticks, the impedance panel included); a Worker still opens 71 descriptors.
+
 ### Carried from `main` — dead code from MainWindow and PopUp (2026-10-23)
 
 `9b7a3a8` cherry-picked as `a0ef21e` (item C5 of `main`'s `OPTIMIZATION_PLAN.md`): the never-called `setColumnCount`,
