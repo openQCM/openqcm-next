@@ -82,7 +82,7 @@ leggi il file prima di modificarlo.**
   `.gitignore` non protegge i file già tracciati.
 - ⚠️ Mai `git add -A`: i bit `skip-worktree` sono per-worktree e su un worktree
   possono non essere impostati. Usa sempre `git add -- <file>`.
-- ⚠️ `processors/Calibration.py` (825 CRLF) e `common/fileStorage.py` (179 CRLF) sono file
+- ⚠️ `processors/Calibration.py` (685 CRLF) e `common/fileStorage.py` (171 CRLF) sono file
   **CRLF**, 0 LF nudi. Vanno modificati in binario, altrimenti il diff diventa il file intero:
   è successo il 2026-09-17 con una scrittura in modo testo, su entrambi i rami, riscritta prima del push.
 - ⚠️ Prima di analizzare dati grezzi, **copiali fuori dal repo**: `sweep_data/` è
