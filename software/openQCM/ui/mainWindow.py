@@ -48,7 +48,6 @@ import re
 
 import time
 from numpy import loadtxt
-from openQCM.core.ringBuffer import RingBuffer
 
 
 from time import sleep
@@ -175,7 +174,6 @@ class MainWindow(QtGui.QMainWindow):
 
         # Shared variables, initial values
         self._plt0 = None
-        self._plt1 = None
         self._plt2 = None
         # TODO 2m self._plt3 DISSIPATION
         # TODO delete
@@ -185,7 +183,6 @@ class MainWindow(QtGui.QMainWindow):
         
         # VER 0.1.6 init references to the line object of PyQtGraph plot 
         self._plt0_line = None 
-        self._plt1_line = None
         self._plt2_line = None
         self._plt4_line = None
         self._pltD_line = None
@@ -226,11 +223,9 @@ class MainWindow(QtGui.QMainWindow):
 
         self._timer_plot = None
         self._readFREQ = None
-        self._QCS_installed = None
         self._ser_control = 0
         self._ser_error1 = 0
         self._ser_error2 = 0
-        self._ser_err_usb= 0
         
         # VER 0.1.4
         # TEC status var
@@ -250,8 +245,6 @@ class MainWindow(QtGui.QMainWindow):
         self._reference_flag = False
         self._nscale = False        # Plot Controls > N-SCALE
         self._diss_mode = "D"       # dissipation panel: "D" or "G" (Gamma)
-        self._vector_reference_frequency = None
-        self._vector_reference_dissipation = None
         self._vector_1 = None
         self._vector_2 = None
 
@@ -331,19 +324,6 @@ class MainWindow(QtGui.QMainWindow):
         self.get_web_info(True)
         # Gets the QCS installed on the device (not used now)
         # self._QCS_installed = PopUp.question_QCM(self, Constants.app_title, "Please choose the Quartz Crystal Resonator installed on the openQCM-1 Device (default 5MHz if exit)")
-
-        # TODO my serial for temeprature communication
-        self._my_serial = serial.Serial()
-
-        # TODO multi frequency buffer definition # FREQUENCY
-        self._frequency_buffer = RingBuffer(Constants.ring_buffer_samples)
-        self._frequency_buffer_1 = RingBuffer(Constants.ring_buffer_samples)
-        self._frequency_buffer_2 = RingBuffer(Constants.ring_buffer_samples)
-
-        # TODO multi dissipation buffer definition  # DISSIPATION
-        self._dissipation_buffer = RingBuffer(Constants.ring_buffer_samples)
-        self._dissipation_buffer_1 = RingBuffer(Constants.ring_buffer_samples)
-        self._dissipation_buffer_2 = RingBuffer(Constants.ring_buffer_samples)
 
         self.ui.label_Temperature_state.setStyleSheet(self._tec_state_pill("warn"))
 
@@ -450,39 +430,6 @@ class MainWindow(QtGui.QMainWindow):
         self._set_status("disconnected", "Standby")
 
 
-    # https://stackoverflow.com/questions/63182608/colcount-not-working-for-legenditem-in-pyqtgraph-with-pyqt5-library
-    # TODO legend horizontal layout
-    def setColumnCount(self, legend, columnCount):
-        '''
-        change the orientation of all items of the legend
-        '''
-        def _addItemToLayout(legend, sample, label):
-            col = legend.layout.columnCount()
-            row = legend.layout.rowCount()
-            if row:
-                row -= 1
-            nCol = legend.columnCount * 2
-            # FIRST ROW FULL
-            if col == nCol:
-                for col in range(0, nCol, 2):
-                    # FIND RIGHT COLUMN
-                    if not legend.layout.itemAt(row, col):
-                        break
-                if col + 2 == nCol:
-                    # MAKE NEW ROW
-                    col = 0
-                    row += 1
-            legend.layout.addItem(sample, row, col)
-            legend.layout.addItem(label, row, col + 1)
-
-        legend.columnCount = columnCount
-        legend.rowCount = int(len(legend.items) / columnCount)
-        for i in range(legend.layout.count() - 1, -1, -1):
-            legend.layout.removeAt(i)  # clear layout
-        for sample, label in legend.items:
-            _addItemToLayout(legend, sample, label)
-        legend.updateSize()
-
     def _toggle_start_stop(self):
         # Phase 3a: single Start/Stop toggle — one button drives both actions.
         if self.worker.is_running():
@@ -524,8 +471,7 @@ class MainWindow(QtGui.QMainWindow):
         Log.i(TAG, "{} (before START)".format(fdLimit.describe()))
 
         # Instantiates process
-        self.worker = Worker(QCS_on = self._QCS_installed,
-                             port = self.ui.cBox_Port.currentText(),
+        self.worker = Worker(port = self.ui.cBox_Port.currentText(),
                              speed = self.ui.cBox_Speed.currentText(),
                              samples = Constants.argument_default_samples,
                              source = self._get_source(),
@@ -568,15 +514,12 @@ class MainWindow(QtGui.QMainWindow):
             # init dissipation reference array values
             self._reference_value_dissipation_array = [0, 0, 0, 0, 0]
 
-            self._labelref1 = "not set"
-            self._labelref2 = "not set"
             # progressbar variables
             self._completed = 0
             self._ser_control = 0
             # error variables
             self._ser_error1 = 0
             self._ser_error2 = 0
-            self._ser_err_usb = 0
             ##### other useful location #########
             #self.get_web_info()
             #####
@@ -595,7 +538,6 @@ class MainWindow(QtGui.QMainWindow):
                 # for single scan Gets frequency range
                 self._readFREQ = self.worker.get_frequency_range()
 
-                self._vector_reference_frequency = list(self._readFREQ)
                 self._overtones_number_all = len(self.worker.get_source_speeds(SourceType.serial))
                 
                 # VER 0.1.6 delete the quartz label in the drop down menu  
@@ -721,9 +663,6 @@ class MainWindow(QtGui.QMainWindow):
 #                       float(self.worker.get_source_speeds(SourceType.multiscan)[self._overtones_number_all-1])<11e+06):
 #                    label_quartz = "@10MHz_QCM"
 # =============================================================================
-
-                # TODO redefine the array here
-                self._arr = np.zeros((self._overtones_number_all, Constants.ring_buffer_samples))
 
 # =============================================================================
 #                 # legend
@@ -1249,7 +1188,6 @@ class MainWindow(QtGui.QMainWindow):
             return
 
         # init the byte at port and read serlai string
-        byte_at_port = 0
         read_serial = ""
         firmware_version_current = ""
         
@@ -2030,7 +1968,7 @@ class MainWindow(QtGui.QMainWindow):
                 except Exception:
                     pass
         # per-plot axes + title (guarded: some refs are ViewBoxes or None)
-        for plot in (self._plt0, self._plt1, self._plt2, self._pltD, self._plt4,
+        for plot in (self._plt0, self._plt2, self._pltD, self._plt4,
                      self._pltG, self._pltSus, self._pltLocus):
             if plot is None:
                 continue
@@ -3722,12 +3660,10 @@ class MainWindow(QtGui.QMainWindow):
         if  self._get_source() == SourceType.serial:
             vector1 = self.worker.get_d1_buffer()
             vector2 = self.worker.get_d2_buffer()
-            # VER 0.1.6 update temperature data plot using setData, round to 2 decimals
-            vectortemp = self.worker.get_d3_buffer().round(decimals = 1)
 
             # TODO changed the get error number of elemts
             # self._ser_error1,self._ser_error2, self._ser_control,self._ser_err_usb = self.worker.get_ser_error()
-            self._ser_error1, self._ser_error2, self._ser_control,self._ser_err_usb, self._overtone_number = self.worker.get_ser_error()
+            self._ser_error1, self._ser_error2, self._ser_control, _, self._overtone_number = self.worker.get_ser_error()
             
             # VER 0.1.4
             # get TEC status current value 
@@ -3776,9 +3712,6 @@ class MainWindow(QtGui.QMainWindow):
                        self._xaxisT.set_start_time(origin)
 
                if str(vector1[0])=='nan' and not self._ser_error1 and not self._ser_error2:
-                  label1 = 'processing...'
-                  label2 = 'processing...'
-                  label3 = 'processing...'
                   labelstatus = 'Processing'
                   self.ui.statusIndicator.setStyleSheet(self._status_dot("warn")) #ff8000
 
@@ -3786,67 +3719,36 @@ class MainWindow(QtGui.QMainWindow):
 
                elif (str(vector1[0])=='nan' and (self._ser_error1 or self._ser_error2)):
                       if self._ser_error1 and self._ser_error2:
-                        label1= ""
-                        label2= ""
-                        label3= ""
                         labelstatus = 'Warning'
                         labelbar = 'Warning: -3dB frequencies not found'
                         self.ui.statusIndicator.setStyleSheet(self._status_dot("err"))
 
                       elif self._ser_error1:
-                        label1= ""
-                        label2= ""
-                        label3= ""
                         labelstatus = 'Warning'
                         labelbar = 'Warning: lower -3dB frequency not found'
                         # self.ControlsWin.ui1.infostatus.setStyleSheet(self._status_dot("err"))
                       elif self._ser_error2:
-                        label1= ""
-                        label2= ""
-                        label3= ""
                         labelstatus = 'Warning'
                         labelbar = 'Warning: upper -3dB frequency not found'
                         self.ui.statusIndicator.setStyleSheet(self._status_dot("err"))
                else:
                   if not self._ser_error1 and not self._ser_error2:
-                      if not self._reference_flag:
-                          d1=float("{0:.2f}".format(vector1[0]))
-                          d2=float("{0:.4f}".format(vector2[0]*1e6))
-                          d3=float("{0:.2f}".format(vectortemp[0]))
-                      else:
-                          a1= vector1[0]-self._reference_value_frequency
-                          a2= vector2[0]-self._reference_value_dissipation
-                          d1=float("{0:.2f}".format(a1))
-                          d2=float("{0:.4f}".format(a2*1e6))
-                          d3=float("{0:.2f}".format(vectortemp[0]))
-                      label1= str(d1)+ " Hz"
-                      label2= str(d2)+ "e-06"
-                      label3= str(d3)+ " °C"
                       labelstatus = 'Monitoring'
                       labelbar = 'Monitoring!'
                       self.ui.statusIndicator.setStyleSheet(self._status_dot("ok"))
 
                   else:
                       if self._ser_error1 and self._ser_error2:
-                        label1= "-"
-                        label2= "-"
-                        label3= "-"
                         labelstatus = 'Warning'
                         labelbar = 'Warning: -3dB frequencies not found'
                         self.ui.statusIndicator.setStyleSheet(self._status_dot("err"))
 
                       elif self._ser_error1:
-                        label1= "-"
-                        label2= "-"
-                        label3= "-"
                         labelstatus = 'Warning'
                         labelbar = 'Warning: lower -3dB frequency not found'
                         self.ui.statusIndicator.setStyleSheet(self._status_dot("err"))
 
                       elif self._ser_error2:
-                        label1= "-"
-                        label2= "-"
-                        label3= "-"
                         labelstatus = 'Warning'
                         labelbar = 'Warning: upper -3dB frequency not found'
                         self.ui.statusIndicator.setStyleSheet(self._status_dot("err"))
@@ -3864,7 +3766,7 @@ class MainWindow(QtGui.QMainWindow):
             # use a try-except code block. If an error is encountered when opening the file, use the global value and continue.
             try: 
                 self._readFREQ = self.worker.get_frequency_range()
-            except Exception as e:
+            except Exception:
                 # print(f"An error occurred: {e}")
                 pass
 
@@ -3874,8 +3776,6 @@ class MainWindow(QtGui.QMainWindow):
         elif self._get_source() == SourceType.calibration:
             # flag for terminating calibration
             stop_flag = 0
-            # VER 0.1.6 DEBUG check the stop flag variable 
-            pre_stop_flag = stop_flag
             
             # VER 0.1.6 user cancellation (ported from openQCM Q-1 v3.0): if the
             # user pressed Stop mid-sweep, CalibrationProcess emitted the -1
@@ -3895,9 +3795,6 @@ class MainWindow(QtGui.QMainWindow):
             vector3 = self.worker.get_d3_buffer().round(decimals = 1)
             
             #print(vector1[0],vector2[0],vector3[0])
-            label1 = 'not available'
-            label2 = 'not available'
-            label3 = 'not available'
             labelstatus = 'Peak Detection Processing'
             labelbar = 'please wait...'
 
@@ -3922,9 +3819,6 @@ class MainWindow(QtGui.QMainWindow):
             # EXCEPTION: Calibration buffer empty
             #if vector1[0]== 0 and vector3[0]==1:
             if error1 == 1 and vector3[0] == 1:
-              label1 = 'not available'
-              label2 = 'not available'
-              label3 = 'not available'
               labelstatus = 'Calibration Warning'
               self.ui.statusIndicator.setStyleSheet(self._status_dot("err"))
               labelbar = 'empty buffer - reconnect the device and retry'
@@ -3933,9 +3827,6 @@ class MainWindow(QtGui.QMainWindow):
               
             # EXCEPTION: Calibration buffer empty and ValueError from the serial port
             elif error1 == 1 and vector2[0] == 1:
-              label1 = 'not available'
-              label2 = 'not available'
-              label3 = 'not available'
               labelstatus = 'Calibration Warning'
               self.ui.statusIndicator.setStyleSheet(self._status_dot("err"))
               labelbar = 'empty buffer / value error - reconnect the device and retry'
@@ -3945,9 +3836,6 @@ class MainWindow(QtGui.QMainWindow):
             # NOT EXCEPTION: Calibration buffer not empty
             elif error1 == 0:
               
-              label1 = 'not available'
-              label2 = 'not available'
-              label3 = 'not available'
               labelstatus = 'Peak Detection Processing'
               labelbar = 'please wait...'
               
@@ -4033,7 +3921,7 @@ class MainWindow(QtGui.QMainWindow):
             vector1 = self.worker.get_d1_buffer()
 
             # TODO update plot
-            self._ser_error1, self._ser_error2, self._ser_control, self._ser_err_usb, self._overtone_number = self.worker.get_ser_error()
+            self._ser_error1, self._ser_error2, self._ser_control, _, self._overtone_number = self.worker.get_ser_error()
         
 # =============================================================================
 #             # TODO DEBUG STOP SOFTWARE
@@ -5780,18 +5668,12 @@ class MainWindow(QtGui.QMainWindow):
 
     def _apply_grid(self, plot, on):
         plot.showGrid(x=on, y=on, alpha=0.3)
-        # the phase twin overlays the amplitude plot: keep the grids together
-        if plot is self._plt0 and getattr(self, "_plt1", None) is not None:
-            self._plt1.showGrid(x=on, y=on, alpha=0.3)
 
     def _toggle_all_grids(self, on):
         """View > Grid: same state on every plot panel."""
         menu = getattr(self, "_plot_menu", None)
         if menu is not None:
             menu.set_grid_all(bool(on))
-
-    def _set_grid(self, plot, on):
-        self._plot_menu.set_grid(plot, on)
 
     def _toggle_cursors_for(self, plot, on=None):
         info = self._plot_cursors[plot]
@@ -6103,16 +5985,6 @@ class MainWindow(QtGui.QMainWindow):
         #peaks_phase = data[:,1] #unused at the moment
         return peaks_mag
 
-    # VER 0.1.6 method just clear plot without making a call to the line 
-    def clear_all_plot(self):   
-        support = self.worker.get_d1_buffer()
-        if support.any:
-            if str(support[0])!='nan':
-                self._plt2.clear()
-                self._pltD.clear()
-                self._plt4.clear()
-                self._plt0.clear()
-
 ###########################################################################
     # Cleans history plot
     ###########################################################################
@@ -6279,19 +6151,7 @@ class MainWindow(QtGui.QMainWindow):
                     # set flag reference true
                     self._reference_flag = True
 
-                    # get frequency and dissipation reference value
-                    d1=float("{0:.2f}".format(self._reference_value_frequency))
-                    d2=float("{0:.4f}".format(self._reference_value_dissipation*1e6))
-
-                    self._labelref1 = str(d1)+ "Hz"
-                    self._labelref2 = str(d2)+ "e-06"
-
                     print(TAG, "Reference set!     ", end='\r')
-                    # TODO minor changes: it calculates (in a unelegant way) the frequency y - range axis
-                    self._vector_reference_frequency[:] = [s - self._reference_value_frequency for s in self._readFREQ]
-                    # TODO minor changes: it calculates (in a unelegant way) the dissipation y - range axis
-                    xs = np.array(np.linspace(0, ((self._readFREQ[-1]-self._readFREQ[0])/self._readFREQ[0]), len(self._readFREQ)))
-                    self._vector_reference_dissipation = xs-self._reference_value_dissipation
 
                     # clear all
                     # self.clear()
@@ -6355,10 +6215,6 @@ class MainWindow(QtGui.QMainWindow):
         self._reference_value_dissipation = 0
         self._reference_value_frequency_array = [0, 0, 0, 0, 0]
         self._reference_value_dissipation_array = [0, 0, 0, 0, 0]
-
-        # the info window prints these next to "Ref. Frequency"/"Ref. Dissipation"
-        self._labelref1 = "not set"
-        self._labelref2 = "not set"
 
         # VER 0.1.6 do not set autorange here 
 # =============================================================================
@@ -6443,7 +6299,6 @@ class MainWindow(QtGui.QMainWindow):
         # no internet connection alert    
         else:
             labelweb2 = 'OFFLINE'
-            labelweb3 = 'Offline, unable to check'
             print (TAG,'Checking your internet connection {} '.format(labelweb2))
             # TODO set a pop up alert if noyt connected to internet 
             
@@ -6500,17 +6355,6 @@ class MainWindow(QtGui.QMainWindow):
         '''
         TODO 2m set infowin internet connection adn software update
         '''
-
-    ###########################################################################
-    # Opens webpage for download
-    ###########################################################################
-    def start_download(self):
-        import webbrowser
-        url_download = 'https://openqcm.com/shared/q-1/openQCM_Q-1_py_v{}.zip '.format(self._webinfo[0])
-        webbrowser.open(url_download)
-        
-    def dummy(self): 
-        print ("THIS IS DUMMY")
 
     # VER 0.1.6 open a second window for TEC current monitoring   
     # ------------------------------------------------------------------
