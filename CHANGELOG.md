@@ -5,6 +5,16 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `main`
 
+### Measured — B0, the GUI process during a real multiscan (2026-10-23)
+
+Item B0 of `OPTIMIZATION_PLAN.md`, a measurement, no code. The NEXT was flashed with the production `0.1.5d` (it
+answered `0.1.7-FSHD` before, a firmware in neither repository), Peak Detection found a 5 MHz crystal and 5 overtones,
+then a multiscan ran through the real window on screen (`b0probe.py` in the audit harness, 150 s after a 30 s warm-up):
+the GUI process takes **~95 % of a core**; `_update_plot` accounts for 31 % of that, 16.3 ms per tick on average when
+nothing new arrived and 28.9 ms when something did, at 17.7 ticks/s against the 20 the timer asks for; **96.5 % of the
+ticks carry no new data**. Rows every 7.96 s. B1 (redraw only on new data) is what these numbers point at; it waits for
+Marco's go-ahead. In the same session, E1 on the branch: a row every 10.10 s before, 8.67 s after.
+
 ### Docs — OPTIMIZATION_PLAN: E1 and E2 done on `impedance-analysis` (2026-10-23)
 
 The two items that exist only on the branch were executed there and are recorded in its CHANGELOG: E1 (`9440312`)
