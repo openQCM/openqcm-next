@@ -5,6 +5,15 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — dead code in Serial and Calibration (2026-10-23)
+
+`d869d88` cherry-picked clean as `ab8fa43` (item C3 of `main`'s `OPTIMIZATION_PLAN.md`, 86 lines): in `Serial.py`
+`waveletSmooth`, `_TempCtrl`, `_dummy`, `_flag_error`, `_filtered_mag`, `Temperature_Pid_default` with its `loadtxt`,
+the unused phase half of `baseline_coeffs` and three locals; in `Calibration.py` `FindPeak` with its attributes,
+`_QCStype_int` and two locals. Both files are identical on the two branches. Verified here: the 70 tests pass
+(1 skipped); pyflakes 64 → 59; the replay harness gives identical parser messages before and after in multiscan (604,
+still equal to its baseline), single (121) and peak detection (33).
+
 ### Carried from `main` — unused imports and the `progressbar` dependency (2026-10-23)
 
 `736a3a6` cherry-picked as `98823c9` (item C2 of `main`'s `OPTIMIZATION_PLAN.md`): every unused import goes from the
