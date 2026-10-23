@@ -32,6 +32,7 @@ from openQCM.common import sweepDump as SweepDump
 from openQCM.common import runtimeFiles
 from openQCM.common import fdLimit
 from openQCM.common.tecStatus import decode_error_register
+from openQCM.common.tecReset import reset_sequence
 
 import numpy as np
 import sys
@@ -41,6 +42,7 @@ import tempfile
 import re
 
 import time
+from types import SimpleNamespace
 from numpy import loadtxt
 
 
@@ -948,6 +950,16 @@ class MainWindow(QtGui.QMainWindow):
 
     def Temperature_Control_OFF(self):
 
+        print ("Temperature Control OFF ")
+        # disable TEC over the persistent connection
+        var = 0
+        cmd = 'X' + str(int(var)) + '\n'
+        self._serial_write(cmd.encode())
+        self._tec_off_state()
+
+    def _tec_off_state(self):
+        """The GUI and config.txt side of TEC OFF, without the X0: OFF sends its
+        own, and the Standby reset ends with the X0 of its sequence."""
         # GUI: mark the toggle state off and restyle it (accent = will turn on)
         self._tec_on = False
         self._update_tec_toggle()
@@ -959,12 +971,6 @@ class MainWindow(QtGui.QMainWindow):
         # controller holds, and a reset here used to put 25 on the indicator
         # while both still had 20: the next ON then looked like it was going
         # to the wrong temperature (bench, 2026-09-08).
-
-        print ("Temperature Control OFF ")
-        # disable TEC over the persistent connection
-        var = 0
-        cmd = 'X' + str(int(var)) + '\n'
-        self._serial_write(cmd.encode())
 
 # =============================================================================
 #         elif  ( self.worker.is_running() == True ):
@@ -4841,16 +4847,13 @@ class MainWindow(QtGui.QMainWindow):
             Log.i(TAG, text)
             return
 
-        # RESET PROCEDURE: Enable pin Off, On, Off
+        # RESET PROCEDURE: Enable pin Off, On, Off -- common/tecReset, the very
+        # sequence (X0, 2 s, X1, 2 s, X0, 0.5 s) the acquisition process runs
+        # when it owns the port; here it goes out through _serial_write
         self._tec_reset_started()
-        self.Temperature_Control_OFF()
-        # VER 0.1.5 increased the waiting time for module reset 2 seconds
-        sleep(2.0)
-        self.Temperature_Control_ON()
-        sleep(2.0)
-        # leave the TEC not active
-        self.Temperature_Control_OFF()
-        sleep(0.5)
+        reset_sequence(SimpleNamespace(write=self._serial_write))
+        # the sequence leaves the TEC not active: GUI and config.txt follow
+        self._tec_off_state()
 
         # Standby: nobody samples the register, so ask for it now. This is what
         # makes a reset from Standby verifiable, and what releases the buttons.
