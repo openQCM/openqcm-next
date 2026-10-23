@@ -5,6 +5,7 @@ from openQCM.core.constants import Constants
 from openQCM.core import resonance
 from openQCM.core import lorentzian
 from openQCM.common import sweepDump as SweepDump
+from openQCM.common import runtimeFiles
 from openQCM.common.pidQuery import read_pid
 from openQCM.common.tecReset import reset_sequence
 from openQCM.common.tecStatus import decode_error_register, report_error_changes
@@ -2738,13 +2739,8 @@ class MultiscanProcess(multiprocessing.Process):
         path_RT = Constants.cvs_peakfrequencies_RT_path
         np.savetxt(path_RT, np.column_stack([frequency_array_RT, frequency_array_RT]))    
     
-    # LOAD FREQUENCIES FILE 
-    @staticmethod
-    def load_frequencies_file():
-        data  = loadtxt(Constants.cvs_peakfrequencies_path)
-        peaks_mag = data[:,0]
-        #peaks_phase = data[:,1] #unused at the moment
-        return peaks_mag
+    # LOAD FREQUENCIES FILE (one implementation, common/runtimeFiles.py)
+    load_frequencies_file = staticmethod(runtimeFiles.load_frequencies_file)
     
     # VER 0.1.4
     # load file containing the current values of resonance frequencies 
