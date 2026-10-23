@@ -1105,6 +1105,13 @@ Moving work between the branches: **cherry-pick**, as in §2 — never `git merg
 
 ## 5. Planned technical tasks (on `main`)
 
+> ⏭ **Next session: OPTIMIZATION_PLAN item B1** — postponed by Marco on 2026-10-23, to be done in a session of its
+> own. Redraw the time series only when new data arrived (a worker revision counter, plus a dirty flag for SET REF,
+> N-SCALE, overtone chips, theme, CLEAR and the cursors; fold in the per-tick `loadtxt(PeakFrequencies.txt)` and the
+> discarded `nanmin`/`nanmax`). B0 measured why on the board the same day: the GUI process takes ~95 % of a core in
+> multiscan, `_update_plot` costs 16.3 ms per tick, and 96.5 % of the ticks carry no new data. Expect conflicts on
+> the branch, whose `_update_plot` diverges; verify with `guiprobe.py` and `b0probe.py` (audit harness, its README).
+
 
 > 📌 **Optimisation plan (2026-10-22)**: [`OPTIMIZATION_PLAN.md`](OPTIMIZATION_PLAN.md) — read-only audit of
 > both worktrees, approved by Marco, executed one item at a time: unused code, inefficiencies (each with a

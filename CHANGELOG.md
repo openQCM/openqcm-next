@@ -5,6 +5,12 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `main`
 
+### Docs — B1 postponed to the next session (2026-10-23)
+
+Marco postponed OPTIMIZATION_PLAN item B1 (redraw only on new data) to a session of its own, after B0 measured its
+case on the board. The reminder sits in HANDOFF §5, in the plan's B1 row and in `docs/SESSION_PROMPT.md`, which also
+records that the bench NEXT was reflashed with the production `0.1.5d` (it answered `0.1.7-FSHD` before).
+
 ### Measured — B0, the GUI process during a real multiscan (2026-10-23)
 
 Item B0 of `OPTIMIZATION_PLAN.md`, a measurement, no code. The NEXT was flashed with the production `0.1.5d` (it
