@@ -5,6 +5,19 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `main`
 
+### Removed — dead code in Serial and Calibration (2026-10-23)
+
+`d869d88`, item C3 of `OPTIMIZATION_PLAN.md`, 86 lines. In `Serial.py`: the nested `waveletSmooth`, `_TempCtrl`,
+`_dummy`, `_flag_error`, `_filtered_mag` (a zeros array allocated every sweep), `Temperature_Pid_default` with the
+`loadtxt` of `config.txt` in the constructor, the phase half of `baseline_coeffs` (a degree-8 polyfit on 100 001 points,
+13.5 ms per START) and the corrected series nobody read, and three unused locals; `load_frequencies_file_RT()` is still
+called where its result was dropped, since its fallback writes the RT file. In `Calibration.py`: `FindPeak` and its six
+attributes, `_QCStype_int`, `freq_difference`, `freq_diff_arr_filtered`. The phase lookup in
+`peak_detection_qcm_fundamental` stays, commented: its `argmax` raises on a sweep with no phase maximum, outside any
+`try`, and that stops Peak Detection. `Serial.write` and `get_Temperature_set_Serial` wait for C4, which removes the
+dead Worker methods that are their only callers. Verified: pyflakes 38 → 33; the replay harness gives identical parser
+messages and runtime files in multiscan, single and peak detection. Cherry-picked clean onto `impedance-analysis`.
+
 ### Removed — unused imports and the `progressbar` dependency (2026-10-23)
 
 `736a3a6`, item C2 of `OPTIMIZATION_PLAN.md`. Every import pyflakes reported as unused goes from the nine files shared
