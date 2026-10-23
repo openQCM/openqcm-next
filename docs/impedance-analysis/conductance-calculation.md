@@ -40,7 +40,8 @@
 > - **The live pipeline now uses this formula.** `elaborate_multi()` computes the
 >   exact spectra once and reads the logged resonance frequency and half-bandwidth
 >   off them, via `parameters_finder_impedance_exact()`. The old approximate
->   `parameters_finder_impedance()` is kept but no longer called. The half-bandwidth
+>   `parameters_finder_impedance()`, no longer called, was removed on 2026-10-23
+>   (`be89ac3`). The half-bandwidth
 >   is measured **two-sided** and interpolated sub-sample
 >   (`_half_bandwidth_G_exact`).
 >

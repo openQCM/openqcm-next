@@ -5,6 +5,50 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Removed — the impedance code nothing calls (2026-10-23)
+
+`be89ac3`, item E2 of `main`'s `OPTIMIZATION_PLAN.md`, this branch only, 111 lines. Never called, checked on the AST
+over `software/`, `tests/` and `research/` (attribute access only: `plot_conductance.py` has free functions of the same
+names): `parameters_finder_impedance`, `_half_bandwidth_G`, `_phase_signed`, `elaborate_conductance_multi` (it called
+methods that no longer exist, and `plt.show()` inside the acquisition process), the `PchipInterpolator` import; then,
+searching again, the three helpers only they used, `_Zabs_Vmag`, `_G_calc`, `_B_calc`. In the Worker,
+`get_masked_G_buffer` and the buffer only it read (the GB message keeps its field 7). `_phase_offset_deg` stays, as
+ALGORITHM §13 asks. Verified: the 70 tests pass; pyflakes 46 → 44; replay and GUI probe identical before and after in
+all three modes (multiscan still equal to its baseline). HANDOFF, ALGORITHM §4/§8/§13 and `conductance-calculation.md`
+now say these are removed.
+
+### Performance — `elaborate_multi` stops computing three series nobody reads (2026-10-23)
+
+`9440312`, item E1 of `main`'s `OPTIMIZATION_PLAN.md`, this branch only. Every sweep computed, and never read, the phase
+through Savitzky-Golay and spline (`phase_result_fit`) and the baseline-corrected Vmag through `baseline_coeffs_Vmag()`
+— a degree-8 polyfit of the calibration, 100 001 points, on data that never change — then SG and spline
+(`Vmag_result_fit`). They go, with `baseline_coeffs_Vmag` and the unused `filtered_Vmag`; the grid they shared stays,
+taken from `len(Vmag)` (the SG output has its input's length, checked). Published values unchanged: the replay gives the
+same 604 parser messages and the GUI probe the same record. 60 replayed sweeps take **33.1–34.1 s instead of
+40.8–42.7 s** of wall time (~0.14 s per sweep) and 37–39 s of CPU instead of 105–109 s (the polyfit ran multithreaded).
+Processing is serial between sweeps, so on the instrument the cycle, and the datalog row cadence, shortens by about that
+much — to be measured on the board.
+
+### Refactor — `plot_conductance` uses the one `load_frequencies_file` too (2026-10-23)
+
+`e93d217`, this branch only: the sixth copy of `load_frequencies_file`, in `sweep_data/plot_conductance.py`, now imports
+`common/runtimeFiles.load_frequencies_file`, like the five that `main` consolidated (below). Same behaviour.
+
+### Carried from `main` — the Standby TEC reset runs `common/tecReset.reset_sequence` (2026-10-23)
+
+`f05fbb6` cherry-picked clean as `8e3e473` (item D2): `_TEC_Reset_button` sends `reset_sequence()` through
+`_serial_write` instead of re-implementing X0 / X1 / X0; `Temperature_Control_OFF` lends `_tec_off_state()` for the end
+of the sequence. Verified here with the new `tecresetprobe.py` (real `MainWindow` offscreen, fake port, virtual sleep):
+the same writes at the same times, the same `config.txt` and TEC card, for a reset with the register clear and in error
+and for ON and OFF; the 70 tests, replay and GUI probe identical in all three modes.
+
+### Carried from `main` — one `load_frequencies_file`, in `common/runtimeFiles.py` (2026-10-23)
+
+`302c03e` cherry-picked clean as `3c7ba1b` (item D1, the first brick of HANDOFF §5 "Runtime files"): the copies in
+Serial, Multiscan, worker, mainWindow and plot_sweep_spline delegate to one implementation; same behaviour, a missing or
+one-row file still raises. Verified here: the 70 tests, replay and GUI probe identical in all three modes, a Worker still
+raises `OSError` without the file.
+
 ### Carried from `main` — commented-out code from the files shared byte for byte (2026-10-23)
 
 `2d05562` cherry-picked clean as `c203e2d` (item C8 of `main`'s `OPTIMIZATION_PLAN.md`): 378 lines of commented-out

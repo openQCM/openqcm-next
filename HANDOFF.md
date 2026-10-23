@@ -212,9 +212,10 @@ What is specific to this branch:
   five go through `resonance.savitzky_golay`. The magnitude-path band is computed only for the error
   flags: what gets logged is the conductance-derived pair, so `index_peak_fit`,
   `frequency_resonance` and `Qfac_fit` are dead here.
-- **Two extra baseline sites** read `Constants.BASELINE_POLY_ORDER` that `main` could not know about:
-  `baseline_coeffs_Vmag()` in `Multiscan.py` and the same V_MAG baseline in
-  `sweep_data/plot_conductance.py`.
+- **One extra baseline site** reads `Constants.BASELINE_POLY_ORDER` that `main` could not know about:
+  the V_MAG baseline in `sweep_data/plot_conductance.py`. The second one, `baseline_coeffs_Vmag()` in
+  `Multiscan.py`, went with OPTIMIZATION_PLAN E1 (`9440312`): it was refitted on every sweep and its
+  result was never read.
 - **The sweep dump writes a second series** here, `g<n>.txt` with the divider's raw `V_MAG`/`V_PHS`.
   It goes through the shared module via its `prefix` parameter, which was added on `main` first
   (`0b6c6c3`) precisely so this branch needs no copy of `sweepDump.py`.
@@ -559,7 +560,8 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
 
 **Where in the code (on the branch)**:
 - `software/openQCM/processors/Multiscan.py` — the **exact** complex-divider inversion:
-  `_phase_signed` (conditional unfold), `_RX_exact`, `_G_exact`, `_B_exact`,
+  `_phase_offset_fold` (conditional unfold; its predecessor `_phase_signed` was removed in `be89ac3`),
+  `_RX_exact`, `_G_exact`, `_B_exact`,
   `parameters_finder_impedance_exact()` and `_half_bandwidth_G_exact()`. Wired into
   `elaborate_multi()`: the exact spectra are computed **once** and used both for the
   **published** resonance frequency / dissipation and for the live panel, so the two can
@@ -727,7 +729,7 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
   `Constants.PSL_*`, with the standard as fallback, counted and logged; the datalog is named
   `<ts>_multi_lorentzian.csv`. The mode reaches the spawned process through `Worker(estimator=…)` →
   `set_estimator()` before `start()`, never through Constants. The old approximate `parameters_finder_impedance()` and its helpers
-  (`_Zabs_Vmag`, `_G_calc`, `_B_calc`) are kept but **no longer called**.
+  (`_Zabs_Vmag`, `_G_calc`, `_B_calc`) were removed in `be89ac3` (OPTIMIZATION_PLAN E2): nothing called them.
 - ✅ **Attenuator compensation fixed**: the ADC→V conversion undoes the INPB R11/R19 attenuator
   with `Constants.V_MAG_DECADE_OFFSET = 0.61069 V` (= 20.3564 dB × 30 mV/dB), derived from the
   schematic values, applied at **both** conversion sites — `_Vmag_bit_mag` and the copy inside
@@ -775,7 +777,7 @@ MAG/PHASE signals (software post-processing; same firmware/protocol as the class
 - The conductance method is **always on**: the choice classic vs conductance is not selectable
   (hard-wired in `elaborate_multi`). The **estimator** is, per run, since 2026-09-16 (`argmax`
   standard, phase-shifted Lorentzian experimental).
-- `elaborate_conductance_multi()` is **dead code** (UNUSED).
+- `elaborate_conductance_multi()`, dead code that called `plt.show()`, was removed in `be89ac3`.
 - The DEBUG state is gone (2026-07-27 merge): `plot_autoscale_yaxis` dropped for main's
   `Constants.plot_force_yrange`. `environment` is the production **8** since 2026-10-01.
 
@@ -848,7 +850,7 @@ The detector emits `|Δφ|` only, and its output carries a **global per-overtone
   −6.9° on board 1920 in air on 2026-09-11 (`research/air-ipa-water-1920-2026-09-11/handoff-tables.md`,
   Table 1a). That is impossible for a magnitude detector, and it is not a local overshoot: it is
   `min(r) = −δ`, the *signature* of the offset.
-- The original `_phase_signed` estimated δ as `−min(r)` and flipped the sign after the minimum.
+- The original `_phase_signed` (removed in `be89ac3`, its logic lives on in `_phase_offset_fold`) estimated δ as `−min(r)` and flipped the sign after the minimum.
   That is a crude but broadly **correct** estimator when a true crossing exists, and its
   conditional fold threshold (`FOLD_THRESHOLD_DEG_G = 5°`) was the guard for when it does not —
   in liquid C0 dominates, the total susceptance never reaches zero, and `−min(r)` is then
@@ -928,7 +930,7 @@ whether φ_b applied as a correction recovers roundness has not been measured on
 
 **Roadmap** (each needs a plan + approval):
 1. Make the measurement **selectable** (classic vs conductance) instead of hard-wired.
-2. Remove the dead `elaborate_conductance_multi()`.
+2. ~~Remove the dead `elaborate_conductance_multi()`.~~ Done in `be89ac3` (2026-10-23).
 3. **Reference-load / RLC-standard calibration** for metrological use — characterise δ per
    frequency on the bench instead of estimating it per sweep, which would turn the runtime
    estimate into a *check* rather than a correction.

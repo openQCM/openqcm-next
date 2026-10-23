@@ -127,8 +127,9 @@ Vmag = Vmag - Constants.V_MAG_DECADE_OFFSET
   reached **−22 % on `R_m`** at the fundamental in air. Verified against a synthetic THRU
   (`Z_q = 0.001 Ω`): `M` reads 50.199 Ω with 0.600 and 52.301 Ω with 0.61069, against a true
   52.30 Ω.
-- ⚠️ **Do not baseline-correct this channel.** There is a second, baseline-corrected copy
-  (`Vmag_result_fit`, built with `baseline_coeffs_Vmag()`), and it must never be fed to §4: the
+- ⚠️ **Do not baseline-correct this channel.** There used to be a second, baseline-corrected copy
+  (`Vmag_result_fit`, built with `baseline_coeffs_Vmag()`; both removed in `9440312` because nothing read
+  them), and no such copy may ever be fed to §4: the
   inversion needs the **absolute** divider level. Subtracting the calibration polynomial scales `M`
   by `10^(V_baseline/0.6)` — 0.55× at the fundamental on real data — which drives `M(res)` below
   `R17`, makes `R_q` negative over the whole sweep and produces circles of negative conductance.
@@ -499,7 +500,7 @@ return 0.0
 ```
 
 5. **Two-sided, and it returns the HALF width** `(f_right − f_left)/2`. The predecessor
-   (`_half_bandwidth_G`, still in the file, unused) measured `f_res − f_left` and called it the
+   (`_half_bandwidth_G`, removed in `be89ac3`) measured `f_res − f_left` and called it the
    width: that is only right for a symmetric peak, and the real one is skewed by the residual `C0`
    branch. Going two-sided removed a consistent **~20 %** bias on both air and liquid data.
 6. **Fallbacks**, in order: two-sided, then whichever single side exists. A single side is returned
@@ -692,18 +693,19 @@ reports the HALF width.** `D = FWHM/f_s = 2·HWHM/f_s` is the same number in bot
 
 ## 13. What is in the file but not in this path
 
-Dead or superseded code, kept deliberately. None of it runs:
+Dead or superseded code. What is still in the file is kept deliberately and none of it runs; the rest
+was removed on 2026-10-23 (`be89ac3`, OPTIMIZATION_PLAN E2) and is listed here so its history stays findable:
 
 | symbol | status |
 |---|---|
-| `parameters_finder_impedance()` | the *approximate* impedance formula (`abs(Z) ≈ R17(10^x − 1)`, phase read as the phase of `Z_q`). Superseded by the exact inversion; no longer called. |
-| `_Zabs_Vmag()`, `_G_calc()`, `_B_calc()` | helpers of the approximate formula. Transitively dead. |
+| `parameters_finder_impedance()` | the *approximate* impedance formula (`abs(Z) ≈ R17(10^x − 1)`, phase read as the phase of `Z_q`). Superseded by the exact inversion. **Removed** (`be89ac3`). |
+| `_Zabs_Vmag()`, `_G_calc()`, `_B_calc()` | helpers of the approximate formula. **Removed** with it. |
 | `_phase_offset_deg()` | the roundness-fitted `δ`. Reverted, kept because *how* it fails is instructive (§4.4). |
 | `_Freq_G()` | still live — it is what `parameters_finder_impedance_exact()` calls. |
-| `_half_bandwidth_G()` | the one-sided predecessor of §8. Dead. |
+| `_half_bandwidth_G()` | the one-sided predecessor of §8. **Removed** (`be89ac3`). |
 | `_taubin_circle()` | used only by `_phase_offset_deg()`. Transitively dead. |
-| `elaborate_conductance_multi()` | ⚠️ never called, and it calls `matplotlib.pyplot.show()` **inside the acquisition process**. Would block it. Delete on sight. |
-| `from scipy.interpolate import PchipInterpolator` | leftover of the reverted local phase repair. Unused import. |
+| `elaborate_conductance_multi()` | never called, and it called `matplotlib.pyplot.show()` inside the acquisition process. **Removed** (`be89ac3`). |
+| `from scipy.interpolate import PchipInterpolator` | leftover of the reverted local phase repair. **Removed** (`be89ac3`). |
 | `print("DEBUG: sweep parameters …")` | left in `run()`; fires only while `k < Constants.environment`, i.e. about ten times at start-up. |
 
 ---
