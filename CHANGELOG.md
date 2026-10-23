@@ -5,6 +5,19 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — the constants nothing reads (2026-10-23)
+
+`2663d41` cherry-picked as `be635fd` (item C7 of `main`'s `OPTIMIZATION_PLAN.md`): nineteen `Constants` that nothing
+reads in either worktree, this branch's research scripts included (`plot_colors`, `plot_max_lines`, `plot_title_color`,
+`plot_color_temperature`, `PID_Setting_default_index`, `overtone_maximum_number`, `null_string`,
+`process_join_timeout_ms`, `parser_timeout_ms`, `log_default_level`, `csv_delimiter`, `sweep_file`, `sweep_file_path`,
+`dist5MHz`, `dist10MHz`, `dist5`, `dist10`, `SG_order_environment`, `SG_window_environment`), and a `mainWindow.py`
+comment that named two of them. `LEFT`, `RIGHT` and `FREQUENCY_STEP`, which this branch's research reads, stay. One
+conflict: this branch has one blank line less around `plot_colors`; resolved by removing the block as on `main`
+(48 lines here). Verified here: the 70 tests pass (1 skipped); the replay harness gives identical parser messages
+before and after in multiscan (604, still equal to its baseline), single and peak detection; the GUI probe gives
+identical records in all three modes.
+
 ### Carried from `main` — dead code from the shared part of Multiscan (2026-10-23)
 
 `6288b33` cherry-picked as `667ab6f` (item C6 of `main`'s `OPTIMIZATION_PLAN.md`, 127 lines): the never-called
