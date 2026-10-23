@@ -5,6 +5,18 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — dead code from MainWindow and PopUp (2026-10-23)
+
+`9b7a3a8` cherry-picked as `a0ef21e` (item C5 of `main`'s `OPTIMIZATION_PLAN.md`): the never-called `setColumnCount`,
+`clear_all_plot`, `_set_grid`, `dummy`, `start_download` and `PopUp.question_QCM`; the never-read `_my_serial`, six ring
+buffers, `_arr`, `_plt1`/`_plt1_line`, `_labelref1/2`, `_vector_reference_*`, `_QCS_installed`, `_ser_err_usb`; the
+per-tick `label1/2/3` that nothing shows. Two conflicts in `mainWindow.py`, both on lines only this branch has and both
+resolved by keeping them: `_diss_mode` above the removed `_vector_reference_*`, and the theme loop, which here also lists
+`_pltG`, `_pltSus` and `_pltLocus` (only `_plt1` left it). Verified here: the 70 tests pass (1 skipped); pyflakes
+57 → 50; the GUI probe (`guiprobe.py` in the audit harness: the real `MainWindow` offscreen fed the replay records,
+START, reference set and clear, STOP, labels and curve data hashed per tick) gives identical records before and after in
+single (9 curves), multiscan (40, the impedance panel included) and peak detection.
+
 ### Carried from `main` — dead code from the Worker and its Serial targets (2026-10-23)
 
 `457af43` cherry-picked as `7bdf01f` (item C4 of `main`'s `OPTIMIZATION_PLAN.md`): the dead Worker methods
