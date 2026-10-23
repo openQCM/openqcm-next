@@ -5,6 +5,17 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — dead code from the Worker and its Serial targets (2026-10-23)
+
+`457af43` cherry-picked as `7bdf01f` (item C4 of `main`'s `OPTIMIZATION_PLAN.md`): the dead Worker methods
+(`get_Temperature_set_Worker`, `my_stop`, `serial_write`, `get_frequency_range_multi`, `get_overtone`), the unused
+`_queue_F_SWEEP_multi`, eight write-only attributes and the multiscan re-read of `PeakFrequencies.txt` in `start()`;
+`Serial.write` and `Serial.get_Temperature_set_Serial`. Two one-line conflicts in `worker.py`, both resolved by keeping
+this branch's lines: `_queue_GB_multi` (the impedance panel's queue) under the removed `_queue_F_SWEEP_multi`, and
+`_cycle_F_a`/`_cycle_D_a` above the removed `_number_of_peaks`. Verified here: the 70 tests pass (1 skipped);
+pyflakes 59 → 57, none left in `worker.py`; a Worker opens 76 → 71 descriptors; the replay harness gives identical
+parser messages before and after in multiscan (604, still equal to its baseline), single (121) and peak detection (33).
+
 ### Carried from `main` — dead code in Serial and Calibration (2026-10-23)
 
 `d869d88` cherry-picked clean as `ab8fa43` (item C3 of `main`'s `OPTIMIZATION_PLAN.md`, 86 lines): in `Serial.py`
