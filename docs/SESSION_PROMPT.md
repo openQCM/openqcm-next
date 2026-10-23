@@ -151,6 +151,8 @@ attivo solo con `OPENQCM_SWEEP_DUMP=1`, **sovrascritto a ogni sweep**):
   informativo. `firmware_update/` porta ora **entrambe** le immagini `0.1.5d`
   (produzione e `-TEST`, dal 2026-10-02; prima `0.1.5c`) e `_firmware_image()` sceglie in base alla versione che la
   scheda dichiara.
+- La NEXT di banco (`/dev/tty.usbmodem88377401`, seriale 1) è stata riflashata con `0.1.5d` di
+  produzione il 2026-10-23: prima rispondeva `0.1.7-FSHD`, un firmware che non è in nessuno dei due repo.
 - ⚠️ **Il ramo Windows non è mai stato eseguito.** Va provato in fase di produzione.
 - ⚠️ `firmware_update/` contiene ancora l'immagine `0.1.5` (tre versioni indietro),
   lasciata lì di proposito: decideremo io e te cosa farne.
@@ -241,6 +243,10 @@ attivo solo con `OPENQCM_SWEEP_DUMP=1`, **sovrascritto a ogni sweep**):
 - `polyfit` in tre copie: `Multiscan.baseline_correction`,
   `Serial.baseline_correction`, `Calibration.baseline_estimation`.
 - Zeri spinti ai grafici durante il warm-up del Multiscan.
+- ⏭ **B1 di `OPTIMIZATION_PLAN.md` — da fare in una prossima sessione** (Marco, 2026-10-23):
+  ridisegnare le serie temporali solo quando arrivano dati nuovi. B0, misurato sulla
+  scheda lo stesso giorno: la GUI usa ~95 % di un core in multiscan e il 96,5 % dei tick
+  non porta dati nuovi. Dettagli in `HANDOFF.md` §5 e nella riga B1 del piano.
 
 ### File non tracciati (stato al 2026-10-01)
 
