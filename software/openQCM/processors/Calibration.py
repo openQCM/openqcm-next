@@ -74,28 +74,6 @@ class CalibrationProcess(multiprocessing.Process):
         return self._mag_beseline_corrected_all, self._phase_beseline_corrected_all
     
     
-    ###########################################################################
-    # PEAK DETECTION
-    # Calculates the relative extrema of data using Signal Processing Toolbox 
-    ###########################################################################    
-    def FindPeak(self,freq, mag, phase, dist):
-        
-        # freq vector of frequencies and mag and phase vectors of of values, 
-        # dist is minimal horizontal distance (dist>=1) in samples between neighbouring peaks.
-        self.max_indexes_mag = scipy.signal.argrelextrema(np.array(mag),comparator=np.greater,order=dist)   
-        self.max_indexes_phase = scipy.signal.argrelextrema(np.array(phase),comparator=np.greater,order=dist)
-        
-        # local maxima amplitude
-        self.max_freq_mag=freq[self.max_indexes_mag]
-        self.max_value_mag=mag[self.max_indexes_mag]
-        
-        # local maxima phase
-        self.max_freq_phase=freq[self.max_indexes_phase]
-        self.max_value_phase=phase[self.max_indexes_phase]
-        
-        return self.max_freq_mag, self.max_value_mag, self.max_freq_phase, self.max_value_phase
-    
-    
     # VER 0.1.6 Peak Detection QCM fundamental 
     def peak_detection_qcm_fundamental (self, freq, mag, phase): 
         # peak detection of fundamental resonance frequency of QCM 
@@ -132,12 +110,10 @@ class CalibrationProcess(multiprocessing.Process):
         
         # frequency of maximum amplitude  
         f_mag_max = freq_arr_sub[idx_mag_max_arr][idx_mag_max]
-        # frequency of maximum phase 
+        # frequency of maximum phase: not used, but kept with the phase argmax above, which raises
+        # on a sweep with no phase maximum and so stops Peak Detection, as it always has
         f_phase_max = freq_arr_sub[idx_phase_max_arr][idx_phase_max]
                        
-        # Calculate the absolute difference between the frequencies
-        freq_difference = np.abs(f_mag_max - f_phase_max)
-        
         # return the QCM fundamental frequency 
         return f_mag_max
         
@@ -263,7 +239,6 @@ class CalibrationProcess(multiprocessing.Process):
         
         # discard the corresponding frequencies from your measurements:
         frequency_overtones_filtered = np.delete(frequency_overtones, indices_to_discard)
-        freq_diff_arr_filtered = np.delete(freq_diff_arr, indices_to_discard)  
          
         # return the QCM overtones 
         # return (frequency_overtones)
@@ -682,7 +657,6 @@ class CalibrationProcess(multiprocessing.Process):
                            
                           # set the global variable 
                           self._QCStype = '@5MHz_QCM'
-                          self._QCStype_int = 0
                           path = Constants.cvs_peakfrequencies_path
                           path_calib = Constants.csv_calibration_path
                           filename_calib = Constants.csv_calibration_filename
@@ -708,7 +682,6 @@ class CalibrationProcess(multiprocessing.Process):
                        elif (max_freq_mag[0]>9e+06 and max_freq_mag[0]<11e+06): 
                           # set the global variable 
                           self._QCStype = '@10MHz_QCM'
-                          self._QCStype_int = 1
                           path = Constants.cvs_peakfrequencies_path
                           path_calib = Constants.csv_calibration_path10
                           filename_calib = Constants.csv_calibration_filename10
