@@ -5,6 +5,20 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `main`
 
+### Removed — commented-out code from the files shared byte for byte (2026-10-23)
+
+`2d05562`, item C8 of `OPTIMIZATION_PLAN.md`, 378 comment lines, only in the six files identical on both branches:
+`Serial.py` (1229 → 1080 lines), `Calibration.py` (793 → 685), `plot_sweep_spline.py` (630 → 532), `popUp.py`
+(222 → 209), `fileStorage.py` (178 → 171), `app.py` (145 → 142). Found with `commented_code.py` (audit harness): real
+comment tokens only, never a `#` inside a `'''` string; within each run of comments, the windows that compile and read
+as code rather than prose; `# =====` banners left enclosing nothing. Reviewed by hand: kept the `argrelextrema`
+signature note, the two commented `else` branches under `fileStorage`'s "TODO IMPORTANT CHECK THE NULL VALUES" (the
+TODO is about them) and `plot_sweep_spline`'s documented dark-background toggle; dropped 29 lead-in comments that
+described only the removed code. Verified: each file's AST is identical to before (only line numbers move); the two
+CRLF files stay CRLF with no bare LF; the replay harness gives identical parser messages in all three modes.
+`docs/SESSION_PROMPT.md` now gives the current CRLF counts (685 and 171). Cherry-picked clean onto
+`impedance-analysis`.
+
 ### Removed — the constants nothing reads (2026-10-23)
 
 `2663d41`, item C7 of `OPTIMIZATION_PLAN.md`, 49 lines of `core/constants.py`. The plan pointed to a list it did not
