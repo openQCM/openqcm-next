@@ -45,13 +45,9 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
     return np.convolve( m[::-1], y, mode='valid')
 
 
-# LOAD PEAK FREQUENCIES FILE 
+# LOAD PEAK FREQUENCIES FILE (one implementation, common/runtimeFiles.py)
 # -------------------------------------------------------------------------
-def load_frequencies_file():
-    data  = loadtxt(Constants.cvs_peakfrequencies_path)
-    peaks_mag = data[:,0]
-    #peaks_phase = data[:,1] #unused at the moment
-    return peaks_mag
+from openQCM.common.runtimeFiles import load_frequencies_file
 
 # LOAD CALIBRATION FILE 
 # -------------------------------------------------------------------------
