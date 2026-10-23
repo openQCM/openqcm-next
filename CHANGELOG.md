@@ -5,6 +5,13 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `main`
 
+### Docs — OPTIMIZATION_PLAN: E1 and E2 done on `impedance-analysis` (2026-10-23)
+
+The two items that exist only on the branch were executed there and are recorded in its CHANGELOG: E1 (`9440312`)
+stops computing three series `elaborate_multi` never read, 60 replayed sweeps 40.8–42.7 → 33.1–34.1 s with the same
+published values; E2 (`be89ac3`) removes the approximate impedance path and its helpers, 111 lines. Nothing changes on
+`main`. What is left of the plan is B0 (a measurement on the instrument) and, depending on it, B1.
+
 ### Refactor — the Standby TEC reset runs `common/tecReset.reset_sequence` (2026-10-23)
 
 `f05fbb6`, item D2 of `OPTIMIZATION_PLAN.md`. `_TEC_Reset_button` re-implemented in Standby the X0 / X1 / X0 sequence
