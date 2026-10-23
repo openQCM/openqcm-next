@@ -8,7 +8,6 @@ from openQCM.ui.mainWindow_ui import Ui_MainWindow
 #from openQCM.ui.ui_info import Ui_Info
 #from openQCM.ui.ui_plots import Ui_Plots
 
-from pyqtgraph import AxisItem
 import pyqtgraph as pg
 
 # from PyQt5 import QtCore, QtGui
@@ -21,7 +20,6 @@ except:
 
 
 from openQCM.core.worker import Worker
-from openQCM.processors.Serial import SerialProcess
 from openQCM.core.constants import Constants, SourceType, ElapsedTimeAxis, NonScientificAxis
 
 from openQCM.ui.popUp import PopUp
@@ -30,7 +28,6 @@ from openQCM.ui.plotMenu import PlotMenu
 from openQCM.ui.widgets import (_Chevroned, ChevronComboBox,
                                 ChevronSpinBox, ChevronDoubleSpinBox)
 from openQCM.common.logger import Logger as Log
-from openQCM.common.architecture import Architecture,OSType
 from openQCM.common import sweepDump as SweepDump
 from openQCM.common import fdLimit
 from openQCM.common.tecStatus import decode_error_register

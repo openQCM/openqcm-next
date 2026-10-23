@@ -24,7 +24,7 @@ import webbrowser
 from PyQt5 import QtCore, QtGui, QtWidgets
 from pyqtgraph import GraphicsLayoutWidget
 
-from openQCM.ui.widgets import (ChevronComboBox, ChevronSpinBox,
+from openQCM.ui.widgets import (ChevronComboBox,
                                 ChevronDoubleSpinBox, ElidedLabel)
 
 # Application icon, resolved absolutely from this module (robust to the launch

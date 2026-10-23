@@ -2,17 +2,12 @@ import multiprocessing
 import time
 from openQCM.core.constants import Constants
 from openQCM.common.fileStorage import FileStorage
-from openQCM.common.logger import Logger as Log
 from openQCM.common import sweepDump as SweepDump
-
-#from progress.bar import Bar 
-from progressbar import Bar, Percentage, ProgressBar, RotatingMarker, Timer
 
 import serial
 from serial.tools import list_ports
 import numpy as np
 import scipy.signal
-from numpy import loadtxt
 
 # VER 0.1.6
 # from openQCM.ui.popUp import PopUp
