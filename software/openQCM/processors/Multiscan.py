@@ -86,14 +86,6 @@ class MultiscanProcess(multiprocessing.Process):
         (self.polyfitted_all, self.coeffs_all) = self.baseline_correction(self.freq_all, self.mag_all, Constants.BASELINE_POLY_ORDER)
         return self.coeffs_all
     
-    def baseline_coeffs_Vmag(self):
-        
-        # convert mag to Vmag_c
-        Vmag_c = (self.mag_all * 0.03) + 0.3
-        (poly_Vmag, coeff_Vmag) = self.baseline_correction(self.freq_all, Vmag_c, Constants.BASELINE_POLY_ORDER)
-        
-        return poly_Vmag, coeff_Vmag
-
 
     
     # VER 0.1.6G find the frequency and half-bandwidth by analyzing impedance  
@@ -923,8 +915,6 @@ class MultiscanProcess(multiprocessing.Process):
 #         self._Xp = Xp
 # =============================================================================
         
-        filtered_Vmag = np.zeros(samples)
-        
         # calc magnitude, defined as the differenc P_INA - P_INB equation 8b AD8302 datasheet  
         mag  = self._mag_bit_mag(Xm)
         # calc phase 
@@ -959,30 +949,13 @@ class MultiscanProcess(multiprocessing.Process):
         # magnitude one does inside resonance.spline_fit
         xrange = range(len(filtered_mag))
         
-        # VER 0.1.5a_G_DEV filtering and interpolation of phase signal
-        # filtering Savitzky Golay
-        filtered_phase = resonance.savitzky_golay(phase, window_size = SG_window_size, order = Constants.SG_order)
-        # interpolation
-        s_phase = UnivariateSpline(xrange, filtered_phase, s = Spline_factor)
-        xs_phase = np.linspace(0, len(filtered_phase) - 1, points)
-        phase_result_fit = s_phase(xs_phase)
-        
-        # VER 0.1.5a_G_DEV Filtering and interpolation of Vmag anf Vphase 
-        # reduce spline factor
-        
-        # baseline correction Vmag
-        # evaluate polynomial 
-        (poly_Vmag_all, coeff_Vmag_all) = self.baseline_coeffs_Vmag()
-        # polynomial 
-        poly_Vmag = np.polyval(coeff_Vmag_all, self._readFREQ)
-        # baseline correction
-        Vmag_corr = Vmag - poly_Vmag
-        # filtering Savitzky Golay
-        Vmag_filt = resonance.savitzky_golay(Vmag_corr, window_size = SG_window_size, order = Constants.SG_order)
-        # interpolation
-        s_Vmag = UnivariateSpline(xrange, Vmag_filt, s = Constants.SPLINE_FACTOR_G)
-        xs_Vmag = np.linspace(0, len(Vmag_filt) - 1, points)
-        Vmag_result_fit = s_Vmag(xs_Vmag)
+        # ⚠️ Three series used to be computed here on every sweep and never read:
+        # the phase through SG and spline, and the BASELINE-CORRECTED Vmag through
+        # a degree-8 polyfit of the calibration (100 001 points, on constant data),
+        # SG and spline -- 87-134 ms per overtone (OPTIMIZATION_PLAN E1). What is
+        # published comes from the raw Vmag and the signed V_phase below. The grid
+        # they shared is kept: the savitzky_golay output has the input's length.
+        xs_Vmag = np.linspace(0, len(Vmag) - 1, points)
         
         # filtering and interpolation of phase signal
         V_phase_filt = resonance.savitzky_golay(Vphase, window_size = SG_window_size, order = Constants.SG_order)
