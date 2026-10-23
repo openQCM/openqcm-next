@@ -5,6 +5,26 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `main`
 
+### Refactor — the Standby TEC reset runs `common/tecReset.reset_sequence` (2026-10-23)
+
+`f05fbb6`, item D2 of `OPTIMIZATION_PLAN.md`. `_TEC_Reset_button` re-implemented in Standby the X0 / X1 / X0 sequence
+that the acquisition already runs from `common/tecReset` when it owns the port, by calling `Temperature_Control_OFF`,
+`ON`, `OFF` with sleeps of its own. It now calls `reset_sequence()` through `_serial_write`; `Temperature_Control_OFF`
+is split so that its GUI and `config.txt` half, `_tec_off_state()`, closes the sequence without a fourth X0. Measured
+with a new probe (`tecresetprobe.py`: the real `MainWindow` offscreen on a fake port, virtual sleep): the same writes at
+the same virtual times, the same `config.txt` and the same TEC card, for a reset with the register clear and in error
+and for ON and OFF themselves; only the intermediate flag (0, 1, 0) is no longer written while the GUI is blocked.
+Replay and GUI probe identical in all three modes. Cherry-picked clean onto `impedance-analysis`.
+
+### Refactor — one `load_frequencies_file`, in `common/runtimeFiles.py` (2026-10-23)
+
+`302c03e`, item D1 of `OPTIMIZATION_PLAN.md`, the first brick of HANDOFF §5 "Runtime files". Five copies identical down
+to the AST (Serial, Multiscan, worker, mainWindow, plot_sweep_spline) now delegate to one implementation, kept as
+`staticmethod(runtimeFiles.load_frequencies_file)` so no caller changes. Same behaviour on purpose: a missing or one-row
+file still raises, which `Worker.reset_buffers` relies on. Verified: the five names are one function object, the process
+classes still pickle, replay and GUI probe identical in all three modes, a Worker still raises `OSError` without the
+file. Cherry-picked clean onto `impedance-analysis`, where a sixth copy (`plot_conductance.py`) followed.
+
 ### Removed — commented-out code from the files shared byte for byte (2026-10-23)
 
 `2d05562`, item C8 of `OPTIMIZATION_PLAN.md`, 378 comment lines, only in the six files identical on both branches:

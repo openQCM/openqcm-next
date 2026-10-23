@@ -226,6 +226,7 @@ openqcm-next/
 │   │   │   ├── fileStorage.py                 # CSV datalog
 │   │   │   ├── tecStatus.py · tecReset.py · pidQuery.py   # TEC controller (MTD415T) over serial
 │   │   │   ├── sweepDump.py                   # raw sweep dump (development only)
+│   │   │   ├── runtimeFiles.py                # the one load_frequencies_file (HANDOFF §5)
 │   │   │   └── architecture.py · arguments.py · fdLimit.py · fileManager.py · logger.py · switcher.py
 │   │   ├── ui/
 │   │   │   ├── mainWindow.py · mainWindow_ui.py   # main window: controller and programmatic layout

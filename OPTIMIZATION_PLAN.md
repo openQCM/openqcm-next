@@ -86,8 +86,8 @@ Status values: `planned`, `in progress`, `done (main <sha>, branch <sha>)`, `dro
 
 | id | what | status |
 |---|---|---|
-| D1 | One `load_frequencies_file`: today there are five AST-identical copies (Serial, Multiscan, worker, mainWindow, plot_sweep_spline). It is the first brick of HANDOFF §5 "Runtime files". The `_RT` variant is excluded, because its copies have already diverged. | planned |
-| D2 | The Standby TEC reset in `mainWindow` re-implements `common/tecReset.reset_sequence`. | planned |
+| D1 | One `load_frequencies_file`: today there are five AST-identical copies (Serial, Multiscan, worker, mainWindow, plot_sweep_spline). It is the first brick of HANDOFF §5 "Runtime files". The `_RT` variant is excluded, because its copies have already diverged. **Done:** `common/runtimeFiles.py`; the five copies delegate (`staticmethod`), same behaviour, the branch's sixth copy in `plot_conductance.py` followed (`e93d217`). Replay, GUI probe and Worker identical on both branches. | done (main `302c03e`, branch `3c7ba1b`) |
+| D2 | The Standby TEC reset in `mainWindow` re-implements `common/tecReset.reset_sequence`. **Done:** `reset_sequence()` through `_serial_write`, `Temperature_Control_OFF` split into `_tec_off_state()`. `tecresetprobe.py` (new): same writes at the same virtual times, same config.txt, same TEC card, on both branches. | done (main `f05fbb6`, branch `8e3e473`) |
 
 ### E — `impedance-analysis` only (committed on the branch, when Marco says)
 

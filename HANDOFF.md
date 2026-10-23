@@ -328,7 +328,10 @@ then, and the config flag alone is sampled once per sweep, so a 0 / 1 / 0 could 
 (bench, thermal latch-up test). Same mechanism as Read PID -- `tec_reset_request` on the parser,
 `common/tecReset.reset_sequence()` between two sweeps, "TEC reset done by the acquisition: X0, X1,
 X0" in the System Log. Every X the process forwards from the flag is logged too ("TEC switched by
-the acquisition: X1"), as the PID parameters are. **Bench, 2026-09-10, impedance worktree**: latch-up
+the acquisition: X1"), as the PID parameters are. Since `f05fbb6` (OPTIMIZATION_PLAN D2) the Standby
+button sends that same `reset_sequence()` through `_serial_write`, so the commands and the pauses have one
+definition; `Temperature_Control_OFF` lends it `_tec_off_state()`, its GUI and config.txt half, for the
+end of the sequence. **Bench, 2026-09-10, impedance worktree**: latch-up
 forced at 10 °C, one WARNING line; RESET requested 11:45:15, "TEC reset done" 11:45:21, "error
 cleared" 11:45:22; ON then T SET 25, one "TEC switched: X1", no further error.
 
@@ -1148,6 +1151,11 @@ lives inside the window that will not open. Two work items, in order:
    bar says what is missing, Peak Detection stays reachable), while **paths inside a
    running measurement raise and stop cleanly**, because there the file must exist and
    carrying on would publish meaningless numbers.
+   First brick in place (`302c03e`, OPTIMIZATION_PLAN D1): `load_frequencies_file()` has one
+   implementation, `common/runtimeFiles.py`, and the five former copies (Serial, Multiscan, worker,
+   mainWindow, plot_sweep_spline) delegate to it, so the tolerant read will land everywhere at once.
+   It still raises on a missing or one-row file, on purpose: `Worker.reset_buffers` relies on that
+   to stop START early, and changing it belongs to this item, not to a move.
    Verification: rename the files, start the GUI, check it comes up and shows the
    message instead of dying.
 2. **Then `config.txt` can follow.** It is the last tracked runtime file, read at
