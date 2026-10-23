@@ -2,7 +2,6 @@ import multiprocessing
 from openQCM.core.ringBuffer import RingBuffer
 from openQCM.core.constants import Constants
 from openQCM.core import resonance
-from openQCM.common.fileStorage import FileStorage
 from openQCM.common import sweepDump as SweepDump
 from openQCM.common.pidQuery import read_pid
 from openQCM.common.tecReset import reset_sequence
@@ -15,12 +14,7 @@ from serial.tools import list_ports
 import numpy as np
 from numpy import loadtxt
 from openQCM.core.averaging import robust_mean
-from time import time as tm
-from progressbar import Bar, Percentage, ProgressBar, RotatingMarker,Timer
 from time import sleep
-
-# VER 0.1.6 raw data view in single mode 
-from openQCM.common.architecture import Architecture, OSType
 
 TAG = ""#"[Serial]"
 

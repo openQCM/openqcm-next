@@ -1,5 +1,4 @@
 import multiprocessing
-from openQCM.common.logger import Logger as Log
 
 
 TAG = ""#"[Parser]"

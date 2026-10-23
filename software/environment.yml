@@ -23,4 +23,3 @@ dependencies:
   - pip
   - pip:
       - pyqtgraph==0.11.0
-      - progressbar==2.5

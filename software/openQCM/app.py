@@ -13,7 +13,7 @@ from openQCM.common.architecture import Architecture,OSType
 from openQCM.common.arguments import Arguments
 from openQCM.common import fdLimit
 from openQCM.common.logger import Logger as Log
-from openQCM.core.constants import MinimalPython, Constants
+from openQCM.core.constants import MinimalPython
 from openQCM.ui import mainWindow
 
 TAG = ""#"[Application]"
