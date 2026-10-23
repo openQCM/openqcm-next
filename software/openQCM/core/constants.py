@@ -99,31 +99,12 @@ class Constants:
     # small signal variations.
     plot_force_yrange = False
     
-    # VER 0.1.6 set the color to white (unused)
-    # plot_colors = ['#ff0000', '#0072bd', '#00ffff', '#edb120', '#000000', '#77ac30', '#4dbeee', '#a2142f'] 
-    plot_colors = [(255, 255, 255)]
-    
-    
-    plot_max_lines = len(plot_colors)
-    
 # =============================================================================
 #     plot_line_width = 1.2
 # =============================================================================
     # VER 0.1.6_TEST change the line width, you can set width > 1 px withot slowing down the GUI
     # 
     plot_line_width = 2
-    
-    # #ffffff
-    # plot_title_color = 'default'
-    # VER 0.1.6 set the color of the axis labels to white whne using a dark background
-    # In pyqtgraph, the default text color for the axis labels might be set based on the overall theme or style of the plots. 
-    # using a dark background, like (25, 25, 25), the default axis label color might be blending with the background, 
-    # making it appear as if it's not visible or appearing dark.
-    # explicitly set the color of the axis labels
-    plot_title_color = 'w'
-    
-    # VER 0.1.6 change the temperature color plot to white 
-    plot_color_temperature = 'w'
     
     # plot_color_multi = ['r', 'g', 'b']
     # TODO 5M 
@@ -235,8 +216,6 @@ class Constants:
     I_share_setting  = [200, 50]
     D_share_setting  = [100, 300]
     
-    PID_Setting_default_index = 1
-    
     # set temperature default parameter
     Temperature_Set_Value = 25.00
     # set PID default parameter 
@@ -340,9 +319,6 @@ class Constants:
     # Ring Buffers Parameters #
     ###########################
    
-    
-    # TODO MAXIMUM NUMBER OF OVERTONES 
-    overtone_maximum_number = 4
     
     ####################################
     # FILTERING and FITTING parameters #
@@ -588,8 +564,6 @@ class Constants:
     serial_writetimeout_ms = 4.0
     serial_timeout_ms = 4.0
     
-    null_string = ""
-    
     # insert timeout in while acquisition loop 
     # to prevent infinite blocking loop default value 0.5 sec
 # =============================================================================
@@ -611,10 +585,6 @@ class Constants:
     ######################
     # Process parameters #
     ######################
-    # VER 0.1.4
-    # change / increased the process join timeout
-    process_join_timeout_ms = 4000
-    parser_timeout_ms = 0.005
     
     
     ##################
@@ -623,7 +593,6 @@ class Constants:
     log_export_path = "logged_data"
     log_filename = "{}.log".format(app_title)
     log_max_bytes = 5120
-    log_default_level = 1
     log_default_console_log = False
     
 
@@ -655,7 +624,6 @@ class Constants:
         # print ("OTHER_OS")
         slash = "/"
        
-    csv_delimiter = "," # for splitting data of the serial port and CSV file storage
     csv_default_prefix = "%Y-%m-%d_%H-%M-%S" # datalog timestamp: YYYY-MM-DD_hh-mm-ss
     csv_extension = "csv"
     txt_extension = "txt"
@@ -718,9 +686,6 @@ class Constants:
     manual_frequencies_filename = "config"
     manual_frequencies_path = "{}{}{}.{}".format(csv_calibration_export_path,slash,manual_frequencies_filename,txt_extension)
     
-    sweep_file = "sweep"
-    sweep_file_path = "{}{}{}.{}".format(csv_calibration_export_path, slash, sweep_file , txt_extension)
-    
 # =============================================================================
 #     #  DEBUG_0.1.1a
 #     debug_file = "debug"
@@ -774,25 +739,11 @@ class Constants:
     calibration_default_samples = int( (calib_samples - 1) * calib_sections) + 1
     calibration_readFREQ  = np.arange(calibration_default_samples) * (calib_fStep) + calibration_frequency_start
     
-
-    # VER 0.1.4a change the peak detection distance in accordance with the frequency step
-    # Peak Detection - distance in samples between neighbouring peaks
-    # 5 MHz sensor minimum frequency distance between successive peaks = 8 MHz
-    dist5MHz = 8000000
-    # 5 MHz sensor minimum frequency distance between successive peaks = 10 MHz
-    dist10MHz = 10000000 
-    # 5 MHz minimum distance in terms of samples
-    dist5  =  int(dist5MHz/calib_fStep) 
-    # 10 MHz minimum distance in terms of samples
-    dist10 =  int(dist10MHz/calib_fStep)
-     
     
     ##############################
     # Parameters for the average #
     ##############################  
    
-    SG_order_environment = 1
-    SG_window_environment = 3
 
     # VER 0.1.6 anti-outlier robust averaging of the raw circular buffer, which
     # replaced the old Savitzky-Golay + np.average, a linear filter with no

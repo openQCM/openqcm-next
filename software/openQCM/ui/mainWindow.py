@@ -1936,9 +1936,9 @@ class MainWindow(QtGui.QMainWindow):
             except Exception:
                 pass
         # VER 0.1.7 recolor the theme-dependent single curves: the amplitude
-        # sweep (Constants.plot_colors[0]) and temperature (plot_color_temperature)
-        # are white and vanish on the light theme's white plot background — give
-        # them the theme foreground curve color.
+        # sweep and the temperature used to be drawn white, and vanished on the
+        # light theme's white plot background — give them the theme foreground
+        # curve color.
         curve = pt.get("curve", pt["axis"])
         for line in (getattr(self, "_plt0_line", None),
                      getattr(self, "_plt4_line", None)):
