@@ -52,7 +52,6 @@ from serial.tools import list_ports
 import numpy as np
 from numpy import loadtxt
 from scipy.interpolate import UnivariateSpline
-from scipy.interpolate import PchipInterpolator
 from openQCM.core.averaging import robust_mean
 
 from time import sleep
@@ -88,49 +87,11 @@ class MultiscanProcess(multiprocessing.Process):
     
 
     
-    # VER 0.1.6G find the frequency and half-bandwidth by analyzing impedance  
-    def parameters_finder_impedance(self, freq, V_mag, V_phase, overtone_number):
-        # calculation of complex impedance based on the AD8302 output magnitude and phase 
-        # the complex impedance is used for calculation of: 
-        # Bandwidth Γ: half bandwidth at half height of conductance G 
-        
-        phase = self._phase_raw_V_phase(V_phase)
-        Z_abs = self._Zabs_Vmag(V_mag)
-       
-        G_conductance = self._G_calc(Z_abs, phase)
-        
-        B_susceptance = self._B_calc(Z_abs, phase)
-
-        idx_max, fr = self._Freq_G(G_conductance, freq)  
-        bw = self._half_bandwidth_G(G_conductance, freq)
-       
-        return idx_max, fr, bw
-    
     # VER 0.1.6G calculate phase from AD8302 voltage Vph phase output
     def _phase_raw_V_phase(self, Vph_var): 
         phase = (1.8 - Vph_var) / 0.01
         return phase
     
-    # VER 0.1.6G calculate impedance from AD8302 voltage Vmag magnitude output
-    def _Zabs_Vmag(self, V_mag): 
-        # fixed resistor in series to qcm 
-        R_add = 52.3    
-        # voltage divider 
-        Zabs = R_add * ( 10**( (0.9 - V_mag)/0.6 ) ) + R_add
-        return Zabs
-    
-    # VER 0.1.6G calculate conductance
-    def _G_calc(self, Zabs, phase): 
-        phase_rad = np.deg2rad(phase)
-        G = np.cos(phase_rad)/Zabs
-        return G
-    
-    # VER 0.1.6G calculate susceptance
-    def _B_calc(self, Zabs, phase):
-        phase_rad = np.deg2rad(phase)
-        B = np.sin(phase_rad)/Zabs
-        return B
-
     # ------------------------------------------------------------------------
     # VER 0.1.6G EXACT complex-divider inversion — THE PUBLISHED PATH
     # ------------------------------------------------------------------------
@@ -156,31 +117,6 @@ class MultiscanProcess(multiprocessing.Process):
     #    crossing; see _phase_signed().
     R17_EXACT = 52.3   # series resistor of the measuring divider (ohm)
     V_CP_EXACT = 0.9   # AD8302 center point (V)
-
-    # VER 0.1.6G signed phase from V_phase — CONDITIONAL unfold (air vs liquid)
-    def _phase_signed(self, Vph_var, fold_threshold_deg = None):
-        """
-        Signed transfer-function phase from the raw AD8302 V_PHS voltage.
-
-        Two regimes:
-        - LOW damping (air): the true phase crosses zero at resonance, so the
-          measured |phase| is FOLDED (a V touching ~0). Detected by
-          min(phase) < fold_threshold_deg -> unfold: snap the minimum to 0 and
-          flip the sign of the branch after it.
-        - HIGH damping (liquid): C0/strays dominate, the phase never crosses
-          zero and its minimum stays tens of degrees above it. There is NO fold
-          — the raw phase already IS the signed phase. Unfolding there would
-          subtract a large real offset and invert half the sweep, distorting the
-          admittance locus into an "S" (observed on-device in liquid).
-        """
-        if fold_threshold_deg is None:
-            fold_threshold_deg = Constants.FOLD_THRESHOLD_DEG_G
-        phase = (1.8 - Vph_var) / 0.01
-        im_min = np.nanargmin(phase)
-        if phase[im_min] < fold_threshold_deg:
-            phase = phase - phase[im_min]
-            phase[im_min:] = -phase[im_min:]
-        return phase
 
     # VER 0.1.6G crystal resistance and reactance from the exact inversion
     def _RX_exact(self, V_mag, phase_signed_deg):
@@ -644,26 +580,6 @@ class MultiscanProcess(multiprocessing.Process):
         idx_max = np.nanargmax(G_conductance)
         f_resonance = F_sweep[idx_max]
         return idx_max, f_resonance
-    
-    # VER 0.1.6G Bandwidth Γ half bandwidth at half height of conductance G 
-    def _half_bandwidth_G(self, G_conductance,  F_sweep):       
-        # TODO
-        min_G = np.average(G_conductance[:100])
-        # shift down
-        G_conductance = G_conductance - min_G
-        # find max value 
-        max_G = np.nanmax(G_conductance)
-        max_half_G = max_G/2 
-     
-        for nn in range (len (G_conductance)):
-            if (G_conductance[nn] > max_half_G):
-                idx_l = nn
-                break 
-        # find max index
-        idx_max = np.nanargmax(G_conductance)
-        
-        bw = F_sweep[idx_max] - F_sweep[idx_l]   
-        return bw
     
     # VER 0.1.5a_G_DEV
     def _mag_bit_mag(self, bit_mag):
@@ -1451,24 +1367,6 @@ class MultiscanProcess(multiprocessing.Process):
         self._parser_A_multi.add_A_multi([ self._my_list_freq, self._my_list_amp ])
         self._parser_P_multi.add_P_multi([ self._my_list_freq, self._my_list_phase ] )
     
-    # VER 0.1.6G elaborate cunductance UNUSED     
-    def elaborate_conductance_multi(self, overtone_index, freq, V_mag, V_phase):
-        V_mag_mir = self._Vmag_mirror(V_mag)
-        V_phase_mir = self._Vph_mirror(V_phase)
-         
-        Z_abs = self._Zabs_Vmag(V_mag_mir)
-         
-        phase = self._phase_V_phase(V_phase_mir)
-        
-        G_conductance = self._G_calc(Z_abs, phase)
-        G_conductance = G_conductance - np.nanmin(G_conductance)
-         
-        import matplotlib.pyplot as plt
-        plt.title("conductance")
-        plt.plot(freq, G_conductance)
-        plt.show()
-        
-
     # INIT PROCESS 
     # -------------------------------------------------------------------------
     def __init__(self, parser_process):

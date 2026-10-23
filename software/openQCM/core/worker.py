@@ -92,7 +92,6 @@ class Worker:
         self._fr_G_buffer = None
         self._gam_G_buffer = None
         self._delta_G_buffer = None
-        self._masked_G_buffer = None
         # the two half-height crossings Gamma was measured from, and that
         # height in raw G units: [f_left, f_right, half_level] per overtone
         self._band_G_buffer = None
@@ -686,8 +685,6 @@ class Worker:
         # still works
         if len(data) > 6:
             self._delta_G_buffer[idx] = float(data[6])
-        if len(data) > 7:
-            self._masked_G_buffer[idx] = float(data[7])
         if len(data) > 10:
             # f_left, f_right, half-height level; any of them NaN when the
             # window held no crossing on that side
@@ -722,11 +719,6 @@ class Worker:
         # global phase offset measured on the last sweep of this overtone [deg];
         # 0.0 means no fold was present (damped load), so no correction applies
         return self._delta_G_buffer[idx]
-
-    def get_masked_G_buffer(self, idx = 0):
-        # percentage of the shipped band dropped by the saturation mask, i.e. how
-        # much of this sweep the AD8302 could not measure
-        return self._masked_G_buffer[idx]
 
     def get_band_G_buffer(self, idx = 0):
         # (f_left, f_right, half_level) of the last sweep of this overtone: the
@@ -1397,7 +1389,6 @@ class Worker:
         self._fr_G_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
         self._gam_G_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
         self._delta_G_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
-        self._masked_G_buffer = self._zerolistmaker(len(Constants.overtone_dummy))
         self._band_G_buffer = [(float('nan'), float('nan'), float('nan'))
                                for _ in Constants.overtone_dummy]
         self._GB_seq = self._zerolistmaker(len(Constants.overtone_dummy))
