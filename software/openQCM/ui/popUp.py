@@ -23,10 +23,6 @@ class PopUp:
         :param message: Message to be shown in the dialog :type message: str.
         """
         QtGui.QMessageBox.warning(parent, title, message, QtGui.QMessageBox.Ok)
-        #msgBox=QtGui.QMessageBox.warning(parent, title, message, QtGui.QMessageBox.Ok)
-        #msgBox = QtGui.QMessageBox()
-        #msgBox.setIconPixmap( QtGui.QPixmap("favicon.png"))
-        #msgBox.exec_() 
 
     # VER 0.1.4
     # a non blocking pop up window 
@@ -115,10 +111,6 @@ class PopUp:
         yes_button = msg.button(QtGui.QMessageBox.Yes)
         no_button = msg.button(QtGui.QMessageBox.No)
         
-# =============================================================================
-#         msg.setModal(True)
-#         msg.show()
-# =============================================================================    
         
         msg.exec_()
 
@@ -153,10 +145,6 @@ class PopUp:
         yes_button = msg.button(QtGui.QMessageBox.Yes)
         no_button = msg.button(QtGui.QMessageBox.No)
         
-# =============================================================================
-#         msg.setModal(True)
-#         msg.show()
-# =============================================================================    
         
         msg.exec_()
 
@@ -219,5 +207,4 @@ class PopUp:
         msg.setStandardButtons(QtGui.QMessageBox.Ok)
         # solution on github here PyQt:Why a popup dialog prevents execution of other code?
         # https://stackoverflow.com/a/8463769/4030282
-        # msg.show()
         msg.exec_()
