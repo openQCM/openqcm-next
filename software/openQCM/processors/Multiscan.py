@@ -77,19 +77,12 @@ class MultiscanProcess(multiprocessing.Process):
         # initializations
         self.polyfitted_all = None
         self.coeffs_all = None
-        self.polyfitted_all_phase = None
-        self.coeffs_all_phase = None
         
         # loads Calibration (baseline correction) from file
         (self.freq_all, self.mag_all, self.phase_all) = self.load_calibration_file()
         
         # Baseline correction: input signal Amplitude (sweep all frequencies)
         (self.polyfitted_all, self.coeffs_all) = self.baseline_correction(self.freq_all, self.mag_all, Constants.BASELINE_POLY_ORDER)
-        self.mag_beseline_corrected_all = self.mag_all-self.polyfitted_all
-        
-        # Baseline correction: input signal Phase (sweep all frequencies)
-        (self.polyfitted_all_phase,self.coeffs_all_phase)=self.baseline_correction(self.freq_all,self.phase_all,Constants.BASELINE_POLY_ORDER)
-        self.phase_beseline_corrected_all= self.phase_all-self.polyfitted_all_phase 
         return self.coeffs_all
     
     def baseline_coeffs_Vmag(self):
@@ -917,8 +910,6 @@ class MultiscanProcess(multiprocessing.Process):
         points = Spline_points
         # sweep counter
         self._k= k
-        # current overtones number 
-        self._overtone_number = overtone_number
         # evaluated polynomial coefficients
         self._coeffs_all = coeffs_all
         # frequency range, samples number
@@ -931,7 +922,6 @@ class MultiscanProcess(multiprocessing.Process):
 #         self._Xp = Xp
 # =============================================================================
         
-        self._filtered_mag = np.zeros(samples)
         filtered_Vmag = np.zeros(samples)
         
         # calc magnitude, defined as the differenc P_INA - P_INB equation 8b AD8302 datasheet  
@@ -1530,22 +1520,11 @@ class MultiscanProcess(multiprocessing.Process):
         # VER 0.1.6 Instantiate a ParserProcess class for TEC current
         self._parser_current_tec = parser_process
         
-        self._dummy = True
-        
         self.temperature_set_old = 0
         self.cycling_time_set_old = 0
         self.P_share_set_old = 0
         self.I_share_set_old = 0
         self.D_share_set_old = 0
-        
-        # self.Temperature_Pid_default = [0, 0, 0, 0, 0]
-        self.Temperature_Pid_default = [self.temperature_set_old, 
-                                        self.cycling_time_set_old, 
-                                        self.P_share_set_old, 
-                                        self.I_share_set_old, 
-                                        self.D_share_set_old]
-        # self.temperature_set_old = loadtxt(Constants.manual_frequencies_path)
-        self.Temperature_Pid_default = loadtxt(Constants.manual_frequencies_path)
         
         #DEV 
         # control temperature switch default value 
@@ -1579,17 +1558,13 @@ class MultiscanProcess(multiprocessing.Process):
         self._temperature_buffer_0 = RingBuffer(self._environment)
         self._frequency_buffer_1   = RingBuffer(self._environment)
         self._dissipation_buffer_1 = RingBuffer(self._environment)
-        self._temperature_buffer_1 = RingBuffer(self._environment)
         self._frequency_buffer_2   = RingBuffer(self._environment)
         self._dissipation_buffer_2 = RingBuffer(self._environment)
-        self._temperature_buffer_2 = RingBuffer(self._environment)
         self._frequency_buffer_3   = RingBuffer(self._environment)
         self._dissipation_buffer_3 = RingBuffer(self._environment)
-        self._temperature_buffer_3 = RingBuffer(self._environment)
         # TODO 5M
         self._frequency_buffer_4   = RingBuffer(self._environment)
         self._dissipation_buffer_4 = RingBuffer(self._environment)
-        self._temperature_buffer_4 = RingBuffer(self._environment)
         
         self._frequency_buffer_0_a   = RingBuffer(self._environment)
         self._frequency_buffer_1_a  = RingBuffer(self._environment)
@@ -1671,8 +1646,6 @@ class MultiscanProcess(multiprocessing.Process):
         # VER 0.1.4
         # current values of resonance frequency array 
         self.freq_res_current_array = [None, None, None, None, None]
-        # just another dummy counter
-        self._just_another_counter = 0
         
         # VER 0.1.6 TEC electrical current value 
         self._current_tec = 0 
@@ -1746,7 +1719,6 @@ class MultiscanProcess(multiprocessing.Process):
         """  
         
         # init error and flag parameters
-        self._flag_error = 0
         self._flag_error_usb = 0
         self._err1 = 0
         self._err2 = 0
@@ -1765,8 +1737,6 @@ class MultiscanProcess(multiprocessing.Process):
 
         # init readline object 
         # line = rl(self._serial)
-        
-        frequencies_file_length = 0
         
         # set initial values of sweep buffer 
 # =============================================================================
@@ -1789,7 +1759,6 @@ class MultiscanProcess(multiprocessing.Process):
             # how many overtones make one cycle: the datalog writes one row per
             # cycle, on the temperature message of the last one (elaborate_multi)
             self._overtones_in_cycle = len(frequencies_file)
-            frequencies_file_length = len(frequencies_file)
             
             # Get array sweep paramaters 
             (startF, stopF, stepF, readF, 
@@ -1809,11 +1778,7 @@ class MultiscanProcess(multiprocessing.Process):
                 # creates a timestamp
                 timestamp = time()
                 
-                # init frequency, dissipation and temperature ring buffer 
                 self._environment = Constants.environment
-                self._frequency_buffer   = RingBuffer(self._environment)
-                self._dissipation_buffer = RingBuffer(self._environment)
-                self._temperature_buffer = RingBuffer(self._environment)
                 
                 # Initializes the progress bar  
                 # bar = ProgressBar(widgets=[TAG,' ', Bar(marker='>'),' ',Percentage(),' ', Timer()], maxval=self._environment).start() #
@@ -1855,7 +1820,6 @@ class MultiscanProcess(multiprocessing.Process):
                     data_f = np.linspace(0,0,samples)
                     
                     overtone_index = 0
-                    self._boolean_buffer_length = 0
                     
                     # cycle on all overtones 
                     for overtone_index in range(len(frequencies_file)):
@@ -2318,7 +2282,6 @@ class MultiscanProcess(multiprocessing.Process):
                                 self.elaborate_ampli_phase_multi(overtone_index, coeffs_all, readF[overtone_index], data_mag, data_ph)
                             
                             except ValueError:
-                                self._flag_error = 1
                                 #if k > self._environment:
                                 #   print(TAG, "WARNING (ValueError): miscalculation")
                                 # self._flag_error_usb = 1
@@ -2327,7 +2290,6 @@ class MultiscanProcess(multiprocessing.Process):
 
                                 
                             except:
-                                self._flag_error = 1
                                 #if k > self._environment:
                                 #   print(TAG, "WARNING (ValueError): miscalculation")
                                 # self._flag_error_usb = 1
@@ -2370,7 +2332,6 @@ class MultiscanProcess(multiprocessing.Process):
                         self._err1 = 0
                         self._err2 = 0
                         self._flag_error_usb = 0
-                        self._boolean_buffer_length = 0 
                     
                     
                     # Increases sweep counter 
@@ -2385,15 +2346,6 @@ class MultiscanProcess(multiprocessing.Process):
                 # -------------------------------------------------------------
                 
                 self._serial.close()
-    
-    def get_Temperature_set_Serial(self, value_T_set):
-        return value_T_set
-    
-    def _TempCtrl(self):
-        param = loadtxt(Constants.manual_frequencies_path)
-        temperature_set = param[0]
-        temperature_msg = 'T' + str(int(temperature_set)) + '\n'
-        self._serial.write(temperature_msg.encode())
     
     def _Temperature_PID_control(self): 
         param = loadtxt(Constants.manual_frequencies_path)
@@ -2772,80 +2724,6 @@ class MultiscanProcess(multiprocessing.Process):
         
         return(start, stop, SG_win_size, SP_factor) 
     
-    def get_readFREQ(self, samples, overtone):
-        # init temp var
-        startF = []
-        stopF = []
-        SG_window_size = []
-        spline_factor = []
-        fStep = []
-        spline_points= []
-        
-        
-        # Loads frequencies from calibration file
-        peaks_mag = self.load_frequencies_file()
-        # get numbers of overtones stored in calibration
-        # peaks_mag_length = len(peaks_mag)
-        
-        # 10 MHz quartz resonators
-        if (peaks_mag[0] >9e+06 and peaks_mag[0]<11e+06):
-            # get multiscan sweep paramters 
-            (startF_temp, 
-             stopF_temp, 
-             SG_window_size_temp, 
-             spline_factor_temp) = self.getMultiscanParameters_10Mhz(peaks_mag, overtone)
-
-            # assign multiscan sweep param for 10 MHz quartz resonators
-            # TODO I do not like manage the list in this way try numpy array here 
-            startF.append(startF_temp)
-            stopF.append(stopF_temp)
-            SG_window_size.append(SG_window_size_temp)
-            spline_factor.append(spline_factor_temp)
-            
-            # Sets the frequency step 
-            fStep_temp = (stopF_temp - startF_temp)/(samples - 1)
-            # assing value 
-            fStep.append(fStep_temp)
-            
-            # set spline points
-            spline_points_temp = int( (stopF_temp - startF_temp) ) + 1
-            # assing value
-            spline_points.append(spline_points_temp)
-            
-            # set frequencies array 
-            frequencies_array_temp = np.arange(samples) * (fStep_temp) + startF_temp 
-        
-        # 5 MHz quartz resonators
-        if (peaks_mag[0] >4e+06 and peaks_mag[0]<6e+06):
-            # get multiscan sweep paramters 
-            (startF_temp, 
-             stopF_temp, 
-             SG_window_size_temp, 
-             spline_factor_temp) = self.getMultiscanParameters_5Mhz(peaks_mag, overtone)
-
-            # assign multiscan sweep param for 5 MHz quartz resonators
-            # TODO I do not like manage the list in this way try numpy array here 
-            startF.append(startF_temp)
-            stopF.append(stopF_temp)
-            SG_window_size.append(SG_window_size_temp)
-            spline_factor.append(spline_factor_temp)
-            
-            # Sets the frequency step 
-            fStep_temp = (stopF_temp - startF_temp)/(samples - 1)
-            # assing value 
-            fStep.append(fStep_temp)
-            
-            # set spline points
-            spline_points_temp = int( (stopF_temp - startF_temp) ) + 1
-            # assing value
-            spline_points.append(spline_points_temp)
-            
-            # set frequencies array 
-            frequencies_array_temp = np.arange(samples) * (fStep_temp) + startF_temp 
-        
-        return frequencies_array_temp
-        
-    
     # VER 0.1.4
     # set the current values of resonance frequencies in file 
     def set_frequencies_RT(self, overtone_RT, frequency_RT):
@@ -2908,11 +2786,6 @@ class MultiscanProcess(multiprocessing.Process):
         phase_all = data[:,2]
         return freq_all, mag_all, phase_all
 
-    # GET SWEEP PARAMTERS 
-    def get_sweep_parameters(): 
-        # TODO develop if necessary a simple get sweep param
-        print ("GET SWEEP PARAMETERS HERE")
-    
     # TODO get all overtone  
     @staticmethod
     def get_speeds():
