@@ -5,6 +5,20 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `main`
 
+### Removed — the constants nothing reads (2026-10-23)
+
+`2663d41`, item C7 of `OPTIMIZATION_PLAN.md`, 49 lines of `core/constants.py`. The plan pointed to a list it did not
+contain, so the list was rebuilt: every `Constants` attribute searched on the AST in both worktrees (code, tests,
+`research/`) and in their notebooks and markdown, then searched again until nothing new turned up. Nineteen go:
+`plot_colors`, `plot_max_lines`, `plot_title_color`, `plot_color_temperature`, `PID_Setting_default_index`,
+`overtone_maximum_number`, `null_string`, `process_join_timeout_ms`, `parser_timeout_ms`, `log_default_level`,
+`csv_delimiter`, `sweep_file`, `sweep_file_path`, `dist5MHz`, `dist10MHz`, `dist5`, `dist10`, `SG_order_environment`,
+`SG_window_environment`. `LEFT`, `RIGHT`, `FREQUENCY_STEP` and the L5/R5 family are read and stay. A live comment in
+`mainWindow.py` that named `plot_colors[0]` and `plot_color_temperature` now says the same thing without them (the two
+curves already take `_curve_color()`). Verified: the replay harness and the GUI probe give identical records in single,
+multiscan and peak detection. Cherry-picked onto `impedance-analysis` with one conflict, a blank line of difference
+around `plot_colors`.
+
 ### Removed — dead code from the shared part of Multiscan (2026-10-23)
 
 `6288b33`, item C6 of `OPTIMIZATION_PLAN.md`, 127 lines, checked on the AST in both worktrees and class by class
