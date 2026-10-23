@@ -5,6 +5,18 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `main`
 
+### Removed — unused imports and the `progressbar` dependency (2026-10-23)
+
+`736a3a6`, item C2 of `OPTIMIZATION_PLAN.md`. Every import pyflakes reported as unused goes from the nine files shared
+with the branch (`app`, `mainWindow`, `mainWindow_ui`, `Multiscan` with its duplicate `from numpy import loadtxt`,
+`Parser`, `Serial`, `Calibration`, `fileStorage`, `plot_sweep_spline`). The module-level `Architecture, OSType` of
+Serial and Multiscan were shadowed by the local imports the code actually uses, which stay. `progressbar` was imported
+only for commented-out code, so it leaves `requirements.txt` and `environment.yml`; an environment that already has it
+installed is unaffected. Verified: every file compiles; the app and each touched module import with `progressbar`
+blocked, and `tkinter` is no longer loaded; pyflakes 80 → 38, none of them an import; the replay harness gives
+identical parser messages in multiscan (544), single (121) and peak detection (33). Cherry-picked onto
+`impedance-analysis` with a one-line conflict next to the branch's `lorentzian` import.
+
 ### Removed — five dead modules and what only they used (2026-10-22)
 
 `72062b6`, item C1 of `OPTIMIZATION_PLAN.md`, 849 lines. Nothing imports or calls them in either worktree, its tests
