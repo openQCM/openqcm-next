@@ -65,16 +65,11 @@ class Worker:
         # TODO AMPLI init the queue for amplitude sweep 
         self._queue_A_multi = Queue()
         self._queue_P_multi = Queue()
-        self._queue_F_SWEEP_multi = Queue()
         # lines the acquisition process wants the operator to read
         self._queue_message = Queue()
         # the controller's PID as read by the acquisition process on request
         self._queue_pid = Queue()
         self._pid_reported = None
-        
-        # TODO AMPLI init the list of array for amplitude sweep
-        self._A_multi = None 
-        self._P_multi = None 
         
 # =============================================================================
 #         array_zero = self._zerolistmaker(Constants.SAMPLES)
@@ -122,8 +117,6 @@ class Worker:
         self._cycle_end = False
         self._cycle_F = None
         self._cycle_D = None
-        # total number of overtone 
-        self._number_of_peaks = 0
         
         # VER 0.1.4
         # TEC status var
@@ -141,7 +134,6 @@ class Worker:
         self._calibration_cancelled = False
 
         # others
-        self._QCS_on = QCS_on # QCS installed on device (unused now)
         self._port = port     # serial port 
         # overtones (str) if 'serial' is called
         # QCS (str) if 'calibration' is called 
@@ -159,9 +151,6 @@ class Worker:
         self._fStep    = None # sample rate
         self._overtone_name  = None # fundamental/overtones name (str)
         self._overtone_value = None # fundamental/overtones value(float)
-        
-        # MULTI 
-        self._readFREQ_array = None 
         
         self._count = 0 # sweep counter
         self._flag = True
@@ -189,8 +178,6 @@ class Worker:
         # in epoch microseconds; the two are not interchangeable.
         self._last_datalog_write = None
         # init a ring buffer of corresponding size 
-        # VER 0.1.4 TODO checkthe default smapling time 
-        SAMPLING_TIME_DEFAULT = 7
         self.ring_buffer_len =  1
         
         # init a list of ring buffer 
@@ -315,13 +302,6 @@ class Worker:
                 print(TAG, "Sample rate: {}Hz".format(Constants.calibration_fStep))
                
                
-            # START MULTI SCAN FREQUENCY PROCESS 
-            elif self._source == SourceType.multiscan: 
-                # self._readFREQ = self._acquisition_process.get_readFREQ(self._samples)
-                # get the number of total peaks in PeakFrequencies.txt
-                data  = loadtxt(Constants.cvs_peakfrequencies_path)
-                peaks_mag = data[:,0]
-                self._number_of_peaks = len(peaks_mag) - 1
             
             # START THE ACQUISITION PROCESS
             # -----------------------------------------------------------------
@@ -424,20 +404,6 @@ class Worker:
         Log.i(TAG, "Processes finished")
         
     
-    # TODO DELETE TEMPERATURE FUNCTION 
-    def get_Temperature_set_Worker(self, value):
-         print ("SET TEMPERATURE WORKER")
-         self._acquisition_process.get_Temperature_set_Serial(value)
-        
-    # TODO DELETE TEMPERATURE FUNCTION 
-    def my_stop(self):
-        self._acquisition_process.serial_close()
-    
-    # TODO DELETE TEMPERATURE FUNCTION 
-    def serial_write(self, port, message):
-        # self._acquisition_process.open(port)
-        self._acquisition_process.write(port, message.encode())
-                    
     ###########################################################################
     # Empties the internal queues, updating data to consumers
     ###########################################################################    
@@ -666,7 +632,6 @@ class Worker:
     # FREQUENCY 
     def _queue_data3(self,data):
         #:param data: values to add for Resonance frequency :type data: float.
-        self._t1_store = data[0] # time (unused)
         self._d1_store = data[1] # data
         self._t1_buffer.append(data[0])
         self._d1_buffer.append(data[1])
@@ -675,7 +640,6 @@ class Worker:
     def _queue_data4(self,data):
         # Additional function: exports processed data in a file if export box is checked.
         #:param data: values to add for Q-factor/dissipation :type data: float.
-        self._t2_store = data[0] # time (unused)
         self._d2_store = data[1] # data
         self._t2_buffer.append(data[0])
         self._d2_buffer.append(data[1])
@@ -737,7 +701,6 @@ class Worker:
     # VER 0.1.6 TEC CURRENT queue data define  
     def _queue_data_CurrentTec(self, data):
         # append new TEC current data to the ring buffer 
-        self._data_current_tec = data[1]
         self._data_current_tec_buffer.append(data[1])
     
         #####
@@ -1191,11 +1154,6 @@ class Worker:
         self._d2_store = 0
         self._d3_store = 0
         
-        # VER 0.1.6 init current value 
-        self._data_current_tec = 0
-        
-        self._t1_store = 0
-        self._t2_store = 0
         self._t3_store = 0
         self._ser_error1 = 0
         self._ser_error2 = 0
@@ -1224,8 +1182,9 @@ class Worker:
         self._P_multi_buffer = []
         self._F_Sweep_multi_buffer = []
         
-        peaks = self._load_frequencies_file()
-        peaks_number = len(peaks)
+        # Kept for its failure, not its value: on a missing or one-row PeakFrequencies.txt
+        # this raises (data[:,0]) and so stops START early, in every mode, as it always has.
+        self._load_frequencies_file()
         
         # TODO IMPORTANT chenge the ninitialization of list of ring buffer 
         # append ring buffer
@@ -1292,24 +1251,6 @@ class Worker:
         
         elif self._source == SourceType.multiscan:
             return self._readFREQ
-    
-    def get_frequency_range_multi(self, samples, overtone):
-        if self._source == SourceType.multiscan:
-            readFREQ_out = self._acquisition_process.get_readFREQ(samples, overtone)
-        return readFREQ_out
-    
-    ############################################################################
-    # Gets overtones name, value and frequency step
-    ############################################################################
-    
-    def get_overtone(self):
-        
-        """
-        :param samples: Number of samples for the buffers :type samples: int.
-        :return: overtone :type overtone: float.
-        :return: frequency range :type readFREQ: float list.
-        """
-        return self._overtone_name,self._overtone_value, self._fStep
     
     def _load_frequencies_file(self):
             data  = loadtxt(Constants.cvs_peakfrequencies_path)

@@ -353,41 +353,6 @@ class SerialProcess(multiprocessing.Process):
         
         return self._is_port_available(self._serial.port)
     
-    ###########################################################################
-    def write (self, port, message):
-        # self._exit.set()
-        self.open(port)
-        message_string = str(message)
-        # self.stop()
-        
-        if self._is_port_available(port):
-            print ("PORT COM SELECTED = ")
-            print (port)
-            print ("port available")
-            # Gets the state of the serial port
-            if not self._serial.isOpen(): 
-                print ("port is not open")
-                self._serial.open() 
-                # OPENS the serial port
-                try:
-                    self._serial.write(message_string.encode())
-                except: 
-                    print("NOT WRITE")
-            else: 
-                print ("port IS OPEN")
-                # self._serial.open(port) 
-                # OPENS the serial port
-                try:
-                    self._serial.write(message_string.encode())
-                    # CLOSES serial port
-                    self._serial.close()
-                except: 
-                    print("PORT IS OPEN BUT I CANNOT WRITE")
-                print("if not self._serial.isOpen(): IS FALSE")
-        else: 
-            print ("PORT IS NOT AVAILABLE")
-            
-    ###########################################################################
     
     
     ###########################################################################
@@ -808,9 +773,6 @@ class SerialProcess(multiprocessing.Process):
                 # CLOSES serial port
                 self._serial.close()
           
-    
-    def get_Temperature_set_Serial(self, value_T_set):
-        return value_T_set
     
     def _Temperature_PID_control(self): 
         param = loadtxt(Constants.manual_frequencies_path)
