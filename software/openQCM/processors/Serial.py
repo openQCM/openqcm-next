@@ -44,19 +44,12 @@ class SerialProcess(multiprocessing.Process):
         # initializations
         self.polyfitted_all = None
         self.coeffs_all = None
-        self.polyfitted_all_phase = None
-        self.coeffs_all_phase = None
         
         # loads Calibration (baseline correction) from file
         (self.freq_all,self.mag_all,self.phase_all) = self.load_calibration_file()
         
         # Baseline correction: input signal Amplitude (sweep all frequencies)
         (self.polyfitted_all,self.coeffs_all)=self.baseline_correction(self.freq_all,self.mag_all,Constants.BASELINE_POLY_ORDER)
-        self.mag_beseline_corrected_all= self.mag_all-self.polyfitted_all
-        
-        # Baseline correction: input signal Phase (sweep all frequencies)
-        (self.polyfitted_all_phase,self.coeffs_all_phase)=self.baseline_correction(self.freq_all,self.phase_all,Constants.BASELINE_POLY_ORDER)
-        self.phase_beseline_corrected_all= self.phase_all-self.polyfitted_all_phase 
         return self.coeffs_all
     
     
@@ -68,21 +61,6 @@ class SerialProcess(multiprocessing.Process):
     def elaborate(self, k, coeffs_all, readFREQ, samples, 
                   Xm, Xp, temperature, SG_window_size, Spline_points, Spline_factor, timestamp):
         
-        ###################
-        def waveletSmooth(x, wavelet="db4", level=1, title=None):
-            import pywt
-            from statsmodels.robust import mad
-            # calculate the wavelet coefficients
-            coeff = pywt.wavedec( x, wavelet, mode="per")
-            # calculate a threshold
-            sigma = mad(coeff[-level])
-            # changing this threshold also changes the behavior
-            uthresh = sigma * np.sqrt( 2*np.log(len(x)))
-            coeff[1:] = (pywt.threshold(i, value=uthresh, mode="soft") for i in coeff[1:])
-            # reconstruct the signal using the thresholded coefficients
-            y = pywt.waverec( coeff, wavelet, mode="per")
-            return y
-        ###################
         # Number of spline points
         points = Spline_points
         # sweep counter
@@ -95,7 +73,6 @@ class SerialProcess(multiprocessing.Process):
         # support vectors
         self._Xm = Xm
         self._Xp = Xp
-        self._filtered_mag = np.zeros(samples)
         # save current data 
         mag   = self._Xm
         phase = self._Xp ############################
@@ -300,22 +277,11 @@ class SerialProcess(multiprocessing.Process):
         
         self._serial = serial.Serial()
         
-        self._dummy = True
-        
         self.temperature_set_old = 0
         self.cycling_time_set_old = 0
         self.P_share_set_old = 0
         self.I_share_set_old = 0
         self.D_share_set_old = 0
-        
-        # self.Temperature_Pid_default = [0, 0, 0, 0, 0]
-        self.Temperature_Pid_default = [self.temperature_set_old, 
-                                        self.cycling_time_set_old, 
-                                        self.P_share_set_old, 
-                                        self.I_share_set_old, 
-                                        self.D_share_set_old]
-        # self.temperature_set_old = loadtxt(Constants.manual_frequencies_path)
-        self.Temperature_Pid_default = loadtxt(Constants.manual_frequencies_path)
         
         #DEV 
         # control temperature switch default value 
@@ -443,7 +409,6 @@ class SerialProcess(multiprocessing.Process):
         #self._q_factor = []
         #self._freq_max_fit = []
         #self._temperature = []
-        self._flag_error = 0
         self._flag_error_usb = 0
         self._err1 = 0
         self._err2 = 0
@@ -622,12 +587,6 @@ class SerialProcess(multiprocessing.Process):
                             
                             # STOP SWEEP 
                             # -----------------------------------------
-                            
-                            # VER 0.1.4
-                            _time_elapsed_sweep = time() - timeStart
-# =============================================================================
-#                             print ("SAMPLING TIME = ", _time_elapsed_sweep)
-# =============================================================================
                             
                             if ( self._flag_error_usb == 0 ):
                                 #print(buffer)
@@ -808,14 +767,12 @@ class SerialProcess(multiprocessing.Process):
                             self.elaborate(k, coeffs_all, readFREQ, samples,data_mag, data_ph, data_temp, SG_window_size, Spline_points, Spline_factor, timestamp)
                         
                         except ValueError:
-                            self._flag_error = 1
                             #if k > self._environment:
                             #   print(TAG, "WARNING (ValueError): miscalculation")
                             # self._flag_error_usb = 1
                             print(TAG, "Info: exception value error elaborate data", end=('\n'))
                             Log.i(TAG, "Info: exception value error elaborate data")
                         except:
-                            self._flag_error = 1
                             #if k > self._environment:
                             #   print(TAG, "WARNING (ValueError): miscalculation")
                             if (k > Constants.environment):
@@ -854,12 +811,6 @@ class SerialProcess(multiprocessing.Process):
     
     def get_Temperature_set_Serial(self, value_T_set):
         return value_T_set
-    
-    def _TempCtrl(self):
-        param = loadtxt(Constants.manual_frequencies_path)
-        temperature_set = param[0]
-        temperature_msg = 'T' + str(int(temperature_set)) + '\n'
-        self._serial.write(temperature_msg.encode())
     
     def _Temperature_PID_control(self): 
         param = loadtxt(Constants.manual_frequencies_path)
@@ -1068,10 +1019,7 @@ class SerialProcess(multiprocessing.Process):
         peaks_mag = self.load_frequencies_file()
         
         # VER 0.1.4 get alternative frequency file
-        peaks_mag_current = self.load_frequencies_file_RT()
-# =============================================================================
-#         print (peaks_mag_current)
-# =============================================================================
+        self.load_frequencies_file_RT()
         
         #################################################
         # TODO CHECK QCM FUNDAMENTAL FREQ 5 MHz or 10 MHz
@@ -1205,9 +1153,6 @@ class SerialProcess(multiprocessing.Process):
         # Sets the frequency step 
         fStep = (self._stopFreq-self._startFreq)/(samples-1)
         
-        # Sets spline points for fitting
-        spline_points = int((self._stopFreq-self._startFreq))+1
-        
         # Sets the frequency range for the corresponding overtone
         freq_range_RT = np.arange(samples) * (fStep) + self._startFreq 
         
@@ -1269,7 +1214,7 @@ class SerialProcess(multiprocessing.Process):
                     np.savetxt(path_RT, np.column_stack([base_freqs, base_freqs]))
                     return base_freqs
                     
-        except (IOError, ValueError) as e:
+        except (IOError, ValueError):
             # print(TAG, f"Warning: Could not load RT frequencies file ({str(e)}), using last valid frequencies")
             if self._last_valid_rt_frequencies is not None:
                 return self._last_valid_rt_frequencies
