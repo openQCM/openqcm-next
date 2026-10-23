@@ -5,6 +5,17 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — unused imports and the `progressbar` dependency (2026-10-23)
+
+`736a3a6` cherry-picked as `98823c9` (item C2 of `main`'s `OPTIMIZATION_PLAN.md`): every unused import goes from the
+nine shared files, with `progressbar` out of `requirements.txt` and `environment.yml`. One conflict, on `Multiscan.py`'s
+imports: `main` dropped the `FileStorage` line right under this branch's `lorentzian` import; resolved by keeping
+`lorentzian`. Verified here: the 70 tests pass (1 skipped); pyflakes 106 → 64, and the imports it still reports are
+this branch's own (`PchipInterpolator` in `Multiscan.py`, three in `sweep_data/plot_conductance.py`, two in the tests);
+the replay harness gives identical parser messages before and after (multiscan 604, equal to its baseline; single 121).
+The single-mode baseline of 112 messages no longer reproduces even on the pre-C2 tree, which serves 13 sweeps instead
+of 12 with the first 112 messages equal: a property of the harness run, not of this change.
+
 ### Carried from `main` — five dead modules removed (2026-10-22)
 
 `72062b6` cherry-picked clean as `7d28821` (item C1 of `main`'s `OPTIMIZATION_PLAN.md`, 849 lines):
