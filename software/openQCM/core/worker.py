@@ -6,11 +6,11 @@ from openQCM.processors.Serial import SerialProcess
 from openQCM.processors.Calibration import CalibrationProcess
 from openQCM.processors.Multiscan import MultiscanProcess
 from openQCM.common.fileStorage import FileStorage
+from openQCM.common import runtimeFiles
 from openQCM.common.logger import Logger as Log
 from openQCM.core.ringBuffer import RingBuffer
 import numpy as np
 from time import time
-from numpy import loadtxt
 import datetime
 
 # VER 0.1.2
@@ -1252,11 +1252,7 @@ class Worker:
         elif self._source == SourceType.multiscan:
             return self._readFREQ
     
-    def _load_frequencies_file(self):
-            data  = loadtxt(Constants.cvs_peakfrequencies_path)
-            peaks_mag = data[:,0]
-            #peaks_phase = data[:,1] #unused at the moment
-            return peaks_mag
+    _load_frequencies_file = staticmethod(runtimeFiles.load_frequencies_file)
         
     def _zerolistmaker(self, n):
         listofzeros = [0] * n

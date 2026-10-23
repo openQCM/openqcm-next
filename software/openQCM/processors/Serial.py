@@ -3,6 +3,7 @@ from openQCM.core.ringBuffer import RingBuffer
 from openQCM.core.constants import Constants
 from openQCM.core import resonance
 from openQCM.common import sweepDump as SweepDump
+from openQCM.common import runtimeFiles
 from openQCM.common.pidQuery import read_pid
 from openQCM.common.tecReset import reset_sequence
 from openQCM.common.tecStatus import decode_error_register, report_error_changes
@@ -993,13 +994,9 @@ class SerialProcess(multiprocessing.Process):
         np.savetxt(path_RT, np.column_stack([frequency_array_RT, frequency_array_RT]))
     
     ###########################################################################
-    # Loads Fundamental frequency and Overtones from file
+    # Loads Fundamental frequency and Overtones from file (common/runtimeFiles.py)
     ###########################################################################
-    @staticmethod
-    def load_frequencies_file():
-        data  = loadtxt(Constants.cvs_peakfrequencies_path)
-        peaks_mag = data[:,0]
-        return peaks_mag
+    load_frequencies_file = staticmethod(runtimeFiles.load_frequencies_file)
     
     # VER 0.1.6 loads the real time value of resonance frequency file 
     def load_frequencies_file_RT(self):

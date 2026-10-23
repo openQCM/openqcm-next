@@ -29,6 +29,7 @@ from openQCM.ui.widgets import (_Chevroned, ChevronComboBox,
                                 ChevronSpinBox, ChevronDoubleSpinBox)
 from openQCM.common.logger import Logger as Log
 from openQCM.common import sweepDump as SweepDump
+from openQCM.common import runtimeFiles
 from openQCM.common import fdLimit
 from openQCM.common.tecStatus import decode_error_register
 
@@ -5388,13 +5389,8 @@ class MainWindow(QtGui.QMainWindow):
         '''
         return SourceType(self.ui.cBox_Source.currentIndex())
 
-    # LOAD FREQUENCENCIES FILE
-    @staticmethod
-    def load_frequencies_file():
-        data  = loadtxt(Constants.cvs_peakfrequencies_path)
-        peaks_mag = data[:,0]
-        #peaks_phase = data[:,1] #unused at the moment
-        return peaks_mag
+    # LOAD FREQUENCENCIES FILE (one implementation, common/runtimeFiles.py)
+    load_frequencies_file = staticmethod(runtimeFiles.load_frequencies_file)
 
 ###########################################################################
     # Cleans history plot

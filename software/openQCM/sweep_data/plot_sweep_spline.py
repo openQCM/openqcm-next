@@ -37,11 +37,8 @@ def foo():
     print("HELLO WORLD")
 
 
-# LOAD FREQUENIES FILE 
-def load_frequencies_file():
-    data  = loadtxt(Constants.cvs_peakfrequencies_path)
-    peaks_mag = data[:,0]
-    return peaks_mag
+# LOAD FREQUENIES FILE (one implementation, common/runtimeFiles.py)
+from openQCM.common.runtimeFiles import load_frequencies_file
 
 # LOAD CALIBRATION FILE 
 def load_calibration_file():
