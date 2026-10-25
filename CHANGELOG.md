@@ -3,6 +3,63 @@
 Reconstruction of the openQCM NEXT development history. Format inspired by
 Conventional Commits. Versions are marked by Git tags.
 
+## [Unreleased] — `impedance-analysis-sweep-adaptive`
+
+Experimental branch from `impedance-analysis` at `59e6b47` (2026-10-25). Full description:
+`docs/impedance-analysis/ADAPTIVE_SWEEP.md`.
+
+### Added — the adaptive sweep, ported from openQCM Lab (2026-10-25)
+
+The 1 Hz sweep is fast against the crystal's decay time: on a bench board in air the resonance lags it by +26 Hz and
++18 % of Gamma on the fundamental (swept down, as much the other way). The adaptive sweep:
+
+- **Locate.** One full sweep locates the resonance. It is never published.
+- **Sweep.** Each following sweep is one `Z` command:
+  - the first point after a wait of 3 tau;
+  - coarse 100 Hz points for the baselines;
+  - a 3 tau lead-in;
+  - +-4 Gamma of the resonance swept up and straight back down at 0.125 x 2 pi Gamma^2 Hz/s.
+- **Analyse.** Each pass goes through the chain of `elaborate_multi`; f and Gamma are the means of
+  the two passes.
+- **Move.** A moving resonance is predicted from its speed. When a sweep loses it, it is relocated
+  from that sweep's coarse points (up to 2 times) before a full sweep.
+- **Average.** One reading per cycle, with no running mean, after 2 cycles of warm-up.
+
+Validated in openQCM Lab on the bench board in air: within 1 Hz and 0.3 % of a quasi-static sweep,
+0.3-0.6 s a sweep instead of 1.6 s. This application has not yet run on a board (the next session).
+
+- **New code.** `core/adaptive.py`; `MultiscanProcess` gains `set_adaptive`, `_start_adaptive`
+  (asks the board's version with `F`: without `-SEG` the run uses the full sweep and says so),
+  `_measure`, `_adaptive_overtone` and `_publish_adaptive`.
+- **Moved, unchanged.** The tail of `elaborate_multi` is now `_publish_reading` / `_send_clock`,
+  and the code after every sweep in `run()` is now `_between_sweeps`. With the box off, the
+  standard path runs the same code as before. The 70 tests pass unchanged.
+- **Baselines.** `_phase_fold_decision`, `parameters_finder_impedance_exact` and
+  `_half_bandwidth_G_exact` take an optional baseline: the adaptive sweep's coarse points. Without
+  it they behave as before.
+- **Witness.** `_publish_resonance` is `lorentzian.publish` plus `_witness_resonance` (its counts
+  and its line), split so the adaptive sweep witnesses only the sweeps that kept the resonance.
+- **Datalog.** In adaptive mode, an overtone not read in a cycle is NaN in its row and the row is
+  still written. The warm-up writes no row; in the standard mode an AttributeError stopped it,
+  by accident.
+- **GUI.** The Measurement Setup has **Experimental: adaptive sweep**, locked during a run. The
+  datalog name gets `_adaptive`.
+- **Constants.** `ADAPTIVE_*`; `FW_VERSION = '0.1.5d-SEG'` and `FW_SEGMENTED_TAG`.
+  `_firmware_image` maps `-` to `_` in the image name.
+- **Firmware.**
+  - `0.1.5d-SEG` (Next with TEC): 0.1.5d plus `Z`. The end-of-sweep code is moved unchanged into
+    `end_of_measurement()`.
+  - `0.1.5d-SEG-TEST` (no-TEC boards and the openQCM Q-1 used as a bench board): 0.1.5d-TEST plus
+    `Z`, and the MCP9808's temperature when there is one. Without it the temperature is a constant
+    25.00 °C: the 0.05 °C wobble showed as a periodic temperature with many short sweeps.
+  - Both hex images are in `firmware_update/`.
+- **Not in openQCM Lab.** The settling wait at the first point (`ADAPTIVE_SETTLE_TAU`). With one
+  overtone, the sweep before ends near the resonance and the crystal rings on into the first
+  coarse points. On the simulated board this puts G's baseline 2 mS off and Gamma 3 % wide.
+- **Tests.** `tests/test_adaptive.py` (8) runs a simulated BVD crystal behind the divider that
+  answers the firmware's commands and lags as a resonator does; plus one Setup card test.
+  79 tests in all.
+
 ## [Unreleased] — `impedance-analysis`
 
 ### Carried from `main` — SESSION_PROMPT: B1 for the next session (2026-10-23)

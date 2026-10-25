@@ -38,7 +38,8 @@ class Worker:
                       source = SourceType.serial,
                       export_enabled = False, 
                       sampling_time = None,
-                      estimator = None):
+                      estimator = None,
+                      adaptive = False):
         """
         :param port: Port to open on start :type port: str.
         :param speed: Speed for the specified port :type speed: float.
@@ -190,6 +191,10 @@ class Worker:
         # VER 0.1.6G the run's estimator, chosen in the Measurement Setup before
         # START: "argmax" (standard) or "lorentzian" (experimental); None = default
         self._estimator = estimator
+        # VER 0.1.6G-ADAPTIVE the run's sweep, chosen in the Measurement Setup
+        # before START: False the full 1 Hz sweep, True the adaptive sweep
+        # (experimental, needs firmware 0.1.5d-SEG; core/adaptive.py)
+        self._adaptive = bool(adaptive)
         self.time_elapsed = 0
 
         # VER 0.1.6 wall-clock start of the run, in SECONDS.
@@ -272,6 +277,7 @@ class Worker:
             # the estimator has to be on the object BEFORE start(): the child
             # process is a pickled copy, the GUI's Constants never reach it
             self._acquisition_process.set_estimator(self._estimator)
+            self._acquisition_process.set_adaptive(self._adaptive)
             
         # OPEN PROCESS 
         # ---------------------------------------------------------------------    
@@ -1164,8 +1170,11 @@ class Worker:
     def _multi_suffix(self):
         """`multi` for the standard estimator, `multi_lorentzian` for the experimental
         one (Marco, D7): a datalog says by its name which estimator wrote it, and the
-        two are not comparable."""
-        return "multi" if self.get_estimator() != "lorentzian" else "multi_lorentzian"
+        two are not comparable. VER 0.1.6G-ADAPTIVE `_adaptive` after it when the run
+        asked for the adaptive sweep (a firmware without it falls back to the full
+        sweep, and says so in the System Log)."""
+        suffix = "multi" if self.get_estimator() != "lorentzian" else "multi_lorentzian"
+        return suffix + ("_adaptive" if self._adaptive else "")
 
     def _amplitude_datalog_name(self):
         """`<ts>_multi_amplitude` (or `<ts>_multi_lorentzian_amplitude`): main's quantities,

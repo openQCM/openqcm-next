@@ -4,6 +4,7 @@ from openQCM.core.ringBuffer import RingBuffer
 from openQCM.core.constants import Constants
 from openQCM.core import resonance
 from openQCM.core import lorentzian
+from openQCM.core.adaptive import AdaptiveSweep, magnitude_phase
 from openQCM.common import sweepDump as SweepDump
 from openQCM.common import runtimeFiles
 from openQCM.common.pidQuery import read_pid
@@ -254,20 +255,27 @@ class MultiscanProcess(multiprocessing.Process):
     # comes out "fold", so nothing here exercises the case where the answer must
     # be "no fold". Constants.PHASE_FOLD_BY_PEAK_DEPTH = False restores the
     # threshold exactly.
-    def _phase_fold_decision(self, freq, V_mag, phase_folded):
+    def _phase_fold_decision(self, freq, V_mag, phase_folded, baseline=None):
         """(has_fold, info) from how close the phase peak gets to zero.
 
         `info` carries the numbers behind the verdict for the log: depth, the
         baseline, where the peak sits relative to resonance, and -- as a
         diagnostic only -- the circle residual and the largest step in B.
+
+        VER 0.1.6G-ADAPTIVE `baseline`: the median of the reading's two ends
+        unless given -- the adaptive sweep's fine zone has no ends far from the
+        resonance, so it passes the reading of its coarse points there.
         """
         info = {"depth": None, "baseline": None, "off_gamma": None,
                 "rms": None, "jump": None, "why": "unavailable"}
         try:
-            n = len(phase_folded)
-            n_end = max(20, min(200, n // 8))
-            base = float(np.median(np.concatenate(
-                [phase_folded[:n_end], phase_folded[-n_end:]])))
+            if baseline is None:
+                n = len(phase_folded)
+                n_end = max(20, min(200, n // 8))
+                base = float(np.median(np.concatenate(
+                    [phase_folded[:n_end], phase_folded[-n_end:]])))
+            else:
+                base = float(baseline)
             i_pk = int(np.nanargmin(phase_folded))
             p_min = float(phase_folded[i_pk])
             if not np.isfinite(base) or base <= 1.0:
@@ -429,11 +437,12 @@ class MultiscanProcess(multiprocessing.Process):
 
     # VER 0.1.6G resonance frequency and half-bandwidth from the EXACT
     # conductance. This is what the pipeline publishes now.
-    def parameters_finder_impedance_exact(self, freq, G_conductance):
+    def parameters_finder_impedance_exact(self, freq, G_conductance, baseline=None):
         # returns the peak index, the resonance frequency and a GBand: the
         # published half bandwidth plus the crossings it was measured from
+        # (VER 0.1.6G-ADAPTIVE `baseline`: see _half_bandwidth_G_exact)
         idx_max, fr = self._Freq_G(G_conductance, freq)
-        band = self._half_bandwidth_G_exact(G_conductance, freq)
+        band = self._half_bandwidth_G_exact(G_conductance, freq, baseline)
         return idx_max, fr, band
 
     # VER 0.1.6G THE PUBLISHED ESTIMATOR (2026-09-16). What goes to the datalog,
@@ -462,8 +471,15 @@ class MultiscanProcess(multiprocessing.Process):
         return self._estimator or Constants.IMPEDANCE_ESTIMATOR
 
     def _publish_resonance(self, overtone_number, freq, G, f_argmax, gamma_hh):
+        published, fit = lorentzian.publish(freq, G, f_argmax, gamma_hh, estimator=self.estimator_mode())
+        self._witness_resonance(overtone_number, published, fit, f_argmax, gamma_hh)
+        return published, fit
+
+    # VER 0.1.6G-ADAPTIVE the counts and the source line of _publish_resonance, on
+    # their own: the adaptive sweep witnesses its passes only once it knows the
+    # sweep kept the resonance (core/adaptive.py)
+    def _witness_resonance(self, overtone_number, published, fit, f_argmax, gamma_hh):
         mode = self.estimator_mode()
-        published, fit = lorentzian.publish(freq, G, f_argmax, gamma_hh, estimator=mode)
         if not hasattr(self, "_psl_counts"):
             self._psl_counts = {}
             self._psl_source = {}
@@ -497,16 +513,29 @@ class MultiscanProcess(multiprocessing.Process):
                         "of G %.1f Hz and half-height width %.1f Hz -- %s%s"
                         % (overtone_number, f_argmax, gamma_hh, published.reason,
                            detail))
-            # ⚠️ One path only. The GUI prints what add_message() queues, so a
-            # print() here as well wrote every line twice on the console.
-            if getattr(self, "_parser6", None) is not None:
-                try:
-                    self._parser6.add_message(line)
-                except Exception:
-                    print(line)
-            else:
+            self._message(line)
+
+    def _message(self, line):
+        """A line for the System Log.
+        ⚠️ One path only. The GUI prints what add_message() queues, so a print()
+        here as well wrote every line twice on the console."""
+        if getattr(self, "_parser6", None) is not None:
+            try:
+                self._parser6.add_message(line)
+            except Exception:
                 print(line)
-        return published, fit
+        else:
+            print(line)
+
+    # VER 0.1.6G-ADAPTIVE the sweep of the run, set by the Worker through
+    # set_adaptive() BEFORE start(), as the estimator: False, the full 1 Hz sweep
+    # (the standard); True, the adaptive sweep (core/adaptive.py), which needs a
+    # firmware with the segmented sweep 'Z' (checked at the start of run()).
+    def set_adaptive(self, adaptive):
+        self._adaptive_requested = bool(adaptive)
+
+    def adaptive_mode(self):
+        return getattr(self, "_adaptive_requested", False)
 
     def psl_counts(self, overtone_number):
         """(sweeps published by the fit, sweeps published by the fallback)."""
@@ -527,13 +556,17 @@ class MultiscanProcess(multiprocessing.Process):
     # Falls back to the one-sided value if the sweep window does not contain a
     # crossing on one side — which happens on damped loads, where Gamma reaches
     # kilohertz and the window (LEFT=12000 / RIGHT=6000 Hz) is sized for air.
-    def _half_bandwidth_G_exact(self, G_conductance, F_sweep):
+    def _half_bandwidth_G_exact(self, G_conductance, F_sweep, baseline=None):
         # ⚠️ Returns a GBand, not a number. `bandwidth` is what is published and
         # is unchanged; the crossings and the half-height level ride along so a
         # viewer can draw the band that was measured instead of a symmetric
         # `f_r ± Gamma`, which the skew of the peak makes visibly wrong.
-        n_base = min(100, len(G_conductance))
-        baseline = np.average(G_conductance[:n_base])
+        # VER 0.1.6G-ADAPTIVE `baseline`: the mean of the first 100 samples
+        # unless given -- the adaptive sweep's fine zone starts 4 Gamma from the
+        # resonance, so it passes G at the low end of the window (coarse points).
+        if baseline is None:
+            n_base = min(100, len(G_conductance))
+            baseline = np.average(G_conductance[:n_base])
         G = np.asarray(G_conductance, dtype=float) - baseline
         F = np.asarray(F_sweep, dtype=float)
         idx_max = int(np.nanargmax(G))
@@ -1178,6 +1211,18 @@ class MultiscanProcess(multiprocessing.Process):
             print("Warning: exact G/B for the impedance panel failed:", e)
 
 
+        # VER 0.1.6G-ADAPTIVE what follows (the averages, the messages to the GUI and
+        # the datalog clock) is _publish_reading, shared with the adaptive sweep
+        self._publish_reading(overtone_number, published, temperature, filtered_mag, phase)
+        
+        # TODO single sweeep data log 
+       
+    # The reading of one sweep of one overtone, once its resonance is published:
+    # the averages, the messages to the GUI and the datalog clock. The tail of
+    # elaborate_multi, moved here unchanged (VER 0.1.6G-ADAPTIVE) so the adaptive
+    # sweep publishes through the same code.
+    def _publish_reading(self, overtone_number, published, temperature, filtered_mag, phase):
+
         # self._my_list_f[overtone_number].append( freq_range[int(index_peak_fit)] )
         # VER 0.1.4
         # change the dissipation calculation as the inverse of the bandwidth defined above in parameter finder 
@@ -1222,7 +1267,18 @@ class MultiscanProcess(multiprocessing.Process):
         #self._temperature_buffer.append(temperature)
         self._temperature_buffer_0.append(temperature)
        
-        if self._k >= self._environment:
+        if self._k >= self._environment and getattr(self, "_sweeper", None) is not None:
+           # VER 0.1.6G-ADAPTIVE no running mean: each datalog row is the cycle's
+           # own sweep of each overtone (a block of one, see Constants.ADAPTIVE_WARMUP);
+           # main's amplitude pair is not measured by this sweep
+           self._freq_range_mean [overtone_number] = published.fres
+           self._diss_mean [overtone_number] = _dissipation_ppm
+           self._freq_range_mean_a [overtone_number] = float("nan")
+           self._diss_mean_a [overtone_number] = float("nan")
+           if overtone_number == 0:
+               self._temperature_mean = temperature
+
+        elif self._k >= self._environment:
            # FREQUENCY
            # VER 0.1.6 robust average of the raw circular buffer. Replaces
            # the Savitzky-Golay + np.average: SG(window=3, order=1) was a
@@ -1335,16 +1391,33 @@ class MultiscanProcess(multiprocessing.Process):
         # the instant the datalog row is stamped with when this is the last
         # overtone, and it gives the temperature plot one x per reading instead
         # of five readings stacked on the cycle's start.
+        # VER 0.1.6G-ADAPTIVE an overtone the adaptive sweep could not read in this
+        # cycle is empty (NaN) in its row, not the value of the cycle before
+        self._send_clock(overtone_number)
+
+    def _send_clock(self, overtone_number):
+        """The temperature message of one overtone, which is the datalog clock (see
+        above): moved into a method unchanged (VER 0.1.6G-ADAPTIVE), so a cycle whose
+        last overtone the adaptive sweep could not read still writes its row."""
+        # The adaptive sweep's warm-up writes no row. (The full sweep's writes none
+        # either, but by accident: _temperature_mean does not exist before its
+        # first average, and the AttributeError ends elaborate_multi here.)
+        if getattr(self, "_sweeper", None) is not None and self._k < self._environment:
+            return
         clock = [self._my_time_array[overtone_number], self._temperature_mean, overtone_number,
                  overtone_number == self._overtones_in_cycle - 1,
-                 list(self._freq_range_mean), list(self._diss_mean)]
+                 self._cycle_values(self._freq_range_mean), self._cycle_values(self._diss_mean)]
         if Constants.DATALOG_AMPLITUDE_TOO:
             # fields 6-7, this branch only: main's pair for the comparison datalog
             clock += [list(self._freq_range_mean_a), list(self._diss_mean_a)]
         self._parser5.add5(clock)
-        
-        # TODO single sweeep data log 
-       
+
+    def _cycle_values(self, values):
+        """This cycle's F or D per overtone for the datalog row: NaN for an overtone
+        the adaptive sweep lost in this cycle (VER 0.1.6G-ADAPTIVE)."""
+        failed = getattr(self, "_cycle_failed", ())
+        return [float("nan") if i in failed else v for i, v in enumerate(values)]
+
     def elaborate_ampli_phase_multi(self, overtone_index, poly_coeff, freq_sweep, amp_sweep, phase_sweep):
 # =============================================================================
 #         # init variable TODO filtering - Savitzky-Golay
@@ -1651,6 +1724,10 @@ class MultiscanProcess(multiprocessing.Process):
                 timestamp = time()
                 
                 self._environment = Constants.environment
+
+                # VER 0.1.6G-ADAPTIVE the adaptive sweep, if the run asked for it
+                # and the firmware has the segmented sweep 'Z'; None: the full sweep
+                self._sweeper = self._start_adaptive()
                 
                 # Initializes the progress bar  
                 # bar = ProgressBar(widgets=[TAG,' ', Bar(marker='>'),' ',Percentage(),' ', Timer()], maxval=self._environment).start() #
@@ -1692,9 +1769,26 @@ class MultiscanProcess(multiprocessing.Process):
                     data_f = np.linspace(0,0,samples)
                     
                     overtone_index = 0
+                    # VER 0.1.6G-ADAPTIVE the overtones the adaptive sweep could not read in this cycle
+                    self._cycle_failed = set()
                     
                     # cycle on all overtones 
                     for overtone_index in range(len(frequencies_file)):
+                        
+                        # VER 0.1.6G-ADAPTIVE the adaptive sweep: its own sweeps and
+                        # analysis (_adaptive_overtone), then what follows every sweep
+                        if self._sweeper is not None:
+                            self._adaptive_overtone(k, overtone_index, coeffs_all, startF[overtone_index],
+                                                    stopF[overtone_index], readF[overtone_index], samples,
+                                                    sg_window_size[overtone_index], spline_points[overtone_index],
+                                                    spline_factor[overtone_index], timestamp)
+                            self._between_sweeps(overtone_index)
+                            self._parser6.add6([self._err1, self._err2, k, self._flag_error_usb, overtone_index,
+                                                self._data_status, self._error_register_bit])
+                            self._err1 = 0
+                            self._err2 = 0
+                            self._flag_error_usb = 0
+                            continue
                         
                         # DEBUG_0.1.1a
                         # print( "for loop overtone index and param= ", overtone_index, startF[overtone_index], stopF[overtone_index], int(stepF[overtone_index]) )
@@ -2010,65 +2104,8 @@ class MultiscanProcess(multiprocessing.Process):
                                  
                                  self._flag_error_usb = 1
                             
-                            # VER 0.1.6 Read the actual TEC current 
-                            # -----------------------------------------------------
-                            # Command: "A?" 
-                            # Response: Reads the actual TEC current, [x<LF>][mA], x < 0: Heating; x > 0: Cooling   
-                            
-                            try:
-                                sleep(0.1)
-                                self._serial.reset_input_buffer()
-                                self._serial.reset_output_buffer()
-                                # VER 0.1.5 send read TEC current command 
-                                in_message = 'A' + '\n'
-                                # sleep(0.2)
-                                self._serial.write(in_message.encode())
-                                sleep(0.1)
-                                byte_at_port = self._serial.inWaiting()
-                                out_message = ''
-                                out_message = self._serial.read(byte_at_port).decode(Constants.app_encoding)
-                                out_message = out_message.rstrip('\n')
-                                
-                                # VER 0.1.6 store the value of current only at fundamantal 
-                                if (overtone_index == 0):
-                                    self._current_tec = float(out_message)
-                                
-                            except:
-                                print ("Unable to read TEC current ")
-                                # VER 0.1.6 TODO set te current value of current to nan 
-                            
-                            # Read PID asked from the window while this process owns the
-                            # port: answered here, between sweeps, the only moment the
-                            # board is listening. Costs ~0.8 s once, on request only.
-                            try:
-                                if self._parser6.take_pid_read_request():
-                                    self._parser6.add_pid(read_pid(self._serial))
-                            except Exception as e:
-                                print(TAG, "Warning: PID read failed: {}".format(e))
-                            
-                            # TEC Reset asked while this process owns the port: X0 / X1 / X0
-                            # with the standard pauses, run here between two sweeps. Through
-                            # the config flag alone the 0 / 1 / 0 could reach the controller as
-                            # a single X0 (bench, 2026-09-09). Costs ~4.5 s once, on request.
-                            try:
-                                if self._parser6.take_tec_reset_request():
-                                    _sent = reset_sequence(self._serial)
-                                    # the sequence ends with the TEC off, as the flag the GUI wrote
-                                    self.ctrl_bool_pre = 0
-                                    self._parser6.add_message("TEC reset done by the acquisition: {} "
-                                                              "(Enable pin Off/On/Off, error register cleared)".format(", ".join(_sent)))
-                            except Exception as e:
-                                print(TAG, "Warning: TEC reset failed: {}".format(e))
-                            
-                            # DEBUG_0.1.1a
-                            try: 
-                                # SET TEMPERATURE and PID PARAMETERS
-                                self._Temperature_PID_control()
-                                
-                            except:
-                                print(TAG, "Info: set temperature control failed", end='\n')
-                                # Log.i(TAG, "EXCEPTION: exception at serial port read process")
-                                self._flag_error_usb = 1
+                            # VER 0.1.6G-ADAPTIVE between two sweeps: _between_sweeps, shared with the adaptive sweep
+                            self._between_sweeps(overtone_index)
                             
 # =============================================================================
 #                                  # =================================================
@@ -2219,6 +2256,267 @@ class MultiscanProcess(multiprocessing.Process):
                 
                 self._serial.close()
     
+    ###########################################################################
+    # VER 0.1.6G-ADAPTIVE THE ADAPTIVE SWEEP (experimental): core/adaptive.py plans
+    # and analyses, these methods sweep and publish
+    ###########################################################################
+    def _start_adaptive(self):
+        """An AdaptiveSweep when the run asked for it and the firmware has the
+        segmented sweep 'Z'; None otherwise (the full sweep, said in the System Log).
+        ⚠️ The firmware is asked here, on the port this process owns: a firmware
+        without 'Z' reads "Z..." as a plain sweep starting at 0 Hz."""
+        self._sweeper = None
+        if not self.adaptive_mode():
+            return None
+        version = self._firmware_version_now()
+        if Constants.FW_SEGMENTED_TAG not in version:
+            self._message("Sweep: the ADAPTIVE sweep needs the firmware's segmented sweep (%s); this board "
+                          "answers %s, so this run uses the FULL 1 Hz sweep."
+                          % (Constants.FW_VERSION, repr(version) if version else "nothing"))
+            return None
+        self._environment = Constants.ADAPTIVE_WARMUP
+        self._temperature_mean = float("nan")
+        self._message("Sweep for this run: EXPERIMENTAL adaptive sweep (firmware %s): coarse %d Hz steps for "
+                      "the baselines, then +-%g Gamma of the resonance up and down at %g x 2 pi Gamma^2 Hz/s, "
+                      "f and Gamma the means of the two passes; one reading per cycle, no running mean, "
+                      "after %d cycles."
+                      % (version, Constants.ADAPTIVE_COARSE_STEP, Constants.ADAPTIVE_FINE_GAMMA,
+                         Constants.ADAPTIVE_RATE_K, Constants.ADAPTIVE_WARMUP))
+        return AdaptiveSweep(self)
+
+    def _firmware_version_now(self):
+        """What the board answers to 'F' (its firmware version), or ""."""
+        try:
+            sleep(0.1)
+            self._serial.reset_input_buffer()
+            self._serial.write(b"F\n")
+            t0 = time()
+            buffer = ""
+            while time() - t0 < 1.0 and "\n" not in buffer:
+                n = self._serial.inWaiting()
+                if n:
+                    buffer += self._serial.read(n).decode(Constants.app_encoding, errors="replace")
+                else:
+                    sleep(0.01)
+            return buffer.strip().splitlines()[0].strip() if buffer.strip() else ""
+        except Exception as e:
+            print(TAG, "Info: firmware version query failed: {}".format(e))
+            return ""
+
+    def _measure(self, overtone_index, cmd, points, timeout):
+        """One measurement command (a sweep or a 'Z'): (bit_mag, bit_phase,
+        temperature), or None on a failure, reported, with the line left clean."""
+        try:
+            self._serial.write(cmd.encode())
+            t0 = time()
+            buffer = ""
+            while True:
+                n = self._serial.inWaiting()
+                if n == 0:
+                    sleep(0.001)
+                chunk = self._serial.read(n).decode(Constants.app_encoding)
+                buffer += chunk
+                # only the end-of-measurement line carries an 's'
+                if 's' in chunk:
+                    sleep(Constants.SLEEP_EOM_MULTISCAN)
+                    break
+                if time() - t0 > timeout:
+                    self._serial.write(Constants.serial_stop_sweep)
+                    raise RuntimeError("timeout after %.1f s" % timeout)
+            if "ERR_SEG" in buffer:
+                raise RuntimeError("the firmware refused the segmented sweep: " + cmd.strip()[:80])
+            lines = [line for line in buffer.split('\n') if line.strip()]
+            end = lines[-1].split(';')
+            data = np.array([[float(x) for x in line.split(';')[:2]] for line in lines[:-1]])
+            if data.ndim != 2 or len(data) != points:
+                raise RuntimeError("%d points, expected %d" % (len(data), points))
+            temperature = float(end[0])
+            self._data_status = float(end[1])
+            self._error_register_bit = int(end[2])
+            self._tec_errors_pre = report_error_changes(
+                decode_error_register(self._error_register_bit),
+                getattr(self, "_tec_errors_pre", None),
+                self._parser6.add_message)
+            return data[:, 0], data[:, 1], temperature
+        except Exception as e:
+            self._message("Adaptive sweep (overtone %d): measurement failed (%s)" % (overtone_index, e))
+            sleep(0.5)
+            self._serial.reset_input_buffer()
+            self._serial.reset_output_buffer()
+            sleep(0.5)
+            self._flag_error_usb = 1
+            return None
+
+    def _adaptive_overtone(self, k, overtone_index, coeffs_all, start, stop, readFREQ, samples,
+                           sg_window_size, spline_points, spline_factor, timestamp):
+        """One reading of one overtone with the adaptive sweep. The full sweep only
+        locates the resonance (it lags; never published) and the adaptive sweep
+        follows at once. A sweep that loses the resonance (it moved too fast) is
+        not thrown away: the peak of G among its coarse points places the fine zone
+        again, swept at once, up to ADAPTIVE_RELOCATE times; only then a full
+        sweep. So a moving resonance leaves no hole in the readings. When even
+        that fails, this overtone's cell of the cycle's row is empty."""
+        self._k = k             # as elaborate_multi: _publish_reading reads it
+        sweeper = self._sweeper
+        plan = sweeper.plan(overtone_index, start, stop)
+        relocated = 0
+        for _ in range(4 + Constants.ADAPTIVE_RELOCATE):
+            if plan is None:
+                # the full sweep, as run() sends it
+                step = (stop - start) / (samples - 1)
+                cmd = str(start) + ';' + str(stop) + ';' + str(int(step)) + '\n'
+                got = self._measure(overtone_index, cmd, samples, Constants.TIME_ELAPSED_TIMEOUT)
+                if got is None:
+                    break
+                bit_mag, bit_phase, temperature = got
+                sweeper.locate(overtone_index, readFREQ, bit_mag, bit_phase, sg_window_size, spline_points)
+                plan = sweeper.plan(overtone_index, start, stop)
+                if plan is not None:
+                    continue            # located: now the adaptive sweep, which is published
+                # No band whole in the window (a damped load): the full sweep is
+                # published, as the standard sweep would
+                self.set_frequencies_RT(overtone_index, self.freq_res_current_array[overtone_index])
+                self.elaborate_multi(k, overtone_index, coeffs_all, readFREQ, samples, bit_mag, bit_phase,
+                                     temperature, sg_window_size, spline_points, spline_factor, timestamp)
+                mag, phase = magnitude_phase(bit_mag, bit_phase)
+                self.elaborate_ampli_phase_multi(overtone_index, coeffs_all, readFREQ, mag, phase)
+                return
+            got = self._measure(overtone_index, plan.command(), len(plan.freqs), plan.seconds() * 1.5 + 2.0)
+            if got is None:
+                break
+            bit_mag, bit_phase, temperature = got
+            reading = sweeper.process(overtone_index, plan, bit_mag, bit_phase)
+            if not reading.lost:
+                self.set_frequencies_RT(overtone_index, self.freq_res_current_array[overtone_index])
+                self._publish_adaptive(overtone_index, coeffs_all, reading, temperature, start, stop)
+                return
+            if relocated < Constants.ADAPTIVE_RELOCATE:
+                relocated += 1
+                plan = sweeper.relocate(overtone_index, plan, bit_mag, bit_phase, start, stop)
+                if plan is not None:
+                    continue
+            self._message("Adaptive sweep (overtone %d): resonance lost, a full sweep to find it" % overtone_index)
+            sweeper.forget(overtone_index)
+            plan = None
+        # nothing read: this overtone's cell of the row stays empty, and the row is
+        # still written when this overtone closes the cycle
+        self._cycle_failed.add(overtone_index)
+        if k >= self._environment and overtone_index == self._overtones_in_cycle - 1:
+            self._my_time_array[overtone_index] = int(time() * 1e6)
+            self._send_clock(overtone_index)
+
+    def _publish_adaptive(self, overtone_number, coeffs_all, reading, temperature, start, stop):
+        """What elaborate_multi publishes, for one adaptive sweep: the impedance
+        panel's G/B message (the two passes aligned, see core/adaptive.py), the
+        amplitude and phase of the whole sweep in frequency order (not evenly
+        spaced), and the reading through _publish_reading."""
+        published = reading.published
+        shown = reading.display
+        try:
+            fine = shown["fine"]
+            g_baseline = shown["g_base"] * 1000.0          # mS
+            G_exact = shown["g"] * 1000.0 - g_baseline     # mS, baseline removed, as elaborate_multi ships it
+            B_exact = shown["b"] * 1000.0                  # mS, as computed
+            band = shown["band"]
+            gamma_seed = float(np.mean([p.gamma_seed for p in reading.passes]))
+            f_seed = float(np.mean([p.f_seed for p in reading.passes]))
+            span = float(fine[-1] - fine[0])
+            half_w = min(max(Constants.IMPEDANCE_PANEL_BAND_GAMMA * gamma_seed, 0.05 * span), span)
+            keep = np.abs(fine - f_seed) <= half_w
+            if keep.sum() < 16:
+                keep = np.ones_like(fine, dtype=bool)
+            fit = shown["fit"]
+            _fit_fields = ([float(fit.fres), float(fit.gamma), float(fit.phi_deg), float(fit.rms_rel),
+                            float(fit.gmax * 1000.0), float(fit.g_off * 1000.0 - g_baseline), float(fit.cost_ms)]
+                           if fit is not None else [float("nan")] * 7)
+            _used, _fallen = self.psl_counts(overtone_number)
+            self._parser_GB_multi.add_GB_multi([int(overtone_number),
+                                                fine[keep].tolist(), G_exact[keep].tolist(), B_exact[keep].tolist(),
+                                                float(published.fres), float(published.gamma),
+                                                float(reading.passes[0].offset), 0.0,
+                                                _nan_if_none(band.f_left), _nan_if_none(band.f_right),
+                                                _shipped_half_level(band.half_level, g_baseline),
+                                                f_seed, gamma_seed,
+                                                *_fit_fields,
+                                                1.0 if published.source == lorentzian.SOURCE_FIT else 0.0,
+                                                float(_used), float(_fallen),
+                                                str(published.reason), str(self.estimator_mode())])
+        except Exception as e:
+            # The panel is a diagnostic view: never let it break an acquisition.
+            print("Warning: exact G/B for the impedance panel failed:", e)
+        # The amplitude/phase plot takes a 1 Hz sweep over the window (it decimates
+        # by index): the adaptive sweep's points, interpolated onto one. Display only.
+        freq = np.arange(start, stop + 1.0, Constants.FREQUENCY_STEP)
+        mag = np.interp(freq, shown["freq"], shown["mag"])
+        phase = np.interp(freq, shown["freq"], shown["phase"])
+        filtered_mag = mag - np.polyval(coeffs_all, freq)
+        self._publish_reading(overtone_number, published, temperature, filtered_mag, phase)
+        self.elaborate_ampli_phase_multi(overtone_number, coeffs_all, freq, mag, phase)
+
+    # Between two sweeps: the TEC current, a PID read or a TEC reset asked by the
+    # window, the temperature and PID settings. The code that followed every sweep
+    # in run(), moved here unchanged (VER 0.1.6G-ADAPTIVE) for the adaptive sweep too.
+    def _between_sweeps(self, overtone_index):
+        # VER 0.1.6 Read the actual TEC current 
+        # -----------------------------------------------------
+        # Command: "A?" 
+        # Response: Reads the actual TEC current, [x<LF>][mA], x < 0: Heating; x > 0: Cooling   
+
+        try:
+            sleep(0.1)
+            self._serial.reset_input_buffer()
+            self._serial.reset_output_buffer()
+            # VER 0.1.5 send read TEC current command 
+            in_message = 'A' + '\n'
+            # sleep(0.2)
+            self._serial.write(in_message.encode())
+            sleep(0.1)
+            byte_at_port = self._serial.inWaiting()
+            out_message = ''
+            out_message = self._serial.read(byte_at_port).decode(Constants.app_encoding)
+            out_message = out_message.rstrip('\n')
+
+            # VER 0.1.6 store the value of current only at fundamantal 
+            if (overtone_index == 0):
+                self._current_tec = float(out_message)
+
+        except:
+            print ("Unable to read TEC current ")
+            # VER 0.1.6 TODO set te current value of current to nan 
+
+        # Read PID asked from the window while this process owns the
+        # port: answered here, between sweeps, the only moment the
+        # board is listening. Costs ~0.8 s once, on request only.
+        try:
+            if self._parser6.take_pid_read_request():
+                self._parser6.add_pid(read_pid(self._serial))
+        except Exception as e:
+            print(TAG, "Warning: PID read failed: {}".format(e))
+
+        # TEC Reset asked while this process owns the port: X0 / X1 / X0
+        # with the standard pauses, run here between two sweeps. Through
+        # the config flag alone the 0 / 1 / 0 could reach the controller as
+        # a single X0 (bench, 2026-09-09). Costs ~4.5 s once, on request.
+        try:
+            if self._parser6.take_tec_reset_request():
+                _sent = reset_sequence(self._serial)
+                # the sequence ends with the TEC off, as the flag the GUI wrote
+                self.ctrl_bool_pre = 0
+                self._parser6.add_message("TEC reset done by the acquisition: {} "
+                                          "(Enable pin Off/On/Off, error register cleared)".format(", ".join(_sent)))
+        except Exception as e:
+            print(TAG, "Warning: TEC reset failed: {}".format(e))
+
+        # DEBUG_0.1.1a
+        try: 
+            # SET TEMPERATURE and PID PARAMETERS
+            self._Temperature_PID_control()
+
+        except:
+            print(TAG, "Info: set temperature control failed", end='\n')
+            # Log.i(TAG, "EXCEPTION: exception at serial port read process")
+            self._flag_error_usb = 1
+
     def _Temperature_PID_control(self): 
         param = loadtxt(Constants.manual_frequencies_path)
         temperature_set = param[0]

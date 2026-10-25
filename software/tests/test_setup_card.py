@@ -62,6 +62,15 @@ class SetupCardTests(unittest.TestCase):
         self.assertLessEqual(len(chk.text()), 30, chk.text())
         self.assertIn("Experimental", chk.text())
 
+    def test_the_adaptive_sweep_box_is_in_the_setup_card_off_and_fits(self):
+        """VER 0.1.6G-ADAPTIVE: the sweep of the run, under the estimator's box."""
+        chk = self.ui.chk_AdaptiveSweep
+        self.assertIs(chk.parent(), self.ui.groupSetup)
+        self.assertGreaterEqual(self.ui.gridSetup.indexOf(chk), 0)
+        self.assertFalse(chk.isChecked())
+        self.assertIn("0.1.5d-SEG", chk.toolTip())
+        self.assertLessEqual(len(chk.text()), 30, chk.text())
+
 
 if __name__ == "__main__":
     unittest.main()

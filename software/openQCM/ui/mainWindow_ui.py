@@ -496,6 +496,28 @@ class Ui_MainWindow(object):
             "Choose before START; locked during a run.")
         self.gridSetup.addWidget(self.chk_ExperimentalFit, 5, 0, 1, 2)
 
+        # VER 0.1.6G-ADAPTIVE the sweep of the run (branch
+        # impedance-analysis-sweep-adaptive, experimental). Unchecked = the full
+        # 1 Hz sweep, as always. Checked = the adaptive sweep (core/adaptive.py):
+        # coarse points for the baselines, then +-4 Gamma of the resonance swept up
+        # and down slowly, f and Gamma the means of the two passes; one reading per
+        # cycle, no running mean. Needs firmware 0.1.5d-SEG (the process checks it
+        # at START and falls back to the full sweep, saying so in the System Log).
+        # Chosen BEFORE START and locked while running, as the estimator.
+        self.chk_AdaptiveSweep = QtWidgets.QCheckBox(
+            "Experimental: adaptive sweep", self.groupSetup)
+        self.chk_AdaptiveSweep.setObjectName("chk_AdaptiveSweep")
+        self.chk_AdaptiveSweep.setChecked(False)
+        self.chk_AdaptiveSweep.setToolTip(
+            "Off (standard): every overtone swept -12/+6 kHz in 1 Hz steps (1.5 s), "
+            "readings a trimmed mean of the last sweeps.\n"
+            "On (experimental): coarse points for the baselines, then +-4 Gamma of the "
+            "resonance swept up and down slowly enough for the crystal to follow, f and "
+            "Gamma the means of the two passes (0.2-0.6 s an overtone); one reading per "
+            "cycle, no running mean; the datalog is named _adaptive.csv.\n"
+            "Needs firmware 0.1.5d-SEG. Choose before START; locked during a run.")
+        self.gridSetup.addWidget(self.chk_AdaptiveSweep, 6, 0, 1, 2)
+
         # --- datalog sampling / elapsed time (gridLayout_5) ------------- #
         self.gridLayout_5 = QtWidgets.QGridLayout()
         self.gridLayout_5.setObjectName("gridLayout_5")
@@ -527,7 +549,7 @@ class Ui_MainWindow(object):
         # ⚠️ Row 6, not 5: row 5 is the estimator checkbox above. Two items in
         # one cell of a QGridLayout are drawn ON TOP of each other, which is how
         # "Time elapsed (sec)" and the checkbox ended up overprinted (2026-09-16).
-        self.gridSetup.addLayout(self.gridLayout_5, 6, 0, 1, 2)
+        self.gridSetup.addLayout(self.gridLayout_5, 7, 0, 1, 2)
 
         # kept for structural compatibility, cards replace the separators
         self.line_3 = self._hline(self.sidebarContainer, "line_3")

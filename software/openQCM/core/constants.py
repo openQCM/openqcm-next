@@ -43,6 +43,14 @@ class Constants:
     # VER 0.1.5d (2026-10-02) the sweep-average sums are reset at every point;
     # 0.1.5c and earlier carried 1/500 of the previous point (+0.2 %).
     FW_VERSION = '0.1.5d'
+    # VER 0.1.6G-ADAPTIVE (branch impedance-analysis-sweep-adaptive, 2026-10-25):
+    # 0.1.5d plus the segmented sweep 'Z' the adaptive sweep needs (firmware/
+    # openQCM_Next_py_0.1.5d_SEG_teensy; the no-TEC bench variant reports
+    # '0.1.5d-SEG-TEST'). Everything else is 0.1.5d, so the standard sweep runs
+    # on either; the adaptive one only on a firmware that has 'Z' (checked by the
+    # acquisition process at START, see core/adaptive.py).
+    FW_VERSION = '0.1.5d-SEG'
+    FW_SEGMENTED_TAG = '-SEG'
 
     # VER 0.1.5c the board sweeps once per command and reads serial only at the
     # top of its loop, so a sweep runs to completion whatever the host does.
@@ -536,6 +544,64 @@ class Constants:
     PSL_RMS_MAX = 0.05
     PSL_PHI_MAX_DEG = 60.0
     PSL_GAMMA_RATIO = (0.3, 3.0)
+
+    ##########################################################################
+    # ADAPTIVE SWEEP (experimental, branch impedance-analysis-sweep-adaptive)  #
+    ##########################################################################
+    # Measured on a bench board in air (openQCM Lab, 2026-10-24): the 1 Hz
+    # sweep, 83 us a point (12 kHz/s), is fast against the crystal's decay time
+    # tau = 1/(2 pi Gamma) (4 ms on the fundamental in air), so the resonance
+    # lags behind it: swept up, f reads ~25 Hz high and Gamma up to 18 % wide on
+    # the fundamental (down: as much low and narrow); swept slowly, up and down
+    # agree. The lag scales with rate / (2 pi Gamma^2). After one full sweep that
+    # locates the resonance (never published), each adaptive sweep goes:
+    #   1. coarse points over the rest of the -LEFT/+RIGHT window, for the two
+    #      baselines (the phase far from the resonance, G at the low end);
+    #   2. a lead-in of ADAPTIVE_LEAD_TAU decay times below the fine zone;
+    #   3. the fine zone, +-ADAPTIVE_FINE_GAMMA Gamma, up and straight back down
+    #      at ADAPTIVE_RATE_K * 2 pi Gamma^2 Hz/s (the firmware's per-segment
+    #      dwell slows it down);
+    #   4. each pass through the chain of elaborate_multi (SG, spline, fold, exact
+    #      G, maximum, half height, fit); f and Gamma the means of the two passes
+    #      (the lag cancels).
+    # Validated on the bench board in air against a quasi-static sweep: f within
+    # 1 Hz and Gamma within 0.3 % on the fundamental, 3rd and 5th; 0.3-0.6 s a
+    # sweep instead of 1.6 s. See docs/impedance-analysis/ADAPTIVE_SWEEP.md.
+    ADAPTIVE_FINE_GAMMA = 4.0      # fine zone: +-4 Gamma of the last resonance (the fit takes +-3) ...
+    ADAPTIVE_FINE_MIN_HZ = 100     # ... and at least +-100 Hz
+    ADAPTIVE_POINTS_PER_GAMMA = 40 # fine step Gamma/40 (in liquid), at least FREQUENCY_STEP
+    ADAPTIVE_RATE_K = 0.125        # fine-zone sweep rate in units of 2 pi Gamma^2 (the 1 Hz sweep is ~1.6
+                                   # on the fundamental in air); measured up+down: f within 1 Hz, Gamma 0.3 %
+    ADAPTIVE_LEAD_TAU = 3.0        # lead-in before the fine zone, in decay times
+    # The first point of the sweep waits this many decay times before it is read
+    # (branch only, 2026-10-25, not in openQCM Lab). The sweep before ended in the
+    # fine zone and the DDS stayed there, driving the crystal near its resonance:
+    # at the jump to the window's low end it rings on at f_s for a few tau, and the
+    # first coarse points, G's baseline, read it. In multiscan another overtone
+    # comes in between and nothing happens; with one overtone, or a relocation,
+    # the simulated board (tests/test_adaptive.py) puts G's baseline 2 mS off and
+    # Gamma 3 % wide. 3 tau: 12 ms on the fundamental in air.
+    ADAPTIVE_SETTLE_TAU = 3.0
+    ADAPTIVE_COARSE_STEP = 100     # Hz, over the rest of the window
+    ADAPTIVE_EDGE_GAMMA = 2.0      # the resonance within 2 Gamma of the fine zone's edge: lost
+    ADAPTIVE_PHASE_BASE_HZ = 1000  # coarse points this close to either end of the window: the phase baseline
+    ADAPTIVE_G_BASE_HZ = 500       # ... to its low end: G's baseline
+    ADAPTIVE_POINT_US = 83.4       # one point of the sweep without dwell (18 001 in 1.50 s)
+    # A moving resonance (a film growing, vapour condensing): the fine zone goes
+    # where the resonance will be, from its speed over the last two adaptive
+    # sweeps, widened by ADAPTIVE_PREDICT_MARGIN of the predicted move. A sweep
+    # that still loses it is not thrown away: its coarse points cover the window,
+    # so the peak of G is found there and the fine zone swept again around it at
+    # once, up to ADAPTIVE_RELOCATE times; only then a full sweep.
+    ADAPTIVE_PREDICT_MARGIN = 0.5
+    ADAPTIVE_PREDICT_MAX_HZ = 3000 # a prediction moving the zone further than this is not trusted
+    ADAPTIVE_RELOCATE = 2
+    # Readings: no running mean. Each datalog row is the cycle's own sweep of each
+    # overtone (a block of one; the trimmed mean of the last `environment` sweeps
+    # smeared every step of the signal over them), after ADAPTIVE_WARMUP cycles:
+    # the first locates every overtone with a full sweep, the second learns how
+    # fast each resonance moves.
+    ADAPTIVE_WARMUP = 2
 
     # VER 0.1.6G saturation mask. The AD8302 is specified over +-30 dB of input
     # ratio; below that the magnitude output compresses and the phase output

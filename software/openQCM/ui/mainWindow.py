@@ -480,13 +480,17 @@ class MainWindow(QtGui.QMainWindow):
                              source = self._get_source(),
                              export_enabled = False,
                              sampling_time = self._get_sampling_time(),
-                             estimator = self._get_estimator())
+                             estimator = self._get_estimator(),
+                             adaptive = self._get_adaptive())
         # VER 0.1.6G say which estimator governs this run, in the System Log,
         # before the first sweep: the datalog's name will say it too
         print("Estimator for this run: %s" % (
             "EXPERIMENTAL phase-shifted Lorentzian fit on G (fallback: maximum of G), "
             "datalog *_multi_lorentzian.csv" if self._get_estimator() == "lorentzian"
             else "STANDARD maximum of G and half-height width, datalog *_multi.csv"))
+        print("Sweep for this run: %s" % (
+            "EXPERIMENTAL adaptive sweep (needs firmware %s), datalog *_adaptive.csv"
+            % Constants.FW_VERSION if self._get_adaptive() else "STANDARD full 1 Hz sweep"))
 
         # Hand the serial port over to the acquisition process: release the
         # persistent GUI handle so the child can open it exclusively.
@@ -1166,6 +1170,14 @@ class MainWindow(QtGui.QMainWindow):
         except AttributeError:
             return Constants.IMPEDANCE_ESTIMATOR
 
+    def _get_adaptive(self):
+        """VER 0.1.6G-ADAPTIVE the run's sweep from the Measurement Setup box: True
+        for the adaptive sweep (experimental), False for the full 1 Hz sweep."""
+        try:
+            return self.ui.chk_AdaptiveSweep.isChecked()
+        except AttributeError:
+            return False
+
     def _get_sampling_time(self):
         index = self.ui.cBox_sampling_time.currentIndex()
         if index == 0:
@@ -1434,8 +1446,10 @@ class MainWindow(QtGui.QMainWindow):
         variant = ("_TEST"
                    if reported.endswith(Constants.FW_VERSION_TEST_SUFFIX)
                    else "")
+        # VER 0.1.6G-ADAPTIVE the sketch folders use '_' where the version has '-'
+        # (0.1.5d-SEG -> openQCM_Next_py_0.1.5d_SEG_teensy)
         name = "openQCM_Next_py_{}{}_teensy.ino.TEENSY40.hex".format(
-            Constants.FW_VERSION, variant)
+            Constants.FW_VERSION.replace("-", "_"), variant)
         path = directory + name
         if os.path.exists(path):
             print(TAG, "Firmware image: {} (board reported {})"
@@ -1718,6 +1732,7 @@ class MainWindow(QtGui.QMainWindow):
         # VER 0.1.6G the estimator is chosen before START and locked while running:
         # the acquisition process received it once, at start
         self.ui.chk_ExperimentalFit.setEnabled(enabled)
+        self.ui.chk_AdaptiveSweep.setEnabled(enabled)
         self.ui.pButton_Stop.setEnabled(not enabled)
 
         # TODO delete the sample
