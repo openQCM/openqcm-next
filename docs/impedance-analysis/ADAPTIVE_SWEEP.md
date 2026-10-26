@@ -5,6 +5,9 @@ Ported from openQCM Lab (`core/src/openqcm_lab/analysis/conductance.py`, where i
 and validated on a bench board on 2026-10-24/25). The Python GUI is unchanged apart from one
 checkbox; the analysis of each sweep is this branch's (ALGORITHM.md), unchanged.
 
+The README's [Adaptive Conductance Sweep](../../README.md#adaptive-conductance-sweep) section summarises
+this document with figures (`figures/adaptive/`, reproduced by `make_adaptive_figures.py`).
+
 ## Why
 
 The 1 Hz sweep of `elaborate_multi`, 83 µs a point (12 kHz/s), is fast against the crystal's decay

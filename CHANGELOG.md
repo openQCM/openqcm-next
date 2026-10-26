@@ -8,6 +8,25 @@ Conventional Commits. Versions are marked by Git tags.
 Experimental branch from `impedance-analysis` at `59e6b47` (2026-10-25). Full description:
 `docs/impedance-analysis/ADAPTIVE_SWEEP.md`.
 
+### Docs — README: the adaptive conductance sweep, the `Z` firmware and the refined peak detection (2026-10-26)
+
+A new README section, *Adaptive Conductance Sweep*, covers:
+- the resonator's lag and the dimensionless rate κ = ḟ/(2πΓ²);
+- the adaptive sweep's plan and why its two passes cancel the frequency shift but not the
+  broadening, which fixes κ = 0.125;
+- the moving-resonance handling and the `Z` command's specification;
+- peak detection confirmed on finer sweeps, and the validation.
+
+Five figures in `docs/impedance-analysis/figures/adaptive/`, from `make_adaptive_figures.py`:
+- **Figs. 1–4, simulated** with the BVD board of `tests/test_adaptive.py` and the branch's own chain.
+  Fig. 4's sweep over κ = 0.03–2 shows the mean of the passes within +1…+1.5 Hz at every rate, while
+  Γ grows +1.3 % at 0.25, +10 % at 0.5 and +27 % at 1.
+- **Fig. 5, measured:** the wide sweep of the Q-1 bench board, 2026-10-25, in air. Its stored peaks
+  are +1.9…+3.6 kHz above the adaptive f_res, and the response beats past each resonance. The raw
+  sweep file stays untracked.
+
+The branches table gains this branch.
+
 ### Fixed — the adaptive sweep is refused without a `-SEG` firmware (2026-10-26)
 
 With the box checked and a firmware without `Z`, the run fell back to the full sweep, but the datalog

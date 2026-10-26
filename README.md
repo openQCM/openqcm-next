@@ -16,6 +16,7 @@ An open-source Python application to display, process, and store data in real-ti
 
 - [About QCM Technology](#about-qcm-technology)
 - [Impedance Measurement Method](#impedance-measurement-method)
+- [Adaptive Conductance Sweep](#adaptive-conductance-sweep)
 - [Quick Start](#quick-start)
 - [Features](#features)
   - [Acquisition and Operating Modes](#acquisition-and-operating-modes)
@@ -224,6 +225,227 @@ $$
 
 The full chain, with every constant, guard and validation, is in
 [`docs/impedance-analysis/ALGORITHM.md`](docs/impedance-analysis/ALGORITHM.md).
+
+---
+
+## Adaptive Conductance Sweep
+
+> Branch **`impedance-analysis-sweep-adaptive`**, experimental. It is built on the conductance analysis
+> above, which it leaves unchanged. It adds three things: an adaptive sweep, a segmented-sweep
+> firmware command, and peak detection that confirms each peak on finer sweeps. The full
+> description is in
+> [`docs/impedance-analysis/ADAPTIVE_SWEEP.md`](docs/impedance-analysis/ADAPTIVE_SWEEP.md).
+
+### The problem: the resonator lags the sweep
+
+A quartz resonator stores energy. When the drive frequency moves, the motional admittance does not
+follow at once. It relaxes towards its new steady state with the decay time
+
+$$
+\tau = \frac{1}{2\pi\Gamma},
+$$
+
+about 4 ms on a 5 MHz fundamental in air (Γ ≈ 40–50 Hz). How much a sweep distorts the line depends
+on the dimensionless rate
+
+$$
+\kappa = \frac{\dot f}{2\pi\Gamma^{2}},
+$$
+
+which compares the frequency the drive covers in one decay time with the half bandwidth. The
+standard full sweep has 18 001 points at 1 Hz and 83.4 µs per point (12 kHz/s). On the fundamental in
+air this gives κ ≈ 1–1.6, well outside the quasi-static regime κ ≪ 1.
+
+The conductance spectrum is distorted in a characteristic way:
+- the maximum is displaced in the direction of the sweep;
+- the line is broadened;
+- the crystal, still ringing at its own frequency, beats against the drive past the resonance.
+
+Measured on a bench board in air, a sweep upwards reads f **+26 Hz** and Γ **+18 %** on the
+fundamental (+24 Hz / +11 % on the 3rd, +23 Hz / +6 % on the 5th). A sweep downwards reads the same
+shift with the opposite sign.
+
+<p align="center">
+  <img src="docs/impedance-analysis/figures/adaptive/fig1_sweep_lag.svg"
+       alt="Simulated conductance of a 5 MHz crystal swept up and down at 12 kHz per second against the quasi-static line: the peak is displaced by about plus and minus 45 Hz, broadened by 28 percent, and followed by beats"
+       width="860">
+</p>
+
+*Fig. 1, simulated. A Butterworth–Van Dyke crystal behind the measuring divider, whose motional
+admittance obeys $\dot y = -(1/\tau + 2\pi i\,\Delta f)\,(y - y_\infty)$, read through the AD8302
+transfer functions and analysed by the branch's own chain. f and Γ are the values that chain
+publishes.*
+
+### The adaptive sweep
+
+The adaptive sweep makes the measurement nearly quasi-static only where it matters, and fast
+everywhere else (`core/adaptive.py`). Each overtone is measured in four steps.
+
+1. **Locate.** One full 1 Hz sweep finds the resonance. It lags, so its reading is **never
+   published**. For the same reason it latches no phase-fold decision and is not counted in the
+   fit statistics. If it finds no whole half-height band in the window (an over-damped load),
+   nothing is published.
+2. **Sweep.** Every later sweep is a single segmented command `Z` (see the firmware section
+   below). Its segments are swept in this order (Fig. 2):
+   - **settle:** the first point of the window waits 3τ, so the crystal's ringing from the previous
+     sweep has died out before the baselines are read;
+   - **coarse:** points every 100 Hz over the rest of the −12/+6 kHz window, with no dwell. They give
+     the two off-resonance baselines: the phase reference near either end, and G at the low end;
+   - **lead-in:** 3τ just below the fine zone, so that the transient of the frequency jump decays;
+   - **fine zone:** ±4Γ of the expected resonance (at least ±100 Hz), in steps of Γ/40 (at least
+     1 Hz). It is swept **upwards and straight back downwards** at κ = 0.125. The rate is set by a
+     per-point dwell computed from the last Γ, capped at the firmware's 100 ms.
+3. **Analyse.** Each pass of the fine zone goes through the same chain as the full sweep. The chain
+   keeps its smoothing in hertz at any step: Savitzky–Golay over 51 Hz, a spline onto a 1 Hz grid
+   with the full sweep's residual budget per point, the phase fold, the exact inversion of the
+   divider, then the maximum of G and its half width at half height, or the phase-shifted
+   Lorentzian.
+4. **Combine.** The published f and Γ are the **means of the two passes**.
+
+<p align="center">
+  <img src="docs/impedance-analysis/figures/adaptive/fig2_adaptive_plan.svg"
+       alt="Frequency against time for one adaptive sweep: a settling point, coarse points over the window in 15 ms, then a lead-in and the fine zone of plus and minus 164 Hz swept up and back down in about half a second"
+       width="860">
+</p>
+
+*Fig. 2. The plan of one adaptive sweep for the fundamental in air (Γ = 41 Hz). It takes 0.54 s,
+against 1.5 s for the full sweep, and almost all of that time is spent within ±4Γ of the
+resonance.*
+
+**Why the two passes, and why κ = 0.125.** To first order, the displacement of the maximum is odd in
+the sweep direction, while the broadening is even:
+
+$$
+f_{\uparrow} \simeq f_{res} + \delta(\kappa), \qquad f_{\downarrow} \simeq f_{res} - \delta(\kappa), \qquad
+\Gamma_{\uparrow} \simeq \Gamma_{\downarrow} \simeq \Gamma\,[1 + \epsilon(\kappa)].
+$$
+
+- **Frequency.** The mean of the two passes cancels δ at any rate. In Fig. 4 the residual stays
+  between +1 and +1.5 Hz from κ = 0.03 to 2, while δ itself grows from 3 to 45 Hz.
+- **Half bandwidth.** The broadening ε has the same sign in both passes, so averaging cannot remove
+  it. Only the rate can: the published Γ stays within 0.2 % up to κ = 0.125, each pass within
+  0.6 %. It then grows to +1.3 % at κ = 0.25, +10 % at 0.5 and +27 % at 1.
+- **The choice.** κ = 0.125 is the fastest rate at which Γ stays within half a percent.
+
+<p align="center">
+  <img src="docs/impedance-analysis/figures/adaptive/fig3_two_passes.svg"
+       alt="Conductance of the up pass and the down pass of an adaptive sweep, displaced by plus 12 and minus 10 Hz; their mean is within 1 Hz of the quasi-static resonance"
+       width="860">
+</p>
+
+<p align="center">
+  <img src="docs/impedance-analysis/figures/adaptive/fig4_rate.svg"
+       alt="Frequency and half-bandwidth errors of the up pass, the down pass and their mean against the sweep rate kappa: the mean cancels the frequency error at every rate, while the half bandwidth error grows above kappa 0.125"
+       width="860">
+</p>
+
+*Figs. 3 and 4, simulated (same crystal as Fig. 1). Fig. 3: the two passes at κ = 0.125. Fig. 4:
+errors against the quasi-static sweep of the same plan.*
+
+**A moving resonance.** A film growing or vapour condensing moves the resonance between sweeps. The
+algorithm handles this in four ways:
+- **Prediction.** The fine zone is centred on the resonance predicted from its speed over the last
+  two adaptive sweeps. The zone is widened by half the predicted move, and a move of more than
+  3 kHz is not trusted.
+- **Relocation.** A sweep whose band is not whole inside the fine zone is not discarded. Its
+  coarse points span the window, so the maximum of G and a new Γ are found among them, and the
+  fine zone is swept again at once, up to twice. Only then is a full sweep repeated.
+- **No stale values.** An overtone that cannot be read leaves an empty (NaN) cell in that cycle's
+  row, never the previous value. A failed measurement forgets the overtone, so the next cycle
+  locates it again.
+- **No running mean.** Each datalog row is that cycle's own sweep, after two warm-up cycles. The
+  standard mode's trimmed mean over 8 sweeps would smear every step of the signal.
+
+**Operation.** The adaptive sweep is enabled per run with *Experimental: adaptive sweep* in the
+Measurement Setup, and its datalog is named `<ts>_multi[_lorentzian]_adaptive.csv`. A board without
+the segmented sweep is **refused at START**, before any process or file exists. Running it on plain
+sweeps would publish lagged readings under the adaptive name.
+
+### Firmware: the segmented sweep `Z`
+
+Two firmware images add one command to the serial protocol and leave everything else untouched:
+- `0.1.5d-SEG`, for the NEXT with TEC;
+- `0.1.5d-SEG-TEST`, for no-TEC boards and for an openQCM Q-1 used as a bench board. It also reads
+  the Q-1's MCP9808 temperature sensor.
+
+```
+Z<start>;<stop>;<step>;<dwell_us>[;<start>;<stop>;<step>;<dwell_us> ...]
+```
+
+| Property | Specification |
+|---|---|
+| Segments | 1–8 per command, swept in the order given, each from `start` to `stop` inclusive |
+| Direction | upwards with `step > 0`, downwards with `step < 0` |
+| Dwell | 0–100 000 µs added before each point; the point is then measured as in the plain sweep (DDS update, 500 averaged ADC readings of each AD8302 channel) |
+| Output | one `mag;phase` line per point, then the usual end-of-measurement line `temperature;status;error;s` |
+| Validation | every field must be a whole number; `start` and `stop` must lie within 1 Hz–60 MHz. Otherwise the reply is `ERR_SEG` plus the end line, so the host fails at once instead of timing out |
+| Interruption | `Q` stops it, as it stops a plain sweep |
+
+The host builds the whole plan of Fig. 2 as one command, so a sweep costs a single round trip. The
+plain `start;stop;step` sweep is unchanged, and the standard mode runs on both images. Both are built
+with arduino-cli and Teensy core 1.59 (`teensy:avr:teensy40:usb=serial,speed=600`), and their `.hex`
+files are shipped in `software/openQCM/firmware_update/`. Details:
+[`firmware/README_SEG.md`](firmware/README_SEG.md).
+
+### Peak detection confirmed on finer sweeps
+
+Peak detection scans 1–51 MHz in 500 Hz steps, about 6 MHz/s. At that rate κ is of order 10²–10³,
+and the detected maxima are not the resonances.
+
+On the Q-1 bench board in air (2026-10-25), the stored magnitude peaks lay **+1.9 to +3.6 kHz**
+above the resonances measured right after by the adaptive sweep, and the phase maxima about 1 kHz
+above. Past each resonance, the ringing crystal beats against the drive (Fig. 5).
+
+The 500 Hz step is also wider than a line in air. Whether an overtone's phase maximum is caught
+therefore depends on where the line falls on the grid, so real overtones could be rejected.
+
+<p align="center">
+  <img src="docs/impedance-analysis/figures/adaptive/fig5_peak_detection_lag.svg"
+       alt="Measured wide peak-detection sweep around each overtone from F1 to F9: the stored magnitude peak lies 1.9 to 3.6 kHz above the resonance read by the adaptive sweep, and the response beats past it"
+       width="980">
+</p>
+
+*Fig. 5, measured. Baseline-corrected magnitude and phase of the wide sweep (Q-1 bench board
+13131320, 5 MHz crystal, air) around each overtone. Green: f_res read by the adaptive sweep in the
+first datalog row. Red: the peak the wide sweep stored.*
+
+Each peak is now confirmed on finer sweeps around it (`core/peak_refine.py`). This covers the
+fundamental and every overtone candidate of the wide sweep, including those the wide sweep's own
+phase check rejected.
+
+1. **±25 kHz at 50 Hz** around the candidate. If the baseline-corrected magnitude maximum falls
+   within 5 % of either end, there is no resonance here.
+2. **±5 kHz at 10 Hz** around that maximum. If the half-power width exceeds 2/3 of this span (a
+   liquid), the ±25 kHz sweep is judged instead.
+3. The peak is **confirmed** when all three conditions hold. Both maxima are corrected with the
+   wide sweep's baselines.
+   - the magnitude maximum lies inside the sweep, more than 5 % from either end;
+   - the phase maximum is within max(2 kHz, 0.75 × width) of it;
+   - the phase maximum exceeds 10°.
+
+What happens to the results:
+- **Precision.** Peaks are stored on a 10 Hz grid (50 Hz for wide lines).
+- **Overtones.** A rejected overtone is left out, as before.
+- **Fundamental.** It is refined but never rejected.
+- **Cost and logging.** Five peaks cost ten sweeps of about 1 000 points. Every decision is logged
+  with its numbers, and a Stop during these sweeps sends `Q` and saves nothing.
+
+### Validation and status
+
+| Where | What | Result |
+|---|---|---|
+| Bench board, air (openQCM Lab, 2026-10-24) | adaptive vs quasi-static sweep | F1 0.00 ± 0.31 Hz / Γ +0.06 %; F3 −0.30 Hz / −0.10 %; F5 −0.66 Hz / +0.16 % |
+| Bench board, air (openQCM Lab) | time per sweep | 0.62 / 0.46 / 0.31 s (F1 / F3 / F5), against 1.57 s for the full sweep |
+| Bench board, air, 21 min, F1–F9 (openQCM Lab, 2026-10-25) | noise | f of F1: sd 0.39 Hz, Allan deviation 0.18 Hz at 1.7 s; Γ sd 0.11–0.27 Hz; no missing reading |
+| Simulated BVD crystal (`tests/test_adaptive.py`) | adaptive vs the same crystal without lag | f within 1 Hz, Γ within 1 % |
+| same | resonance moving at −20 Hz/s | one reading per cycle, following it |
+| Simulated line (`tests/test_peak_refine.py`) | stored peaks of 2026-10-25 refined | within 10 Hz of the adaptive f_res on all five overtones |
+
+These are **experimental** features. The adaptive sweep has run in this application on the Q-1 bench
+board (2026-10-25). The 2026-10-26 firmware validation and the refined peak detection have not yet
+run on a board. The figures are reproduced by
+[`make_adaptive_figures.py`](docs/impedance-analysis/figures/adaptive/make_adaptive_figures.py),
+using the branch's own code.
 
 ---
 
@@ -487,6 +709,7 @@ In detail:
 | `v0.1.6G-test` | `impedance-analysis` | **Experimental**: impedance analysis via conductance spectrum `G(f)` derived from the AD8302 signals. |
 | `v0.1.6G-pre-merge` | `impedance-analysis` | State of the impedance branch just before it was aligned with `main`. |
 | *(unreleased)* | `impedance-analysis` | 📌 **Algorithm reference: [`docs/impedance-analysis/ALGORITHM.md`](docs/impedance-analysis/ALGORITHM.md)**: the full chain from the two AD8302 voltages to the published frequency and dissipation. Method summary: [Impedance Measurement Method](#impedance-measurement-method).<br><br> Aligned with `main` by cherry-pick. The **exact** complex-divider inversion is the published path. The **standard** estimator is the maximum of G with the two-sided half width at half height, and the logged dissipation is D = 2Γ/f_res. The **phase-shifted Lorentzian** fit on G is an **experimental** mode, chosen per run, with its own datalog (`_multi_lorentzian.csv`). A **live impedance panel** shows G(f), B(f) and the admittance locus for all overtones. Tools > *Impedance Fit (live)* and *Impedance Data View* show what the acquisition published and compute nothing. Two measurement bugs are fixed: the INPB attenuator compensation (0.600 → 0.61069 V, up to −22 % on `R_m`) and the phase-channel offset, which is now **measured** on every sweep at the vertex of the phase fold. Validated in air, water and isopropanol: in liquid, ΔΓ follows Kanazawa–Gordon within 8 % on overtones 3–9. See `CHANGELOG.md`. |
+| *(unreleased)* | `impedance-analysis-sweep-adaptive` | **Experimental**, from `impedance-analysis`: the [adaptive conductance sweep](#adaptive-conductance-sweep) (the resonator's lag cancelled by an up/down pass at κ = 0.125, 2.5–5× faster than the full sweep), the segmented-sweep firmware command `Z` (`0.1.5d-SEG`, `0.1.5d-SEG-TEST`) and peak detection confirmed on finer sweeps. See [`docs/impedance-analysis/ADAPTIVE_SWEEP.md`](docs/impedance-analysis/ADAPTIVE_SWEEP.md). |
 
 The `impedance-analysis` branch is experimental and not merged into `main`. `main`'s changes reach
 it by cherry-pick, never by merge (see `HANDOFF.md`); its documentation lives under `docs/impedance-analysis/` on that branch,
