@@ -92,7 +92,9 @@
      segment waits its dwell_us microseconds more (0: none, as the sweep), so the
      coarse points stay fast while the fine zone is swept slowly. Each point is
      measured as in the sweep (SetFreq, the same 500 averaged readings, the same
-     print); 'Q' stops it as it stops a sweep. A malformed command answers ERR_SEG
+     print); 'Q' stops it as it stops a sweep. A malformed command (2026-10-26: also
+     a field that is not a whole number, which atol read as 0, or a start or stop
+     outside SEG_FREQ_MIN..SEG_FREQ_MAX) answers ERR_SEG
      and the end-of-measurement line, so the host fails at once instead of timing
      out. The plain 'start;stop;step' sweep is untouched.
      Why: the conductance analysis needs 1 Hz steps only within a few
@@ -228,6 +230,9 @@ boolean mcp9808_ok = false;
 
 // VER 0.1.5d-SEG most segments in one Z command
 #define SEG_MAX 8
+// the frequencies a Z segment may span [Hz] (2026-10-26: above F11 of a 5 MHz crystal, 54.9 MHz)
+#define SEG_FREQ_MIN 1L
+#define SEG_FREQ_MAX 60000000L
 
 // --- simulated temperature parameters --------------------------------------
 // baseline ambient temperature reported to the host [degrees Celsius]
@@ -623,12 +628,17 @@ void loop()
       bool ok = true;
       while ((str = strtok_r(p, ";", &p)) != NULL) {
         if (nv >= 4 * SEG_MAX) { ok = false; break; }
-        vals[nv++] = atol(str);
+        // a whole number, nothing else but trailing blanks (atol read "abc" as 0)
+        char *end;
+        vals[nv++] = strtol(str, &end, 10);
+        while (*end == ' ' || *end == '\r' || *end == '\n') end++;
+        if (end == str || *end != '\0') { ok = false; break; }
       }
       if (nv < 4 || nv % 4 != 0) ok = false;
       for (int i = 0; ok && i < nv / 4; i++) {
         long a = vals[4 * i], b = vals[4 * i + 1], step = vals[4 * i + 2], dwell = vals[4 * i + 3];
         if (step == 0 || (step > 0 && b < a) || (step < 0 && b > a) || dwell < 0 || dwell > 100000) ok = false;
+        if (a < SEG_FREQ_MIN || a > SEG_FREQ_MAX || b < SEG_FREQ_MIN || b > SEG_FREQ_MAX) ok = false;
       }
       if (ok) {
         segmented_sweep(vals, nv / 4);

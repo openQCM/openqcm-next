@@ -8,6 +8,15 @@ Conventional Commits. Versions are marked by Git tags.
 Experimental branch from `impedance-analysis` at `59e6b47` (2026-10-25). Full description:
 `docs/impedance-analysis/ADAPTIVE_SWEEP.md`.
 
+### Changed — firmware `Z`: whole numbers and 1 Hz–60 MHz only (2026-10-26)
+
+From openQCM Lab's review of its PR #2 (`47abfe6`). `atol` read a field that is not a number as 0, so
+`Z` swept from 0 Hz instead of failing. Now each field must be a whole number with nothing after it but
+blanks, and every start and stop must be within 1 Hz–60 MHz (`SEG_FREQ_MIN`, `SEG_FREQ_MAX`: above F11 of a
+5 MHz crystal). Otherwise the reply is `ERR_SEG` and the end line. Both `0.1.5d-SEG` and `0.1.5d-SEG-TEST`
+are rebuilt (Teensy core 1.59) with the same version string, and their images replaced in
+`firmware_update/`.
+
 ### Added — the adaptive sweep, ported from openQCM Lab (2026-10-25)
 
 The 1 Hz sweep is fast against the crystal's decay time: on a bench board in air the resonance lags it by +26 Hz and
