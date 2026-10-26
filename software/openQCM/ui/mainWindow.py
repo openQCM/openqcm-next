@@ -106,6 +106,22 @@ def _firmware_is_current(version):
             and version == Constants.FW_VERSION
                            + Constants.FW_VERSION_TEST_SUFFIX)
 
+def _adaptive_refusal(source, adaptive, version):
+    """VER 0.1.6G-ADAPTIVE why START must not run, or None. The adaptive sweep
+    (multiscan only) needs the firmware's segmented sweep 'Z' (a '-SEG' version),
+    and `version` is what the board answered to 'F' at connection. Refused rather
+    than run on the full sweep: the datalog would be named _adaptive for a
+    standard run (as openQCM Lab refuses, review of its PR #2)."""
+    if source != SourceType.multiscan or not adaptive:
+        return None
+    if Constants.FW_SEGMENTED_TAG in (version or ""):
+        return None
+    return ("The adaptive sweep needs a firmware with the segmented sweep (%s, or %s on a "
+            "no-TEC or bench board); this board answered %s. Flash one, or uncheck "
+            "'Experimental: adaptive sweep' in the Measurement Setup."
+            % (Constants.FW_VERSION, Constants.FW_VERSION + Constants.FW_VERSION_TEST_SUFFIX,
+               repr(version) if version else "nothing"))
+
 # _drain_serial outcomes. Three, not two: "the board never stopped talking" and
 # "the handle raised" are opposite faults with opposite remedies -- wait, or
 # reconnect -- and collapsing them into a single False is what reported a board
@@ -456,6 +472,16 @@ class MainWindow(QtGui.QMainWindow):
         #print("")
         print(TAG, 'Clicked START')
         Log.i(TAG, "Clicked START")
+
+        # VER 0.1.6G-ADAPTIVE the adaptive sweep without a firmware that has it:
+        # refused here, before any process or datalog exists
+        refusal = _adaptive_refusal(self._get_source(), self._get_adaptive(),
+                                    getattr(self, "_firmware_version", ""))
+        if refusal:
+            print(TAG, "START refused: " + refusal)
+            Log.w(TAG, "START refused: " + refusal)
+            PopUp.warning(self, "Adaptive sweep", refusal)
+            return
 
         # TODO Disable temperature control button
         #DEV

@@ -408,12 +408,42 @@ class AdaptiveSweepTests(unittest.TestCase):
         said = [m for m in rec.calls["add_message"] if "no whole resonance band" in m]
         self.assertEqual(len(said), 1)
 
-    def test_without_the_segmented_sweep_the_run_uses_the_full_sweep_and_says_so(self):
-        board = Board(Crystal(), version="0.1.5d")
-        proc, rec = process(board)
+    def test_without_the_segmented_sweep_the_run_is_refused_and_says_so(self):
+        # no fallback to the full sweep: its datalog would be named _adaptive
+        for version in ("0.1.5d", "0.1.5d-TEST", ""):
+            board = Board(Crystal(), version=version)
+            proc, rec = process(board)
+            proc.set_adaptive(True)
+            self.assertIsNone(proc._start_adaptive())
+            self.assertTrue(proc._adaptive_refused)
+            self.assertTrue(any("NOTHING IS MEASURED" in m for m in rec.calls["add_message"]))
+            self.assertEqual([c for c in board.commands if c.strip() != "F"], [])   # nothing swept
+
+    def test_with_the_segmented_sweep_or_without_the_box_nothing_is_refused(self):
+        proc, _ = process(Board(Crystal(), version="0.1.5d-SEG-TEST"))
         proc.set_adaptive(True)
+        self.assertIsNotNone(proc._start_adaptive())
+        self.assertFalse(proc._adaptive_refused)
+        proc, _ = process(Board(Crystal(), version="0.1.5d"))
         self.assertIsNone(proc._start_adaptive())
-        self.assertTrue(any("FULL 1 Hz sweep" in m for m in rec.calls["add_message"]))
+        self.assertFalse(proc._adaptive_refused)
+
+
+class StartRefusalTests(unittest.TestCase):
+    """The GUI refuses START before any process or datalog exists."""
+
+    def test_the_adaptive_sweep_needs_a_seg_firmware(self):
+        from openQCM.core.constants import SourceType
+        from openQCM.ui.mainWindow import _adaptive_refusal
+        multi = SourceType.multiscan
+        for version in ("0.1.5d", "0.1.5d-TEST", "", None):
+            message = _adaptive_refusal(multi, True, version)
+            self.assertIsNotNone(message)
+            self.assertIn("0.1.5d-SEG-TEST", message)
+        self.assertIsNone(_adaptive_refusal(multi, True, "0.1.5d-SEG"))
+        self.assertIsNone(_adaptive_refusal(multi, True, "0.1.5d-SEG-TEST"))
+        self.assertIsNone(_adaptive_refusal(multi, False, "0.1.5d"))            # box off
+        self.assertIsNone(_adaptive_refusal(SourceType.serial, True, "0.1.5d"))  # not multiscan
 
     def test_an_overtone_not_read_leaves_its_cell_empty_and_the_row_is_written(self):
         crystal = Crystal()

@@ -8,6 +8,21 @@ Conventional Commits. Versions are marked by Git tags.
 Experimental branch from `impedance-analysis` at `59e6b47` (2026-10-25). Full description:
 `docs/impedance-analysis/ADAPTIVE_SWEEP.md`.
 
+### Fixed — the adaptive sweep is refused without a `-SEG` firmware (2026-10-26)
+
+With the box checked and a firmware without `Z`, the run fell back to the full sweep, but the datalog
+was still named `_adaptive`: a standard run filed as an adaptive one. It is now refused, as openQCM Lab
+refuses it (`47abfe6`).
+
+- **GUI.** `_adaptive_refusal` checks the version the board gave to `F` at connection. In multiscan with
+  the box checked and no `-SEG` (or no answer), START is refused with a pop-up and a System Log line,
+  before any process or datalog exists.
+- **Process.** `_start_adaptive` still asks `F` on its own port. When the board answers without
+  `-SEG` there, `_adaptive_refused` holds `run()` until STOP: nothing swept, no row written, said in
+  the System Log.
+- **Tests.** The fallback test became a refusal test, plus one for a `-SEG` board and the box off and
+  one for the GUI's check: 97 in all. The holding loop in `run()` is not under test.
+
 ### Added — peak detection confirms each peak on finer sweeps (2026-10-26)
 
 Ported from openQCM Lab (`9719141`, `d547680`, 2026-10-21). It always runs.

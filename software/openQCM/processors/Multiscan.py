@@ -1728,6 +1728,10 @@ class MultiscanProcess(multiprocessing.Process):
                 # VER 0.1.6G-ADAPTIVE the adaptive sweep, if the run asked for it
                 # and the firmware has the segmented sweep 'Z'; None: the full sweep
                 self._sweeper = self._start_adaptive()
+                # VER 0.1.6G-ADAPTIVE refused (no 'Z' on this board): nothing is
+                # swept or written until STOP
+                while self._adaptive_refused and not self._exit.is_set():
+                    sleep(0.2)
                 
                 # Initializes the progress bar  
                 # bar = ProgressBar(widgets=[TAG,' ', Bar(marker='>'),' ',Percentage(),' ', Timer()], maxval=self._environment).start() #
@@ -2262,16 +2266,24 @@ class MultiscanProcess(multiprocessing.Process):
     ###########################################################################
     def _start_adaptive(self):
         """An AdaptiveSweep when the run asked for it and the firmware has the
-        segmented sweep 'Z'; None otherwise (the full sweep, said in the System Log).
+        segmented sweep 'Z'; None for the full sweep (the run did not ask for it).
         ⚠️ The firmware is asked here, on the port this process owns: a firmware
-        without 'Z' reads "Z..." as a plain sweep starting at 0 Hz."""
+        without 'Z' reads "Z..." as a plain sweep starting at 0 Hz. The GUI has
+        already refused START for such a board (mainWindow._adaptive_refusal); if
+        this board still answers without '-SEG' (or not at all), the run is
+        REFUSED here too: no sweep, no row, so no datalog named _adaptive for a
+        standard run (it used to fall back to the full sweep). _adaptive_refused
+        holds the loop until STOP."""
         self._sweeper = None
+        self._adaptive_refused = False
         if not self.adaptive_mode():
             return None
         version = self._firmware_version_now()
         if Constants.FW_SEGMENTED_TAG not in version:
+            self._adaptive_refused = True
             self._message("Sweep: the ADAPTIVE sweep needs the firmware's segmented sweep (%s); this board "
-                          "answers %s, so this run uses the FULL 1 Hz sweep."
+                          "answers %s. NOTHING IS MEASURED: press STOP, then flash a -SEG firmware or "
+                          "uncheck the adaptive sweep."
                           % (Constants.FW_VERSION, repr(version) if version else "nothing"))
             return None
         self._environment = Constants.ADAPTIVE_WARMUP

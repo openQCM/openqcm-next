@@ -118,11 +118,16 @@ The command:
 `Constants.FW_VERSION` is `0.1.5d-SEG`, so the firmware check offers these images (they are in
 `software/openQCM/firmware_update/`). The standard sweep runs on either firmware.
 
-At START the process asks the board for its version (`F`).
+With the box checked in multiscan, a board without `-SEG` is **refused**, as openQCM Lab refuses
+it. A firmware without `Z` would read `Z...` as a plain sweep starting at 0 Hz. Until 2026-10-26 the
+run fell back to the full sweep, but the datalog was still named `_adaptive`.
 
-- **The version has `-SEG`:** the run uses the adaptive sweep.
-- **It does not:** the run uses the full sweep and says so in the System Log. A firmware without
-  `Z` would read `Z...` as a plain sweep starting at 0 Hz.
+- **At START, the GUI** checks the version the board gave to `F` at connection
+  (`_adaptive_refusal`). Without `-SEG` (or with no answer), START is refused with a pop-up and a
+  System Log line. No process starts and no datalog is created.
+- **In the process**, `_start_adaptive` asks `F` again on the port it now owns. If the board still
+  answers without `-SEG`, nothing is swept and no row is written until STOP, and the System Log
+  says so.
 
 Both images were built with arduino-cli, Teensy core 1.59,
 `--fqbn teensy:avr:teensy40:usb=serial,speed=600`. The only compiler warning is the unused
@@ -196,14 +201,14 @@ Measured on the simulated line:
 | `tests/test_adaptive.py`, simulated BVD crystal with the resonator's lag | adaptive vs the same crystal without lag | f within 1 Hz, Γ within 1 % |
 | same | full sweep with lag | f +47 Hz, Γ +29 % (the lag is there) |
 | same | resonance moving at −20 Hz/s | a reading every cycle, following it |
-| same | firmware without `Z` | full sweep, said in the System Log |
+| same | firmware without `Z` (or no answer) | refused: nothing swept, no row, said in the System Log; the GUI refuses START first |
 | same | a failed overtone | empty cell, row written; the next cycle locates it again |
 | same | Γ 2 Hz | the dwell stays within the firmware's 100 ms |
 | same | a window that is not whole hertz | the full sweep is sent and analysed on whole hertz |
 | same | a load wider than the window | nothing published, said once |
 | Q-1 bench board 13131320, 2026-10-25, first run of this application (Lorentzian estimator, F0–F9) | it runs | f_res 4 998 364 / 14 967 159 / 24 937 426 / 34 906 546 / 44 877 398 Hz, Γ 52.5–166 Hz at the first sweep; later relocations on every overtone, not yet analysed |
 
-The 70 tests of the branch still pass, with 15 new ones (14 in `tests/test_adaptive.py`, 1 for the Setup card): 85 in all.
+The 70 tests of the branch still pass, with 17 new ones (16 in `tests/test_adaptive.py`, 1 for the Setup card): 87 in all, 97 with `tests/test_peak_refine.py`.
 
 ### Carried from openQCM Lab's review of its PR #2 (`47abfe6`, 2026-10-26)
 
@@ -211,8 +216,7 @@ The dwell cap; a failed sweep forgets the overtone; the locating sweep latches n
 statistics, sweeps whole hertz and is not published without a whole band; the baselines leave out
 the lead-in; `Z` refuses fields that are not whole numbers and frequencies outside 1 Hz–60 MHz. Not
 carried, because there is nothing like it here: the blocks of Lab's conductance methods, its Swift
-GUI and Wi2, and the refusal to start without `Z` (here the run falls back to the full sweep and
-says so).
+GUI and Wi2. The refusal to start without `Z` followed on the same day (see Firmware).
 
 ## Remaining, for the test session
 
