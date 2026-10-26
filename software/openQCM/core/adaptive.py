@@ -105,7 +105,7 @@ class SweepPlan(object):
             return None
         step = max(Constants.FREQUENCY_STEP, int(gamma // Constants.ADAPTIVE_POINTS_PER_GAMMA))
         rate = rate_k * 2 * math.pi * gamma ** 2
-        dwell = max(0, int(round(step / rate * 1e6 - point_us)))
+        dwell = min(Constants.ADAPTIVE_DWELL_MAX_US, max(0, int(round(step / rate * 1e6 - point_us))))
         lead = max(2, int(math.ceil(Constants.ADAPTIVE_LEAD_TAU / (2 * math.pi * gamma)
                                     / ((point_us + dwell) * 1e-6))))
         half = max(Constants.ADAPTIVE_FINE_GAMMA * gamma, Constants.ADAPTIVE_FINE_MIN_HZ) + extra_hz
@@ -199,6 +199,10 @@ class AdaptiveSweep(object):
         else:
             self.forget(overtone)
 
+    def located(self, overtone):
+        """The last sweep of this overtone placed its resonance (its band was whole)."""
+        return overtone in self._last
+
     def forget(self, overtone):
         """The next sweep of this overtone is a full one."""
         self._last.pop(overtone, None)
@@ -263,7 +267,9 @@ class AdaptiveSweep(object):
     def locate(self, overtone, freq, bit_mag, bit_phase, sg_window, points):
         """The full sweep: elaborate_multi's chain (SG, spline onto 1 Hz, fold, exact
         G, maximum, half height, fit), for where the adaptive sweep goes. Its
-        reading is not published: it lags. Returns the published pair."""
+        reading is not published: it lags. So its fold decision is not latched
+        (the adaptive passes latch their own) and it does not count in the fit's
+        statistics (openQCM Lab, review of PR #2). Returns the published pair."""
         proc = self.proc
         vm, vp = volts(bit_mag, bit_phase)
         freq = np.asarray(freq, dtype=float)
@@ -280,11 +286,12 @@ class AdaptiveSweep(object):
         if Constants.PHASE_FOLD_BY_PEAK_DEPTH:
             decided, _ = proc._phase_fold_decision(fine, vmag_fit, folded)
             if decided is not None:
-                fold = proc._fold_latched(overtone, decided)
+                fold = decided
                 offset = -p_min if fold else 0.0
         g = proc._G_exact(*proc._RX_exact(vmag_fit, folded + offset))
         _, f_seed, band = proc.parameters_finder_impedance_exact(fine, g)
-        published, _ = proc._publish_resonance(overtone, fine, g, float(f_seed), float(abs(band.bandwidth)))
+        published, _ = lorentzian.publish(fine, g, float(f_seed), float(abs(band.bandwidth)),
+                                          estimator=proc.estimator_mode())
         self.remember(overtone, published, band, track=False)
         return published
 
@@ -355,7 +362,10 @@ class AdaptiveSweep(object):
         fine_mask = np.zeros(len(freq), dtype=bool)
         for i in plan.fine:
             fine_mask[plan.indices(i)] = True
-        coarse = ~fine_mask       # the baselines from the window's ends only
+        # The baselines from the coarse points only: not the fine zone, nor the
+        # lead-in just below it (openQCM Lab, review of PR #2)
+        coarse = ~fine_mask
+        coarse[plan.indices(plan.fine[0] - 1)] = False
         passes = [self._pass(overtone, plan, plan.indices(i), coarse, vm, vp, (overtone, k))
                   for k, i in enumerate(plan.fine)]
         lost = any(p.lost for p in passes)

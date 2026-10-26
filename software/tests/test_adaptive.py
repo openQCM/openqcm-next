@@ -51,6 +51,7 @@ class Board(object):
     def __init__(self, crystal, lag=True, drift=0.0, version="0.1.5d-SEG", refuse_z=False, seed=1):
         self.crystal, self.lag, self.drift, self.version = crystal, lag, drift, version
         self.refuse_z = refuse_z
+        self.commands = []        # every command received, as sent
         self.t = 0.0
         self.y = None
         self.rng = np.random.default_rng(seed)
@@ -95,6 +96,7 @@ class Board(object):
             self.y = target + (self.y - target) * np.exp(-k * dt)
 
     def answer(self, cmd):
+        self.commands.append(cmd)
         cmd = cmd.strip()
         end = "25.00;0;0;s"
         if cmd == "F":
@@ -215,6 +217,12 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(plan.command().count(";"), 4 * len(segs) - 1)
         self.assertLess(plan.seconds(), 0.7)                          # the full sweep takes 1.5 s
 
+    def test_a_narrow_line_never_asks_for_a_dwell_the_firmware_refuses(self):
+        # Gamma 2 Hz at 1 Hz steps would need 0.3 s a point; Z takes 100 ms at most
+        plan = A.SweepPlan.around(4_998_350.0, 2.0, 4_986_350, 5_004_350)
+        self.assertIsNotNone(plan)
+        self.assertEqual(max(seg[3] for seg in plan.segments), Constants.ADAPTIVE_DWELL_MAX_US)
+
     def test_no_room_no_plan(self):
         self.assertIsNone(A.SweepPlan.around(5e6, 0.0, 4_988_000, 5_006_000))
         self.assertIsNone(A.SweepPlan.around(5_006_200.0, 41.0, 4_988_000, 5_006_000))   # past the window
@@ -314,6 +322,91 @@ class AdaptiveSweepTests(unittest.TestCase):
         self.assertEqual(len(f), 12 - Constants.ADAPTIVE_WARMUP)
         self.assertTrue(np.all(np.isfinite(f)))
         self.assertLess(np.max(np.diff(f)), 0.0)              # it follows the resonance down
+
+    def test_the_locating_sweep_latches_no_fold_and_counts_in_no_statistics(self):
+        board = Board(Crystal())
+        proc, _ = process(board)
+        proc.set_estimator("lorentzian")
+        latched, witnessed = [], []
+        proc._fold_latched = lambda *a: latched.append(a) or a[1]
+        proc._witness_resonance = lambda *a: witnessed.append(a)
+        sweeper = A.AdaptiveSweep(proc, clock=board.now)
+        start, stop, readF = window(round(board.crystal.fs))
+        n = Constants.argument_default_samples
+        bm, bp, _ = proc._measure(0, "%d;%d;1\n" % (start, stop), n, 10)
+        decisions = []
+        decide = proc._phase_fold_decision
+        proc._phase_fold_decision = lambda *a: decisions.append(decide(*a)) or decisions[-1]
+        sweeper.locate(0, readF, bm, bp, Constants.SG_WINDOW_SIZE, n)
+        self.assertIsNotNone(decisions[0][0])            # there was a decision to latch
+        self.assertTrue(sweeper.located(0))
+        self.assertEqual((latched, witnessed), ([], []))
+
+    def test_the_full_sweep_sends_whole_hertz_and_is_analysed_on_them(self):
+        crystal = Crystal()
+        board = Board(crystal, lag=True)
+        proc, rec = process(board)
+        proc.set_adaptive(True)
+        proc._sweeper = proc._start_adaptive()
+        proc._sweeper.clock = board.now
+        cycles(proc, board, 4, crystal.fs + 0.6)         # a window from the last f_res, not whole
+        plain = [c for c in board.commands if c[0].isdigit()]
+        self.assertEqual(len(plain), 1)
+        self.assertNotIn(".", plain[0])
+        self.assertEqual(len(rec.calls["add5"]), 4 - Constants.ADAPTIVE_WARMUP)
+
+    def test_the_baselines_leave_out_the_lead_in(self):
+        crystal = Crystal()
+        board = Board(crystal, lag=True)
+        proc, _ = process(board)
+        proc.set_adaptive(True)
+        proc._sweeper = sweeper = proc._start_adaptive()
+        seen = []
+        original = sweeper._pass
+        sweeper._pass = lambda overtone, plan, idx, coarse, *a: (seen.append((plan, coarse.copy()))
+                                                                 or original(overtone, plan, idx, coarse, *a))
+        cycles(proc, board, 2, round(crystal.fs))
+        plan, coarse = seen[-1]
+        lead = plan.indices(plan.fine[0] - 1)
+        self.assertFalse(coarse[lead].any())
+        self.assertTrue(coarse[:lead[0]].all())          # every coarse point before it is kept
+
+    def test_a_failed_sweep_forgets_the_overtone_and_the_next_cycle_locates_it_again(self):
+        crystal = Crystal()
+        board = Board(crystal, lag=True)
+        proc, rec = process(board)
+        proc.set_adaptive(True)
+        proc._sweeper = proc._start_adaptive()
+        cycles(proc, board, 3, round(crystal.fs))
+        board.refuse_z = True
+        start, stop, readF = window(round(crystal.fs))
+        proc._cycle_failed = set()
+        proc._adaptive_overtone(3, 0, np.array([0.0]), start, stop, readF, Constants.argument_default_samples,
+                                Constants.SG_WINDOW_SIZE, Constants.argument_default_samples,
+                                Constants.SPLINE_FACTOR, 0)
+        self.assertFalse(proc._sweeper.located(0))
+        board.refuse_z = False
+        sent = len(board.commands)
+        proc._cycle_failed = set()
+        proc._adaptive_overtone(4, 0, np.array([0.0]), start, stop, readF, Constants.argument_default_samples,
+                                Constants.SG_WINDOW_SIZE, Constants.argument_default_samples,
+                                Constants.SPLINE_FACTOR, 0)
+        self.assertTrue(board.commands[sent][0].isdigit())    # a full sweep first
+        self.assertTrue(np.isfinite(rec.calls["add5"][-1][4][0]))
+
+    def test_a_full_sweep_with_no_whole_band_is_not_published_and_says_so_once(self):
+        crystal = Crystal(gamma=20000.0)                 # a damped load: wider than the window
+        board = Board(crystal, lag=True)
+        proc, rec = process(board)
+        proc.set_adaptive(True)
+        proc._sweeper = proc._start_adaptive()
+        cycles(proc, board, 5, round(crystal.fs))
+        self.assertNotIn("add_GB_multi", rec.calls)
+        rows = rec.calls["add5"]
+        self.assertEqual(len(rows), 5 - Constants.ADAPTIVE_WARMUP)
+        self.assertTrue(all(math.isnan(r[4][0]) for r in rows))
+        said = [m for m in rec.calls["add_message"] if "no whole resonance band" in m]
+        self.assertEqual(len(said), 1)
 
     def test_without_the_segmented_sweep_the_run_uses_the_full_sweep_and_says_so(self):
         board = Board(Crystal(), version="0.1.5d")

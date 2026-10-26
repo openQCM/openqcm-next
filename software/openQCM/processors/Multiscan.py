@@ -2276,6 +2276,7 @@ class MultiscanProcess(multiprocessing.Process):
             return None
         self._environment = Constants.ADAPTIVE_WARMUP
         self._temperature_mean = float("nan")
+        self._unlocated = set()     # overtones whose full sweep found no whole band (said once)
         self._message("Sweep for this run: EXPERIMENTAL adaptive sweep (firmware %s): coarse %d Hz steps for "
                       "the baselines, then +-%g Gamma of the resonance up and down at %g x 2 pi Gamma^2 Hz/s, "
                       "f and Gamma the means of the two passes; one reading per cycle, no running mean, "
@@ -2355,31 +2356,45 @@ class MultiscanProcess(multiprocessing.Process):
         not thrown away: the peak of G among its coarse points places the fine zone
         again, swept at once, up to ADAPTIVE_RELOCATE times; only then a full
         sweep. So a moving resonance leaves no hole in the readings. When even
-        that fails, this overtone's cell of the cycle's row is empty."""
+        that fails, this overtone's cell of the cycle's row is empty, and so it is
+        when the full sweep finds no whole band (a damped load): that sweep lags,
+        so it is not published (openQCM Lab, review of PR #2). A sweep that fails
+        forgets the overtone: the next cycle locates it again with a full sweep."""
         self._k = k             # as elaborate_multi: _publish_reading reads it
         sweeper = self._sweeper
         plan = sweeper.plan(overtone_index, start, stop)
         relocated = 0
         for _ in range(4 + Constants.ADAPTIVE_RELOCATE):
             if plan is None:
-                # the full sweep, as run() sends it
-                step = (stop - start) / (samples - 1)
-                cmd = str(start) + ';' + str(stop) + ';' + str(int(step)) + '\n'
+                # the full sweep over the frequencies the firmware sweeps: whole hertz
+                # (the window's ends follow the last resonance, which is not)
+                first, step = int(start), int((stop - start) / (samples - 1))
+                freqs = first + np.arange(samples) * float(step)
+                cmd = "%d;%d;%d\n" % (first, first + (samples - 1) * step, step)
                 got = self._measure(overtone_index, cmd, samples, Constants.TIME_ELAPSED_TIMEOUT)
                 if got is None:
                     break
                 bit_mag, bit_phase, temperature = got
-                sweeper.locate(overtone_index, readFREQ, bit_mag, bit_phase, sg_window_size, spline_points)
+                sweeper.locate(overtone_index, freqs, bit_mag, bit_phase, sg_window_size, spline_points)
                 plan = sweeper.plan(overtone_index, start, stop)
                 if plan is not None:
+                    self._unlocated.discard(overtone_index)
                     continue            # located: now the adaptive sweep, which is published
-                # No band whole in the window (a damped load): the full sweep is
-                # published, as the standard sweep would
+                if not sweeper.located(overtone_index):
+                    # No band whole in the window (a damped load): not published, it
+                    # lags. Said once, when it starts.
+                    if overtone_index not in self._unlocated:
+                        self._unlocated.add(overtone_index)
+                        self._message("Adaptive sweep (overtone %d): no whole resonance band in the window, "
+                                      "nothing published until there is one" % overtone_index)
+                    break
+                # Located, but no room for the fine zone (the resonance near the
+                # window's edge): the full sweep is published, as the standard sweep would
                 self.set_frequencies_RT(overtone_index, self.freq_res_current_array[overtone_index])
-                self.elaborate_multi(k, overtone_index, coeffs_all, readFREQ, samples, bit_mag, bit_phase,
+                self.elaborate_multi(k, overtone_index, coeffs_all, freqs, samples, bit_mag, bit_phase,
                                      temperature, sg_window_size, spline_points, spline_factor, timestamp)
                 mag, phase = magnitude_phase(bit_mag, bit_phase)
-                self.elaborate_ampli_phase_multi(overtone_index, coeffs_all, readFREQ, mag, phase)
+                self.elaborate_ampli_phase_multi(overtone_index, coeffs_all, freqs, mag, phase)
                 return
             got = self._measure(overtone_index, plan.command(), len(plan.freqs), plan.seconds() * 1.5 + 2.0)
             if got is None:
@@ -2399,7 +2414,9 @@ class MultiscanProcess(multiprocessing.Process):
             sweeper.forget(overtone_index)
             plan = None
         # nothing read: this overtone's cell of the row stays empty, and the row is
-        # still written when this overtone closes the cycle
+        # still written when this overtone closes the cycle. The next cycle locates
+        # it again with a full sweep (a failed sweep says nothing of where it is).
+        sweeper.forget(overtone_index)
         self._cycle_failed.add(overtone_index)
         if k >= self._environment and overtone_index == self._overtones_in_cycle - 1:
             self._my_time_array[overtone_index] = int(time() * 1e6)

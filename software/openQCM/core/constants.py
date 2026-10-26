@@ -587,6 +587,8 @@ class Constants:
     ADAPTIVE_PHASE_BASE_HZ = 1000  # coarse points this close to either end of the window: the phase baseline
     ADAPTIVE_G_BASE_HZ = 500       # ... to its low end: G's baseline
     ADAPTIVE_POINT_US = 83.4       # one point of the sweep without dwell (18 001 in 1.50 s)
+    ADAPTIVE_DWELL_MAX_US = 100000 # the Z command's limit per point (firmware: ERR_SEG beyond it); a line
+                                   # narrower than that allows (Gamma below ~3.5 Hz at 1 Hz steps) goes faster than K
     # A moving resonance (a film growing, vapour condensing): the fine zone goes
     # where the resonance will be, from its speed over the last two adaptive
     # sweeps, widened by ADAPTIVE_PREDICT_MARGIN of the predicted move. A sweep

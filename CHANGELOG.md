@@ -8,6 +8,28 @@ Conventional Commits. Versions are marked by Git tags.
 Experimental branch from `impedance-analysis` at `59e6b47` (2026-10-25). Full description:
 `docs/impedance-analysis/ADAPTIVE_SWEEP.md`.
 
+### Fixed — the adaptive sweep, from openQCM Lab's review of its PR #2 (2026-10-26)
+
+From `47abfe6` in openQCM Lab, where the same code was reviewed after the port.
+
+- **Dwell cap.** `ADAPTIVE_DWELL_MAX_US` = 100 000, the `Z` limit. A line narrower than about 3.5 Hz
+  asked for more and got `ERR_SEG`.
+- **A failed measurement forgets the overtone.** The next cycle locates it with a full sweep instead of
+  sweeping the old plan again.
+- **The locating full sweep:**
+  - latches no fold decision (`_fold_latched`) and does not count in the fit's statistics
+    (`_witness_resonance`). It is not published, so it must not steer what is;
+  - is sent and analysed on whole hertz. The window's ends follow the last f_res, so the sweep was
+    sent as `4986363.6;...`, which the firmware reads as 4986363, while the analysis used the
+    fractional grid;
+  - **is not published when its band is not whole** (a damped load), because it lags. The cell stays
+    empty and the System Log says so once. Before, `elaborate_multi` published it.
+- **The baselines leave out the lead-in**, which sits just below the resonance.
+- **Tests.** Six new tests in `tests/test_adaptive.py`, each failing on the code before: 85 in all.
+
+The standard path is untouched. It still sends the window's fractional ends to the firmware
+(`run()`, `cmd = str(startF[...])`); that is out of this branch's scope.
+
 ### Changed — firmware `Z`: whole numbers and 1 Hz–60 MHz only (2026-10-26)
 
 From openQCM Lab's review of its PR #2 (`47abfe6`). `atol` read a field that is not a number as 0, so

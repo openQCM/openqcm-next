@@ -25,7 +25,13 @@ on the fundamental in air.
 `core/adaptive.py` plans and analyses; `MultiscanProcess` sweeps and publishes.
 
 1. **Locate.** One full 1 Hz sweep through the chain of `elaborate_multi`. Its reading is never
-   published, because it lags.
+   published, because it lags. For the same reason it latches no fold decision (the passes latch
+   their own) and does not count in the fit's statistics. It sweeps whole hertz: the window follows
+   the last resonance, which is not a whole number, and the firmware truncates what it is sent.
+   - **No whole band in the window** (a damped load): nothing is published, and the System Log
+     says so once.
+   - **A band, but no room for the fine zone** (the resonance at the window's edge): the full sweep
+     is published, as the standard sweep would.
 2. **Each following sweep** is one `Z` command of the firmware (0.1.5d-SEG), with its segments in
    this order:
    - the window's first point, after a wait of `ADAPTIVE_SETTLE_TAU` = 3 τ (see below);
@@ -39,9 +45,9 @@ on the fundamental in air.
    - Savitzky–Golay over 51 Hz, then the spline onto 1 Hz with the full sweep's smoothing per point;
    - fold (latched per pass), exact G, maximum, half height, and the Lorentzian fit when it is
      chosen;
-   - the baselines come from the coarse points (`_phase_fold_decision` and
-     `_half_bandwidth_G_exact` take them as a new optional argument; without it they behave as
-     before).
+   - the baselines come from the coarse points, not the lead-in, which sits just below the
+     resonance (`_phase_fold_decision` and `_half_bandwidth_G_exact` take them as a new optional
+     argument; without it they behave as before).
 
    **f and Γ are the means of the two passes**: the remaining lag cancels.
 4. **Display.** The two passes are moved back by ±lag (lag = half the distance between their
@@ -62,7 +68,8 @@ Lab, the first version left holes in the readings. Now:
 - only then does a full sweep locate the resonance again.
 
 If even that fails, the overtone's cell in that cycle's datalog row is empty (NaN), not the value
-of the cycle before. The row is still written.
+of the cycle before. The row is still written. A measurement that fails (a timeout, `ERR_SEG`)
+forgets the overtone, so the next cycle locates it again with a full sweep.
 
 ### Readings
 
@@ -98,11 +105,14 @@ The command:
 
 - Up to 8 segments, swept in the order given, each from start to stop included: upwards with
   step > 0, downwards with step < 0.
-- Each point waits dwell_us (0–100 000) more before its 500 averaged readings.
+- Each point waits dwell_us (0–100 000) more before its 500 averaged readings. The plan never asks
+  for more (`ADAPTIVE_DWELL_MAX_US`): a line narrower than about 3.5 Hz at 1 Hz steps is swept faster
+  than 0.125 · 2πΓ².
 - Each point is printed as in the sweep, followed by the same end-of-measurement line. On the Next,
   that line comes from the code that closed the sweep, moved unchanged into `end_of_measurement()`.
 - `Q` stops it.
-- A malformed command answers `ERR_SEG` and the end line.
+- A malformed command answers `ERR_SEG` and the end line. Since 2026-10-26 that includes a field
+  that is not a whole number and a start or stop outside 1 Hz–60 MHz.
 - The plain `start;stop;step` sweep is untouched.
 
 `Constants.FW_VERSION` is `0.1.5d-SEG`, so the firmware check offers these images (they are in
@@ -140,11 +150,22 @@ Both images were built with arduino-cli, Teensy core 1.59,
 | same | full sweep with lag | f +47 Hz, Γ +29 % (the lag is there) |
 | same | resonance moving at −20 Hz/s | a reading every cycle, following it |
 | same | firmware without `Z` | full sweep, said in the System Log |
-| same | a failed overtone | empty cell, row written |
+| same | a failed overtone | empty cell, row written; the next cycle locates it again |
+| same | Γ 2 Hz | the dwell stays within the firmware's 100 ms |
+| same | a window that is not whole hertz | the full sweep is sent and analysed on whole hertz |
+| same | a load wider than the window | nothing published, said once |
+| Q-1 bench board 13131320, 2026-10-25, first run of this application (Lorentzian estimator, F0–F9) | it runs | f_res 4 998 364 / 14 967 159 / 24 937 426 / 34 906 546 / 44 877 398 Hz, Γ 52.5–166 Hz at the first sweep; later relocations on every overtone, not yet analysed |
 
-The 70 tests of the branch still pass, with 9 new ones (8 in `tests/test_adaptive.py`, 1 for the Setup card): 79 in all.
+The 70 tests of the branch still pass, with 15 new ones (14 in `tests/test_adaptive.py`, 1 for the Setup card): 85 in all.
 
-**Not yet run:** this Python application on a real board.
+### Carried from openQCM Lab's review of its PR #2 (`47abfe6`, 2026-10-26)
+
+The dwell cap; a failed sweep forgets the overtone; the locating sweep latches no fold, counts in no
+statistics, sweeps whole hertz and is not published without a whole band; the baselines leave out
+the lead-in; `Z` refuses fields that are not whole numbers and frequencies outside 1 Hz–60 MHz. Not
+carried, because there is nothing like it here: the blocks of Lab's conductance methods, its Swift
+GUI and Wi2, and the refusal to start without `Z` (here the run falls back to the full sweep and
+says so).
 
 ## Remaining, for the test session
 
