@@ -246,15 +246,19 @@ What is specific to this branch:
   at the top of this file.
   The two branches stay separate until a merge `impedance-analysis → main` is decided.
 - **`impedance-analysis-sweep-adaptive`** (from `impedance-analysis` at `59e6b47`, 2026-10-25):
-  ⚠️ **local only.** It lives in its own clone, `/Users/marco/claude_code/openqcm-next-sweep-adaptive`,
-  whose push URL is `DISABLED-local-only`. It carries what openQCM Lab built on Marco's conductance
-  analysis:
+  **Published on GitHub on 2026-10-26** at Marco's request, after five commits that had lived only
+  in its own clone, `/Users/marco/claude_code/openqcm-next-sweep-adaptive`. That clone's push URL is
+  still `DISABLED-local-only` as a guard, so a push names the URL explicitly. It carries what openQCM
+  Lab built on Marco's conductance analysis:
   - the adaptive sweep, with firmware `0.1.5d-SEG` / `0.1.5d-SEG-TEST` and the `Z` command, and the
     fixes from openQCM Lab's review of its PR #2;
   - peak detection that confirms each peak on finer sweeps (`core/peak_refine.py`).
 
   Everything is in `docs/impedance-analysis/ADAPTIVE_SWEEP.md` and in this branch's `[Unreleased]`
-  section of the CHANGELOG. First run on the Q-1 bench board 13131320: 2026-10-25.
+  section of the CHANGELOG, summarised with figures in the README's *Adaptive Conductance Sweep*.
+  First run on the Q-1 bench board 13131320: 2026-10-25.
+  ⚠️ **Still to run on a board:** the rebuilt `0.1.5d-SEG-TEST` (`Z` validation, not yet flashed) and
+  the refined peak detection.
 
 ## 3. Current state on `main`
 
