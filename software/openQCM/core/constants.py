@@ -1065,6 +1065,28 @@ class Constants:
     # VER 0.1.4a calibration total frequency array 
     calibration_default_samples = int( (calib_samples - 1) * calib_sections) + 1
     calibration_readFREQ  = np.arange(calibration_default_samples) * (calib_fStep) + calibration_frequency_start
+
+    # VER 0.1.6G-ADAPTIVE each peak of the wide sweep confirmed on finer sweeps
+    # around it (core/peak_refine.py; openQCM Lab, 2026-10-21). The wide sweep runs
+    # at about 6 MHz/s and its peaks lag behind the resonances: on the Q-1 bench
+    # board (2026-10-25) they were stored 1.8-3.6 kHz above what the adaptive sweep
+    # then measured; in openQCM Lab, on a Next, 1.5-5 kHz. First +-25 kHz at 50 Hz
+    # (a narrow sweep around a peak that far off can miss it), then +-5 kHz at 10 Hz
+    # on the maximum found there, unless the line is wider than 2/3 of that (a
+    # liquid: then the +-25 kHz sweep is used).
+    REFINE_WIDE_HALF_SPAN = 25000   # Hz
+    REFINE_WIDE_STEP = 50           # Hz
+    REFINE_HALF_SPAN = 5000         # Hz
+    REFINE_STEP = 10                # Hz
+    # Confirmed when the magnitude maximum is not within REFINE_EDGE of either end,
+    # the phase maximum is within max(REFINE_MAX_DIFF, REFINE_MAX_DIFF_WIDTHS x the
+    # half-power width) of it (in water they are up to 0.6 widths apart), and the
+    # phase maximum, baseline corrected, is above REFINE_PHASE_THRESHOLD
+    REFINE_MAX_DIFF = 2000          # Hz
+    REFINE_MAX_DIFF_WIDTHS = 0.75
+    REFINE_EDGE = 0.05              # of the sweep's points
+    REFINE_PHASE_THRESHOLD = 10     # degrees, as the wide sweep's overtone check
+    REFINE_TIMEOUT = 10.0           # s, one refining sweep (about 0.2 s on the Next)
     
     
     ##############################

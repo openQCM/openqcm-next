@@ -128,6 +128,53 @@ Both images were built with arduino-cli, Teensy core 1.59,
 `--fqbn teensy:avr:teensy40:usb=serial,speed=600`. The only compiler warning is the unused
 `lastByte`, which both base firmwares already had.
 
+## Peak detection: each peak confirmed on finer sweeps (2026-10-26)
+
+Ported from openQCM Lab (`9719141`, `d547680`): `core/peak_refine.py`, plus
+`CalibrationProcess._refine_peaks` and `_sweep_section`. It always runs.
+
+**Why.** The wide sweep, 1–51 MHz in 500 Hz steps, runs at about 6 MHz/s, and its peaks lag the
+resonances. On 2026-10-25 the bench board's stored peaks sat above the resonances the adaptive sweep
+then measured:
+
+| F1 | F3 | F5 | F7 | F9 |
+|---|---|---|---|---|
+| +2.1 kHz | +1.8 kHz | +3.6 kHz | +3.5 kHz | +3.6 kHz |
+
+openQCM Lab measured 1.5–5 kHz on a Next. The 500 Hz step is also wider than a line in air, so the
+wide sweep's phase check could reject real overtones.
+
+**How.** For the fundamental and for every overtone candidate of the wide sweep, including the
+ones its own check rejected:
+
+1. Sweep ±25 kHz at 50 Hz. If the maximum is at the edge, there is no resonance here.
+2. Sweep ±5 kHz at 10 Hz on that maximum. If the line is too wide for this sweep, the ±25 kHz
+   sweep is judged instead.
+3. Confirm the peak when all three hold:
+   - the magnitude maximum is not within 5 % of either end;
+   - the phase maximum is within max(2 kHz, ¾ of the half-power width) of it;
+   - the phase maximum is above 10°.
+
+   Both maxima use the wide sweep's baselines.
+
+**Results.**
+- **Overtones.** A rejected overtone is left out, as before.
+- **Fundamental.** It is refined but never rejected; a rejection keeps the wide sweep's value.
+- **Precision.** The stored peaks are on the 10 Hz grid (50 Hz for a wide line).
+- **Log.** Every decision is printed with its numbers.
+- **Stop.** A Stop during these sweeps sends `Q` and saves nothing, as a Stop during the wide sweep.
+- **Failure.** A failed sweep fails the peak detection ("repeat").
+
+Measured on the simulated line:
+- **Choosing the sweep.** The ±5 kHz sweep reads the width over a straight line through its own
+  ends, which a wide line lifts. A true FWHM of 4 kHz reads 2.8 kHz, and the switch to the
+  ±25 kHz sweep comes at about 5.5 kHz. This is openQCM Lab's behaviour, kept. The peak is found
+  within 100 Hz either way.
+- **Time.** Five peaks take 10 sweeps of about 1 000 points each, about 2 s on the Next.
+
+`tests/test_peak_refine.py` (10 tests) uses the bench run's wide and adaptive frequencies.
+**Not yet run on a board.**
+
 ## In the GUI and in the files
 
 - **Measurement Setup.** A new checkbox, **Experimental: adaptive sweep**, sits under the

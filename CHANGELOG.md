@@ -8,6 +8,37 @@ Conventional Commits. Versions are marked by Git tags.
 Experimental branch from `impedance-analysis` at `59e6b47` (2026-10-25). Full description:
 `docs/impedance-analysis/ADAPTIVE_SWEEP.md`.
 
+### Added — peak detection confirms each peak on finer sweeps (2026-10-26)
+
+Ported from openQCM Lab (`9719141`, `d547680`, 2026-10-21). It always runs.
+
+**Why.** The wide sweep (1–51 MHz in 500 Hz steps, about 6 MHz/s) lags the resonances. On the Q-1
+bench board on 2026-10-25 the stored peaks were 1.8–3.6 kHz above the resonances the adaptive sweep
+measured (openQCM Lab, on a Next: 1.5–5 kHz). Its step is also wider than a line in air.
+
+**How.** After the wide sweep, the fundamental and every overtone candidate (the ones its phase
+check rejected too) are swept again:
+- first ±25 kHz at 50 Hz;
+- then ±5 kHz at 10 Hz on the maximum found there. A line too wide for it keeps the ±25 kHz sweep.
+
+A peak is confirmed when the magnitude maximum is off the ends and the phase maximum is within
+max(2 kHz, ¾ width) of it and above 10°. A rejected overtone is left out, as before. The fundamental
+is never rejected: a rejection keeps the wide value. Every decision is printed with its numbers.
+
+- **New code.** `core/peak_refine.py`, the `REFINE_*` constants, and in `CalibrationProcess`
+  `_refine_peaks` and `_sweep_section` (whole hertz; on a Stop it sends `Q`, raises `Cancelled` and
+  saves nothing). `peak_detection_qcm_overtones` keeps its candidates.
+- **Moved.** `self.stop()` moves from the end of the wide sweep to the end of `run()`, so the
+  refining sweeps can read `_exit` as the user's Stop.
+- **Measured on the simulated line.** The ±5 kHz sweep reads a 4 kHz line as 2.8 kHz wide (its end
+  baseline is lifted), so the switch to ±25 kHz comes at a true FWHM of about 5.5 kHz. This is
+  openQCM Lab's behaviour, kept; the peak is within 100 Hz either way.
+- **Tests.** `tests/test_peak_refine.py` (10): 95 tests in all.
+
+Not ported: `22f9ed2` (a failed peak detection keeps the saved one marked; GUI), `905a287`
+(openQCM Lab's own measurement windows) and `688799b` (openQCM Lab's 11 Hz Next sweep): there is
+nothing like them here, where the sweep is already 1 Hz.
+
 ### Fixed — the adaptive sweep, from openQCM Lab's review of its PR #2 (2026-10-26)
 
 From `47abfe6` in openQCM Lab, where the same code was reviewed after the port.

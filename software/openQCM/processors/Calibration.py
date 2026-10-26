@@ -3,6 +3,8 @@ import time
 from openQCM.core.constants import Constants
 from openQCM.common.fileStorage import FileStorage
 from openQCM.common import sweepDump as SweepDump
+# VER 0.1.6G-ADAPTIVE each peak confirmed on finer sweeps around it
+from openQCM.core import peak_refine
 
 import serial
 from serial.tools import list_ports
@@ -220,6 +222,11 @@ class CalibrationProcess(multiprocessing.Process):
                     indices_to_discard.append(i)
             
         
+        # VER 0.1.6G-ADAPTIVE every candidate, rejected here or not: the fine
+        # sweeps around them decide (_refine_peaks). This sweep's 500 Hz step is
+        # wider than a line in air, so its phase check rejected real overtones.
+        self._overtone_candidates = (list(overtones_n[:len(overtones_f)]), frequency_overtones.copy())
+        
         # discard the corresponding frequencies from your measurements:
         frequency_overtones_filtered = np.delete(frequency_overtones, indices_to_discard)
          
@@ -227,6 +234,69 @@ class CalibrationProcess(multiprocessing.Process):
         # return (frequency_overtones)
         # return the QCM overtones filtered
         return (frequency_overtones_filtered)
+
+    ###########################################################################
+    # VER 0.1.6G-ADAPTIVE PEAKS CONFIRMED ON FINER SWEEPS (core/peak_refine.py)
+    ###########################################################################
+    def _refine_peaks(self, f0):
+        """The fundamental f0 and every overtone candidate of the wide sweep,
+        each swept again around it (+-25 kHz at 50 Hz, then +-5 kHz at 10 Hz):
+        (fundamental, confirmed overtones). The fundamental is refined but never
+        rejected here (it was found on the magnitude alone, as before); an
+        overtone the fine sweep rejects is left out, as the wide sweep's check
+        left it out. Each decision is printed with its numbers."""
+        mag_coeffs, phase_coeffs = self._coeffs_all, self._coeffs_all_phase
+        r = peak_refine.confirm(f0, self._sweep_section, mag_coeffs, phase_coeffs)
+        print(TAG, peak_refine.describe("F1 (fundamental)", f0, r))
+        if r.frequency is not None:
+            f0 = r.frequency
+        else:
+            print(TAG, "Peak F1: the wide sweep's value is kept")
+        confirmed = []
+        harmonics, candidates = self._overtone_candidates
+        for n, f in zip(harmonics, candidates):
+            if not f > 0:
+                print(TAG, "Peak F%d: no candidate on the wide sweep" % n)
+                continue
+            r = peak_refine.confirm(float(f), self._sweep_section, mag_coeffs, phase_coeffs)
+            print(TAG, peak_refine.describe("F%d" % n, float(f), r))
+            if r.frequency is not None:
+                confirmed.append(r.frequency)
+        return f0, np.array(confirmed)
+
+    def _sweep_section(self, start, stop, step):
+        """One plain sweep of whole hertz: (freq, mag dB, phase deg), converted as
+        the wide sweep converts them. A Stop sends 'Q' and raises
+        peak_refine.Cancelled; a timeout or a malformed reply raises RuntimeError."""
+        start, stop, step = int(start), int(stop), int(step)
+        points = (stop - start) // step + 1
+        self._serial.write(("%d;%d;%d\n" % (start, stop, step)).encode())
+        buffer = ''
+        t0 = time.time()
+        while True:
+            if self._exit.is_set():
+                self._serial.write(Constants.serial_stop_sweep)
+                raise peak_refine.Cancelled()
+            if time.time() - t0 > Constants.REFINE_TIMEOUT:
+                self._serial.write(Constants.serial_stop_sweep)
+                raise RuntimeError("refining sweep %d;%d;%d timed out" % (start, stop, step))
+            waiting = self._serial.inWaiting()
+            if waiting == 0:
+                time.sleep(0.001)
+                continue
+            chunk = self._serial.read(waiting).decode()
+            buffer += chunk
+            # only the end-of-sweep line carries an 's'
+            if 's' in chunk:
+                break
+        lines = [line for line in buffer.split('\n') if line.strip()][:-1]
+        data = np.array([[float(x) for x in line.split(';')[:2]] for line in lines])
+        if data.ndim != 2 or len(data) != points:
+            raise RuntimeError("refining sweep: %d points, expected %d" % (len(data), points))
+        adc_to_volt = 3.3 / 4096
+        mag = (data[:, 0] * adc_to_volt / 2 - 0.9) / 0.03
+        phase = (data[:, 1] * adc_to_volt / 1.5 - 0.9) / 0.01
+        return start + np.arange(points) * float(step), mag, phase
 
      
     ###########################################################################
@@ -463,7 +533,8 @@ class CalibrationProcess(multiprocessing.Process):
                     k+=1                    
                     # STOPS acquiring data
                     if k==Constants.calib_sections: #10/5
-                        self.stop()
+                        # VER 0.1.6G-ADAPTIVE self.stop() moved to the end of run(): the
+                        # refining sweeps that follow read _exit as the user's Stop
                         break
                 #### END SWEEPS LOOP
 
@@ -540,6 +611,11 @@ class CalibrationProcess(multiprocessing.Process):
                    overtones_baseline_corr = self.peak_detection_qcm_overtones(readFREQ, data_mag_baseline, data_ph_baseline, fundamental_baseline_corr)
                    
                    try:
+                       # VER 0.1.6G-ADAPTIVE each peak confirmed on finer sweeps around
+                       # it, so the stored peaks are where the resonances are (the wide
+                       # sweep's peaks lag them by kHz) and an overtone is judged on its line
+                       (fundamental_baseline_corr,
+                        overtones_baseline_corr) = self._refine_peaks(fundamental_baseline_corr)
                        
                        # VER 0.1.6 peak detection  
                        
@@ -604,6 +680,14 @@ class CalibrationProcess(multiprocessing.Process):
                            print(TAG, "Please, repeat the calibration!")
                            self._flag2 = 1
                              
+                   except peak_refine.Cancelled:
+                     # Stop during the refining sweeps: as a Stop during the wide sweep,
+                     # nothing saved
+                     print(TAG, "Peak Detection interrupted by user while confirming the peaks")
+                     self._parser5.add5([-1, 0])
+                     self._serial.reset_input_buffer()
+                     self._serial.close()
+                     return
                    except:
                      print(TAG, "WARNING: unable to apply peak detection algorithm")
                      print(TAG, "Please, repeat the calibration!") 
@@ -616,6 +700,7 @@ class CalibrationProcess(multiprocessing.Process):
                 
                 #### CLOSES serial port
                 self._serial.close()
+                self.stop()
                 
           
     ###########################################################################
