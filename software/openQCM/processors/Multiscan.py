@@ -165,19 +165,24 @@ class MultiscanProcess(multiprocessing.Process):
 #              self._temperature_mean = 0
 # =============================================================================
              
-        # TIME EPOCH TODO 
+        # TIME: true Unix epoch in microseconds
         # ---------------------------------------------------------------------
-        import datetime
-        epoch = datetime.datetime(1970, 1, 1, 0, 0) #offset-naive datetime
+        # ⚠️ time(), not "naive local now() - naive 1970-01-01". That difference
+        # is LOCAL wall-clock seconds posing as an epoch, and the datalog turns
+        # the stamp back into Date/Time with localtime(), which adds the UTC
+        # offset a second time: every multiscan row was ahead of the clock by
+        # the offset, +1 h in CET and +2 h in CEST (found 2026-11-06 on the
+        # bench: file 14-08-58, first row 15:10). Plots and Relative_time are
+        # differences of stamps from this same clock and never moved. Same fix
+        # as openQCM Q-1 3365c16.
         ts_mult = 1e6
-        
-        # TODO the Time is now and it is hard 
+
         if overtone_number == 0:
-            self._my_time = (int((datetime.datetime.now() - epoch).total_seconds()*ts_mult)) #datetime.datetime.utcnow()
+            self._my_time = int(time() * ts_mult)
         # ---------------------------------------------------------------------
-        
+
         # time array for each harmonic
-        self._my_time_array[overtone_number] = (int((datetime.datetime.now() - epoch).total_seconds()*ts_mult))
+        self._my_time_array[overtone_number] = int(time() * ts_mult)
         
         # TODO ADD BUFFER MEASUREMENT DATA TO THE PARSER QUEUE
         # ------------------------------------------------------

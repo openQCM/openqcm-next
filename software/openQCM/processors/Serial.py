@@ -156,10 +156,13 @@ class SerialProcess(multiprocessing.Process):
         
         #######################################################
         ##############
-        import datetime
-        epoch= datetime.datetime(1970, 1, 1, 0, 0) #offset-naive datetime
+        # true Unix epoch in microseconds: time(), not "naive local now() -
+        # naive 1970-01-01", which is local wall-clock seconds posing as an
+        # epoch (see Multiscan.elaborate_multi). Only differences of these
+        # stamps are used in single mode, so nothing displayed moves; the
+        # clock is the same as multiscan's so the two can never be mixed wrong.
         ts_mult=1e6
-        w = (int((datetime.datetime.now() - epoch).total_seconds()*ts_mult)) #datetime.datetime.utcnow()
+        w = int(time() * ts_mult)
         ##############
         ## ADDS new serial data to internal queue
         self._parser1.add1(filtered_mag) ##############

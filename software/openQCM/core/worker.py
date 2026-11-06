@@ -11,7 +11,6 @@ from openQCM.common.logger import Logger as Log
 from openQCM.core.ringBuffer import RingBuffer
 import numpy as np
 from time import time
-import datetime
 
 # VER 0.1.2
 from time import strftime, localtime
@@ -679,13 +678,14 @@ class Worker:
                 
             # MULTI 
             elif self._source == SourceType.multiscan:
-                epoch= datetime.datetime(1970, 1, 1, 0, 0) #offset-naive datetime
                 ts_mult=1e6
                 # the PROCESS's clock, from the message itself: the same clock the
                 # rows are stamped with below (a GUI clock read here sat a few ms
-                # after the first message and could put the first row before zero)
+                # after the first message and could put the first row before zero).
+                # The fallback is the same true epoch the process stamps with,
+                # time() in microseconds (see Multiscan.elaborate_multi).
                 self._timestart = int(data[0]) if data[0] and data[0] > 0 else \
-                    (int((datetime.datetime.now() - epoch).total_seconds()*ts_mult))
+                    int(time() * ts_mult)
                 
                 # VER 0.1.3
                 self.time_pre =  self._timestart
@@ -858,7 +858,6 @@ class Worker:
             if  ( (self._time_store[index_store] - self._timestart)/_millisec > 0 ):
                 
                 # get current time 
-                epoch= datetime.datetime(1970, 1, 1, 0, 0) #offset-naive datetime
                 ts_mult=1e6
                 # ⚠️ The row's instant is the PROCESS's time of the cycle, carried by
                 # the clock message (field 0, the time of the overtone that closed
@@ -871,7 +870,10 @@ class Worker:
                 if self._t3_store and self._t3_store > 0:
                     time_current = int(self._t3_store)
                 else:
-                    time_current = (int((datetime.datetime.now() - epoch).total_seconds()*ts_mult))
+                    # same true epoch as the process's stamps (time() in µs):
+                    # when_s below goes through localtime(), which adds the
+                    # UTC offset itself
+                    time_current = int(time() * ts_mult)
                 
                 # ⚠️ Not int(): the GUI formats this with "{0:.1f}", which is
                 # only meaningful for a float, and truncating a 1.8 s interval
