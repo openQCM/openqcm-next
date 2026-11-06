@@ -5,6 +5,16 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — datalog Date/Time no longer ahead of the clock by the UTC offset (2026-11-06)
+
+`e19d896` cherry-picked clean as `49325ea`. The acquisition stamp was "naive local `now()` − naive 1970-01-01", local
+wall-clock seconds posing as an epoch, and `localtime(when_s)` added the UTC offset a second time: every multiscan row
+(here both `_multi.csv` and `_multi_amplitude.csv`) was +1 h in CET, +2 h in CEST. `Multiscan.elaborate_multi`,
+`Serial.elaborate` and the two `Worker` fallbacks now stamp `int(time() * 1e6)`; same fix as openQCM Q-1 `3365c16`.
+Verified here: the 70 tests pass (1 skipped); replay identical before and after with epochs blanked, multiscan (604)
+and single (121); on the 30 MHz test board on the M5 Pro Mac, file `14-29-18`, first row `14:30:46` after the warm-up,
+in both datalogs.
+
 ### Carried from `main` — SESSION_PROMPT: B1 for the next session (2026-10-23)
 
 `3268e9e` cherry-picked clean as `8d2c16c`: the session prompt now carries the reminder that OPTIMIZATION_PLAN item
