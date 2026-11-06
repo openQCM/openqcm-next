@@ -5,6 +5,18 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `main`
 
+### Fixed — datalog Date/Time no longer ahead of the clock by the UTC offset (2026-11-06)
+
+`e19d896`. The acquisition timestamp was "naive local `now()` − naive 1970-01-01", i.e. local wall-clock seconds
+posing as a Unix epoch, and `CSVsave_Multi` turns it back into the `Date`/`Time` columns with `localtime(when_s)`, which
+adds the UTC offset a second time: every multiscan row was ahead of the clock by the offset, +1 h in CET and +2 h in
+CEST, since the first version. Found on the bench on the M5 Pro Mac with the 30 MHz test board (file `14-08-58`, first
+row `15:10`); the same bug had been fixed in openQCM Q-1 the same day (`3365c16`). `Multiscan.elaborate_multi`,
+`Serial.elaborate` and the two `Worker` fallbacks now stamp `int(time() * 1e6)`. File names, `Relative_time`, plot axes
+and the elapsed readout are differences of stamps from one clock and do not move. Verified: replay identical in
+multiscan (544 messages) and single mode (121) with epochs blanked; on the board, file `14-21-41`, first row `14:23:04`
+after the warm-up. The single-mode datalog was never affected (it stamps `localtime()` at write).
+
 ### Docs — B1 postponed to the next session (2026-10-23)
 
 Marco postponed OPTIMIZATION_PLAN item B1 (redraw only on new data) to a session of its own, after B0 measured its

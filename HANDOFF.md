@@ -462,6 +462,11 @@ on how the GUI timer fell against the process (95 duplicate rows in 486 on 2026-
   cycle, and `Relative_time`, `Date`/`Time` (`CSVsave_Multi(..., when_s=)`) and the sampling readout come from
   it, never from `now()` in the worker — two cycle ends drained in one GUI tick would otherwise share one stamp
   (measured at the first bench run, three pairs 0.00 s apart after 13–18 s gaps).
+- that instant is a **true Unix epoch**, `int(time() * 1e6)` (since 2026-11-06, `e19d896`). It used to be
+  "naive local `now()` − naive 1970-01-01", local wall-clock seconds posing as an epoch, and `localtime(when_s)`
+  added the UTC offset a second time: every `Date`/`Time` was +1 h (CET) or +2 h (CEST). ⚠️ Never build an epoch
+  from a naive `datetime`; anything that goes through `localtime()` must start from `time()`. Same fix in Q-1
+  (`3365c16`).
 
 ⚠️ Never gate a write on a value from another queue. ⚠️ Serial and Calibration post two-element temperature
 messages and flag no cycle end: the single-frequency datalog is written on every call, as before.
