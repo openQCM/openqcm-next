@@ -217,6 +217,12 @@ class MainWindow(QtGui.QMainWindow):
         # Reference variables
         self._reference_flag = False
         self._nscale = False        # Plot Controls > N-SCALE
+        # B1 (OPTIMIZATION_PLAN): _update_plot redraws the curves only when the
+        # worker's data revision or the view state moved. _plot_dirty forces the
+        # next tick to redraw (START, clear()); _plot_drawn_key is what the last
+        # complete redraw was made from, None when it did not complete.
+        self._plot_dirty = True
+        self._plot_drawn_key = None
         self._vector_1 = None
         self._vector_2 = None
 
@@ -434,6 +440,9 @@ class MainWindow(QtGui.QMainWindow):
             self.worker.close()
         print(TAG, "{} (before START)".format(fdLimit.describe()))
         Log.i(TAG, "{} (before START)".format(fdLimit.describe()))
+
+        # a new run draws on its first tick, whatever the revisions say (B1)
+        self._plot_dirty = True
 
         # Instantiates process
         self.worker = Worker(port = self.ui.cBox_Port.currentText(),
@@ -3674,6 +3683,22 @@ class MainWindow(QtGui.QMainWindow):
                     self._set_message(labelbar)
                     
 
+        # Kept on every tick, where it always ran: it overwrites N-SCALE's
+        # "/ n" (OPTIMIZATION_PLAN, defects met on the way), and B1 is not the
+        # place to change that.
+        if not self._reference_flag:
+            self._plt2.setLabel('left', 'Resonance Frequency', units='Hz')
+
+        # B1: everything below draws from the worker's buffers and the view
+        # state, so it is skipped when neither moved since the last complete
+        # redraw. On the board (B0, 2026-10-23) 96.5 % of the ticks brought
+        # nothing new and still cost 16.3 ms each.
+        plot_key = (self.worker.get_data_revision(), self._plot_view_key())
+        if not self._plot_dirty and plot_key == self._plot_drawn_key:
+            return
+        self._plot_dirty = False
+        self._plot_drawn_key = None     # set again only if the redraw completes
+
         #### REFERENCE SET
         # ---------------------------------------------------------------------
         if self._reference_flag:
@@ -4146,10 +4171,6 @@ class MainWindow(QtGui.QMainWindow):
                 # VER 0.1.6 update temperature data plot using setData, round to 1 decimal
                 y_temperature = self.worker.get_d3_buffer().round(decimals = 1)
                 
-                # VER 0.1.6 get min and max 
-                y_temperature_max = np.nanmax(y_temperature)
-                y_temperature_min = np.nanmin(y_temperature)
-                
                 # VER 0.1.6 do not set temperature y-axis
                 
 # =============================================================================
@@ -4210,9 +4231,7 @@ class MainWindow(QtGui.QMainWindow):
         else:
             
             
-            # self._plt2.setLabel('left', 'Resonance Frequency', units='Hz', color=Constants.plot_title_color, **{'font-size':'10pt'})
-            # VER 0.1.6 optimize plt
-            self._plt2.setLabel('left', 'Resonance Frequency', units='Hz')
+            # the 'Resonance Frequency' axis label is set before the B1 gate
             
             # VER 0.1.6 remove update views function 
 # =============================================================================
@@ -4680,7 +4699,35 @@ class MainWindow(QtGui.QMainWindow):
                # VER 0.1.6 TEC CURRENT update plot
                # -------------------------------------------------------------
                self._update_tec_current_view()
-               
+
+        # B1: the redraw completed; an exception above leaves None, so the
+        # next tick tries again, as every tick did before
+        self._plot_drawn_key = plot_key
+
+    def _plot_view_key(self):
+        """Everything besides the worker's buffers that changes what
+        _update_plot draws (B1). A change here redraws on the next tick, even
+        with no new data: SET/UNSET REF, N-SCALE, the overtone chips, the
+        single-mode overtone, the theme, the Tec Current window, the time axis
+        origin.
+
+        ⚠️ Returned as its repr, not as the tuple: a reference taken during the
+        warm-up is NaN, and NaN != NaN would make every tick look changed -- B1
+        would silently do nothing for the whole run, and the plots would still
+        be right, so nothing would show it."""
+        return repr((self._reference_flag,
+                self._reference_value_frequency,
+                self._reference_value_dissipation,
+                tuple(self._reference_value_frequency_array),
+                tuple(self._reference_value_dissipation_array),
+                tuple(self.scan_selector),
+                self._nscale,
+                self.ui.cBox_Speed.currentIndex(),
+                self._overtones_number_all,
+                self._theme,
+                id(self._tec_current_view),
+                self.start_time))
+
     # VER 0.1.4
     # update TEC status label 
     def _update_TEC_status(self, value): 
@@ -5399,6 +5446,8 @@ class MainWindow(QtGui.QMainWindow):
     # Cleans history plot
     ###########################################################################
     def clear(self):
+        # new line objects, or a wiped panel: the next tick redraws (B1)
+        self._plot_dirty = True
         support = self.worker.get_d1_buffer()
         if support.any:
             if str(support[0])!='nan':
