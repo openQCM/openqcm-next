@@ -1114,7 +1114,9 @@ Moving work between the branches: **cherry-pick**, as in §2 — never `git merg
 > when `Worker.get_data_revision()` or `_plot_view_key()` moved (reference, N-SCALE, chips, single-mode overtone, theme,
 > Tec Current window, time-axis origin); START and `clear()` set `_plot_dirty`. ⚠️ **Anything new that changes what the
 > plots draw without new data must enter `_plot_view_key()`**, or the panel keeps the old picture until the next sweep.
-> The key is compared as its repr on purpose: a reference taken during the warm-up is NaN. Numbers in the plan's B1 row.
+> The key is compared as its repr on purpose: a reference taken during the warm-up is NaN. A skipped tick still undoes
+> a mouse zoom in Y (`_reassert_yranges`, `5e3bc08`): it re-imposes only the ranges the last redraw set
+> (`_yrange_last`, filled by `_set_yrange_forced`). Numbers in the plan's B1 row.
 > Still to do: the cherry-pick on `impedance-analysis` (conflicted, aborted), where `_diss_mode` must enter the key
 > and `consume_queue_GB_multi` must go through `_drain`.
 

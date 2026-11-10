@@ -14,8 +14,9 @@ moved; START and CLEAR force a redraw. Queue draining, status labels, progress b
 tick. Offscreen, idle ticks with UI actions on them give identical curves, pens, labels, popups and datalog in
 multiscan, single and peak detection (setData calls 4042 → 1535 in multiscan). On a test NEXT (serial 1886, 0.1.5d,
 multiscan, 5 overtones): a tick without new data 14–32 → 2–3 ms, GUI CPU 30–42 → 9–26 % of a core, one row every
-8.0 s as before. One visible difference: with `plot_force_yrange = False` the Y autorange is re-asserted at each redraw
-instead of every 50 ms, so a mouse zoom in Y now lasts until the next data arrives.
+8.0 s as before. `5e3bc08` keeps one behaviour B1 alone had changed: a mouse zoom in Y is undone on the next tick, as before, not at the
+next data (median 2.5 ms on the board against 727 ms with B1 alone; Y state identical to the pre-B1 tree offscreen,
+with `plot_force_yrange` False and True).
 
 ### Fixed — datalog Date/Time no longer ahead of the clock by the UTC offset (2026-11-06)
 
