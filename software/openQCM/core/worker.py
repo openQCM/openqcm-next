@@ -72,6 +72,10 @@ class Worker:
         # the controller's PID as read by the acquisition process on request
         self._queue_pid = Queue()
         self._pid_reported = None
+        # B1 (OPTIMIZATION_PLAN): bumped once per consume call that took at
+        # least one message feeding something _update_plot draws. The window
+        # redraws only when this moved (or its own view state changed).
+        self._data_revision = 0
         
 # =============================================================================
 #         array_zero = self._zerolistmaker(Constants.SAMPLES)
@@ -441,8 +445,7 @@ class Worker:
     ###########################################################################    
     def consume_queue1(self):
         # queue1 for serial data: amplitude
-        while not self._queue1.empty():
-            self._queue_data1(self._queue1.get(False))
+        self._drain(self._queue1, self._queue_data1)
     
     def consume_queue2(self):
         # queue2 for serial data: phase
@@ -452,29 +455,37 @@ class Worker:
     # FREQUENCY 
     def consume_queue3(self):
         # queue3 for elaborated data: resonance frequency
-        while not self._queue3.empty():
-            self._queue_data3(self._queue3.get(False))
+        self._drain(self._queue3, self._queue_data3)
             
     def consume_queue4(self):
         # queue3 for elaborated data: Q-factor/Dissipation
-        while not self._queue4.empty():
-            self._queue_data4(self._queue4.get(False))    
+        self._drain(self._queue4, self._queue_data4)    
            
     def consume_queue5(self):
         # queue3 for elaborated data: Temperature
-        while not self._queue5.empty():
-            self._queue_data5(self._queue5.get(False)) 
+        self._drain(self._queue5, self._queue_data5) 
             
     # VER 0.1.6 consume TEC current date queue        
     def consume_queueCurrentTec(self): 
         # queue3 for elaborated data: current TEC
-        while not self._queueCurrentTec.empty():
-            self._queue_data_CurrentTec(self._queueCurrentTec.get(False))        
+        self._drain(self._queueCurrentTec, self._queue_data_CurrentTec)        
     
     def consume_queue6(self):
         # queue3 for elaborated data: errors
-        while not self._queue6.empty():
-            self._queue_data6(self._queue6.get(False))
+        self._drain(self._queue6, self._queue_data6)
+
+    def _drain(self, queue, handler):
+        """Empty ``queue`` into ``handler``; one revision step if anything came."""
+        took = False
+        while not queue.empty():
+            handler(queue.get(False))
+            took = True
+        if took:
+            self._data_revision += 1
+
+    def get_data_revision(self):
+        """Moves whenever a consume call brought data _update_plot draws (B1)."""
+        return self._data_revision
 
     def consume_queue_pid(self):
         # the answer to a Read PID the acquisition process was asked to make
@@ -513,13 +524,11 @@ class Worker:
             
     def consume_queue_F_multi(self): 
         # consume the parser queue until is empty
-        while not self._queue_F_multi.empty():
-            # get the data from the parser queue and put it in the circular buffer
-            self._queue_data_F_multi(self._queue_F_multi.get(False))
+        # get the data from the parser queue and put it in the circular buffer
+        self._drain(self._queue_F_multi, self._queue_data_F_multi)
         
     def consume_queue_D_multi(self):   
-        while not self._queue_D_multi.empty():
-            self._queue_data_D_multi(self._queue_D_multi.get(False))
+        self._drain(self._queue_D_multi, self._queue_data_D_multi)
         
     def _queue_data_F_multi(self, data):
         # Add values
@@ -597,8 +606,7 @@ class Worker:
     
     
     def consume_queue_A_multi(self):
-        while not self._queue_A_multi.empty():
-            self._queue_data_A_multi(self._queue_A_multi.get(False))
+        self._drain(self._queue_A_multi, self._queue_data_A_multi)
 
     # The phase sweep travels on its own queue. Until this existed the queue was
     # filled by MultiscanProcess on every sweep and drained by nobody, so it
@@ -1319,7 +1327,10 @@ class Worker:
     ###########################################################################
     def reset_buffers(self, samples):
         #:param samples: Number of samples for the buffers :type samples: int.
-        
+
+        # new buffers are new data for the window (B1)
+        self._data_revision = getattr(self, "_data_revision", 0) + 1
+
         # Initialises data buffers
         self._data1_buffer = np.zeros(samples) # amplitude
         self._data2_buffer = np.zeros(samples) # phase
