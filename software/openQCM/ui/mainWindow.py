@@ -254,6 +254,11 @@ class MainWindow(QtGui.QMainWindow):
         # complete redraw was made from, None when it did not complete.
         self._plot_dirty = True
         self._plot_drawn_key = None
+        # the Y ranges the last redraw imposed, and the view range each plot
+        # had right after, so a skipped tick can undo a mouse zoom as every
+        # tick used to (_reassert_yranges)
+        self._yrange_last = {}
+        self._yrange_view = {}
         self._vector_1 = None
         self._vector_2 = None
 
@@ -4052,9 +4057,11 @@ class MainWindow(QtGui.QMainWindow):
         # nothing new and still cost 16.3 ms each.
         plot_key = (self.worker.get_data_revision(), self._plot_view_key())
         if not self._plot_dirty and plot_key == self._plot_drawn_key:
+            self._reassert_yranges()
             return
         self._plot_dirty = False
         self._plot_drawn_key = None     # set again only if the redraw completes
+        self._yrange_last = {}          # refilled by this redraw's _set_yrange_forced
 
         #### REFERENCE SET
         # ---------------------------------------------------------------------
@@ -5078,6 +5085,24 @@ class MainWindow(QtGui.QMainWindow):
         # B1: the redraw completed; an exception above leaves None, so the
         # next tick tries again, as every tick did before
         self._plot_drawn_key = plot_key
+        self._yrange_view = {plot: list(plot.viewRange()[1])
+                             for plot in self._yrange_last}
+
+    def _reassert_yranges(self):
+        """On a tick B1 skips, undo a mouse zoom in Y the way the redraw would.
+
+        Before B1 every tick re-imposed the Y range (autorange, or the padded
+        forced range), so a zoom lasted at most one tick. This keeps that, at
+        almost no cost: only the plots the last redraw ranged, and only when
+        the user has actually moved them -- autorange switched off by the zoom,
+        or a forced range that is no longer the one imposed."""
+        for plot, (y_min, y_max) in self._yrange_last.items():
+            if Constants.plot_force_yrange:
+                if list(plot.viewRange()[1]) != self._yrange_view.get(plot):
+                    plot.setYRange(y_min, y_max)
+                    self._yrange_view[plot] = list(plot.viewRange()[1])
+            elif not plot.getViewBox().autoRangeEnabled()[1]:
+                plot.enableAutoRange(axis='y', enable=True)
 
     def _plot_view_key(self):
         """Everything besides the worker's buffers that changes what
@@ -5887,6 +5912,7 @@ class MainWindow(QtGui.QMainWindow):
         self._set_yrange_forced(self._pltD, y_d_min, y_d_max)
 
     def _set_yrange_forced(self, plot, y_min, y_max):
+        self._yrange_last[plot] = (y_min, y_max)
         if Constants.plot_force_yrange:
             plot.setYRange(y_min, y_max)
         else:
