@@ -243,10 +243,10 @@ attivo solo con `OPENQCM_SWEEP_DUMP=1`, **sovrascritto a ogni sweep**):
 - `polyfit` in tre copie: `Multiscan.baseline_correction`,
   `Serial.baseline_correction`, `Calibration.baseline_estimation`.
 - Zeri spinti ai grafici durante il warm-up del Multiscan.
-- ⏭ **B1 di `OPTIMIZATION_PLAN.md` — da fare in una prossima sessione** (Marco, 2026-10-23):
-  ridisegnare le serie temporali solo quando arrivano dati nuovi. B0, misurato sulla
-  scheda lo stesso giorno: la GUI usa ~95 % di un core in multiscan e il 96,5 % dei tick
-  non porta dati nuovi. Dettagli in `HANDOFF.md` §5 e nella riga B1 del piano.
+- ✅ **B1 di `OPTIMIZATION_PLAN.md` fatto su `main`** (`d1d6861`, 2026-11-10): i grafici si
+  ridisegnano solo con dati nuovi o con un cambio della vista. Manca il cherry-pick sul ramo
+  impedenza (in conflitto, annullato): lì `_diss_mode` va nella chiave e `consume_queue_GB_multi`
+  deve passare da `_drain`. Dettagli in `HANDOFF.md` §5 e nella riga B1 del piano.
 
 ### File non tracciati (stato al 2026-10-01)
 

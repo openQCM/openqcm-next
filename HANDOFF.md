@@ -1110,12 +1110,13 @@ Moving work between the branches: **cherry-pick**, as in §2 — never `git merg
 
 ## 5. Planned technical tasks (on `main`)
 
-> ⏭ **Next session: OPTIMIZATION_PLAN item B1** — postponed by Marco on 2026-10-23, to be done in a session of its
-> own. Redraw the time series only when new data arrived (a worker revision counter, plus a dirty flag for SET REF,
-> N-SCALE, overtone chips, theme, CLEAR and the cursors; fold in the per-tick `loadtxt(PeakFrequencies.txt)` and the
-> discarded `nanmin`/`nanmax`). B0 measured why on the board the same day: the GUI process takes ~95 % of a core in
-> multiscan, `_update_plot` costs 16.3 ms per tick, and 96.5 % of the ticks carry no new data. Expect conflicts on
-> the branch, whose `_update_plot` diverges; verify with `guiprobe.py` and `b0probe.py` (audit harness, its README).
+> ✅ **OPTIMIZATION_PLAN item B1 done on `main`** (`d1d6861`, 2026-11-10): `_update_plot` redraws the curves only
+> when `Worker.get_data_revision()` or `_plot_view_key()` moved (reference, N-SCALE, chips, single-mode overtone, theme,
+> Tec Current window, time-axis origin); START and `clear()` set `_plot_dirty`. ⚠️ **Anything new that changes what the
+> plots draw without new data must enter `_plot_view_key()`**, or the panel keeps the old picture until the next sweep.
+> The key is compared as its repr on purpose: a reference taken during the warm-up is NaN. Numbers in the plan's B1 row.
+> Still to do: the cherry-pick on `impedance-analysis` (conflicted, aborted), where `_diss_mode` must enter the key
+> and `consume_queue_GB_multi` must go through `_drain`.
 
 
 > 📌 **Optimisation plan (2026-10-22)**: [`OPTIMIZATION_PLAN.md`](OPTIMIZATION_PLAN.md) — read-only audit of

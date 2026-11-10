@@ -5,6 +5,18 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `main`
 
+### Performance — the plots are redrawn only when new data or the view changed (2026-11-10)
+
+`d1d6861`, item B1 of `OPTIMIZATION_PLAN.md`. `_update_plot` redrew every curve on every 50 ms tick; on the board 96.5 %
+of the ticks brought nothing new (B0). The worker counts data revisions and the window redraws only when that count or
+its view state (reference, N-SCALE, overtone chips, single-mode overtone, theme, Tec Current window, time-axis origin)
+moved; START and CLEAR force a redraw. Queue draining, status labels, progress bar and TEC state still run on every
+tick. Offscreen, idle ticks with UI actions on them give identical curves, pens, labels, popups and datalog in
+multiscan, single and peak detection (setData calls 4042 → 1535 in multiscan). On a test NEXT (serial 1886, 0.1.5d,
+multiscan, 5 overtones): a tick without new data 14–32 → 2–3 ms, GUI CPU 30–42 → 9–26 % of a core, one row every
+8.0 s as before. One visible difference: with `plot_force_yrange = False` the Y autorange is re-asserted at each redraw
+instead of every 50 ms, so a mouse zoom in Y now lasts until the next data arrives.
+
 ### Fixed — datalog Date/Time no longer ahead of the clock by the UTC offset (2026-11-06)
 
 `e19d896`. The acquisition timestamp was "naive local `now()` − naive 1970-01-01", i.e. local wall-clock seconds
