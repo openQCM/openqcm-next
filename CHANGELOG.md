@@ -5,6 +5,17 @@ Conventional Commits. Versions are marked by Git tags.
 
 ## [Unreleased] — `impedance-analysis`
 
+### Carried from `main` — the plots are redrawn only when new data or the view changed (B1, 2026-11-10)
+
+`d1d6861` cherry-picked as `e99bb98` (one conflict, in `MainWindow.__init__`: the B1 state lines next to this branch's
+`_diss_mode`, both kept) and `5e3bc08` clean as `b0c08e9` (a mouse zoom in Y is still undone on the next tick).
+`_update_plot` redraws only when the worker's data revision or the view state moved. The branch adds its own two pieces
+in `5bcc168`: D/Gamma in `_plot_view_key()`, and `consume_queue_GB_multi` through `_drain`, so a new G/B spectrum
+redraws the live impedance panel. Verified here: 70 tests OK (1 skipped); `guiprobe_b1` against `c05c055` identical in
+multiscan and single (curves, pens, labels, Y state, popups, datalog), setData 4753 → 1984 in multiscan; removing either
+branch piece changes the hash (the G/B one with one message per tick). The Impedance Data View has its own timer and is
+not affected. On the board B1 was measured on `main` (OPTIMIZATION_PLAN B1 row): a tick without new data 14 → 2–3 ms.
+
 ### Carried from `main` — datalog Date/Time no longer ahead of the clock by the UTC offset (2026-11-06)
 
 `e19d896` cherry-picked clean as `49325ea`. The acquisition stamp was "naive local `now()` − naive 1970-01-01", local
