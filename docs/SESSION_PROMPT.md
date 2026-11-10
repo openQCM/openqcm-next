@@ -243,10 +243,11 @@ attivo solo con `OPENQCM_SWEEP_DUMP=1`, **sovrascritto a ogni sweep**):
 - `polyfit` in tre copie: `Multiscan.baseline_correction`,
   `Serial.baseline_correction`, `Calibration.baseline_estimation`.
 - Zeri spinti ai grafici durante il warm-up del Multiscan.
-- ✅ **B1 di `OPTIMIZATION_PLAN.md` fatto su `main`** (`d1d6861`, 2026-11-10): i grafici si
-  ridisegnano solo con dati nuovi o con un cambio della vista. Manca il cherry-pick sul ramo
-  impedenza (in conflitto, annullato): lì `_diss_mode` va nella chiave e `consume_queue_GB_multi`
-  deve passare da `_drain`. Dettagli in `HANDOFF.md` §5 e nella riga B1 del piano.
+- ✅ **B1 di `OPTIMIZATION_PLAN.md` fatto su entrambi i rami** (2026-11-10): i grafici si
+  ridisegnano solo con dati nuovi o con un cambio della vista; uno zoom in Y viene annullato al
+  tick dopo, come prima. `main` `d1d6861` + `5e3bc08`; ramo `e99bb98` + `b0c08e9` + `5bcc168`
+  (D/Γ nella chiave della vista, spettri G/B tramite `_drain`). ⚠️ Ciò che cambia il disegno senza
+  dati nuovi va in `_plot_view_key()`. Dettagli in `HANDOFF.md` §5 e nella riga B1 del piano.
 
 ### File non tracciati (stato al 2026-10-01)
 

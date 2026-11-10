@@ -1117,8 +1117,8 @@ Moving work between the branches: **cherry-pick**, as in §2 — never `git merg
 > The key is compared as its repr on purpose: a reference taken during the warm-up is NaN. A skipped tick still undoes
 > a mouse zoom in Y (`_reassert_yranges`, `5e3bc08`): it re-imposes only the ranges the last redraw set
 > (`_yrange_last`, filled by `_set_yrange_forced`). Numbers in the plan's B1 row.
-> Still to do: the cherry-pick on `impedance-analysis` (conflicted, aborted), where `_diss_mode` must enter the key
-> and `consume_queue_GB_multi` must go through `_drain`.
+> On `impedance-analysis` as `e99bb98` + `b0c08e9`, plus the branch's own `5bcc168` (`_diss_mode` in the key,
+> `consume_queue_GB_multi` through `_drain`).
 
 
 > 📌 **Optimisation plan (2026-10-22)**: [`OPTIMIZATION_PLAN.md`](OPTIMIZATION_PLAN.md) — read-only audit of
