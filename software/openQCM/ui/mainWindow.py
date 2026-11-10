@@ -5107,8 +5107,8 @@ class MainWindow(QtGui.QMainWindow):
     def _plot_view_key(self):
         """Everything besides the worker's buffers that changes what
         _update_plot draws (B1). A change here redraws on the next tick, even
-        with no new data: SET/UNSET REF, N-SCALE, the overtone chips, the
-        single-mode overtone, the theme, the Tec Current window, the time axis
+        with no new data: SET/UNSET REF, N-SCALE, D/Gamma, the overtone chips,
+        the single-mode overtone, the theme, the Tec Current window, the time axis
         origin.
 
         ⚠️ Returned as its repr, not as the tuple: a reference taken during the
@@ -5122,6 +5122,7 @@ class MainWindow(QtGui.QMainWindow):
                 tuple(self._reference_value_dissipation_array),
                 tuple(self.scan_selector),
                 self._nscale,
+                self._diss_mode,          # branch: D or Gamma in the dissipation panel
                 self.ui.cBox_Speed.currentIndex(),
                 self._overtones_number_all,
                 self._theme,

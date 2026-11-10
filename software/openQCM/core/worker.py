@@ -667,8 +667,8 @@ class Worker:
     # the logged frequency/dissipation come from the F_multi / D_multi channels
     # and are unaffected.
     def consume_queue_GB_multi(self):
-        while not self._queue_GB_multi.empty():
-            self._queue_data_GB_multi(self._queue_GB_multi.get(False))
+        # the live impedance panel draws these: a new spectrum is new data (B1)
+        self._drain(self._queue_GB_multi, self._queue_data_GB_multi)
 
     def _queue_data_GB_multi(self, data):
         # One overtone per message:
