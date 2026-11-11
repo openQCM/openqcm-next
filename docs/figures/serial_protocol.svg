@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" width="1000" height="560" font-family="Helvetica, Arial, sans-serif">
+  <title>openQCM NEXT serial protocol: one overtone of a multiscan cycle</title>
+  <!-- Read from firmware/openQCM_Next_py_0.1.5d_teensy (loop) and processors/Multiscan.py (run,
+       _Temperature_PID_control) on 2026-11-11. Style of the impedance-analysis README figures. -->
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2a78d6"/>
+    </marker>
+    <marker id="ahg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8a8984"/>
+    </marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="999" height="559" rx="10" fill="#ffffff" stroke="#e4e3df"/>
+
+  <!-- participants -->
+  <rect x="60" y="30" width="200" height="54" rx="8" fill="#eaf2fc" stroke="#2a78d6" stroke-width="1.8"/>
+  <text x="160" y="54" font-size="13" font-weight="bold" fill="#0b0b0b" text-anchor="middle">Host</text>
+  <text x="160" y="72" font-size="10.5" fill="#52514e" text-anchor="middle">acquisition process</text>
+
+  <rect x="420" y="30" width="200" height="54" rx="8" fill="#f6f6f4" stroke="#3a3a38" stroke-width="1.6"/>
+  <text x="520" y="54" font-size="13" font-weight="bold" fill="#0b0b0b" text-anchor="middle">Teensy 4.0</text>
+  <text x="520" y="72" font-size="10.5" fill="#52514e" text-anchor="middle">firmware 0.1.5d</text>
+
+  <rect x="760" y="30" width="200" height="54" rx="8" fill="#f6f6f4" stroke="#c9c8c3"/>
+  <text x="860" y="54" font-size="13" font-weight="bold" fill="#0b0b0b" text-anchor="middle">MTD415T</text>
+  <text x="860" y="72" font-size="10.5" fill="#52514e" text-anchor="middle">TEC controller, UART</text>
+
+  <!-- lifelines -->
+  <g stroke="#c9c8c3" stroke-width="1.2" stroke-dasharray="4 4">
+    <path d="M160,84 V512"/><path d="M520,84 V512"/><path d="M860,84 V512"/>
+  </g>
+
+  <!-- sweep command -->
+  <path d="M160,124 H514" fill="none" stroke="#2a78d6" stroke-width="2" marker-end="url(#ah)"/>
+  <text x="340" y="115" font-size="12" font-weight="bold" fill="#0b0b0b" text-anchor="middle">f_start ; f_stop ; f_step</text>
+  <text x="340" y="141" font-size="10" fill="#8a8984" text-anchor="middle">Hz, integers · 18 kHz window, 1 Hz step</text>
+
+  <!-- loop -->
+  <rect x="96" y="158" width="696" height="118" rx="10" fill="#f3f7fd" stroke="#2a78d6" stroke-width="1.2" stroke-dasharray="7 4"/>
+  <text x="112" y="178" font-size="11" font-weight="bold" fill="#2a78d6" letter-spacing="0.5">LOOP · 18 001 POINTS</text>
+  <rect x="534" y="186" width="244" height="44" rx="6" fill="#ffffff" stroke="#c9c8c3"/>
+  <text x="546" y="204" font-size="11" fill="#0b0b0b">set the DDS tuning word</text>
+  <text x="546" y="220" font-size="10.5" fill="#52514e">500 paired ADC reads, mean · ≈ 110 µs</text>
+  <path d="M520,252 H166" fill="none" stroke="#2a78d6" stroke-width="2" marker-end="url(#ah)"/>
+  <text x="340" y="244" font-size="12" font-weight="bold" fill="#0b0b0b" text-anchor="middle">N_MAG ; N_PHS</text>
+  <text x="340" y="268" font-size="10" fill="#8a8984" text-anchor="middle">ADC counts, two decimals, one line per point</text>
+
+  <!-- temperature and error register -->
+  <path d="M520,314 H854" fill="none" stroke="#8a8984" stroke-width="1.4" marker-end="url(#ahg)"/>
+  <text x="690" y="306" font-size="11" fill="#0b0b0b" text-anchor="middle">Te?   E?</text>
+  <path d="M860,342 H526" fill="none" stroke="#8a8984" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#ahg)"/>
+  <text x="690" y="334" font-size="10.5" fill="#52514e" text-anchor="middle">temperature, 16-bit error register</text>
+
+  <!-- closing line -->
+  <path d="M520,380 H166" fill="none" stroke="#2a78d6" stroke-width="2" marker-end="url(#ah)"/>
+  <text x="340" y="372" font-size="12" font-weight="bold" fill="#0b0b0b" text-anchor="middle">temperature ; status ; error ; s</text>
+  <text x="340" y="396" font-size="10" fill="#8a8984" text-anchor="middle">end of sweep</text>
+
+  <!-- TEC current -->
+  <path d="M160,426 H514" fill="none" stroke="#8a8984" stroke-width="1.4" marker-end="url(#ahg)"/>
+  <text x="340" y="418" font-size="11" fill="#0b0b0b" text-anchor="middle">A</text>
+  <path d="M520,450 H166" fill="none" stroke="#8a8984" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#ahg)"/>
+  <text x="340" y="444" font-size="10.5" fill="#52514e" text-anchor="middle">TEC current, mA</text>
+
+  <!-- set point / PID, only when changed -->
+  <rect x="96" y="466" width="696" height="40" rx="8" fill="none" stroke="#8a8984" stroke-width="1.1" stroke-dasharray="6 4"/>
+  <text x="540" y="490" font-size="10" fill="#8a8984" letter-spacing="0.5">ONLY IF CHANGED IN config.txt</text>
+  <path d="M160,494 H514" fill="none" stroke="#8a8984" stroke-width="1.4" marker-end="url(#ahg)"/>
+  <text x="340" y="490" font-size="11" fill="#0b0b0b" text-anchor="middle">T25000 · C50 · P500 · I50 · D300</text>
+
+  <text x="500" y="540" font-size="11" fill="#52514e" text-anchor="middle">One overtone of a multiscan cycle; the cycle repeats it for every detected overtone. Q ends a sweep at the next whole point.</text>
+</svg>
