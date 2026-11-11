@@ -792,6 +792,29 @@ programmer sketch, firmware `'S'`, host query, sidebar and window title; **firmw
 `0.1.5d`** (2026-10-02), whose sweep average no longer carries the previous point. All see
 CHANGELOG.
 
+### The README and its figures (2026-11-11)
+
+`10b1cb1`. The README is the front page: QCM technique, instrument and circuit, installation, operation,
+output data, serial protocol, peak detection, tracking sweep, the chain from a sweep to f_n and D_n,
+architecture, how to modify the code, limits. No reconstructed history, tag table or roadmap any more.
+Keep it aligned when a constant of § 9's table, the protocol or the chain changes.
+
+- **Figures** live in `docs/figures/`, in the **style of the impedance-analysis README** (palette
+  `#0b0b0b / #52514e / #8a8984 / #e4e3df`, series `#2a78d6`; media air `#929292`, water `#2a78d6`,
+  isopropanol `#159570`). `measurement_circuit.svg` is the branch's drawing (caption without the
+  `docs/schematic/` path, which main does not have); `software_blocks.svg` and `software_architecture.svg`
+  are the branch's, rewritten for the main chain; `serial_protocol.svg` is new. All hand-written SVG:
+  edit the text, do not regenerate.
+- **fig1–fig5** come from `docs/figures/make_readme_figures.py`, which calls `core/resonance.py`,
+  `Constants` and `CalibrationProcess`'s detection functions: run it from `software/` with the
+  anaconda base Python (numpy 1.21, `np.int` in `savitzky_golay`) and the dump directory as argument,
+  `~/Documents/openqcm-next-data_20260911` (2026-09-11 air/water/IPA, firmware 0.1.5c). A change of the
+  chain or of a constant means regenerating them and updating the table of § 7.5.
+- **Screenshots**: board 1886, 2026-11-11, real MainWindow on screen in a private cwd, TEC at
+  25.00 °C, SET REF + N-SCALE at 100 s, grab at 7 min. ⚠️ **STOP switches the TEC off**
+  (`Temperature Control OFF` on every stop): a harness that stops a warm-up run and starts the measured
+  one must send ON again in between, or the second run is uncontrolled (first attempt: 26.0 → 26.4 °C).
+
 ### Asking the board a question while it may still be talking
 
 ⚠️ **The board sweeps once per command and reads serial only at the top of `loop()`**, so a sweep
